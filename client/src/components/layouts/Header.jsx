@@ -6,7 +6,7 @@ const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [active, setActive] = useState("home");
   return (
-    <div>
+    <div className=" px-6">
       <div className="flex items-center justify-between">
         <div className="logo flex items-center">
           <img src={logo} alt="LHS logo" className="w-18 h-18" />
@@ -19,7 +19,7 @@ const Header = () => {
           <ul
             className={`${
               isOpen ? "block" : "hidden"
-            } absolute md:static top-18 right-10 w-76 max-h-svh md:w-auto bg-blue-400 md:bg-transparent md:flex space-y-4 md:space-y-0 md:space-x-6 p-4 md:p-0 rounded-md`}
+            } absolute md:static top-18 right-10 w-76 max-h-svh md:w-auto bg-blue-400 md:bg-transparent md:flex space-y-4 md:space-y-0 md:space-x-6 p-4 md:p-0 rounded-md z-50`}
           >
             <li>
               <a

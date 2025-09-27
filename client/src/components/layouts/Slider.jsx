@@ -7,7 +7,7 @@ import "swiper/css";
 
 const Slider = () => {
   return (
-    <div className="w-full  h-[200px] md:h-[300px] lg:h-[400px] ">
+    <div className="w-full  h-[250px] md:h-[300px] lg:h-[400px] ">
       <Swiper
         modules={[Pagination, Autoplay]}
         autoplay={{ delay: 4000 }}
@@ -33,7 +33,7 @@ const Slider = () => {
               </p>
               <a
                 href="#"
-                className="bg-blue-600 hover:bg-blue-800 text-white px-6 py-3 rounded-xl font-semibold transition"
+                className="bg-blue-600 hover:bg-blue-800 text-white px-6 py-2 rounded-xl font-semibold transition"
               >
                 Learn More
               </a>

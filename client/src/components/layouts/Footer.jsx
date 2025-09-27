@@ -7,7 +7,7 @@ import { AiFillInstagram } from "react-icons/ai";
 
 const Footer = () => {
   return (
-    <div>
+    <div className="px-4 my-4">
       <div className="md:flex md:justify-between py-4 md:space-y-0 space-y-4">
         <img src={logo} alt="LHS logo" className="h-32" />
         <div className="">
