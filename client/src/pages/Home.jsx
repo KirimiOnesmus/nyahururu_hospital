@@ -36,11 +36,11 @@ const Home = () => {
       <div className="sticky top-0 z-50 bg-white/60 backdrop-blur-md shadow-sm">
         <Header />
       </div>
-      <div className="sections space-y-2 py-4 px-6">
+      <div className="sections space-y-2 ">
         <div className="slider ">
           <Slider />
         </div>
-        <div className="services my-4 mx-6">
+        <div className="services my-4 mx-6 py-4 px-6">
           <h2 className="text-3xl font-bold my-4 text-center">Our Departments</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mt-2">
             {

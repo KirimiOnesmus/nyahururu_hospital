@@ -7,7 +7,7 @@ import "swiper/css";
 
 const Slider = () => {
   return (
-    <div className="w-full  h-[250px] md:h-[300px] lg:h-[400px] ">
+    <div className="w-full  h-[300px] md:h-[350px] lg:h-[400px] ">
       <Swiper
         modules={[Pagination, Autoplay]}
         autoplay={{ delay: 4000 }}
