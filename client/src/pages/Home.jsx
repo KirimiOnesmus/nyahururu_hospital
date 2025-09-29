@@ -7,38 +7,13 @@ import {
   TimeRibbon,
   Partners
 } from "../components/layouts";
-
-import dialysis from "../assets/Icons/dialysis-icon.png";
-import emergency from "../assets/Icons/emergency-icon.png";
-import critical_care from "../assets/Icons/ICU-icon.png";
-import lab from "../assets/Icons/lab-services.png";
-import radiology from "../assets/Icons/radiology-icon.png";
-// import Card from "../components/layouts/Card";
-// import TimeRibbon from "../components/layouts/TimeRibbon";
+import services from "../data/serviceData";
+import { useNavigate } from "react-router-dom";
 
 const Home = () => {
-  const services = [
-    {
-      image: critical_care,
-      title: "Critical Care (ICU,NICU & HDU)",
-    },
-    {
-      image: dialysis,
-      title: "Dialysis",
-    },
-    {
-      image: emergency,
-      title: "Emergency Care",
-    },
-    {
-      image: lab,
-      title: "Laboratory",
-    },
-    {
-      image: radiology,
-      title: "Radiology & Imaging",
-    },
-  ];
+  
+  const navigate = useNavigate();
+  const serviceLimit= services.slice(0,5)
   return (
     <div className="">
       <div className="sticky top-0 z-50 bg-white/60 backdrop-blur-md shadow-sm">
@@ -53,14 +28,19 @@ const Home = () => {
             Our Departments
           </h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mt-2">
-            {services.map((service, index) => (
+            {serviceLimit.map(service => (
               <Card
-                key={index}
+                key={service.id}
+                id ={service.id}
                 image={service.image}
                 title={service.title}
                 buttonText="Learn More"
               />
             ))}
+            <button className=" bg-gray-600 text-white text-xl shadow-md rounded-2xl overflow-hidden hover:shadow-xl 
+    hover:cursor-pointer transition-all duration-300 font-bold hover:text-2xl"
+    onClick={navigate("/services")}
+    >Load More Services</button>
           </div>
         </div>
         <div className="hours ribbon">
