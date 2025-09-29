@@ -1,6 +1,13 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 
-const Card = ({ image, title, onClick, buttonText }) => {
+const Card = ({ id, image, title, buttonText }) => {
+  const navigate = useNavigate();
+  const handleServices =()=>{
+    navigate(`/services/${id}`);
+
+  }
+
   return (
     <div className="bg-blue-50 shadow-md rounded-2xl overflow-hidden hover:shadow-xl 
     hover:cursor-pointer transition-all duration-300 flex flex-col items-center text-center
@@ -14,7 +21,7 @@ const Card = ({ image, title, onClick, buttonText }) => {
         <h3 className="text-lg font-bold mb-2">{title}</h3>
         {buttonText && (
           <button
-            onClick={onClick}
+            onClick={handleServices}
             className="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-white hover:text-blue-500 border hover:cursor-pointer transition-all duration-300"
           >
             {buttonText}
