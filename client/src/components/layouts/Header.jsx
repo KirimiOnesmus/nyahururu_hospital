@@ -1,11 +1,19 @@
 import React, { useState } from "react";
 import logo from "../../assets/logo.png";
 import { MdMenu } from "react-icons/md";
+import { useNavigate } from "react-router-dom";
 
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [active, setActive] = useState("home");
-  return (
+  const navigate =useNavigate();
+
+  const handleNavigate=(page,path)=>{
+    setActive(page);
+    navigate(path);
+    setIsOpen(false)
+  }
+    return (
     <div className=" px-6">
       <div className="flex items-center justify-between">
         <div className="logo flex items-center">
@@ -24,7 +32,7 @@ const Header = () => {
             <li>
               <a
                 href="#"
-                onClick={() => setActive("home")}
+                onClick={() => handleNavigate("home","/")}
                 className={`font-semibold text-lg ${
                   active === "home"
                     ? "text-white md:text-blue-500"
@@ -37,7 +45,7 @@ const Header = () => {
             <li>
               <a
                 href=""
-                onClick={() => setActive("about")}
+                onClick={() => handleNavigate("about", "/about")}
                 className={`font-semibold text-lg ${
                   active === "about"
                     ? "text-white md:text-blue-500"
@@ -50,7 +58,7 @@ const Header = () => {
             <li>
               <a
                 href=""
-               onClick={() => setActive("services")}
+               onClick={() => handleNavigate("services", "/services")}
                 className={`font-semibold text-lg ${
                   active === "services"
                     ? "text-white md:text-blue-500"
@@ -63,7 +71,7 @@ const Header = () => {
             <li>
               <a
                 href=""
-                onClick={() => setActive("doctors")}
+                onClick={() => handleNavigate("doctors", "/doctors")}
                 className={`font-semibold text-lg ${
                   active === "doctors"
                     ? "text-white md:text-blue-500"
@@ -76,7 +84,7 @@ const Header = () => {
             <li>
               <a
                 href=""
-                onClick={() => setActive("contact")}
+                onClick={() => handleNavigate("contact", "/contact")}
                 className={`font-semibold text-lg ${
                   active === "contact"
                     ? "text-white md:text-blue-500"

@@ -5,6 +5,7 @@ import {
   Slider,
   Card,
   TimeRibbon,
+  Partners
 } from "../components/layouts";
 
 import dialysis from "../assets/Icons/dialysis-icon.png";
@@ -64,6 +65,10 @@ const Home = () => {
         </div>
         <div className="hours ribbon">
           <TimeRibbon />
+        </div>
+        <div className="partners py-4">
+          <h3 className="text-3xl font-bold my-4 text-center">Our Partners</h3>
+          <Partners/>
         </div>
       </div>
       <div>

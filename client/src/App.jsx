@@ -1,5 +1,5 @@
 import { BrowserRouter,Route,Routes } from 'react-router-dom'
-import {Home} from "./pages/index"
+import {Doctors, Home, Services, About} from "./pages/index"
 
 import './App.css'
 
@@ -11,6 +11,10 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path='/' element={<Home/>}/>
+        <Route path ="/about" element={<About/>}/>
+        <Route path ="/services" element={<Services/>}/>
+        <Route path ="/doctors" element={<Doctors/>}/>
+
       </Routes>
     </BrowserRouter>
       
