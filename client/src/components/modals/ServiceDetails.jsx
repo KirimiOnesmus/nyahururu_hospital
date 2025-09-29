@@ -17,7 +17,7 @@ const serviceDetails = () => {
         <Header />
       </div>
 
-      <div className="px-8 py-12 max-w-3xl mx-auto space-y-6 h-[80vh]">
+      <div className="px-8 py-12 max-w-3xl mx-auto space-y-6 md:h-[80vh]">
         <img src={service.image} alt={service.title} className="h-32 mx-auto" />
         <h2 className="text-3xl font-bold border-l-4 border-blue-500 px-2 mb-6">{service.title}</h2>
         <p className="text-lg text-gray-700">{service.details}</p>
