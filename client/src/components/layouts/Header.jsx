@@ -113,7 +113,7 @@ const Header = () => {
                 Contact Us
               </a>
               <ul
-                className={`absolute md:top-4 md:right-2 mt-2 w-56 bg-white shadow-lg rounded-lg transition-all duration-300 ease-in-out z-50
+                className={`absolute md:top-6 md:right-2 mt-2 w-56 bg-white shadow-lg rounded-lg transition-all duration-300 ease-in-out z-50
                 ${contactOpen ? "block" : "hidden"} 
                 md:group-hover:block md:hidden`}
               >
@@ -156,7 +156,7 @@ const Header = () => {
                   <a
                     href="#"
                     onClick={() =>
-                      handleNavigate("book-appointment", "/book-appointment")
+                      handleNavigate("book-appointment", "/appointment")
                     }
                     className="block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold"
                   >
@@ -177,18 +177,18 @@ const Header = () => {
                 </li>
               </ul>
             </li>
-            <li className="text-md font-semibold text-white bg-green-500 px-2 py-1 rounded-lg hover:bg-green-600">
+            <li className="text-md font-semibold text-center text-white bg-green-500 px-2 py-1 rounded-lg hover:bg-green-600">
               <a href="" className="text-md font-semibold ">
                 Donations
               </a>
             </li>
             <li
-              className="relative group md:cursor-pointer"
+              className="relative group md:cursor-pointer bg-green-500 px-2 py-1 rounded-lg hover:bg-green-600 text-center"
               onClick={() => setStaffOpen(!staffOpen)}
             >
               <a
                 href=""
-                className="text-md font-semibold text-white bg-green-500 px-2 py-1 rounded-lg hover:bg-green-600"
+                className="text-md font-semibold text-white "
               >
                 Staff Portal
               </a>
@@ -205,16 +205,6 @@ const Header = () => {
                     className="block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold"
                   >
                     IPC Login
-                  </a>
-                </li>
-                <li>
-                  {" "}
-                  <a
-                    href="#"
-                   onClick={() => handleNavigate("staff-email", "/staff-email")}
-                    className="block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold"
-                  >
-                    Staff Email
                   </a>
                 </li>
                 <li>
