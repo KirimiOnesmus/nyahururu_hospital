@@ -1,5 +1,5 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { Doctors, Home, Services, About } from "./pages/index";
+import { Doctors, Home, Services, About,Contact } from "./pages/index";
 import { ServiceDetails, DoctorDetails } from "./components/modals";
 
 import "./App.css";
@@ -13,6 +13,7 @@ function App() {
           <Route path="/about" element={<About />} />
           <Route path="/services" element={<Services />} />
           <Route path="/doctors" element={<Doctors />} />
+          <Route path="/contact" element={<Contact/>}/>
           <Route path="/services/:id" element={<ServiceDetails />} />
           <Route path="/doctors/:id" element={<DoctorDetails />} />
         </Routes>
