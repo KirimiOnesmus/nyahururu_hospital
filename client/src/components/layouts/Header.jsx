@@ -6,12 +6,16 @@ import { useNavigate } from "react-router-dom";
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [active, setActive] = useState("home");
+  const [contactOpen, setContactOpen] = useState(false);
+  const [staffOpen, setStaffOpen] = useState(false);
   const navigate = useNavigate();
 
   const handleNavigate = (page, path) => {
     setActive(page);
     navigate(path);
     setIsOpen(false);
+    setContactOpen(false);
+    setStaffOpen(false);
   };
   return (
     <div className=" px-6">
@@ -20,7 +24,7 @@ const Header = () => {
           Toll Free Number: <span>+254712345678</span>
         </p>
         <button
-          className="border-green-600 px-2 py-1 cursor-pointer rounded-lg
+          className="border-green-600 px-2 py-1 sm:text-sm cursor-pointer rounded-lg
          bg-green-600 text-white font-semibold hover:bg-transparent hover:text-green-600"
         >
           Ambulance Services
@@ -93,7 +97,10 @@ const Header = () => {
                 Our Doctors
               </a>
             </li>
-            <li className="relative group">
+            <li
+              className="relative group md:cursor-pointer"
+              onClick={() => setContactOpen(!contactOpen)}
+            >
               <a
                 href="#"
                 // onClick={() => handleNavigate("contact", "/contact")}
@@ -106,9 +113,9 @@ const Header = () => {
                 Contact Us
               </a>
               <ul
-                className="absolute right-70 top-2 md:top-4 md:right-2 mt-2 w-56 bg-white shadow-lg rounded-lg opacity-0 
-              group-hover:opacity-100 group-hover:visible invisible transition-all
-               duration-300 ease-in-out delay-300 group-hover:delay-0 z-50"
+                className={`absolute md:top-4 md:right-2 mt-2 w-56 bg-white shadow-lg rounded-lg transition-all duration-300 ease-in-out z-50
+                ${contactOpen ? "block" : "hidden"} 
+                md:group-hover:block md:hidden`}
               >
                 <li>
                   {" "}
@@ -170,30 +177,31 @@ const Header = () => {
                 </li>
               </ul>
             </li>
-            <li className="text-center  py-1 rounded-lg hover:cursor-pointer md:px-2 bg-green-500 text-white hover:bg-green-600">
+            <li className="text-md font-semibold text-white bg-green-500 px-2 py-1 rounded-lg hover:bg-green-600">
               <a href="" className="text-md font-semibold ">
                 Donations
               </a>
             </li>
             <li
-              className="text-center py-1 rounded-lg hover:cursor-pointer md:px-2
-             bg-green-500 text-white hover:bg-green-600 relative group"
+              className="relative group md:cursor-pointer"
+              onClick={() => setStaffOpen(!staffOpen)}
             >
-              <a href="" className="text-md font-semibold ">
+              <a
+                href=""
+                className="text-md font-semibold text-white bg-green-500 px-2 py-1 rounded-lg hover:bg-green-600"
+              >
                 Staff Portal
               </a>
               <ul
-                className="absolute right-70 md:right-2 top-0 md:top-8 mt-2 w-56 bg-white shadow-lg rounded-lg opacity-0 
-              group-hover:opacity-100 group-hover:visible invisible transition-all
-               duration-300 ease-in-out delay-300 group-hover:delay-0 z-50"
+                className={`absolute md:top-8 md:right-2 mt-2 w-56 bg-white shadow-lg rounded-lg transition-all duration-300 ease-in-out z-50
+                ${staffOpen ? "block" : "hidden"} 
+                md:group-hover:block md:hidden`}
               >
                 <li>
                   {" "}
                   <a
                     href="#"
-                    onClick={() =>
-                      handleNavigate("patient-feedback", "/feedback")
-                    }
+                   onClick={() => handleNavigate("ipc-login", "/ipc-login")}
                     className="block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold"
                   >
                     IPC Login
@@ -203,9 +211,7 @@ const Header = () => {
                   {" "}
                   <a
                     href="#"
-                    onClick={() =>
-                      handleNavigate("report-fraud", "/report-fraud")
-                    }
+                   onClick={() => handleNavigate("staff-email", "/staff-email")}
                     className="block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold"
                   >
                     Staff Email
@@ -215,7 +221,7 @@ const Header = () => {
                   {" "}
                   <a
                     href="#"
-                    onClick={() => handleNavigate("ask-doctor", "/ask-doctor")}
+                    onClick={() => handleNavigate("hmis", "/hmis")}
                     className="block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold"
                   >
                     HMIS
