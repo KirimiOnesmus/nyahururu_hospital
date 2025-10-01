@@ -1,6 +1,6 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Doctors, Home, Services, About,Feedback,ReportFraud, Appointment } from "./pages/index";
-import { ServiceDetails, DoctorDetails } from "./components/modals";
+import { ServiceDetails, DoctorDetails,NewsDetails } from "./components/modals";
 
 import "./App.css";
 
@@ -18,6 +18,7 @@ function App() {
           <Route path ="/appointment" element={<Appointment/>}/>
           <Route path="/services/:id" element={<ServiceDetails />} />
           <Route path="/doctors/:id" element={<DoctorDetails />} />
+          <Route path="/news/:id" element={<NewsDetails />} />
         </Routes>
       </BrowserRouter>
     </>

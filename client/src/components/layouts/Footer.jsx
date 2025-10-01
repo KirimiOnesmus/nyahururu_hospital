@@ -4,8 +4,10 @@ import { MdFacebook, MdEmail, MdLocationOn } from "react-icons/md";
 import { FaSquareXTwitter } from "react-icons/fa6";
 import { FaPhoneAlt } from "react-icons/fa";
 import { AiFillInstagram } from "react-icons/ai";
+import { useNavigate } from "react-router-dom";
 
 const Footer = () => {
+  const navigate = useNavigate();
   return (
     <div className="px-4 mt-4 bg-gray-100">
       <div className="md:flex md:justify-between py-4 md:space-y-0 space-y-4">
@@ -16,15 +18,21 @@ const Footer = () => {
             <ul className="space-y-2">
               <li className="flex items-center space-x-2">
                 <FaPhoneAlt className="text-lg text-blue-500" />{" "}
-                <span className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300">0712345678</span>
+                <span className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300">
+                  0712345678
+                </span>
               </li>
               <li className="flex items-center space-x-2">
                 <MdEmail className="text-lg text-blue-500" />{" "}
-                <span className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300">nyahururuhospital@gmail.com</span>
+                <span className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300">
+                  nyahururuhospital@gmail.com
+                </span>
               </li>
               <li className="flex items-center space-x-2">
                 <MdLocationOn className="text-lg text-blue-500" />{" "}
-                <span className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300">Along Nyahururu-Nakuru Road</span>
+                <span className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300">
+                  Along Nyahururu-Nakuru Road
+                </span>
               </li>
             </ul>
           </div>
@@ -33,28 +41,67 @@ const Footer = () => {
           <h3 className="text-lg font-semibold pb-4">Quick Links</h3>
           <ul className="space-y-2">
             <li>
-              <a href="" className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300">Give us your Feedback</a>
+              <a
+                href="#"
+                  onClick={() =>
+                      navigate( "/feedback")
+                    }
+                className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300"
+              >
+                Give us your Feedback
+              </a>
             </li>
             <li>
-              <a href="" className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300">Report Fraud</a>
+              <a
+                href="#"
+                onClick={() =>
+                      navigate( "/report-fraud")
+                    }
+                className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300"
+              >
+                Report Fraud
+              </a>
             </li>
             <li>
-              <a href="" className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300">News</a>
+              <a
+                href=""
+                className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300"
+              >
+                News
+              </a>
             </li>
             <li>
-              <a href="" className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300">Events</a>
+              <a
+                href=""
+                className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300"
+              >
+                Events
+              </a>
             </li>
             <li>
-              <a href="" className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300">Blogs</a>
+              <a
+                href=""
+                className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300"
+              >
+                Blogs
+              </a>
             </li>
             <li>
-              <a href="" className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300">Downloads</a>
+              <a
+                href=""
+                className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300"
+              >
+                Downloads
+              </a>
             </li>
           </ul>
         </div>
       </div>
       <div className="flex justify-between items-center my-2 border-t border-gray-400 p-2">
-        <p><span> &copy;{new Date().getFullYear()}</span> Nyahururu Hospital. All right reserved.</p>
+        <p>
+          <span> &copy;{new Date().getFullYear()}</span> Nyahururu Hospital. All
+          right reserved.
+        </p>
         <div className="socials">
           <ul className="flex text-2xl space-x-3">
             <li className="text-blue-500 cursor-pointer">

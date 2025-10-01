@@ -5,15 +5,16 @@ import {
   Slider,
   Card,
   TimeRibbon,
-  Partners
+  Partners,
+  News
 } from "../components/layouts";
 import services from "../data/serviceData";
 import { useNavigate } from "react-router-dom";
 
+
 const Home = () => {
-  
   const navigate = useNavigate();
-  const serviceLimit= services.slice(0,5)
+  const serviceLimit = services.slice(0, 5);
   return (
     <div className="">
       <div className="sticky top-0 z-50 bg-white/60 backdrop-blur-md shadow-sm">
@@ -28,27 +29,39 @@ const Home = () => {
             Our Departments
           </h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mt-2">
-            {serviceLimit.map(service => (
+            {serviceLimit.map((service) => (
               <Card
                 key={service.id}
-                id ={service.id}
+                id={service.id}
                 image={service.image}
                 title={service.title}
                 buttonText="Learn More"
               />
             ))}
-            <button className=" bg-gray-600 text-white text-xl shadow-md rounded-2xl overflow-hidden hover:shadow-xl 
-    hover:cursor-pointer transition-all duration-300 font-bold hover:text-2xl"
-    onClick={navigate("/services")}
-    >Load More Services</button>
+            <div className="h-full">
+              <div className="rounded-2xl shadow-md flex items-center justify-center p-6 bg-gray-600 text-white hover:shadow-xl transition-all duration-300 cursor-pointer h-full">
+                <button
+                  className="w-full text-xl font-bold hover:text-2xl transition-all duration-300"
+                  onClick={() => navigate("/services")}
+                >
+                  Load More Services
+                </button>
+              </div>
+            </div>
           </div>
         </div>
         <div className="hours ribbon">
           <TimeRibbon />
         </div>
+        <div className="news">
+          <h3 className="text-3xl font-bold my-4 text-center">News</h3>
+          <News
+          
+          />
+        </div>
         <div className="partners py-4">
           <h3 className="text-3xl font-bold my-4 text-center">Our Partners</h3>
-          <Partners/>
+          <Partners />
         </div>
       </div>
       <div>
