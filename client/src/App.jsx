@@ -1,6 +1,20 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { Doctors, Home, Services, About,Feedback,ReportFraud, Appointment } from "./pages/index";
-import { ServiceDetails, DoctorDetails,NewsDetails } from "./components/modals";
+import {
+  Doctors,
+  Home,
+  Services,
+  About,
+  Feedback,
+  ReportFraud,
+  Appointment,
+  Career,
+  BloodDonation
+} from "./pages/index";
+import {
+  ServiceDetails,
+  DoctorDetails,
+  NewsDetails,
+} from "./components/modals";
 
 import "./App.css";
 
@@ -13,9 +27,11 @@ function App() {
           <Route path="/about" element={<About />} />
           <Route path="/services" element={<Services />} />
           <Route path="/doctors" element={<Doctors />} />
-          <Route path="/feedback" element={<Feedback/>}/>
-          <Route path ="/report-fraud" element={<ReportFraud/>}/>
-          <Route path ="/appointment" element={<Appointment/>}/>
+          <Route path="/feedback" element={<Feedback />} />
+          <Route path="/report-fraud" element={<ReportFraud />} />
+          <Route path="/appointment" element={<Appointment />} />
+          <Route path="/careers" element={<Career />} />
+          <Route path="/blood-donation" element={<BloodDonation />} />
           <Route path="/services/:id" element={<ServiceDetails />} />
           <Route path="/doctors/:id" element={<DoctorDetails />} />
           <Route path="/news/:id" element={<NewsDetails />} />

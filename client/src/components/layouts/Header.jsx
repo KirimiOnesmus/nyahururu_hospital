@@ -8,6 +8,7 @@ const Header = () => {
   const [active, setActive] = useState("home");
   const [contactOpen, setContactOpen] = useState(false);
   const [staffOpen, setStaffOpen] = useState(false);
+  const [donationOpen, setDonationOpen] = useState(false);
   const navigate = useNavigate();
 
   const handleNavigate = (page, path) => {
@@ -16,6 +17,7 @@ const Header = () => {
     setIsOpen(false);
     setContactOpen(false);
     setStaffOpen(false);
+    setDonationOpen(false);
   };
   return (
     <div className=" px-6">
@@ -177,19 +179,47 @@ const Header = () => {
                 </li>
               </ul>
             </li>
-            <li className="text-md font-semibold text-center text-white bg-green-500 px-2 py-1 rounded-lg hover:bg-green-600">
-              <a href="" className="text-md font-semibold ">
+            <li
+              className="relative group md:cursor-pointer bg-green-500 px-2 py-1 rounded-lg hover:bg-green-600 text-center"
+              onClick={() => setDonationOpen(!donationOpen)}
+            >
+              <a href="" className="text-md font-semibold text-white">
                 Donations
               </a>
+              <ul
+                className={`absolute md:top-8 md:right-2 mt-2 w-56 bg-white shadow-lg rounded-lg transition-all duration-300 ease-in-out z-50
+                ${staffOpen ? "block" : "hidden"} 
+                md:group-hover:block md:hidden`}
+              >
+                <li>
+                  <a
+                    href="#"
+                    onClick={() =>
+                      handleNavigate("blood-donation", "/blood-donation")
+                    }
+                    className="block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold"
+                  >
+                    Blood Donation
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="#"
+                    onClick={() =>
+                      handleNavigate("/financial-aid", "/financial-aid")
+                    }
+                    className="block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold"
+                  >
+                    Financial Aid
+                  </a>
+                </li>
+              </ul>
             </li>
             <li
               className="relative group md:cursor-pointer bg-green-500 px-2 py-1 rounded-lg hover:bg-green-600 text-center"
               onClick={() => setStaffOpen(!staffOpen)}
             >
-              <a
-                href=""
-                className="text-md font-semibold text-white "
-              >
+              <a href="" className="text-md font-semibold text-white ">
                 Staff Portal
               </a>
               <ul
@@ -201,7 +231,7 @@ const Header = () => {
                   {" "}
                   <a
                     href="#"
-                   onClick={() => handleNavigate("ipc-login", "/ipc-login")}
+                    onClick={() => handleNavigate("ipc-login", "/ipc-login")}
                     className="block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold"
                   >
                     IPC Login

@@ -43,9 +43,7 @@ const Footer = () => {
             <li>
               <a
                 href="#"
-                  onClick={() =>
-                      navigate( "/feedback")
-                    }
+                onClick={() => navigate("/feedback")}
                 className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300"
               >
                 Give us your Feedback
@@ -54,9 +52,7 @@ const Footer = () => {
             <li>
               <a
                 href="#"
-                onClick={() =>
-                      navigate( "/report-fraud")
-                    }
+                onClick={() => navigate("/report-fraud")}
                 className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300"
               >
                 Report Fraud
@@ -72,10 +68,11 @@ const Footer = () => {
             </li>
             <li>
               <a
-                href=""
+                href="#"
+                onClick={() => navigate("/careers")}
                 className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300"
               >
-                Events
+                Careers
               </a>
             </li>
             <li>
