@@ -197,7 +197,7 @@ const Header = () => {
                     href="#"
                     onClick={() => handleNavigate("/blood-donation")}
                      className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
-                      ${active === "/blood-donation" ? "text-white md:text-blue-500" : ""}
+                      ${active === "/blood-donation" ? "text-blue-500" : ""}
                     `}
                   >
                     Blood Donation
@@ -208,7 +208,7 @@ const Header = () => {
                     href="#"
                     onClick={() => handleNavigate("/financial-aid")}
                      className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
-                      ${active === "/financial-aid" ? "text-white md:text-blue-500" : ""}
+                      ${active === "/financial-aid" ? "text-blue-500" : ""}
                     `}
                   >
                     Financial Aid
@@ -235,7 +235,7 @@ const Header = () => {
                     href="#"
                     onClick={() => handleNavigate("/ipc-login")}
                      className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
-                      ${active === "/IPC" ? "text-white md:text-blue-500" : ""}
+                      ${active === "/IPC" ? "text-blue-500 " : ""}
                     `}
                   >
                     IPC Login
@@ -247,7 +247,7 @@ const Header = () => {
                     href="#"
                     onClick={() => handleNavigate("/hmis")}
                     className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
-                      ${active === "/HMIS" ? "text-white md:text-blue-500" : ""}
+                      ${active === "/HMIS" ? "text-blue-500" : ""}
                     `}
                   >
                     HMIS
