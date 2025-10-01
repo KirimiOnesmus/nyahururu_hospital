@@ -1,24 +1,25 @@
 import React, { useState } from "react";
 import logo from "../../assets/logo.png";
 import { MdMenu } from "react-icons/md";
-import { useNavigate } from "react-router-dom";
+import { useNavigate,useLocation } from "react-router-dom";
 
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [active, setActive] = useState("home");
+
   const [contactOpen, setContactOpen] = useState(false);
   const [staffOpen, setStaffOpen] = useState(false);
   const [donationOpen, setDonationOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleNavigate = (page, path) => {
-    setActive(page);
+  const handleNavigate = (path) => {
     navigate(path);
     setIsOpen(false);
     setContactOpen(false);
     setStaffOpen(false);
     setDonationOpen(false);
   };
+  const active = location.pathname;
   return (
     <div className=" px-6">
       <div className="flex gap-4 justify-center border-b py-2 items-center">
@@ -50,9 +51,9 @@ const Header = () => {
             <li>
               <a
                 href="#"
-                onClick={() => handleNavigate("home", "/")}
+                onClick={() => handleNavigate("/")}
                 className={`font-semibold text-lg ${
-                  active === "home"
+                  active === "/"
                     ? "text-white md:text-blue-500"
                     : "hover:text-white md:hover:text-blue-500"
                 }`}
@@ -62,10 +63,10 @@ const Header = () => {
             </li>
             <li>
               <a
-                href=""
-                onClick={() => handleNavigate("about", "/about")}
+                href="#"
+                onClick={() => handleNavigate("about",)}
                 className={`font-semibold text-lg ${
-                  active === "about"
+                  active === "/about"
                     ? "text-white md:text-blue-500"
                     : "hover:text-white md:hover:text-blue-500"
                 }`}
@@ -75,10 +76,10 @@ const Header = () => {
             </li>
             <li>
               <a
-                href=""
-                onClick={() => handleNavigate("services", "/services")}
+                href="#"
+                onClick={() => handleNavigate("/services")}
                 className={`font-semibold text-lg ${
-                  active === "services"
+                  active === "/services"
                     ? "text-white md:text-blue-500"
                     : "hover:text-white md:hover:text-blue-500"
                 }`}
@@ -88,10 +89,10 @@ const Header = () => {
             </li>
             <li>
               <a
-                href=""
-                onClick={() => handleNavigate("doctors", "/doctors")}
+                href="#"
+                onClick={() => handleNavigate("/doctors")}
                 className={`font-semibold text-lg ${
-                  active === "doctors"
+                  active === "/doctors"
                     ? "text-white md:text-blue-500"
                     : "hover:text-white md:hover:text-blue-500"
                 }`}
@@ -103,17 +104,15 @@ const Header = () => {
               className="relative group md:cursor-pointer"
               onClick={() => setContactOpen(!contactOpen)}
             >
-              <a
-                href="#"
-                // onClick={() => handleNavigate("contact", "/contact")}
+              <span
                 className={`font-semibold text-lg ${
-                  active === "contact"
+                  active === "/contact"
                     ? "text-white md:text-blue-500"
                     : "hover:text-white md:hover:text-blue-500"
                 }`}
               >
                 Contact Us
-              </a>
+              </span>
               <ul
                 className={`absolute md:top-6 md:right-2 mt-2 w-56 bg-white shadow-lg rounded-lg transition-all duration-300 ease-in-out z-50
                 ${contactOpen ? "block" : "hidden"} 
@@ -123,10 +122,10 @@ const Header = () => {
                   {" "}
                   <a
                     href="#"
-                    onClick={() =>
-                      handleNavigate("patient-feedback", "/feedback")
-                    }
-                    className="block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold"
+                    onClick={() => handleNavigate("/feedback")}
+                    className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
+                      ${active === "/feedback" ? "text-white md:text-blue-500" : ""}
+                    `}
                   >
                     Patient Feedback
                   </a>
@@ -135,10 +134,10 @@ const Header = () => {
                   {" "}
                   <a
                     href="#"
-                    onClick={() =>
-                      handleNavigate("report-fraud", "/report-fraud")
-                    }
-                    className="block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold"
+                    onClick={() => handleNavigate("/report-fraud")}
+                     className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
+                      ${active === "/report-fraud" ? "text-white md:text-blue-500" : ""}
+                    `}
                   >
                     Report Fraud
                   </a>
@@ -147,8 +146,10 @@ const Header = () => {
                   {" "}
                   <a
                     href="#"
-                    onClick={() => handleNavigate("ask-doctor", "/ask-doctor")}
-                    className="block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold"
+                    onClick={() => handleNavigate("/ask-doctor")}
+                     className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
+                      ${active === "/ask-doctor" ? "text-white md:text-blue-500" : ""}
+                    `}
                   >
                     Ask Doctor
                   </a>
@@ -157,10 +158,10 @@ const Header = () => {
                   {" "}
                   <a
                     href="#"
-                    onClick={() =>
-                      handleNavigate("book-appointment", "/appointment")
-                    }
-                    className="block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold"
+                    onClick={() => handleNavigate("/appointment")}
+                    className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
+                      ${active === "/appointment" ? "text-white md:text-blue-500" : ""}
+                    `}
                   >
                     Book Appointment
                   </a>
@@ -169,10 +170,10 @@ const Header = () => {
                   {" "}
                   <a
                     href="#"
-                    onClick={() =>
-                      handleNavigate("virtual-tour", "/virtual-tour")
-                    }
-                    className="block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold"
+                    onClick={() => handleNavigate("/virtual-tour")}
+                     className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
+                      ${active === "/virtual-tour" ? "text-white md:text-blue-500" : ""}
+                    `}
                   >
                     Virtual Tour
                   </a>
@@ -183,21 +184,21 @@ const Header = () => {
               className="relative group md:cursor-pointer bg-green-500 px-2 py-1 rounded-lg hover:bg-green-600 text-center"
               onClick={() => setDonationOpen(!donationOpen)}
             >
-              <a href="" className="text-md font-semibold text-white">
+              <span className="text-md font-semibold text-white">
                 Donations
-              </a>
+              </span>
               <ul
                 className={`absolute md:top-8 md:right-2 mt-2 w-56 bg-white shadow-lg rounded-lg transition-all duration-300 ease-in-out z-50
-                ${staffOpen ? "block" : "hidden"} 
+                ${donationOpen ? "block" : "hidden"} 
                 md:group-hover:block md:hidden`}
               >
                 <li>
                   <a
                     href="#"
-                    onClick={() =>
-                      handleNavigate("blood-donation", "/blood-donation")
-                    }
-                    className="block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold"
+                    onClick={() => handleNavigate("/blood-donation")}
+                     className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
+                      ${active === "/blood-donation" ? "text-white md:text-blue-500" : ""}
+                    `}
                   >
                     Blood Donation
                   </a>
@@ -205,10 +206,10 @@ const Header = () => {
                 <li>
                   <a
                     href="#"
-                    onClick={() =>
-                      handleNavigate("/financial-aid", "/financial-aid")
-                    }
-                    className="block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold"
+                    onClick={() => handleNavigate("/financial-aid")}
+                     className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
+                      ${active === "/financial-aid" ? "text-white md:text-blue-500" : ""}
+                    `}
                   >
                     Financial Aid
                   </a>
@@ -219,20 +220,23 @@ const Header = () => {
               className="relative group md:cursor-pointer bg-green-500 px-2 py-1 rounded-lg hover:bg-green-600 text-center"
               onClick={() => setStaffOpen(!staffOpen)}
             >
-              <a href="" className="text-md font-semibold text-white ">
+              <span className="text-md font-semibold text-white">
                 Staff Portal
-              </a>
+              </span>
               <ul
                 className={`absolute md:top-8 md:right-2 mt-2 w-56 bg-white shadow-lg rounded-lg transition-all duration-300 ease-in-out z-50
                 ${staffOpen ? "block" : "hidden"} 
                 md:group-hover:block md:hidden`}
               >
+                {" "}
                 <li>
                   {" "}
                   <a
                     href="#"
-                    onClick={() => handleNavigate("ipc-login", "/ipc-login")}
-                    className="block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold"
+                    onClick={() => handleNavigate("/ipc-login")}
+                     className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
+                      ${active === "/IPC" ? "text-white md:text-blue-500" : ""}
+                    `}
                   >
                     IPC Login
                   </a>
@@ -241,8 +245,10 @@ const Header = () => {
                   {" "}
                   <a
                     href="#"
-                    onClick={() => handleNavigate("hmis", "/hmis")}
-                    className="block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold"
+                    onClick={() => handleNavigate("/hmis")}
+                    className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
+                      ${active === "/HMIS" ? "text-white md:text-blue-500" : ""}
+                    `}
                   >
                     HMIS
                   </a>
