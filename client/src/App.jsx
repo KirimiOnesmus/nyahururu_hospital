@@ -8,7 +8,8 @@ import {
   ReportFraud,
   Appointment,
   Career,
-  BloodDonation
+  BloodDonation,
+  FinancialAid,
 } from "./pages/index";
 import {
   ServiceDetails,
@@ -32,6 +33,7 @@ function App() {
           <Route path="/appointment" element={<Appointment />} />
           <Route path="/careers" element={<Career />} />
           <Route path="/blood-donation" element={<BloodDonation />} />
+          <Route path="/financial-aid" element={<FinancialAid />} />
           <Route path="/services/:id" element={<ServiceDetails />} />
           <Route path="/doctors/:id" element={<DoctorDetails />} />
           <Route path="/news/:id" element={<NewsDetails />} />
