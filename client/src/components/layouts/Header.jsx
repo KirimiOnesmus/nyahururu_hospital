@@ -1,16 +1,35 @@
-import React, { useState } from "react";
+
+
+import React, { useState, useRef, useEffect } from "react";
 import logo from "../../assets/logo.png";
 import { MdMenu } from "react-icons/md";
-import { useNavigate,useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
-
   const [contactOpen, setContactOpen] = useState(false);
   const [staffOpen, setStaffOpen] = useState(false);
   const [donationOpen, setDonationOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  const dropdownRef = useRef(null);
+
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setContactOpen(false);
+        setStaffOpen(false);
+        setDonationOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const handleNavigate = (path) => {
     navigate(path);
@@ -19,9 +38,29 @@ const Header = () => {
     setStaffOpen(false);
     setDonationOpen(false);
   };
+
+  const toggleContact = () => {
+    setContactOpen(!contactOpen);
+    setStaffOpen(false);
+    setDonationOpen(false);
+  };
+
+  const toggleDonation = () => {
+    setDonationOpen(!donationOpen);
+    setContactOpen(false);
+    setStaffOpen(false);
+  };
+
+  const toggleStaff = () => {
+    setStaffOpen(!staffOpen);
+    setContactOpen(false);
+    setDonationOpen(false);
+  };
+
   const active = location.pathname;
+
   return (
-    <div className=" px-6">
+    <div className="px-6" ref={dropdownRef}>
       <div className="flex gap-4 justify-center border-b py-2 items-center">
         <p className="text-blue-600 font-semibold border-r px-4">
           Toll Free Number: <span>+254712345678</span>
@@ -52,7 +91,7 @@ const Header = () => {
               <a
                 href="#"
                 onClick={() => handleNavigate("/")}
-                className={`font-semibold text-lg ${
+                className={`font-semibold text-lg cursor-pointer ${
                   active === "/"
                     ? "text-white md:text-blue-500"
                     : "hover:text-white md:hover:text-blue-500"
@@ -64,8 +103,8 @@ const Header = () => {
             <li>
               <a
                 href="#"
-                onClick={() => handleNavigate("about",)}
-                className={`font-semibold text-lg ${
+                onClick={() => handleNavigate("about")}
+                className={`font-semibold text-lg cursor-pointer ${
                   active === "/about"
                     ? "text-white md:text-blue-500"
                     : "hover:text-white md:hover:text-blue-500"
@@ -78,7 +117,7 @@ const Header = () => {
               <a
                 href="#"
                 onClick={() => handleNavigate("/services")}
-                className={`font-semibold text-lg ${
+                className={`font-semibold text-lg cursor-pointer ${
                   active === "/services"
                     ? "text-white md:text-blue-500"
                     : "hover:text-white md:hover:text-blue-500"
@@ -91,7 +130,7 @@ const Header = () => {
               <a
                 href="#"
                 onClick={() => handleNavigate("/doctors")}
-                className={`font-semibold text-lg ${
+                className={`font-semibold text-lg cursor-pointer ${
                   active === "/doctors"
                     ? "text-white md:text-blue-500"
                     : "hover:text-white md:hover:text-blue-500"
@@ -100,79 +139,74 @@ const Header = () => {
                 Our Doctors
               </a>
             </li>
-            <li
-              className="relative group md:cursor-pointer"
-              onClick={() => setContactOpen(!contactOpen)}
-            >
-              <span
-                className={`font-semibold text-lg ${
+            
+            {/* Contact Us Dropdown */}
+            <li className="relative">
+              <button
+                onClick={toggleContact}
+                className={`font-semibold text-lg cursor-pointer ${
                   active === "/contact"
                     ? "text-white md:text-blue-500"
                     : "hover:text-white md:hover:text-blue-500"
                 }`}
               >
                 Contact Us
-              </span>
+              </button>
               <ul
-                className={`absolute md:top-6 md:right-2 mt-2 w-56 bg-white shadow-lg rounded-lg transition-all duration-300 ease-in-out z-50
-                ${contactOpen ? "block" : "hidden"} 
-                md:group-hover:block md:hidden`}
+                className={`absolute md:top-10 md:right-4 mt-2 w-56 bg-white shadow-lg rounded-lg 
+                  transition-all duration-300 ease-in-out z-50
+                  ${contactOpen ? "block" : "hidden"}`}
               >
                 <li>
-                  {" "}
                   <a
                     href="#"
                     onClick={() => handleNavigate("/feedback")}
-                    className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
-                      ${active === "/feedback" ? "text-white md:text-blue-500" : ""}
+                    className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold cursor-pointer
+                      ${active === "/feedback" ? "bg-blue-100 font-semibold" : ""}
                     `}
                   >
                     Patient Feedback
                   </a>
                 </li>
                 <li>
-                  {" "}
                   <a
                     href="#"
                     onClick={() => handleNavigate("/report-fraud")}
-                     className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
-                      ${active === "/report-fraud" ? "text-white md:text-blue-500" : ""}
+                    className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold cursor-pointer
+                      ${active === "/report-fraud" ? "bg-blue-100 font-semibold" : ""}
                     `}
                   >
                     Report Fraud
                   </a>
                 </li>
                 <li>
-                  {" "}
                   <a
                     href="#"
                     onClick={() => handleNavigate("/ask-doctor")}
-                     className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
-                      ${active === "/ask-doctor" ? "text-white md:text-blue-500" : ""}
+                    className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold cursor-pointer
+                      ${active === "/ask-doctor" ? "bg-blue-100 font-semibold" : ""}
                     `}
                   >
                     Ask Doctor
                   </a>
                 </li>
                 <li>
-                  {" "}
                   <a
                     href="#"
                     onClick={() => handleNavigate("/appointment")}
-                    className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
-                      ${active === "/appointment" ? "text-white md:text-blue-500" : ""}
+                    className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold cursor-pointer
+                      ${active === "/appointment" ? "bg-blue-100 font-semibold" : ""}
                     `}
                   >
                     Book Appointment
                   </a>
                 </li>
                 <li>
-                  {" "}
                   <a
                     href="#"
                     onClick={() => handleNavigate("/virtual-tour")}
-                     className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
-                      ${active === "/virtual-tour" ? "text-white md:text-blue-500" : ""}
+                    className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold cursor-pointer
+                      ${active === "/virtual-tour" ? "bg-blue-100 font-semibold" : ""}
                     `}
                   >
                     Virtual Tour
@@ -180,24 +214,27 @@ const Header = () => {
                 </li>
               </ul>
             </li>
-            <li
-              className="relative group md:cursor-pointer bg-green-500 px-2 py-1 rounded-lg hover:bg-green-600 text-center"
-              onClick={() => setDonationOpen(!donationOpen)}
-            >
-              <span className="text-md font-semibold text-white">
-                Donations
-              </span>
+
+            {/* Donations Dropdown */}
+            <li className="relative">
+              <button
+                onClick={toggleDonation}
+                className="bg-green-500 px-2 py-1 rounded-lg hover:bg-green-600 text-center cursor-pointer"
+              >
+                <span className="text-md font-semibold text-white">
+                  Donations
+                </span>
+              </button>
               <ul
-                className={`absolute md:top-8 md:right-2 mt-2 w-56 bg-white shadow-lg rounded-lg transition-all duration-300 ease-in-out z-50
-                ${donationOpen ? "block" : "hidden"} 
-                md:group-hover:block md:hidden`}
+                className={`absolute md:top-10 md:right-4 mt-2 w-56 bg-white shadow-lg rounded-lg transition-all duration-300 ease-in-out z-50
+                ${donationOpen ? "block" : "hidden"}`}
               >
                 <li>
                   <a
                     href="#"
                     onClick={() => handleNavigate("/blood-donation")}
-                     className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
-                      ${active === "/blood-donation" ? "text-blue-500" : ""}
+                    className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold cursor-pointer
+                      ${active === "/blood-donation" ? "bg-blue-100 font-semibold" : ""}
                     `}
                   >
                     Blood Donation
@@ -207,8 +244,8 @@ const Header = () => {
                   <a
                     href="#"
                     onClick={() => handleNavigate("/financial-aid")}
-                     className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
-                      ${active === "/financial-aid" ? "text-blue-500" : ""}
+                    className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold cursor-pointer
+                      ${active === "/financial-aid" ? "bg-blue-100 font-semibold" : ""}
                     `}
                   >
                     Financial Aid
@@ -216,38 +253,38 @@ const Header = () => {
                 </li>
               </ul>
             </li>
-            <li
-              className="relative group md:cursor-pointer bg-green-500 px-2 py-1 rounded-lg hover:bg-green-600 text-center"
-              onClick={() => setStaffOpen(!staffOpen)}
-            >
-              <span className="text-md font-semibold text-white">
-                Staff Portal
-              </span>
-              <ul
-                className={`absolute md:top-8 md:right-2 mt-2 w-56 bg-white shadow-lg rounded-lg transition-all duration-300 ease-in-out z-50
-                ${staffOpen ? "block" : "hidden"} 
-                md:group-hover:block md:hidden`}
+
+            {/* Staff Portal Dropdown */}
+            <li className="relative">
+              <button
+                onClick={toggleStaff}
+                className="bg-green-500 px-2 py-1 rounded-lg hover:bg-green-600 text-center cursor-pointer"
               >
-                {" "}
+                <span className="text-md font-semibold text-white">
+                  Staff Portal
+                </span>
+              </button>
+              <ul
+                className={`absolute md:top-10 md:right-4 mt-2 w-56 bg-white shadow-lg rounded-lg transition-all duration-300 ease-in-out z-50
+                ${staffOpen ? "block" : "hidden"}`}
+              >
                 <li>
-                  {" "}
                   <a
                     href="#"
                     onClick={() => handleNavigate("/ipc-login")}
-                     className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
-                      ${active === "/IPC" ? "text-blue-500 " : ""}
+                    className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold cursor-pointer
+                      ${active === "/ipc-login" ? "bg-blue-100 font-semibold" : ""}
                     `}
                   >
                     IPC Login
                   </a>
                 </li>
                 <li>
-                  {" "}
                   <a
                     href="#"
                     onClick={() => handleNavigate("/hmis")}
-                    className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold
-                      ${active === "/HMIS" ? "text-blue-500" : ""}
+                    className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold cursor-pointer
+                      ${active === "/hmis" ? "bg-blue-100 font-semibold" : ""}
                     `}
                   >
                     HMIS
