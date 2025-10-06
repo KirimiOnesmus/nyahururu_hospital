@@ -84,7 +84,7 @@ const Header = () => {
           <ul
             className={`${
               isOpen ? "block" : "hidden"
-            } absolute md:static top-24 right-10 w-76 max-h-svh md:w-auto bg-blue-400 md:bg-transparent
+            } absolute md:static top-30 right-12 w-76 max-h-svh md:w-auto bg-blue-400 md:bg-transparent
              md:flex space-y-4 md:space-y-0 md:space-x-6 p-4 md:p-0 rounded-md z-50 items-center`}
           >
             <li>
@@ -219,7 +219,7 @@ const Header = () => {
             <li className="relative">
               <button
                 onClick={toggleDonation}
-                className="bg-green-500 px-2 py-1 rounded-lg hover:bg-green-600 text-center cursor-pointer"
+                className="bg-green-500 px-2 py-1 rounded-lg hover:bg-green-600 text-center cursor-pointer w-full"
               >
                 <span className="text-md font-semibold text-white">
                   Donations
@@ -258,7 +258,7 @@ const Header = () => {
             <li className="relative">
               <button
                 onClick={toggleStaff}
-                className="bg-green-500 px-2 py-1 rounded-lg hover:bg-green-600 text-center cursor-pointer"
+                className="bg-green-500 px-2 py-1 rounded-lg hover:bg-green-600 text-center cursor-pointer w-full"
               >
                 <span className="text-md font-semibold text-white">
                   Staff Portal
