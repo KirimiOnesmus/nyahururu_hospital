@@ -7,26 +7,26 @@ import HR from "../../assets/Management/Human Resource.jpg";
 const Management = () => {
   const team = [
     {
-      name: "Mr. David Kimani",
+      name: "Dr Lawrence Kamande",
       role: "Chief Executive Officer",
       image: CEO,
       bio: "Leading NCRH with a vision for patient-centered healthcare and innovation.",
     },
+    // {
+    //   name: "Dr. Jane Mwangi ",
+    //   role: "Chief Medical Officer",
+    //   image: Clinical_Service,
+    //   bio: "Dedicated to advancing clinical care, research, and medical excellence.",
+    // },
+    // {
+    //   name: "Ms. Grace Wanjiru",
+    //   role: "Human Resource/ Director of Operations",
+    //   image: HR,
+    //   bio: "Oversees hospital operations, ensuring smooth service delivery and efficiency.",
+    // },
     {
-      name: "Dr. Jane Mwangi ",
-      role: "Chief Medical Officer",
-      image: Clinical_Service,
-      bio: "Dedicated to advancing clinical care, research, and medical excellence.",
-    },
-    {
-      name: "Ms. Grace Wanjiru",
-      role: "Human Resource/ Director of Operations",
-      image: HR,
-      bio: "Oversees hospital operations, ensuring smooth service delivery and efficiency.",
-    },
-    {
-      name: "Dr. Peter Ndegwa",
-      role: "Head of Nursing Services",
+      name: "Mr. Ireri",
+      role: "Hospital Administrator",
       image: Nursing,
       bio: "Provides leadership in nursing practice, patient care, and professional development of the nursing team.",
     },

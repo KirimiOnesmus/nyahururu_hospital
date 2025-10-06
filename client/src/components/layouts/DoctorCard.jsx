@@ -6,7 +6,7 @@ const DoctorCard = ({ doctor }) => {
     <Link to={`/doctors/${doctor.id}`}>
       <div
         className="bg-white shadow-md rounded-2xl overflow-hidden hover:shadow-lg transition-all 
-duration-300 w-full max-w-xs hover:cursor-pointer"
+duration-300 w-full max-w-xs hover:cursor-pointer "
       >
         <div className="w-full h-64 bg-blue-100 flex items-center justify-center overflow-hidden">
           <img

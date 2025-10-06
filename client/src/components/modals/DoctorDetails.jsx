@@ -13,7 +13,7 @@ const DoctorDetails = () => {
       <div className="sticky top-0 z-50 bg-white/60 backdrop-blur-md shadow-sm ">
         <Header />
       </div>
-      <div className="px-6 py-10 max-w-5xl mx-auto h-full md:h-[80vh]">
+      <div className="px-6 py-10 max-w-5xl mx-auto h-full md:min-h-screen">
         <div className="grid md:grid-cols-2 gap-8 items-center">
           {" "}
           <div className="personaldetails flex flex-col items-center">

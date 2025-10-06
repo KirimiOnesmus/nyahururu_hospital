@@ -62,7 +62,7 @@ const Header = () => {
   return (
     <div className="px-6" ref={dropdownRef}>
       <div className="flex gap-4 justify-center border-b py-2 items-center">
-        <p className="text-blue-600 font-semibold border-r px-4">
+        <p className="text-blue-600 font-semibold  px-4">
           Toll Free Number: <span>+254712345678</span>
         </p>
         <button
