@@ -10,6 +10,8 @@ import {
   Career,
   BloodDonation,
   FinancialAid,
+  HMIS
+  ,IpcLogin
 } from "./pages/index";
 import {
   ServiceDetails,
@@ -34,6 +36,8 @@ function App() {
           <Route path="/careers" element={<Career />} />
           <Route path="/blood-donation" element={<BloodDonation />} />
           <Route path="/financial-aid" element={<FinancialAid />} />
+          <Route path="/hmis" element={<HMIS />} />
+          <Route path="/ipc-login" element={<IpcLogin />} />
           <Route path="/services/:id" element={<ServiceDetails />} />
           <Route path="/doctors/:id" element={<DoctorDetails />} />
           <Route path="/news/:id" element={<NewsDetails />} />
