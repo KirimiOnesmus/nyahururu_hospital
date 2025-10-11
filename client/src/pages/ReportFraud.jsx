@@ -11,17 +11,19 @@ const ReportFraud = () => {
         </div>
         <div className="px-6 md:px-12 py-8 space-y-10 max-w-6xl mx-auto">
           <h2 className="text-3xl font-bold my-4 border-l-4 border-blue-500 px-2">
-            Whistleblower Services/ Report Fraud
+            Grievance Services
           </h2>
           <p>
-            We work continuously to promote high ethical standards and combat
-            corruption, and other serious irregularities. We are cognizant of
-            the inherent risks a whistle-blower may face, which may include
-            victimization e.g. in the case of company employees or threat to
-            life in extreme cases. To protect the whistle-blower from such
-            risks, we have provided a reporting channel in which individuals
-            anonymously report suspected irregularities. If you wish to report
-            serious irregularities anonymously use the form below :
+            We are committed to upholding high ethical standards and fostering a
+            fair, respectful, and safe working environment. We recognize that
+            employees and stakeholders may sometimes experience grievances such
+            as unfair treatment, harassment, discrimination, or other
+            workplace-related concerns. To ensure that such matters are
+            addressed appropriately, we have established a confidential
+            reporting channel through which individuals can raise their
+            grievances without fear of retaliation or victimization. If you wish
+            to submit a grievance or report workplace-related concerns
+            confidentially, please use the form below:
           </p>
           <div className="form max-w-2xl mx-auto w-full">
             <h3 className="text-xl font-bold mb-4 text-center">
