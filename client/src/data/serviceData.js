@@ -18,19 +18,19 @@ const services = [
     id: 1,
     title: "Radiology & Imaging",
     image:radiology,
-    details: "The AAR Hospital Radiology Department is a modern, dynamic, fully digital Diagnostic Imaging Centre with the latest technology equipment and a commitment to providing our patients with the highest quality imaging and care. The department is fully compliant with local and international radiation protection regulatory bodies to ensure that our patients are imaged in a SAFE environment. We operate 24/7. Our services include:MRI (Magnetic Resonance Imaging)Magnetic resonance imaging (MRI) of the body uses a powerful magnetic field, radio waves, and a computer to produce detailed pictures of the inside of your body. We perform the following: Head, body, and musculoskeletal MRI services.MRI Angiography, MRI Venography, and MRI Diffusion tensor imaging.CT (Computed Tomography) scanning.A computed tomography (CT) scan is an imaging method that uses X-rays to create pictures of cross-sections of the body. The pictures are taken from different angles and are used to create 3-dimensional (3-D) views of tissues and organs. A dye may be injected into a vein or swallowed to help the tissues and organs show up more clearly. We perform the following: Whole body, neuro, trauma, and emergency CT scan imaging. CT scan Angiography, CT-guided biopsies. Ultrasound - Ultrasound is a non-invasive imaging procedure that shows structures inside the body using high-frequency sound waves. "
+    details: "The Nyahururu Hospital Radiology Department is a modern, dynamic, fully digital Diagnostic Imaging Centre with the latest technology equipment and a commitment to providing our patients with the highest quality imaging and care. The department is fully compliant with local and international radiation protection regulatory bodies to ensure that our patients are imaged in a SAFE environment. We operate 24/7. Our services include:MRI (Magnetic Resonance Imaging)Magnetic resonance imaging (MRI) of the body uses a powerful magnetic field, radio waves, and a computer to produce detailed pictures of the inside of your body. We perform the following: Head, body, and musculoskeletal MRI services.MRI Angiography, MRI Venography, and MRI Diffusion tensor imaging.CT (Computed Tomography) scanning.A computed tomography (CT) scan is an imaging method that uses X-rays to create pictures of cross-sections of the body. The pictures are taken from different angles and are used to create 3-dimensional (3-D) views of tissues and organs. A dye may be injected into a vein or swallowed to help the tissues and organs show up more clearly. We perform the following: Whole body, neuro, trauma, and emergency CT scan imaging. CT scan Angiography, CT-guided biopsies. Ultrasound - Ultrasound is a non-invasive imaging procedure that shows structures inside the body using high-frequency sound waves. "
   },
   {
     id: 2,
     title: "Renal Unit / Dialysis",
     image:renal,
-    details: "AAR Hospital’s Renal Unit has 11 beds dedicated for dialysis which aims at reducing the burden of care for patients requiring blood cleaning services. Our renal unit provides hemodialysis  for both newly diagnosed patients with kidney failure and maintenance treatments for those patients who have chronic kidney failure. Through a combination of skilled specialized nurses our main goal is to provide life sustaining treatment so that our patients can live their lives and function in society as normally as possible.",
+    details: "Nyahururu Hospital’s Renal Unit has 11 beds dedicated for dialysis which aims at reducing the burden of care for patients requiring blood cleaning services. Our renal unit provides hemodialysis  for both newly diagnosed patients with kidney failure and maintenance treatments for those patients who have chronic kidney failure. Through a combination of skilled specialized nurses our main goal is to provide life sustaining treatment so that our patients can live their lives and function in society as normally as possible.",
   },
   {
     id: 3,
     title: "Dental",
     image:dental,
-    details: "At AAR Hospital we are committed to providing world class dental treatment in a spaciously designed modern clinic where quality and care is given utmost importance. Our Patients are assured of a holistic personalized dental experience through its team of professionally trained dental specialists, world class dental equipment and technology and patient centered treatment plans.  Services Offered: Dental Implants, Pain Free Root Canal, Dental Crowns, Dental Surgeries.",
+    details: "At Nyahururu Hospital we are committed to providing world class dental treatment in a spaciously designed modern clinic where quality and care is given utmost importance. Our Patients are assured of a holistic personalized dental experience through its team of professionally trained dental specialists, world class dental equipment and technology and patient centered treatment plans.  Services Offered: Dental Implants, Pain Free Root Canal, Dental Crowns, Dental Surgeries.",
   },
   {
     id: 4,
@@ -48,25 +48,25 @@ const services = [
     id: 6,
     title: "Emergency Care",
     image: emergency,
-    details: "AAR hospital accident and emergency unit is located on the ground floor with its own dedicated entrance specializing in emergency care response. It is a 24-hour urgent care team that will handle all the emergency cases and a wide range of treatment services, diagnostic tests, and minor surgical procedures. AAR hospital aims to provide care for patients requiring critical emergency care. The department is located adjacent to the CT scan and imaging services hence offering convenience and hastened trauma care.  The Accident & Emergency staffed with proficient nurses and doctors skilled in trauma and emergency care.",
+    details: "Nyahururu hospital accident and emergency unit is located on the ground floor with its own dedicated entrance specializing in emergency care response. It is a 24-hour urgent care team that will handle all the emergency cases and a wide range of treatment services, diagnostic tests, and minor surgical procedures. Nyahururu hospital aims to provide care for patients requiring critical emergency care. The department is located adjacent to the CT scan and imaging services hence offering convenience and hastened trauma care.  The Accident & Emergency staffed with proficient nurses and doctors skilled in trauma and emergency care.",
   },
   {
     id: 7,
     title: "Nutrition",
     image:nutrition,
-    details: "AAR hospital is committed to providing our patients with the highest standard of healthcare. The department adheres to the regulatory requirement of Kenya Radiation Board for quality assurance and Radiation safety. The department is manned by highly specialized, experienced, and dedicated magnetic imaging technicians, sonographers, radiologists, and radiographers. Our imaging department offers exceptional services such as. Digital MRI ,CT Scan,X-Ray Services",
+    details: "Nyahururu hospital is committed to providing our patients with the highest standard of healthcare. The department adheres to the regulatory requirement of Kenya Radiation Board for quality assurance and Radiation safety. The department is manned by highly specialized, experienced, and dedicated magnetic imaging technicians, sonographers, radiologists, and radiographers. Our imaging department offers exceptional services such as. Digital MRI ,CT Scan,X-Ray Services",
   },
   {
     id: 8,
     title: "Rehabilitative Services",
     image: rehab,
-    details: "AAR hospital is committed to providing our patients with the highest standard of healthcare. The department adheres to the regulatory requirement of Kenya Radiation Board for quality assurance and Radiation safety. The department is manned by highly specialized, experienced, and dedicated magnetic imaging technicians, sonographers, radiologists, and radiographers. Our imaging department offers exceptional services such as.Digital MRI, CT Scan, X-Ray Services, Mammography (Breast X-Ray), Bone Densitometry.",
+    details: "Nyahururu hospital is committed to providing our patients with the highest standard of healthcare. The department adheres to the regulatory requirement of Kenya Radiation Board for quality assurance and Radiation safety. The department is manned by highly specialized, experienced, and dedicated magnetic imaging technicians, sonographers, radiologists, and radiographers. Our imaging department offers exceptional services such as.Digital MRI, CT Scan, X-Ray Services, Mammography (Breast X-Ray), Bone Densitometry.",
   },
   {
     id: 9,
     title: "Medical",
     image: medical,
-    details: "The Medical-Surgical care at AAR Hospital has dedicated staff offering evidence-based healthcare using innovative technology. Patient care is provided using an interdisciplinary approach involving the patient, nursing, medical staff, pharmacy, laboratory, pathology, respiratory therapy, spiritual care, nutritional services, rehabilitation, and radiology.",
+    details: "The Medical-Surgical care at Nyahururu Hospital has dedicated staff offering evidence-based healthcare using innovative technology. Patient care is provided using an interdisciplinary approach involving the patient, nursing, medical staff, pharmacy, laboratory, pathology, respiratory therapy, spiritual care, nutritional services, rehabilitation, and radiology.",
   },
   {
     id: 10,
