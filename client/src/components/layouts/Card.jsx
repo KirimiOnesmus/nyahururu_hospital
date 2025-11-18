@@ -23,7 +23,7 @@ const Card = ({ id, image, title, buttonText }) => {
           <button
             onClick={handleServices}
             className="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-white hover:text-blue-500 border hover:cursor-pointer transition-all duration-300"
-          >
+          > 
             {buttonText}
           </button>
         )}

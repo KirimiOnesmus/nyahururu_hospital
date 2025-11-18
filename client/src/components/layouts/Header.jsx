@@ -254,44 +254,6 @@ const Header = () => {
               </ul>
             </li>
 
-            {/* Staff Portal Dropdown */}
-            <li className="relative">
-              <button
-                onClick={toggleStaff}
-                className="bg-green-500 px-2 py-1 rounded-lg hover:bg-green-600 text-center cursor-pointer w-full"
-              >
-                <span className="text-md font-semibold text-white">
-                  Staff Portal
-                </span>
-              </button>
-              <ul
-                className={`absolute md:top-10 md:right-4 mt-2 w-56 bg-white shadow-lg rounded-lg transition-all duration-300 ease-in-out z-50
-                ${staffOpen ? "block" : "hidden"}`}
-              >
-                <li>
-                  <a
-                    href="#"
-                    onClick={() => handleNavigate("/ipc-login")}
-                    className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold cursor-pointer
-                      ${active === "/ipc-login" ? "bg-blue-100 font-semibold" : ""}
-                    `}
-                  >
-                    IPC Login
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    onClick={() => handleNavigate("/hmis")}
-                    className={`block px-4 py-2 hover:bg-blue-100 text-gray-700 hover:font-semibold cursor-pointer
-                      ${active === "/hmis" ? "bg-blue-100 font-semibold" : ""}
-                    `}
-                  >
-                    HMIS
-                  </a>
-                </li>
-              </ul>
-            </li>
           </ul>
         </div>
       </div>

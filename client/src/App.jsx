@@ -10,9 +10,10 @@ import {
   Career,
   BloodDonation,
   FinancialAid,
-  HMIS
-  ,IpcLogin
+  HMIS,
+  ApplyCareer
 } from "./pages/index";
+import { Dashboard ,AppointmentPage,Events,FeedbackPage,Fraud,News,Research,Sidebar,Users, Careers,ServicesList,Profile} from "./components/Dashboard";
 import {
   ServiceDetails,
   DoctorDetails,
@@ -37,10 +38,26 @@ function App() {
           <Route path="/blood-donation" element={<BloodDonation />} />
           <Route path="/financial-aid" element={<FinancialAid />} />
           <Route path="/hmis" element={<HMIS />} />
-          <Route path="/ipc-login" element={<IpcLogin />} />
+          <Route path ="/apply/:id" element={<ApplyCareer/>}/>
+          
           <Route path="/services/:id" element={<ServiceDetails />} />
           <Route path="/doctors/:id" element={<DoctorDetails />} />
           <Route path="/news/:id" element={<NewsDetails />} />
+
+          <Route path="/dashboard" element={<Sidebar/>}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard/users" element={<Users />} />
+            <Route path="/dashboard/appointments" element={<AppointmentPage />} />
+            <Route path="/dashboard/news" element={<News />} />
+            <Route path="/dashboard/events" element={<Events />} />
+            <Route path="/dashboard/research" element={<Research />} />
+            <Route path="/dashboard/feedback" element={<FeedbackPage />} />
+            <Route path="/dashboard/fraud" element={<Fraud />} />
+            <Route path="/dashboard/careers" element={<Careers />} />
+            <Route path ="/dashboard/services" element={<ServicesList/>}/>
+            <Route path="/dashboard/profile" element={<Profile/>}/>
+
+          </Route>
         </Routes>
       </BrowserRouter>
     </>

@@ -63,7 +63,7 @@ const Footer = () => {
                 href=""
                 className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300"
               >
-                News
+                Events
               </a>
             </li>
             <li>
@@ -75,14 +75,14 @@ const Footer = () => {
                 Careers
               </a>
             </li>
-            <li>
+            {/* <li>
               <a
                 href=""
                 className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300"
               >
                 Blogs
               </a>
-            </li>
+            </li> */}
             <li>
               <a
                 href=""

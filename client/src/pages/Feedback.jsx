@@ -1,7 +1,42 @@
-import React from "react";
+import React, { useState } from "react";
 import { Header, Footer } from "../components/layouts";
+import axios from "axios";
 
 const Feedback = () => {
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    subject: "",
+    message: "",
+    type: "general",
+  });
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const response = await axios.post("/api/feedback", formData);
+      console.log("Feedback submitted successfully:", response.data);
+      setFormData({
+        name: "",
+        email: "",
+        subject: "",
+        message: "",
+        type: "general",
+      });
+    } catch (error) {
+      console.error("Error submitting feedback:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <div className="flex flex-col min-h-screen">
       <div className="body">
@@ -26,13 +61,14 @@ const Feedback = () => {
           </div>
           <div className="form max-w-lg mx-auto w-full">
             <h3 className="text-xl font-bold mb-4 text-center">Talk to Us</h3>
-            <form action="" className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block mb-1">Name:</label>
                 <input
                   type="text"
                   name="name"
-                  id=""
+                  value={formData.name}
+                  onChange={handleChange}
                   placeholder="David Kamau"
                   className="border border-gray-400 p-2 w-full rounded-lg outline-none 
                         focus:border-blue-500
@@ -44,7 +80,8 @@ const Feedback = () => {
                 <input
                   type="email"
                   name="email"
-                  id=""
+                  value={formData.email}
+                  onChange={handleChange}
                   placeholder="davidkamau@gmail.com"
                   className="border border-gray-400 p-2 w-full rounded-lg outline-none 
                         focus:border-blue-500
@@ -52,10 +89,22 @@ const Feedback = () => {
                 />
               </div>
               <div>
+                <label className="block mb-1">Subject:</label>
+                <input
+                  type="text"
+                  name="subject"
+                  value={formData.subject}
+                  onChange={handleChange}
+                  placeholder="Feedback subject"
+                  className="border border-gray-400 p-2 w-full rounded-lg outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
                 <label className="block mb-1">Message:</label>
                 <textarea
-                  name=""
-                  id=""
+                  name="message"
+                  value={formData.message}
+                  onChange={handleChange}
                   className="border border-gray-400 p-2 w-full rounded-lg outline-none 
                         focus:border-blue-500
                         "
@@ -63,9 +112,10 @@ const Feedback = () => {
               </div>
               <button
                 type="submit"
+                disabled={loading}
                 className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 hover:cursor-pointer"
               >
-                Send
+                {loading ? "Sending..." : "Send"}
               </button>
             </form>
           </div>

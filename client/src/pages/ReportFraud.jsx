@@ -1,7 +1,34 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Header, Footer } from "../components/layouts";
+import axios from "axios";
 
 const ReportFraud = () => {
+  const [formData, setFormData] = useState({
+    issue: "",
+    dateOfIncident: "",
+    location: "",
+    details: "",
+  });
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = (e) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const response = await axios.post("/api/fraud", formData);
+      setFormData({ issue: "", dateOfIncident: "", location: "", details: "" });
+      console.log("Feedback submitted successfully:", response.data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <div className="flex flex-col min-h-screen">
       <div className="body">
@@ -29,13 +56,14 @@ const ReportFraud = () => {
             <h3 className="text-xl font-bold mb-4 text-center">
               Describe your issue
             </h3>
-            <form action="" className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block mb-1">What is your concern?</label>
                 <input
                   type="text"
                   name="issue"
-                  id=""
+                  value={formData.issue}
+                  onChange={handleChange}
                   className="border border-gray-400 p-2 w-full rounded-lg outline-none 
                            focus:border-blue-500
                            "
@@ -45,8 +73,9 @@ const ReportFraud = () => {
                 <label className="block mb-1">When did this happen ?</label>
                 <input
                   type="text"
-                  name="issue"
-                  id=""
+                  name="dateOfIncident"
+                  value={formData.dateOfIncident}
+                  onChange={handleChange}
                   className="border border-gray-400 p-2 w-full rounded-lg outline-none 
                            focus:border-blue-500
                            "
@@ -57,8 +86,9 @@ const ReportFraud = () => {
                 <label className="block mb-1">Where did it happen ?</label>
                 <input
                   type="text"
-                  name="issue"
-                  id=""
+                  name="location"
+                  value={formData.location}
+                  onChange={handleChange}
                   className="border border-gray-400 p-2 w-full rounded-lg outline-none 
                            focus:border-blue-500
                            "
@@ -68,8 +98,9 @@ const ReportFraud = () => {
               <div>
                 <label className="block mb-1">Details of the Case:</label>
                 <textarea
-                  name=""
-                  id=""
+                  name="details"
+                  value={formData.details}
+                  onChange={handleChange}
                   cols={10}
                   rows={10}
                   className="border border-gray-400 p-2 w-full rounded-lg outline-none 
@@ -80,9 +111,10 @@ const ReportFraud = () => {
               </div>
               <button
                 type="submit"
+                disabled={loading}
                 className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 hover:cursor-pointer"
               >
-                Submit
+                {loading ? "Submitting..." : "Submit"}
               </button>
             </form>
           </div>

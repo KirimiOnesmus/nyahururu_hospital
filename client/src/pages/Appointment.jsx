@@ -1,7 +1,55 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Header, Footer } from "../components/layouts";
+import axios from "axios";
 
 const Appointment = () => {
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    service: "",
+    date: "",
+    time: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [services, setServices] = useState([]);
+
+  useEffect(() => {
+   
+      const fetchServices = async () => {
+        try {
+          const res = await axios.get("/api/services");
+          setServices(res.data);
+        } catch (error) {
+          console.error("Error fetching services", error);
+        }
+      };
+      fetchServices();
+    
+  }, []);
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.post("/api/appointments", formData);
+      setFormData({
+        name: " ",
+        email: "",
+        phone: "",
+        service: "",
+        date: "",
+        time: "",
+      });
+      console.log("Booked successfully:", res.data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <div className="flex flex-col min-h-screen">
       <div className="body">
@@ -13,13 +61,16 @@ const Appointment = () => {
             Book Service With Us:
           </h2>
           <div className="form bg-white shadow-md rounded-lg p-6 md:p-10">
-            <form action="" className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label className="block mb-2 font-semibold">Full Name</label>
                 <input
                   type="text"
                   name="name"
                   placeholder="David Kamau"
+                  value={formData.name}
+                  onChange={handleChange}
+                  required
                   className="w-full border border-gray-300 p-3 rounded-lg outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
@@ -28,6 +79,9 @@ const Appointment = () => {
                 <input
                   type="email"
                   name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
                   placeholder="davidkamanu@gmail.com"
                   className="w-full border border-gray-300 p-3 rounded-lg outline-none focus:ring-1 focus:ring-blue-500"
                 />
@@ -38,6 +92,9 @@ const Appointment = () => {
                   type="text"
                   name="phone"
                   placeholder="0712345678"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  required
                   className="w-full border border-gray-300 p-3 rounded-lg outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
@@ -45,18 +102,17 @@ const Appointment = () => {
                 <label className="block mb-2 font-semibold">Service</label>
                 <select
                   name="service"
+                  value={formData.service}
+                  onChange={handleChange}
+                  required
                   className="w-full border border-gray-300 p-3 rounded-lg outline-none focus:ring-1 focus:ring-blue-500"
                 >
-                  <option value="radiology">Radiology & Imaging</option>
-                  <option value="bbestetrics">Obstetrics & Gynacology</option>
-                  <option value="dialysis">Renal unit & Dialysis</option>
-                  <option value="nutrition">Nutrition</option>
-                  <option value="rehab">Rehabilitative</option>
-                  <option value="paediatric">Paediatric</option>
-                  <option value="surgery">Surgical Services</option>
-                  <option value="physiotherapy">Physiotherapy</option>
-                  <option value="medical">Medical Check Ups</option>
-                  <option value="ultrasound">X-Ray & Ultrasound</option>
+                  <option value="">Select a Service</option>
+                  {services.map((service) => (
+                    <option key={service._id} value={service.name}>
+                      {service.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -69,6 +125,9 @@ const Appointment = () => {
                   <input
                     type="date"
                     name="date"
+                    value={formData.date}
+                    onChange={handleChange}
+                    required
                     className="w-full border border-gray-300 p-3 rounded-lg outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
@@ -79,6 +138,9 @@ const Appointment = () => {
                   <input
                     type="time"
                     name="time"
+                    value={formData.time}
+                    onChange={handleChange}
+                    required
                     className="w-full border border-gray-300 p-3 rounded-lg outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
@@ -86,9 +148,10 @@ const Appointment = () => {
               <div className="text-center">
                 <button
                   type="submit"
+                  disabled={loading}
                   className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition duration-300 cursor-pointer"
                 >
-                  Book Appointment
+                  {loading ? "Booking..." : "Book Appointment"}
                 </button>
               </div>
             </form>
