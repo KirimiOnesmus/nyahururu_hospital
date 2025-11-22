@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
   FaUsers,
   FaCalendarAlt,
@@ -11,85 +11,98 @@ import {
   FaComments,
   FaExclamationTriangle,
   FaSignOutAlt,
-  FaChevronDown,
+  FaChevronLeft,
   FaUser,
-  FaBars,
-  FaTimes,
+  FaHospital,
+  FaTh,
+  FaCog,
+  FaMoon,
+  FaBoxes,
+  FaTruck,
+  FaImages,
+  FaClipboardList,
+  FaBullhorn,
+  FaGavel,
+  FaClipboardCheck,
 } from "react-icons/fa";
+import { MdMenu,MdClose } from "react-icons/md";
 
 const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [role, setRole] = useState(localStorage.getItem("role"));
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const role = localStorage.getItem("role");
   const token = localStorage.getItem("token");
+
+  const [collapsed, setCollapsed] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!token) navigate("/hmis");
   }, [token, navigate]);
 
-
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
-  const links = [
+  // Grouped navigation structure
+  const navigationGroups = [
     {
-      title: "Users",
-      path: "/dashboard/users",
-      roles: ["superadmin", "admin", "it"],
-      icon: FaUsers,
+      category: "Management",
+      items: [
+        { title: "Dashboard", path: "/dashboard", roles: ["superadmin", "admin", "it", "doctor", "communication"], icon: FaTh },
+        { title: "Hospitals", path: "/dashboard/hospitals", roles: ["superadmin"], icon: FaHospital },
+        { title: "Appointments", path: "/dashboard/appointments", roles: ["superadmin", "doctor", "admin"], icon: FaCalendarAlt },
+        { title: "Careers", path: "/dashboard/careers", roles: ["superadmin", "it", "admin"], icon: FaBriefcase },
+        { title: "Services", path: "/dashboard/services", roles: ["superadmin", "it", "admin"], icon: FaStethoscope },
+        { title: "Research", path: "/dashboard/research", roles: ["superadmin", "it", "admin"], icon: FaFileAlt },
+        { title: "Feedback", path: "/dashboard/feedback", roles: ["superadmin", "communication", "it", "admin"], icon: FaComments },
+      ]
     },
     {
-      title: "Appointments",
-      path: "/dashboard/appointments",
-      roles: ["superadmin", "doctor", "admin"],
-      icon: FaCalendarAlt,
+      category: "Users",
+      items: [
+        { title: "Users", path: "/dashboard/users", roles: ["superadmin", "admin", "it"], icon: FaUsers },
+        // { title: "Access Cards", path: "/dashboard/users/access-cards", roles: ["superadmin", "admin", "it"], icon: FaIdCard },
+      ]
     },
     {
-      title: "News",
-      path: "/dashboard/news",
-      roles: ["superadmin", "communication", "it", "admin"],
-      icon: FaNewspaper,
+      category: "Inventory & Logistics",
+      items: [
+        { title: "Inventory", path: "/dashboard/inventory", roles: ["admin", "it","superadmin"], icon: FaBoxes },
+        { title: "Logistics", path: "/dashboard/logistics", roles: ["admin", "it","superadmin"], icon: FaTruck },
+      ]
     },
     {
-      title: "Events",
-      path: "/dashboard/events",
-      roles: ["superadmin", "communication", "it", "admin"],
-      icon: FaCalendarDay,
+      category: "News & Media",
+      items: [
+        { title: "News", path: "/dashboard/news", roles: ["superadmin", "communication", "it", "admin"], icon: FaNewspaper },
+        { title: "Events", path: "/dashboard/events", roles: ["superadmin", "communication", "it", "admin"], icon: FaCalendarDay },
+        { title: "Gallery", path: "/dashboard/gallery", roles: ["superadmin", "communication", "it", "admin"], icon: FaImages },
+      ]
     },
     {
-      title: "Careers",
-      path: "/dashboard/careers",
-      roles: ["superadmin", "it", "admin"],
-      icon: FaBriefcase,
+      category: "Downloads & Resources",
+      items: [
+        { title: "Reports", path: "/dashboard/reports", roles: ["admin", "it"], icon: FaFileAlt },
+      ]
     },
     {
-      title: "Services",
-      path: "/dashboard/services",
-      roles: ["superadmin", "it", "admin"],
-      icon: FaStethoscope,
+      category: "Public Notice & Announcements",
+      items: [
+        { title: "Notices", path: "/dashboard/notices", roles: ["superadmin", "communication", "it", "admin"], icon: FaBullhorn },
+        { title: "Tenders", path: "/dashboard/tenders", roles: ["superadmin", "communication", "it", "admin"], icon: FaGavel },
+      ]
     },
     {
-      title: "Research",
-      path: "/dashboard/research",
-      roles: ["superadmin", "it", "admin"],
-      icon: FaFileAlt,
-    },
-    {
-      title: "Feedback",
-      path: "/dashboard/feedback",
-      roles: ["superadmin", "communication", "it", "admin"],
-      icon: FaComments,
-    },
-    {
-      title: "Fraud Reports",
-      path: "/dashboard/fraud",
-      roles: ["superadmin", "it", "admin"],
-      icon: FaExclamationTriangle,
+      category: "System",
+      items: [
+        { title: "Audit Logs", path: "/dashboard/audit-logs", roles: ["superadmin"], icon: FaClipboardCheck },
+        { title: "Fraud Reports", path: "/dashboard/fraud", roles: ["superadmin", "it", "admin"], icon: FaExclamationTriangle },
+      ]
     },
   ];
+
+  const isActive = (path) => location.pathname === path;
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -97,146 +110,194 @@ const Sidebar = () => {
     navigate("/hmis");
   };
 
-  const isActivePath = (path) => location.pathname === path;
-
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 bg-gradient-to-r from-blue-600 to-blue-700 shadow-lg z-50">
-        <div className="flex items-center justify-between p-4">
-          <div>
-            <h2 className="text-xl font-bold text-white">N.C.R.H</h2>
-            <p className="text-xs text-blue-100">CMS</p>
-          </div>
-          <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="text-white p-2 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer"
-          >
-            {isMobileMenuOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
-          </button>
-        </div>
+      {/* MOBILE HEADER */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white shadow-sm p-4 flex justify-between items-center">
+        <h2 className="text-lg font-bold text-gray-800">N.C.R.H</h2>
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2 rounded-lg border border-gray-200 text-md cursor-pointer focus:outline-none "
+        >
+          {isMobileMenuOpen ? <MdClose /> :  <MdMenu />}
+        </button>
       </div>
 
-      {/* Overlay for mobile menu */}
+      {/* MOBILE OVERLAY */}
       {isMobileMenuOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/60 bg-opacity-50 z-40"
+          className="fixed inset-0 z-30 bg-black/75 bg-opacity-30 lg:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
+      {/* SIDEBAR */}
       <aside
         className={`
-          fixed lg:static inset-y-0 left-0 z-40
-          w-72 bg-white shadow-xl flex flex-col border-r border-gray-200
-          transform transition-transform duration-300 ease-in-out
-          lg:translate-x-0
-          ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
+          fixed lg:static z-40 h-full bg-white
+          flex flex-col transition-all duration-300
+          ${collapsed ? "w-20" : "w-64"}
+          ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
       >
 
-        <div className="hidden lg:block p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700">
-          <h2 className="text-2xl font-bold text-white mb-1">N.C.R.H</h2>
-          <p className="text-sm text-blue-100">Content Management System</p>
+        <div className="p-6 flex items-center justify-between">
+          {!collapsed && (
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">NC</span>
+              </div>
+              <span className="font-bold text-gray-800 text-lg">N.C.R.H</span>
+            </div>
+          )}
+          {collapsed && (
+            <div className="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center mx-auto">
+              <span className="text-white font-bold text-sm">NC</span>
+            </div>
+          )}
         </div>
 
-
-        <div className="lg:hidden h-20" />
-
-        <nav className="flex-1 py-4 px-3 overflow-y-auto">
-          <div className="space-y-1">
-            {links.map((link) => {
-              if (!link.roles.includes(role)) return null;
-
-              const Icon = link.icon;
-              const isActive = isActivePath(link.path);
-
-              return (
-                <Link
-                  key={link.title}
-                  to={link.path}
-                  className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 group ${
-                    isActive
-                      ? "bg-blue-50 text-blue-700 shadow-sm"
-                      : "text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  <Icon
-                    className={`transition-colors ${
-                      isActive
-                        ? "text-blue-600"
-                        : "text-gray-400 group-hover:text-gray-600"
-                    }`}
-                  />
-                  <span
-                    className={`font-medium ${isActive ? "font-semibold" : ""}`}
-                  >
-                    {link.title}
-                  </span>
-                  {isActive && (
-                    <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600"></div>
-                  )}
-                </Link>
-              );
-            })}
+        {/* CATEGORY LABEL */}
+        {!collapsed && (
+          <div className="px-6 mb-2">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              Main
+            </p>
           </div>
+        )}
+
+        {/* NAVIGATION */}
+        <nav className="flex-1 overflow-y-auto px-3">
+          {navigationGroups.map((group, groupIndex) => {
+            // Filter items user has access to
+            const accessibleItems = group.items.filter(item => 
+              item.roles.includes(role)
+            );
+
+            // Skip empty groups
+            if (accessibleItems.length === 0) return null;
+
+            return (
+              <div key={groupIndex} className="mb-4">
+                {/* Category Header */}
+                {!collapsed && (
+                  <div className="px-3 mb-2 mt-4 first:mt-0">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                      {group.category}
+                    </p>
+                  </div>
+                )}
+
+                {/* Category Items */}
+                {accessibleItems.map((link) => {
+                  const Icon = link.icon;
+                  const active = isActive(link.path);
+
+                  return (
+                    <Link
+                      key={link.path}
+                      to={link.path}
+                      className={`
+                        flex items-center mb-1 px-3 py-2.5 rounded-lg
+                        transition-all duration-150
+                        ${active
+                          ? "bg-blue-100 text-blue-500"
+                          : "text-gray-600 hover:bg-gray-50"
+                        }
+                        ${collapsed ? "justify-center" : ""}
+                      `}
+                      title={collapsed ? link.title : ""}
+                    >
+                      <Icon className={`text-lg ${active ? "text-blue-500" : "text-gray-500"}`} />
+                      {!collapsed && (
+                        <span className="ml-3 text-sm font-medium">{link.title}</span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            );
+          })}
         </nav>
 
-        {/* Profile Section */}
-        <div className="p-4   bg-gray-50">
-          <div className="relative">
-            <button
-              onClick={() => setShowProfileMenu(!showProfileMenu)}
-              className="w-full flex items-center space-x-3 p-3 rounded-lg hover:bg-white transition-all duration-200 group"
-            >
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold shadow-md">
-                {role?.charAt(0).toUpperCase()}
-              </div>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-semibold text-gray-800 capitalize">
-                  {role}
-                </p>
-                <p className="text-xs text-gray-500">View profile</p>
-              </div>
-              <FaChevronDown
-                className={`text-gray-400 transition-transform duration-200 ${
-                  showProfileMenu ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-          
-            {showProfileMenu && (
-              <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-10">
-                <Link
-                  to="/dashboard/profile"
-                  className="flex items-center space-x-3 px-4 py-2 hover:bg-gray-50 transition-colors text-gray-600 hover:text-blue-600 cursor-pointer"
-                  onClick={() => setShowProfileMenu(false)}
-                >
-                  <FaUser />
-                  <span className="text-sm">My Profile</span>
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Logout Button */}
-        <div className="p-4">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center cursor-pointer space-x-2 bg-gradient-to-r from-red-500 to-red-600 text-white py-3 rounded-lg hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium"
+        {/* SETTINGS SECTION */}
+        <div className="px-3 mb-4 border-t border-gray-100 pt-4">
+          <Link
+            to="/dashboard/settings"
+            className="flex items-center px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50"
           >
-            <FaSignOutAlt className="text-lg" />
-            <span>Logout</span>
+            <FaCog className="text-lg text-gray-500" />
+            {!collapsed && <span className="ml-3 text-sm font-medium">Settings</span>}
+          </Link>
+          
+          <button
+            className="flex items-center w-full px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50"
+          >
+            <FaMoon className="text-lg text-gray-500" />
+            {!collapsed && (
+              <span className="ml-3 text-sm font-medium flex items-center justify-between w-full">
+                Dark mode
+                <div className="w-9 h-5 bg-gray-200 rounded-full relative">
+                  <div className="w-4 h-4 bg-white rounded-full absolute top-0.5 left-0.5 shadow-sm"></div>
+                </div>
+              </span>
+            )}
           </button>
         </div>
+
+        {/* PROFILE SECTION */}
+        <div className="p-4 border-t border-gray-100">
+          <Link
+            to="/dashboard/profile"
+            className={`flex items-center p-2 rounded-lg hover:bg-gray-50 ${collapsed ? "justify-center" : ""}`}
+          >
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white font-semibold text-sm">
+              {role?.charAt(0).toUpperCase()}
+            </div>
+
+            {!collapsed && (
+              <div className="ml-3 flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 capitalize truncate">
+                  {role || "User"}
+                </p>
+                <p className="text-xs text-gray-500">Admin Manager</p>
+              </div>
+            )}
+
+            {!collapsed && (
+              <button
+                onClick={handleLogout}
+                className="ml-2 p-1.5 rounded-md hover:bg-gray-100 text-gray-400"
+                title="Logout"
+              >
+                <FaSignOutAlt className="text-sm" />
+              </button>
+            )}
+          </Link>
+
+          {collapsed && (
+            <button
+              onClick={handleLogout}
+              className="w-full mt-2 p-2 rounded-lg hover:bg-red-50 text-red-500 flex items-center justify-center"
+              title="Logout"
+            >
+              <FaSignOutAlt className="text-lg" />
+            </button>
+          )}
+        </div>
+
+        {/* COLLAPSE BUTTON */}
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="absolute -right-3 top-6 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:shadow-md transition-shadow hidden lg:flex"
+        >
+          <FaChevronLeft className={`text-xs text-gray-600 transition-transform ${collapsed ? "rotate-180" : ""}`} />
+        </button>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-auto w-full pt-20 lg:pt-0">
-        <div className="p-1">
+      {/* MAIN CONTENT */}
+      <main className="flex-1 overflow-auto pt-20 lg:pt-0 bg-gray-50">
+        <div className="py-1 px-4">
           <Outlet />
         </div>
       </main>
