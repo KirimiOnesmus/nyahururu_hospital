@@ -34,6 +34,8 @@ import {
   NoticePage,
   TenderPage,
   ReportsPage,
+  SettingsPage,
+  AuditLogsPage,
 } from "./components/Dashboard";
 import {
   ServiceDetails,
@@ -88,6 +90,8 @@ function App() {
             <Route path="/dashboard/notices" element={<NoticePage/>} />
             <Route path="/dashboard/tenders" element={<TenderPage/>} />
             <Route path="/dashboard/reports" element={<ReportsPage/>} />
+            <Route path="/dashboard/settings" element={<SettingsPage/>} />
+            <Route path="/dashboard/audit-logs" element={<AuditLogsPage/>} />
 
 
           </Route>

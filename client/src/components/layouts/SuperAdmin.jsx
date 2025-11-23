@@ -45,15 +45,15 @@ const SuperAdmin = () => {
   }, []);
 
   const StatCard = ({ icon: Icon, title, value, subtitle, trend, bgColor, iconColor }) => (
-    <div className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow border border-gray-100">
+    <div className="bg-white rounded-xl shadow-sm p-6 hover:shadow-lg transition-all duration-300 border border-gray-100 hover:-translate-y-1 stat-card">
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center space-x-3 mb-3">
-            <div className={`w-12 h-12 ${bgColor} rounded-lg flex items-center justify-center`}>
+            <div className={`w-12 h-12 ${bgColor} rounded-lg flex items-center justify-center transition-transform duration-300 group-hover:scale-110`}>
               <Icon className={`text-xl ${iconColor}`} />
             </div>
             <div>
-              <p className="text-sm text-gray-500 font-medium">{title}</p>
+              <p className="text-sm text-gray-500 font-medium uppercase tracking-wide">{title}</p>
               <h3 className="text-2xl font-bold text-gray-900">
                 {loading ? (
                   <span className="inline-block w-16 h-8 bg-gray-200 animate-pulse rounded"></span>
@@ -80,10 +80,10 @@ const SuperAdmin = () => {
   const QuickActionButton = ({ icon: Icon, title, description, onClick, color }) => (
     <button
       onClick={onClick}
-      className="w-full bg-white rounded-xl p-5 hover:shadow-md transition-all border border-gray-100 text-left group"
+      className="w-full bg-white rounded-xl p-5 hover:shadow-lg transition-all duration-300 border border-gray-100 text-left group hover:-translate-y-1"
     >
       <div className="flex items-start space-x-4">
-        <div className={`w-12 h-12 ${color} rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform`}>
+        <div className={`w-12 h-12 ${color} rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-sm`}>
           <Icon className="text-xl text-white" />
         </div>
         <div className="flex-1">
@@ -95,8 +95,8 @@ const SuperAdmin = () => {
   );
 
   const SystemStat = ({ label, value, color }) => (
-    <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-      <span className="text-sm text-gray-600">{label}</span>
+    <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0 transition-colors duration-200 hover:bg-gray-50 rounded px-2 -mx-2">
+      <span className="text-sm text-gray-600 font-medium">{label}</span>
       <span className={`text-sm font-semibold ${color}`}>{loading ? "..." : value}</span>
     </div>
   );
@@ -109,7 +109,7 @@ const SuperAdmin = () => {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
              Dashboard
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 text-base">
             Comprehensive overview of all system operations
           </p>
         </div>
@@ -155,7 +155,7 @@ const SuperAdmin = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* System Statistics Card */}
-          <div className="lg:col-span-1 bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="lg:col-span-1 bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-all duration-300">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
               <FaChartLine className="mr-2 text-purple-600" />
               System Statistics

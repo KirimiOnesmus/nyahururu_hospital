@@ -50,17 +50,17 @@ const Slider = () => {
              <div className="absolute inset-0 bg-black/30"></div>
             <div className="absolute inset-0 bg-black/50 flex flex-col justify-center items-center text-center text-white px-6">
               <h1 className="text-4xl md:text-6xl font-bold mb-4">
-                Our Doctors
+                Our Clinics
               </h1>
               <p className="text-lg md:text-2xl mb-6 max-w-2xl">
-                Meet our team of experienced doctors and healthcare
+                Explore our specialized clinics and meet our team of experienced doctors and healthcare
                 professionals.
               </p>
               <a
                 href=""
                 className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition"
               >
-                View Our Doctors
+                View Our Clinics
               </a>
             </div>
           </div>

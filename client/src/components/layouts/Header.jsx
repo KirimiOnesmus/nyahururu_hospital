@@ -136,7 +136,7 @@ const Header = () => {
                     : "hover:text-white md:hover:text-blue-500"
                 }`}
               >
-                Our Doctors
+                Clinics
               </a>
             </li>
             

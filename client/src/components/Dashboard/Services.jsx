@@ -42,6 +42,21 @@ const ServicesPage = () => {
   const [imagePreview, setImagePreview] = useState(null);
 
   const serviceCategories = [
+    "Outpatient & Emergency (A&E)",
+    "Internal Medicine (Medical Wards)",
+    "Surgical Department",
+    "Maternity & Reproductive Health (MCH)",
+    "Pediatrics & Child Health",
+    "Renal Unit (Nephrology)",
+    "Orthopedics & Trauma",
+    "Radiology & Imaging",
+    "Laboratory & Pathology",
+    "Pharmacy & Therapeutics",
+    "Comprehensive Care Centre (CCC)",
+    "Dental Unit",
+    "Ophthalmology (Eye Unit)",
+    "Physiotherapy & Rehabilitation",
+    "Nutrition & Dietetics",
     "Outpatient Services",
     "Inpatient Services",
     "Emergency Services",
@@ -82,7 +97,7 @@ const ServicesPage = () => {
       service.headOfDepartment?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesCategory = 
-      filterCategory === "all" || service.category === filterCategory;
+      filterCategory === "all" || (service.department || service.category) === filterCategory;
     
     return matchesSearch && matchesCategory;
   });
@@ -102,7 +117,7 @@ const ServicesPage = () => {
       setSelectedService(service);
       setFormData({
         name: service.name || "",
-        category: service.category || "",
+        category: service.department || service.category || "",
         description: service.description || "",
         headOfDepartment: service.headOfDepartment || "",
         contactInfo: service.contactInfo || "",
@@ -146,20 +161,46 @@ const ServicesPage = () => {
     }
   };
 
+  const handleCancel = () => {
+    setModalOpen(false);
+    setImagePreview(null);
+    setFormData({
+      name: "",
+      category: "",
+      description: "",
+      headOfDepartment: "",
+      contactInfo: "",
+      serviceHours: "",
+      location: "",
+      tariffInfo: "",
+      nhifCovered: false,
+      image: null,
+    });
+    setSelectedService(null);
+    setIsEditing(false);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
       const payload = new FormData();
       payload.append("name", formData.name);
-      payload.append("category", formData.category);
-      payload.append("description", formData.description);
-      payload.append("headOfDepartment", formData.headOfDepartment);
-      payload.append("contactInfo", formData.contactInfo);
-      payload.append("serviceHours", formData.serviceHours);
-      payload.append("location", formData.location);
-      payload.append("tariffInfo", formData.tariffInfo);
-      payload.append("nhifCovered", formData.nhifCovered);
+      // Always send department field, even if empty
+      payload.append("department", formData.category || ""); // Map category to department for backend
+      payload.append("description", formData.description || "");
+      payload.append("headOfDepartment", formData.headOfDepartment || "");
+      payload.append("contactInfo", formData.contactInfo || "");
+      payload.append("serviceHours", formData.serviceHours || "");
+      payload.append("location", formData.location || "");
+      payload.append("tariffInfo", formData.tariffInfo || "");
+      payload.append("nhifCovered", formData.nhifCovered ? "true" : "false");
+      
+      console.log("Form data being sent:", {
+        name: formData.name,
+        category: formData.category,
+        department: formData.category || ""
+      });
 
       if (formData.image) {
         payload.append("image", formData.image);
@@ -172,20 +213,34 @@ const ServicesPage = () => {
       };
 
       if (isEditing) {
-        await api.put(`/services/${selectedService._id}`, payload, config);
+        const response = await api.put(`/services/${selectedService._id}`, payload, config);
+        console.log("Update response:", response.data);
       } else {
         await api.post("/services", payload, config);
       }
 
-      fetchServices();
-      setModalOpen(false);
-      setImagePreview(null);
+      // Refresh services list to show updated data
+      await fetchServices();
+      handleCancel();
       alert("Service saved successfully!");
     } catch (err) {
       console.error("Error details:", err.response?.data);
       alert(err.response?.data?.message || "Error saving service");
     }
   };
+
+  // Handle ESC key to close modal
+  useEffect(() => {
+    if (!modalOpen) return;
+    
+    const handleEsc = (e) => {
+      if (e.key === "Escape") {
+        handleCancel();
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [modalOpen]);
 
   const handleViewService = (service) => {
     setSelectedService(service);
@@ -195,7 +250,7 @@ const ServicesPage = () => {
   const getCategoryStats = () => {
     const stats = {};
     serviceCategories.forEach(cat => {
-      stats[cat] = services.filter(s => s.category === cat).length;
+      stats[cat] = services.filter(s => (s.department || s.category) === cat).length;
     });
     return stats;
   };
@@ -267,7 +322,7 @@ const ServicesPage = () => {
               <div>
                 <p className="text-sm text-gray-500 mb-1">Categories</p>
                 <h3 className="text-2xl font-bold text-orange-600">
-                  {new Set(services.map(s => s.category).filter(Boolean)).size}
+                  {new Set(services.map(s => s.department || s.category).filter(Boolean)).size}
                 </h3>
               </div>
               <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
@@ -346,7 +401,7 @@ const ServicesPage = () => {
                   <div className="p-5">
                     <div className="mb-3">
                       <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-                        {service.category || "Uncategorized"}
+                        {service.department || service.category || "Uncategorized"}
                       </span>
                     </div>
                     <h3 className="text-lg font-bold text-gray-900 mb-2">
@@ -411,7 +466,7 @@ const ServicesPage = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-2xl font-bold text-gray-900">{selectedService.name}</h3>
-                  <p className="text-sm text-blue-600 mt-1">{selectedService.category}</p>
+                  <p className="text-sm text-blue-600 mt-1">{selectedService.department || selectedService.category || "Uncategorized"}</p>
                 </div>
                 <button
                   onClick={() => setViewModal(false)}
@@ -523,19 +578,39 @@ const ServicesPage = () => {
 
       {/* Add/Edit Service Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-100">
-              <h2 className="text-2xl font-bold text-gray-900">
-                {isEditing ? "Edit Department/Service" : "Add New Department/Service"}
-              </h2>
-              <p className="text-gray-600 mt-1">
-                {isEditing ? "Update department/service information" : "Create a new department or service"}
-              </p>
+        <div 
+          className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            // Close modal when clicking outside the modal content
+            if (e.target === e.currentTarget) {
+              handleCancel();
+            }
+          }}
+        >
+          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    {isEditing ? "Edit Department/Service" : "Add New Department/Service"}
+                  </h2>
+                  <p className="text-gray-600 mt-1">
+                    {isEditing ? "Update department/service information" : "Create a new department or service"}
+                  </p>
+                </div>
+                <button
+                  onClick={handleCancel}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Close (ESC)"
+                >
+                  <FaTimes className="text-gray-500 text-xl" />
+                </button>
+              </div>
             </div>
 
-            <div className="p-6">
-              <div className="space-y-6">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 overflow-y-auto flex-1">
+                <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -710,28 +785,26 @@ const ServicesPage = () => {
                     Recommended: JPG, PNG or WEBP (Max 5MB)
                   </p>
                 </div>
+                </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 mt-8 pt-6 border-t border-gray-100">
+              <div className="flex items-center justify-end gap-3 p-6 pt-4 border-t border-gray-100 flex-shrink-0 bg-white">
                 <button
                   type="button"
-                  onClick={() => {
-                    setModalOpen(false);
-                    setImagePreview(null);
-                  }}
+                  onClick={handleCancel}
                   className="px-6 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={handleSubmit}
+                  type="submit"
                   className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   <FaCheckCircle className="mr-2" />
                   {isEditing ? "Update Service" : "Create Service"}
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
