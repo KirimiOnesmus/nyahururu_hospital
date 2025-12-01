@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Header, Footer } from "../components/layouts";
-import axios from "axios";
+import api from "../api/axios";
 import {
   FaUser,
   FaEnvelope,
@@ -55,7 +55,7 @@ const Appointment = () => {
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const res = await axios.get("/api/services");
+        const res = await api.get("/services");
         setServices(res.data);
       } catch (error) {
         console.error("Error fetching services", error);
@@ -76,7 +76,7 @@ const Appointment = () => {
     setSubmitStatus(null);
 
     try {
-      const res = await axios.post("/api/appointments", formData);
+      const res = await api.post("/appointments", formData);
       setFormData({
         name: "",
         email: "",
@@ -146,7 +146,7 @@ const Appointment = () => {
     setSubmitStatus(null);
 
     try {
-      const res = await axios.post("/api/anonymous", anonymousForm);
+      const res = await api.post("/anonymous", anonymousForm);
       setSubmitStatus("success");
       setStep(6);
       console.log("Anonymous booking successful:", res.data);
