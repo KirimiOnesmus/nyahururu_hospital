@@ -36,13 +36,13 @@ const About = () => {
       </div>
 
       <div className="body flex-grow relative">
-        {/* Hero Slider */}
+    
         <div className="slider">
           <Slider />
         </div>
 
         <div className="flex relative">
-          {/* Mobile Menu Toggle */}
+          
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden fixed bottom-10 left-6 z-40 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-colors"
@@ -50,14 +50,14 @@ const About = () => {
             {mobileMenuOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
           </button>
 
-          {/* Sidebar Navigation */}
+
           <aside
             className={`fixed md:sticky top-20 left-0 h-screen md:h-auto bg-white shadow-lg md:shadow-none z-30 transition-transform duration-300 ease-in-out ${
               mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
             } md:translate-x-0 w-64 md:w-72 overflow-y-auto`}
           >
             <div className="px-4 md:p-6 pt-14 md:pt-8 space-y-2">
-              {/* <h3 className="text-lg font-bold text-gray-800 mb-4 px-3">Navigation</h3> */}
+              
               {menuItems.map((item) => {
                 const Icon = item.icon;
                 return (

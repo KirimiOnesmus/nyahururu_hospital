@@ -22,20 +22,17 @@ import { useNavigate } from "react-router-dom";
 
 const Appointment = () => {
   const navigate = useNavigate();
-  // Booking type toggle
   const [bookingType, setBookingType] = useState("normal");
 
-  // Normal booking state
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
-    service: "",
+    department: "",
     date: "",
     time: "",
   });
 
-  // Anonymous booking state
   const [step, setStep] = useState(1);
   const [anonymousForm, setAnonymousForm] = useState({
     case_type: "",
@@ -49,19 +46,43 @@ const Appointment = () => {
   });
 
   const [loading, setLoading] = useState(false);
-  const [services, setServices] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [allDepartments, setAllDepartments] = useState([]);
   const [submitStatus, setSubmitStatus] = useState(null);
 
   useEffect(() => {
-    const fetchServices = async () => {
+    const fetchDepartments = async () => {
       try {
         const res = await api.get("/services");
-        setServices(res.data);
+        console.log("Services response:", res.data);
+
+        // Ensure we have an array
+        let servicesData = [];
+        if (Array.isArray(res.data)) {
+          servicesData = res.data;
+        } else if (Array.isArray(res.data.data)) {
+          servicesData = res.data.data;
+        } else if (res.data.services && Array.isArray(res.data.services)) {
+          servicesData = res.data.services;
+        } else {
+          console.warn("Unexpected response structure:", res.data);
+          servicesData = [];
+        }
+
+        setDepartments(servicesData);
+
+        // Extract unique departments
+        const uniqueDepts = [
+          ...new Set(servicesData.map((s) => s.department).filter(Boolean)),
+        ].sort();
+        setAllDepartments(uniqueDepts);
       } catch (error) {
-        console.error("Error fetching services", error);
+        console.error("Error fetching departments", error);
+        toast.error("Failed to load departments. Please refresh the page.");
+        setDepartments([]);
       }
     };
-    fetchServices();
+    fetchDepartments();
   }, []);
 
   // Normal booking handlers
@@ -70,30 +91,66 @@ const Appointment = () => {
     if (submitStatus) setSubmitStatus(null);
   };
 
+  const validateNormalForm = () => {
+    const { name, email, phone, department, date, time } = formData;
+
+    if (!name.trim()) {
+      toast.error("Please enter your name");
+      return false;
+    }
+    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      toast.error("Please enter a valid email address");
+      return false;
+    }
+    if (!phone.match(/^[0-9\s\-\+\(\)]{9,}$/)) {
+      toast.error("Please enter a valid phone number");
+      return false;
+    }
+    if (!department) {
+      toast.error("Please select a department");
+      return false;
+    }
+    if (!date) {
+      toast.error("Please select a date");
+      return false;
+    }
+    if (!time) {
+      toast.error("Please select a time");
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!validateNormalForm()) return;
+
     setLoading(true);
     setSubmitStatus(null);
 
     try {
-      const res = await api.post("/appointments", formData);
+      const res = await api.post("/appointments", {
+        ...formData,
+        service: formData.department, // Send as service for backend compatibility
+      });
       setFormData({
         name: "",
         email: "",
         phone: "",
-        service: "",
+        department: "",
         date: "",
         time: "",
       });
       setSubmitStatus("success");
       console.log("Booked successfully:", res.data);
-      setTimeout(() => setSubmitStatus(null), 5000);
       toast.success("Appointment booked successfully!");
-      navigate("/");
+      setTimeout(() => navigate("/"), 3000);
     } catch (error) {
       console.error(error);
       setSubmitStatus("error");
-      toast.error("Failed to book appointment. Please try again.");
+      const errorMsg = error.response?.data?.message || "Failed to book appointment";
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -151,11 +208,11 @@ const Appointment = () => {
       setStep(6);
       console.log("Anonymous booking successful:", res.data);
       toast.success("Anonymous appointment request submitted successfully!");
-      navigate("/appointment");
     } catch (error) {
       console.error(error);
       setSubmitStatus("error");
-      toast.error("Failed to submit anonymous appointment. Please try again.");
+      const errorMsg = error.response?.data?.message || "Failed to submit request";
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -271,9 +328,6 @@ const Appointment = () => {
                     Anonymous Support
                     <FaLock className="ml-2 text-sm text-purple-600" />
                   </h3>
-                  {/* <p className="text-sm text-gray-600">
-                    Confidential booking for GBV & Mental Health
-                  </p> */}
                 </div>
               </div>
             </button>
@@ -343,6 +397,7 @@ const Appointment = () => {
                         value={formData.name}
                         onChange={handleChange}
                         required
+                        aria-label="Full name"
                         className="w-full border border-gray-300 p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-gray-400"
                       />
                     </div>
@@ -360,6 +415,7 @@ const Appointment = () => {
                           onChange={handleChange}
                           required
                           placeholder="davidkamau@gmail.com"
+                          aria-label="Email address"
                           className="w-full border border-gray-300 p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-gray-400"
                         />
                       </div>
@@ -376,6 +432,7 @@ const Appointment = () => {
                           value={formData.phone}
                           onChange={handleChange}
                           required
+                          aria-label="Phone number"
                           className="w-full border border-gray-300 p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-gray-400"
                         />
                       </div>
@@ -384,21 +441,26 @@ const Appointment = () => {
                     <div className="group">
                       <label className="block mb-2 font-semibold text-gray-700 flex items-center">
                         <FaStethoscope className="mr-2 text-blue-600" />
-                        Service *
+                        Department *
                       </label>
                       <select
-                        name="service"
-                        value={formData.service}
+                        name="department"
+                        value={formData.department}
                         onChange={handleChange}
                         required
+                        aria-label="Select department"
                         className="w-full border border-gray-300 p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-gray-400 bg-white"
                       >
-                        <option value="">Select a Service</option>
-                        {services.map((service) => (
-                          <option key={service._id} value={service.name}>
-                            {service.name}
-                          </option>
-                        ))}
+                        <option value="">Select a Department</option>
+                        {Array.isArray(allDepartments) && allDepartments.length > 0 ? (
+                          allDepartments.map((dept) => (
+                            <option key={dept} value={dept}>
+                              {dept}
+                            </option>
+                          ))
+                        ) : (
+                          <option disabled>No departments available</option>
+                        )}
                       </select>
                     </div>
 
@@ -415,6 +477,7 @@ const Appointment = () => {
                           onChange={handleChange}
                           required
                           min={new Date().toISOString().split("T")[0]}
+                          aria-label="Appointment date"
                           className="w-full border border-gray-300 p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-gray-400"
                         />
                       </div>
@@ -430,6 +493,7 @@ const Appointment = () => {
                           value={formData.time}
                           onChange={handleChange}
                           required
+                          aria-label="Appointment time"
                           className="w-full border border-gray-300 p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-gray-400"
                         />
                       </div>
@@ -507,8 +571,7 @@ const Appointment = () => {
             </>
           )}
 
-          {/* Anonymous Booking Form  */}
-
+          {/* ANONYMOUS BOOKING - Rest remains the same as before */}
           {bookingType === "anonymous" && (
             <>
               {/* Privacy Notice */}
