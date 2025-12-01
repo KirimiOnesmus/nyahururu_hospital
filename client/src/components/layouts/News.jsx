@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../../api/axios";
 
 const News = () => {
   const [news, setNews] = useState([]);
@@ -20,7 +20,7 @@ const News = () => {
   useEffect(() => {
     const fetchNews = async () => {
       try {
-        const res = await axios.get("/api/news");
+        const res = await api.get("/news");
         setNews(res.data);
         console.log("Fetched news data:", res.data);
       } catch (error) {
