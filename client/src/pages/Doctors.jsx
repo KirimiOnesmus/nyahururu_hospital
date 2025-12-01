@@ -17,8 +17,11 @@ const Doctors = () => {
       try {
         setLoading(true);
         const response = await api.get("/doctors/doctors");
-        const doctorsData = response.data.data;
 
+        // Ensure we always get an array
+        const doctorsData = Array.isArray(response.data.data)
+          ? response.data.data
+          : [];
         setDoctors(doctorsData);
 
         const departments = [
@@ -26,7 +29,6 @@ const Doctors = () => {
         ].sort();
         setAllDepartments(departments);
 
-        // Check if department is in URL query params
         const departmentParam = searchParams.get("department");
         if (departmentParam) {
           const decodedDepartment = decodeURIComponent(departmentParam);
@@ -36,9 +38,11 @@ const Doctors = () => {
           setFilteredDoctors(doctorsData);
           setSelectedDepartment(null);
         }
-
       } catch (error) {
         console.error("Error fetching doctors:", error);
+        // fallback to empty array
+        setDoctors([]);
+        setFilteredDoctors([]);
       } finally {
         setLoading(false);
       }
@@ -99,7 +103,6 @@ const Doctors = () => {
             </p>
           </div>
 
-    
           {/* Department Filter */}
           {!loading && doctors.length > 0 && (
             <div className="mb-8">
@@ -157,7 +160,6 @@ const Doctors = () => {
             </div>
           ) : (
             <>
-
               {/* Doctors Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {filteredDoctors.map((doctor) => (
