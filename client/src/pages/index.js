@@ -1,12 +1,19 @@
-export {default as Home} from "./Home"
-export{default as Services} from "./Services"
-export {default as Doctors} from  "./Doctors"
-export {default as About} from "./About"
-export{default as Feedback } from "./Feedback"
-export{default as ReportFraud} from "./ReportFraud"
-export{default as Appointment} from "./Appointment"
-export{default as Career} from "./Careers"
-export{default as BloodDonation} from "./BloodDonation"
-export{default as FinancialAid} from "./FinancialAid"
-export{default as HMIS} from "./Hmis"
-export{default as IpcLogin} from "./IpcLogin"
+export { default as Home } from "./Home";
+export { default as Services } from "./Services";
+export { default as Doctors } from "./Doctors";
+export { default as About } from "./About";
+export { default as Feedback } from "./Feedback";
+export { default as ReportFraud } from "./ReportFraud";
+export { default as Appointment } from "./Appointment";
+export { default as Career } from "./Careers";
+export { default as BloodDonation } from "./BloodDonation";
+export { default as FinancialAid } from "./FinancialAid";
+export { default as HMIS } from "./Hmis";
+export { default as Dashboard } from "../components/Dashboard/Dashboard";
+export { default as ApplyCareer } from "./ApplyCareer";
+export { default as AmbulanceServices } from "./AmbulanceServices";
+export { default as BloodRegistration } from "./BloodRegistration";
+export { default as EventsPage } from "./EventsPage";
+export { default as Gallery } from "./Gallery";
+export { default as Tenders } from "./TenderPage";
+export { default as Downloads } from "./Downloads";

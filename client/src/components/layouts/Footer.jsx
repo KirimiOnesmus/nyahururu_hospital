@@ -60,10 +60,11 @@ const Footer = () => {
             </li>
             <li>
               <a
-                href=""
+                href="#"
+                onClick={() => navigate("/events")}
                 className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300"
               >
-                News
+                Events
               </a>
             </li>
             <li>
@@ -77,15 +78,17 @@ const Footer = () => {
             </li>
             <li>
               <a
-                href=""
+                href="#"
+                onClick={() => navigate("/tenders")}
                 className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300"
               >
-                Blogs
+                Tenders
               </a>
             </li>
             <li>
               <a
-                href=""
+                href="#"
+                onClick={() => navigate("/downloads")}
                 className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300"
               >
                 Downloads
