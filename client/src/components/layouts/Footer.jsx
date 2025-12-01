@@ -8,115 +8,121 @@ import { useNavigate } from "react-router-dom";
 
 const Footer = () => {
   const navigate = useNavigate();
+  
+  const currentYear = new Date().getFullYear();
+
+  const quickLinks = [
+    { label: "Give us your Feedback", path: "/feedback" },
+    { label: "Report Fraud", path: "/report-fraud" },
+    { label: "Events", path: "/events" },
+    { label: "Careers", path: "/careers" },
+    { label: "Tenders", path: "/tenders" },
+    { label: "Downloads", path: "/downloads" },
+  ];
+
+  const contactInfo = [
+    { icon: FaPhoneAlt, label: "0712345678", type: "phone" },
+    { icon: MdEmail, label: "nyahururuhospital@gmail.com", type: "email" },
+    { icon: MdLocationOn, label: "Along Nyahururu-Nakuru Road", type: "location" },
+  ];
+
+  const socialLinks = [
+    { icon: MdFacebook, color: "text-blue-600", label: "Facebook", url: "#" },
+    { icon: FaSquareXTwitter, color: "text-black", label: "Twitter", url: "#" },
+    { icon: AiFillInstagram, color: "text-pink-500", label: "Instagram", url: "#" },
+  ];
+
   return (
-    <div className="px-4 mt-4 bg-gray-100">
-      <div className="md:flex md:justify-between py-4 md:space-y-0 space-y-4">
-        <img src={logo} alt="LHS logo" className="h-32" />
-        <div className="">
-          <h3 className="text-lg font-semibold pb-4">Get in Touch With Us</h3>
+    <footer className="bg-gradient-to-b from-gray-50 to-gray-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Main Footer Content */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 py-12">
+          {/* Logo Section */}
+          <div className="flex flex-col items-center md:items-start">
+            <img src={logo} alt="Nyahururu Hospital logo" className="h-24 mb-4" />
+            <p className="text-sm text-gray-600 text-center md:text-left">
+              Providing quality healthcare services to our community
+            </p>
+          </div>
+
+          {/* Contact Section */}
           <div>
-            <ul className="space-y-2">
-              <li className="flex items-center space-x-2">
-                <FaPhoneAlt className="text-lg text-blue-500" />{" "}
-                <span className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300">
-                  0712345678
-                </span>
-              </li>
-              <li className="flex items-center space-x-2">
-                <MdEmail className="text-lg text-blue-500" />{" "}
-                <span className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300">
-                  nyahururuhospital@gmail.com
-                </span>
-              </li>
-              <li className="flex items-center space-x-2">
-                <MdLocationOn className="text-lg text-blue-500" />{" "}
-                <span className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300">
-                  Along Nyahururu-Nakuru Road
-                </span>
-              </li>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Get in Touch</h3>
+            <ul className="space-y-3">
+              {contactInfo.map((info, idx) => {
+                const Icon = info.icon;
+                return (
+                  <li key={idx} className="flex items-start space-x-3 group">
+                    <Icon className="text-blue-600 text-lg flex-shrink-0 mt-1" />
+                    <span className="text-gray-700 text-sm group-hover:text-blue-600 transition-colors duration-300 cursor-pointer">
+                      {info.label}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           </div>
+
+          {/* Quick Links Section */}
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Links</h3>
+            <ul className="space-y-2">
+              {quickLinks.map((link, idx) => (
+                <li key={idx}>
+                  <button
+                    onClick={() => navigate(link.path)}
+                    className="text-gray-700 text-sm hover:text-blue-600 transition-colors duration-300 font-medium"
+                  >
+                    {link.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Social Links Section */}
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Follow Us</h3>
+            <p className="text-gray-600 text-sm mb-4">
+              Connect with us on social media for updates and news
+            </p>
+            <div className="flex space-x-4">
+              {socialLinks.map((social, idx) => {
+                const Icon = social.icon;
+                return (
+                  <a
+                    key={idx}
+                    href={social.url}
+                    aria-label={social.label}
+                    className={`${social.color} text-2xl hover:scale-110 transition-transform duration-300`}
+                  >
+                    <Icon />
+                  </a>
+                );
+              })}
+            </div>
+          </div>
         </div>
-        <div className="links ">
-          <h3 className="text-lg font-semibold pb-4">Quick Links</h3>
-          <ul className="space-y-2">
-            <li>
-              <a
-                href="#"
-                onClick={() => navigate("/feedback")}
-                className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300"
-              >
-                Give us your Feedback
-              </a>
-            </li>
-            <li>
-              <a
-                href="#"
-                onClick={() => navigate("/report-fraud")}
-                className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300"
-              >
-                Report Fraud
-              </a>
-            </li>
-            <li>
-              <a
-                href="#"
-                onClick={() => navigate("/events")}
-                className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300"
-              >
-                Events
-              </a>
-            </li>
-            <li>
-              <a
-                href="#"
-                onClick={() => navigate("/careers")}
-                className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300"
-              >
-                Careers
-              </a>
-            </li>
-            <li>
-              <a
-                href="#"
-                onClick={() => navigate("/tenders")}
-                className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300"
-              >
-                Tenders
-              </a>
-            </li>
-            <li>
-              <a
-                href="#"
-                onClick={() => navigate("/downloads")}
-                className="hover:text-blue-500 hover:cursor-pointer transition-all duration-300"
-              >
-                Downloads
-              </a>
-            </li>
-          </ul>
-        </div>
-      </div>
-      <div className="flex justify-between items-center my-2 border-t border-gray-400 p-2">
-        <p>
-          <span> &copy;{new Date().getFullYear()}</span> Nyahururu Hospital. All
-          right reserved.
-        </p>
-        <div className="socials">
-          <ul className="flex text-2xl space-x-3">
-            <li className="text-blue-500 cursor-pointer">
-              <MdFacebook />
-            </li>
-            <li className="text-black cursor-pointer">
-              <FaSquareXTwitter />
-            </li>
-            <li className="text-pink-500 cursor-pointer">
-              <AiFillInstagram />
-            </li>
-          </ul>
+
+        {/* Divider */}
+        <div className="border-t border-gray-300"></div>
+
+        {/* Bottom Footer */}
+        <div className="py-6 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
+          <p className="text-gray-600 text-sm">
+            &copy; {currentYear} Nyahururu Hospital. All rights reserved.
+          </p>
+          <a
+            href="https://onesmuskirimi.netlify.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 text-sm hover:text-blue-800 transition-colors duration-300 font-medium"
+          >
+            Design & Development by Onesmus Kirimi
+          </a>
         </div>
       </div>
-    </div>
+    </footer>
   );
 };
 
