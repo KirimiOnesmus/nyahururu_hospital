@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Header, Footer } from "../components/layouts";
-import axios from "axios";
+import api from "../api/axios";
+import {toast} from "react-toastify"
 
 const Feedback = () => {
   const [formData, setFormData] = useState({
@@ -22,8 +23,10 @@ const Feedback = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const response = await axios.post("/api/feedback", formData);
-      console.log("Feedback submitted successfully:", response.data);
+      const response = await api.post("/api/feedback", formData);
+      // console.log("Feedback submitted successfully:", response.data);
+      toast.success("Feedback submitted successfully.")
+
       setFormData({
         name: "",
         email: "",
@@ -33,6 +36,7 @@ const Feedback = () => {
       });
     } catch (error) {
       console.error("Error submitting feedback:", error);
+      toast.error("Error submitting feedback")
     } finally {
       setLoading(false);
     }

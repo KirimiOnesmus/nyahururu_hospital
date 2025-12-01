@@ -9,24 +9,25 @@ import {
   News
 } from "../components/layouts";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../api/axios";
+import { toast } from "react-toastify";
 
 const Home = () => {
   const navigate = useNavigate();
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Backend base URL
-  const BACKEND_URL = "http://localhost:5000";
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const res = await axios.get("/api/services");
+        const res = await api.get("/services");
         setServices(res.data);
-        console.log(res.data);
+        // console.log("Services Data:", res.data);
       } catch (error) {
         console.error("Failed to fetch services:", error);
+        toast.error("Failed to fetch services.");
       } finally {
         setLoading(false);
       }
@@ -42,8 +43,8 @@ const Home = () => {
       <div className="sticky top-0 z-50 bg-white/60 backdrop-blur-md shadow-sm">
         <Header />
       </div>
-      <div className="sections space-y-2 ">
-        <div className="slider ">
+      <div className="sections space-y-2">
+        <div className="slider">
           <Slider />
         </div>
         <div className="services my-4 mx-6 py-4 px-6">

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Header, Footer } from "../components/layouts";
-import axios from "axios";
+import api from "../api/axios";
+import {toast} from "react-toastify"
 
 const ReportFraud = () => {
   const [formData, setFormData] = useState({
@@ -20,11 +21,14 @@ const ReportFraud = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post("/api/fraud", formData);
+      const response = await api.post("/fraud", formData);
       setFormData({ issue: "", dateOfIncident: "", location: "", details: "" });
       console.log("Feedback submitted successfully:", response.data);
+      toast.success("Feedback submitted successfully.")
+
     } catch (error) {
       console.error(error);
+      toast.error("Error submitting feedback.")
     } finally {
       setLoading(false);
     }

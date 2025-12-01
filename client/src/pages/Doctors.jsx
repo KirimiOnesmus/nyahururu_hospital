@@ -25,7 +25,7 @@ const Doctors = () => {
         setDoctors(doctorsData);
 
         const departments = [
-          ...new Set(doctorsData.map((d) => d.department).filter(Boolean)),
+          ...new Set(doctorsData.map((d) => d.department).filter(Boolean)), 
         ].sort();
         setAllDepartments(departments);
 
