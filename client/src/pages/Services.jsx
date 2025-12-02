@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import Card from "../components/layouts/Card";
 import { Header, Partners, Footer } from "../components/layouts";
-import axios from "axios";
+// import axios from "axios";
 import { useSearchParams } from "react-router-dom";
+import api from "../api/axios"
 
 const Services = () => {
   const [services, setServices] = useState([]);
@@ -16,7 +17,7 @@ const Services = () => {
   const [categoriesInDivision, setCategoriesInDivision] = useState([]);
   const [searchParams] = useSearchParams();
 
-  const BACKEND_URL = "http://localhost:5000";
+  // const BACKEND_URL = "http://localhost:5000";
 
   // Fetch services on component mount and when URL changes
   useEffect(() => {
@@ -25,7 +26,7 @@ const Services = () => {
     const fetchServices = async () => {
       try {
         setLoading(true);
-        const res = await axios.get(`${BACKEND_URL}/api/services`);
+        const res = await api.get("/services");
 
         if (isMounted) {
           setServices(res.data);
