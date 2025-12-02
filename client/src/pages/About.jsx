@@ -1,14 +1,14 @@
 import React, { useState } from "react";
 import { Header, Footer, Slider, Management } from "../components/layouts";
-import { 
-  FaHistory, 
-  FaBullseye, 
-  FaEye, 
-  FaChartLine, 
-  FaSitemap, 
+import {
+  FaHistory,
+  FaBullseye,
+  FaEye,
+  FaChartLine,
+  FaSitemap,
   FaUsers,
   FaBars,
-  FaTimes 
+  FaTimes,
 } from "react-icons/fa";
 
 const About = () => {
@@ -36,13 +36,11 @@ const About = () => {
       </div>
 
       <div className="body flex-grow relative">
-    
         <div className="slider">
           <Slider />
         </div>
 
         <div className="flex relative">
-          
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden fixed bottom-10 left-6 z-40 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-colors"
@@ -50,14 +48,12 @@ const About = () => {
             {mobileMenuOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
           </button>
 
-
           <aside
             className={`fixed md:sticky top-20 left-0 h-screen md:h-auto bg-white shadow-lg md:shadow-none z-30 transition-transform duration-300 ease-in-out ${
               mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
             } md:translate-x-0 w-64 md:w-72 overflow-y-auto`}
           >
             <div className="px-4 md:p-6 pt-14 md:pt-8 space-y-2">
-              
               {menuItems.map((item) => {
                 const Icon = item.icon;
                 return (
@@ -71,14 +67,15 @@ const About = () => {
                     }`}
                   >
                     <Icon className="text-lg flex-shrink-0" />
-                    <span className=" font-light md:font-medium">{item.label}</span>
+                    <span className=" font-light md:font-medium">
+                      {item.label}
+                    </span>
                   </button>
                 );
               })}
             </div>
           </aside>
 
-         
           {mobileMenuOpen && (
             <div
               className="fixed inset-0 bg-black/50 z-20 md:hidden"
@@ -86,115 +83,151 @@ const About = () => {
             />
           )}
 
-          
           <main className="flex-1 px-6 md:px-12 py-8 max-w-5xl min-h-screen">
-            
             {activeSection === "about" && (
               <div className="animate-fadeIn">
                 <div className="bg-white rounded-xl shadow-md p-8">
                   <div className="flex items-center gap-3 mb-6">
                     <FaHistory className="text-3xl text-blue-600" />
-                    <h2 className="text-3xl font-bold text-gray-900">About Us - History</h2>
+                    <h2 className="text-3xl font-bold text-gray-900">
+                      About Us - History
+                    </h2>
                   </div>
                   <div className="space-y-4 text-gray-700 leading-relaxed">
                     <p className="text-lg">
-                      Nyahururu County Referral Hospital has been a cornerstone of healthcare excellence 
-                      in our community for over [X] years. Founded in [Year], our institution has grown 
-                      from a small clinic to a comprehensive medical facility serving thousands of 
-                      patients annually.
+                      Nyahururu County Referral Hospital (NCRH) is located in
+                      Laikipia County, Kenya, and serves not only Laikipia but
+                      also parts of Nyandarua, Nakuru, Baringo, Samburu, and to
+                      a lesser extent, Nyeri County. Prior to Kenya's devolution
+                      of governance, the hospital was designated to serve the
+                      Nyandarua North District. The hospital was established in
+                      1928 as a dispensary by the British government, consisting
+                      of five buildings, including the current administrative
+                      block, female surgical ward, female medical unit,
+                      Voluntary Counselling and Testing (VCT) room, and
+                      mortuary.
                     </p>
                     <p className="text-lg">
-                      Throughout our history, we have remained committed to providing accessible, 
-                      high-quality healthcare to all members of our community, regardless of their 
-                      background or circumstances. Our journey has been marked by continuous innovation, 
-                      expansion of services, and unwavering dedication to patient care.
+                      In 1968, the Kenyan government upgraded it to a District
+                      Hospital. Geographically, the hospital is situated at an
+                      elevation of approximately 399 meters above sea level,
+                      providing a cool climate due to its proximity to the
+                      equator. Notable physical features in the vicinity include
+                      the Aberdare Ranges to the southeast, the Rift Valley to
+                      the west, and Lake Ol Bolossat, the only lake in Kenya’s
+                      central region, to the southeast. Thomson Falls, a
+                      renowned tourist attraction, is also nearby. The local
+                      community primarily consists of small-scale farmers.
                     </p>
                     <p className="text-lg">
-                      Today, we stand as a leading healthcare provider, equipped with modern facilities, 
-                      advanced medical technology, and a team of highly skilled professionals dedicated 
-                      to improving health outcomes and enhancing the quality of life for our patients.
+                      The hospital is a level four facility that offers
+                      promotive, preventive, curative and rehabilitative
+                      services and a primary referral hospital for level 2 and
+                      level 3 facilities in the area
                     </p>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Mission Section */}
             {activeSection === "mission" && (
               <div className="animate-fadeIn">
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow-md p-8 border-l-4 border-blue-600">
                   <div className="flex items-center gap-3 mb-6">
                     <FaBullseye className="text-3xl text-blue-600" />
-                    <h2 className="text-3xl font-bold text-gray-900">Our Mission</h2>
+                    <h2 className="text-3xl font-bold text-gray-900">
+                      Our Mission
+                    </h2>
                   </div>
                   <p className="text-lg text-gray-800 leading-relaxed">
-                    Our mission is to provide exceptional healthcare services with compassion, 
-                    integrity, and respect. We are dedicated to improving the health and well-being 
-                    of the community through innovative medical practices and personalized care. 
-                    Every patient deserves to receive the highest standard of medical attention in 
-                    a welcoming and supportive environment.
+                    To provide high-quality, accessible, and equitable
+                    healthcare services, meeting regional health needs and
+                    supporting public health initiatives.
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Vision Section */}
             {activeSection === "vision" && (
               <div className="animate-fadeIn">
                 <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl shadow-md p-8 border-l-4 border-purple-600">
                   <div className="flex items-center gap-3 mb-6">
                     <FaEye className="text-3xl text-purple-600" />
-                    <h2 className="text-3xl font-bold text-gray-900">Our Vision</h2>
+                    <h2 className="text-3xl font-bold text-gray-900">
+                      Our Vision
+                    </h2>
                   </div>
                   <p className="text-lg text-gray-800 leading-relaxed">
-                    Our vision is to be a leading healthcare provider recognized for excellence in 
-                    patient care, medical innovation, and community engagement. We strive to create 
-                    a healthier future for all by setting new standards in healthcare delivery, 
-                    fostering medical research, and building strong partnerships with our community.
+                    Provide effecient and effective quality health services to
+                    all Kenyans.
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Strategic Plan Section */}
             {activeSection === "strategy" && (
               <div className="animate-fadeIn">
                 <div className="bg-white rounded-xl shadow-md p-8">
                   <div className="flex items-center gap-3 mb-6">
                     <FaChartLine className="text-3xl text-green-600" />
-                    <h2 className="text-3xl font-bold text-gray-900">Strategic Plan</h2>
+                    <h2 className="text-3xl font-bold text-gray-900">
+                      Strategic Plan
+                    </h2>
                   </div>
                   <div className="space-y-6">
                     <p className="text-lg text-gray-700 leading-relaxed">
-                      Our strategic plan focuses on enhancing patient experience, expanding our 
-                      services, and fostering a culture of continuous improvement. We aim to achieve 
-                      these goals through strategic investment in technology, infrastructure, and our 
-                      dedicated team of healthcare professionals.
+                      The Nyahururu County Referral Hospital Strategic Plan
+                      2025–2029 outlines a roadmap to transform the hospital
+                      into a Level 5 regional referral facility through improved
+                      systems, infrastructure, and service capacity. The plan is
+                      guided by Kenya’s Constitution, Vision 2030, and
+                      stakeholder input gathered from staff, community members,
+                      and partners. It emphasizes strengthening institutional
+                      structures, modernizing hospital operations, and expanding
+                      facilities to meet the growing healthcare demands of the
+                      region. The strategy also incorporates financial
+                      sustainability measures, risk mitigation, and enhanced
+                      governance to ensure long-term stability. Overall, the
+                      plan seeks to position NCRH as a high-quality, accessible,
+                      and resilient healthcare institution serving multiple
+                      counties in the region.
                     </p>
-                    
+
                     <div className="grid md:grid-cols-2 gap-4 mt-6">
                       <div className="bg-green-50 p-5 rounded-lg border-l-4 border-green-600">
-                        <h4 className="font-bold text-gray-900 mb-2">Patient-Centered Care</h4>
+                        <h4 className="font-bold text-gray-900 mb-2">
+                          Patient-Centered Care
+                        </h4>
                         <p className="text-sm text-gray-700">
-                          Implementing comprehensive programs to improve patient satisfaction and outcomes.
+                          Implementing comprehensive programs to improve patient
+                          satisfaction and outcomes.
                         </p>
                       </div>
                       <div className="bg-blue-50 p-5 rounded-lg border-l-4 border-blue-600">
-                        <h4 className="font-bold text-gray-900 mb-2">Technology Integration</h4>
+                        <h4 className="font-bold text-gray-900 mb-2">
+                          Technology Integration
+                        </h4>
                         <p className="text-sm text-gray-700">
-                          Adopting cutting-edge medical technology and digital health solutions.
+                          Adopting cutting-edge medical technology and digital
+                          health solutions.
                         </p>
                       </div>
                       <div className="bg-purple-50 p-5 rounded-lg border-l-4 border-purple-600">
-                        <h4 className="font-bold text-gray-900 mb-2">Workforce Development</h4>
+                        <h4 className="font-bold text-gray-900 mb-2">
+                          Workforce Development
+                        </h4>
                         <p className="text-sm text-gray-700">
-                          Investing in training and professional development for our staff.
+                          Investing in training and professional development for
+                          our staff.
                         </p>
                       </div>
                       <div className="bg-orange-50 p-5 rounded-lg border-l-4 border-orange-600">
-                        <h4 className="font-bold text-gray-900 mb-2">Community Partnerships</h4>
+                        <h4 className="font-bold text-gray-900 mb-2">
+                          Community Partnerships
+                        </h4>
                         <p className="text-sm text-gray-700">
-                          Building strong relationships with community organizations and stakeholders.
+                          Building strong relationships with community
+                          organizations and stakeholders.
                         </p>
                       </div>
                     </div>
@@ -203,51 +236,54 @@ const About = () => {
               </div>
             )}
 
-            {/* Management Team / Organizational Structure Section */}
             {activeSection === "org-structure" && (
               <div className="animate-fadeIn">
                 <div className="bg-white rounded-xl shadow-md p-8">
                   <div className="flex items-center gap-3 mb-6">
                     <FaSitemap className="text-3xl text-indigo-600" />
-                    <h2 className="text-3xl font-bold text-gray-900">Management Team</h2>
+                    <h2 className="text-3xl font-bold text-gray-900">
+                      Management Team
+                    </h2>
                   </div>
                   <p className="text-lg text-gray-700 leading-relaxed mb-8">
-                    Meet the passionate leaders driving our mission and vision forward with 
-                    dedication and expertise.
+                    Meet the passionate leaders driving our mission and vision
+                    forward with dedication and expertise.
                   </p>
-                  
-                  {/* Organizational Structure Diagram */}
+
                   <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg p-6 mb-8">
                     <h3 className="text-xl font-bold text-gray-900 mb-4 text-center">
                       Organizational Structure
                     </h3>
                     <div className="flex flex-col items-center space-y-4">
-                      {/* CEO/Director Level */}
                       <div className="bg-white rounded-lg shadow-md p-4 w-64 text-center border-2 border-indigo-600">
-                        <p className="font-bold text-gray-900">Chief Executive Officer</p>
-                        <p className="text-sm text-gray-600">Hospital Director</p>
+                        <p className="font-bold text-gray-900">
+                          Chief Executive Officer
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Hospital Director
+                        </p>
                       </div>
-                      
-                      {/* Department Heads Level */}
+
                       <div className="flex flex-wrap justify-center gap-4 mt-4">
                         {[
                           "Medical Director",
                           "Nursing Director",
                           "Finance Director",
-                          "Operations Director"
+                          "Operations Director",
                         ].map((position, index) => (
                           <div
                             key={index}
                             className="bg-white rounded-lg shadow p-3 w-48 text-center border border-indigo-400"
                           >
-                            <p className="font-semibold text-sm text-gray-900">{position}</p>
+                            <p className="font-semibold text-sm text-gray-900">
+                              {position}
+                            </p>
                           </div>
                         ))}
                       </div>
                     </div>
                   </div>
 
-                  {/* Management Team Cards */}
                   <div className="py-4">
                     <Management />
                   </div>
@@ -255,28 +291,53 @@ const About = () => {
               </div>
             )}
 
-            {/* Board of Management Section */}
             {activeSection === "board" && (
               <div className="animate-fadeIn">
                 <div className="bg-white rounded-xl shadow-md p-8">
                   <div className="flex items-center gap-3 mb-6">
                     <FaUsers className="text-3xl text-blue-600" />
-                    <h2 className="text-3xl font-bold text-gray-900">Board of Management</h2>
+                    <h2 className="text-3xl font-bold text-gray-900">
+                      Board of Management
+                    </h2>
                   </div>
                   <p className="text-lg text-gray-700 leading-relaxed mb-8">
-                    Our Board of Management provides strategic oversight and governance, ensuring 
-                    that the hospital maintains the highest standards of care and operational excellence.
+                    Our Board of Management provides strategic oversight and
+                    governance, ensuring that the hospital maintains the highest
+                    standards of care and operational excellence.
                   </p>
-                  
-                  {/* Board Members Grid */}
+
                   <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {[
-                      { name: "Dr. Jane Kimani", position: "Board Chairperson", specialty: "Healthcare Administration" },
-                      { name: "Mr. Peter Mwangi", position: "Vice Chairperson", specialty: "Finance & Governance" },
-                      { name: "Dr. Sarah Odhiambo", position: "Board Member", specialty: "Medical Ethics" },
-                      { name: "Ms. Grace Wanjiru", position: "Board Member", specialty: "Legal Affairs" },
-                      { name: "Mr. James Mutua", position: "Board Member", specialty: "Community Relations" },
-                      { name: "Dr. David Otieno", position: "Board Member", specialty: "Public Health" },
+                      {
+                        name: "Dr. Linus Ndegwa",
+                        position: "Board Chairperson",
+                        specialty: "Healthcare Administration",
+                      },
+                      {
+                        name: "Mr. Peter Mwangi",
+                        position: "Vice Chairperson",
+                        specialty: "Finance & Governance",
+                      },
+                      {
+                        name: "Dr. Sarah Odhiambo",
+                        position: "Board Member",
+                        specialty: "Medical Ethics",
+                      },
+                      {
+                        name: "Ms. Grace Wanjiru",
+                        position: "Board Member",
+                        specialty: "Legal Affairs",
+                      },
+                      {
+                        name: "Mr. James Mutua",
+                        position: "Board Member",
+                        specialty: "Community Relations",
+                      },
+                      {
+                        name: "Dr. David Otieno",
+                        position: "Board Member",
+                        specialty: "Public Health",
+                      },
                     ].map((member, index) => (
                       <div
                         key={index}
@@ -285,11 +346,15 @@ const About = () => {
                         <div className="w-20 h-20 bg-blue-600 rounded-full mx-auto mb-4 flex items-center justify-center">
                           <FaUsers className="text-3xl text-white" />
                         </div>
-                        <h4 className="font-bold text-gray-900 text-center mb-1">{member.name}</h4>
+                        <h4 className="font-bold text-gray-900 text-center mb-1">
+                          {member.name}
+                        </h4>
                         <p className="text-sm text-blue-600 font-semibold text-center mb-2">
                           {member.position}
                         </p>
-                        <p className="text-xs text-gray-600 text-center">{member.specialty}</p>
+                        <p className="text-xs text-gray-600 text-center">
+                          {member.specialty}
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -324,6 +389,3 @@ const About = () => {
 };
 
 export default About;
-
-
-
