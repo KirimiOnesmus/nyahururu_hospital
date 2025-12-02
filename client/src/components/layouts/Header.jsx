@@ -16,14 +16,14 @@ const Header = () => {
   const location = useLocation();
   const activePage = location.pathname + location.search;
 
-  const BACKEND_URL = "http://localhost:5000";
+  // const BACKEND_URL = "http://localhost:5000";
 
   // Fetch divisions from backend
   useEffect(() => {
     const fetchDivisions = async () => {
       try {
         setLoadingDivisions(true);
-        const res = await api.get(`${BACKEND_URL}/api/services`);
+        const res = await api.get("/services");
        
         const uniqueDivisions = [...new Set(
           res.data.map(s => s.division).filter(Boolean)
