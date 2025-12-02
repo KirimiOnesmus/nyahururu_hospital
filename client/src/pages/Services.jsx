@@ -17,7 +17,7 @@ const Services = () => {
   const [categoriesInDivision, setCategoriesInDivision] = useState([]);
   const [searchParams] = useSearchParams();
 
-  // const BACKEND_URL = "http://localhost:5000";
+  const BACKEND_URL = "http://localhost:5000";
 
   // Fetch services on component mount and when URL changes
   useEffect(() => {
@@ -31,6 +31,7 @@ const Services = () => {
         if (isMounted) {
           setServices(res.data);
           setError(null);
+          
 
           // Extract unique divisions
           const divisions = [
