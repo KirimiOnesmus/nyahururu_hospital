@@ -739,14 +739,14 @@ exports.syncDoctorProfile = async (userId, userData) => {
 
         doctor = new Doctor({
           userId,
-          // speciality: specialization,
+          speciality: specialization,
           department: specialization, 
         });
         await doctor.save();
         console.log("Doctor profile created:", { userId, department });
       } else {
   
-        // doctor.speciality = specialization;
+        doctor.speciality = specialization;
         doctor.department = department; 
         doctor.updatedAt = Date.now();
         await doctor.save();
