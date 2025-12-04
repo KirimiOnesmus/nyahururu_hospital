@@ -8,7 +8,7 @@ const doctorSchema = new mongoose.Schema({
   },
   speciality: {
     type: String,
-    required: true,
+    required: false,
     trim: true,
   },
     department: {
