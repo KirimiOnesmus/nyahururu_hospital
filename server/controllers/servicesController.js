@@ -54,7 +54,7 @@ exports.createService = async (req, res) => {
     }
 
     // Validate division enum
-    const validDivisions = ["Outpatient", "Inpatient"];
+    const validDivisions = ["Outpatient", "Inpatient","Specialist Clinics"];
     if (!validDivisions.includes(division)) {
       return res.status(400).json({ message: "Invalid division. Must be either Outpatient or Inpatient" });
     }

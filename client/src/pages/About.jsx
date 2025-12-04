@@ -196,38 +196,85 @@ const About = () => {
                     <div className="grid md:grid-cols-2 gap-4 mt-6">
                       <div className="bg-green-50 p-5 rounded-lg border-l-4 border-green-600">
                         <h4 className="font-bold text-gray-900 mb-2">
-                          Patient-Centered Care
+                          Service Delivery
                         </h4>
                         <p className="text-sm text-gray-700">
-                          Implementing comprehensive programs to improve patient
-                          satisfaction and outcomes.
+                          This area focuses on improving how patients receive
+                          care by enhancing quality, reducing waiting times, and
+                          expanding the range of services offered. It aims to
+                          ensure that all patients experience consistent,
+                          efficient, and patient-centered healthcare.
                         </p>
                       </div>
                       <div className="bg-blue-50 p-5 rounded-lg border-l-4 border-blue-600">
                         <h4 className="font-bold text-gray-900 mb-2">
-                          Technology Integration
+                          Health Workforce
                         </h4>
                         <p className="text-sm text-gray-700">
-                          Adopting cutting-edge medical technology and digital
-                          health solutions.
+                          This area emphasizes recruiting, training, and
+                          retaining sufficient skilled staff to support
+                          high-quality service delivery. It also prioritizes
+                          staff motivation, welfare, and continuous professional
+                          development to enhance performance.
                         </p>
                       </div>
                       <div className="bg-purple-50 p-5 rounded-lg border-l-4 border-purple-600">
                         <h4 className="font-bold text-gray-900 mb-2">
-                          Workforce Development
+                          Health Information Systems
                         </h4>
                         <p className="text-sm text-gray-700">
-                          Investing in training and professional development for
-                          our staff.
+                          This area aims to modernize hospital operations by
+                          digitizing records, improving data accuracy, and
+                          strengthening reporting systems. It also enhances
+                          decision-making through reliable health data and
+                          better technology adoption.
                         </p>
                       </div>
                       <div className="bg-orange-50 p-5 rounded-lg border-l-4 border-orange-600">
                         <h4 className="font-bold text-gray-900 mb-2">
-                          Community Partnerships
+                          Access to Medicines & Technology
                         </h4>
                         <p className="text-sm text-gray-700">
-                          Building strong relationships with community
-                          organizations and stakeholders.
+                          This area seeks to ensure continuous availability of
+                          essential medicines, medical supplies, and functional
+                          equipment. It includes improving procurement processes
+                          and maintaining modern diagnostic and treatment
+                          technologies.
+                        </p>
+                      </div>
+                      <div className="bg-green-50 p-5 rounded-lg border-l-4 border-green-600">
+                        <h4 className="font-bold text-gray-900 mb-2">
+                          Health Financing
+                        </h4>
+                        <p className="text-sm text-gray-700">
+                          This area focuses on strengthening financial
+                          sustainability through diversified revenue sources,
+                          improved insurance uptake, and efficient budgeting. It
+                          also aims to reduce reliance on out-of-pocket payments
+                          by patients.
+                        </p>
+                      </div>
+                      <div className="bg-blue-50 p-5 rounded-lg border-l-4 border-blue-600">
+                        <h4 className="font-bold text-gray-900 mb-2">
+                          Leadership & Governance
+                        </h4>
+                        <p className="text-sm text-gray-700">
+                          This area strengthens leadership structures,
+                          accountability, and transparent decision-making across
+                          the hospital. It promotes inclusive management
+                          practices and enhances stakeholder engagement.
+                        </p>
+                      </div>
+                      <div className="bg-purple-50 p-5 rounded-lg border-l-4 border-purple-600">
+                        <h4 className="font-bold text-gray-900 mb-2">
+                          Infrastructure Development
+                        </h4>
+                        <p className="text-sm text-gray-700">
+                          This area prioritizes construction, renovation, and
+                          expansion of hospital facilities to support increased
+                          patient volumes and specialized services. It includes
+                          major projects like the outpatient block and perimeter
+                          wall to improve capacity and security.
                         </p>
                       </div>
                     </div>

@@ -1,37 +1,44 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { MdMenu, MdClose, MdOutlineArrowDropDown, MdPhone, MdLocalHospital, MdPerson } from "react-icons/md";
+import {
+  MdMenu,
+  MdClose,
+  MdOutlineArrowDropDown,
+  MdPhone,
+  MdLocalHospital,
+  MdPerson,
+} from "react-icons/md";
 import logo from "../../assets/logo.png";
 import api from "../../api/axios";
 
 const Header = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [activeDropdown, setActiveDropdown] = useState(null);
+  const [isOpen, setIsOpen] = useState(false); // mobile menu
+  const [activeDropdown, setActiveDropdown] = useState(null); // dropdowns
   const [divisions, setDivisions] = useState([]);
   const [loadingDivisions, setLoadingDivisions] = useState(false);
+
   const dropdownRef = useRef(null);
-  
-  // React Router hooks
+
   const navigate = useNavigate();
-  const location = useLocation();
-  const activePage = location.pathname + location.search;
+  const { pathname, search } = useLocation();
 
-  // const BACKEND_URL = "http://localhost:5000";
+  const activePath = pathname;
+  const activeQuery = search;
 
-  // Fetch divisions from backend
+  /** Fetch Divisions */
   useEffect(() => {
     const fetchDivisions = async () => {
       try {
         setLoadingDivisions(true);
-        const res = await api.get("/services");
-       
-        const uniqueDivisions = [...new Set(
-          res.data.map(s => s.division).filter(Boolean)
-        )].sort();
-        
-        setDivisions(uniqueDivisions);
+
+        const res = await api.get("/services"); // no localhost
+        const unique = [
+          ...new Set(res.data.map((s) => s.division).filter(Boolean)),
+        ].sort();
+
+        setDivisions(unique);
       } catch (error) {
-        console.error("Failed to fetch divisions:", error);
+        console.error("Division fetch failed", error.message);
         setDivisions([]);
       } finally {
         setLoadingDivisions(false);
@@ -41,230 +48,219 @@ const Header = () => {
     fetchDivisions();
   }, []);
 
-  // Close dropdowns when clicking outside
+  /** Close dropdown on outside click */
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+    const handleOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setActiveDropdown(null);
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
   }, []);
 
-  const handleNavigate = (path) => {
+  /** Navigation helper */
+  const goTo = (path) => {
+    setIsOpen(false);
+    setActiveDropdown(null);
     navigate(path);
-    setIsOpen(false);
-    setActiveDropdown(null);
-  };
-
-  const handleDivisionClick = (division) => {
-    navigate(`/services?division=${encodeURIComponent(division)}`);
-    setIsOpen(false);
-    setActiveDropdown(null);
-  };
-
-  const toggleDropdown = (dropdown) => {
-    setActiveDropdown(activeDropdown === dropdown ? null : dropdown);
   };
 
   const navLinks = [
     { name: "Home", path: "/" },
     { name: "About Us", path: "/about" },
-    { 
-      name: "Our Departments", 
-      path: "/services",
+    {
+      name: "Our Departments",
       dropdown: "departments",
-      items: divisions
+      items: divisions,
     },
     { name: "Our Specialists", path: "/doctors" },
-    { 
-      name: "Contact Us", 
-      path: "/contact",
+    {
+      name: "Contact Us",
       dropdown: "contact",
       items: [
         { name: "Patient Feedback", path: "/feedback" },
         { name: "Report Fraud", path: "/report-fraud" },
         { name: "Ask Doctor", path: "/ask-doctor" },
         { name: "Book Appointment", path: "/appointment" },
-        { name: "Virtual Tour", path: "/virtual-tour" }
-      ]
-    }
+        { name: "Virtual Tour", path: "/virtual-tour" },
+      ],
+    },
   ];
 
   const donationItems = [
     { name: "Blood Donation", path: "/blood-donation" },
-    { name: "Financial Aid", path: "/financial-aid" }
+    { name: "Financial Aid", path: "/financial-aid" },
   ];
 
   return (
     <header className="bg-white shadow-sm sticky top-0 z-50">
       {/* Top Bar */}
-      <div className="border-b border-gray-500">
-        <div className="max-w-7xl mx-auto px-4 sm:px-4 lg:px-4">
-          <div className="flex flex-wrap items-center justify-center gap-4 py-2">
-            <a 
-              href="tel:+254712345678" 
-              className="flex items-center gap-2 text-blue-600 font-semibold hover:text-blue-700 transition-colors"
+      <div className="border-b border-gray-300">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex items-center justify-center gap-6 py-2">
+            <a
+              href="tel:+254712345678"
+              className="flex items-center gap-2 text-blue-600 font-semibold hover:text-blue-700"
             >
-              <MdPhone className="text-lg" />
-              +254712345678
+              <MdPhone className="text-lg" /> +254712345678
             </a>
+
             <button
-              onClick={() => handleNavigate("/ambulance-services")}
-              className="flex items-center gap-2 bg-white hover:bg-gray-50 px-4 py-1 rounded-lg text-black font-semibold hover:text-green-600 transition-colors text-sm sm:text-base"
+              onClick={() => goTo("/ambulance-services")}
+              className="flex items-center gap-2 px-4 py-1 rounded-lg bg-white text-black font-semibold hover:bg-gray-100 hover:text-green-600"
             >
-              <MdLocalHospital className="text-lg" />
-              Ambulance Services
+              <MdLocalHospital className="text-xl" /> Ambulance Services
             </button>
           </div>
         </div>
       </div>
 
-   
-      <div className="max-w-7xl mx-auto px-4 sm:px-4 lg:px-2">
+      {/* Main Navigation */}
+      <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between py-2">
-
-          <div 
-            className="flex items-center gap-3 cursor-pointer" 
-            onClick={() => handleNavigate("/")}
+          {/* Logo */}
+          <div
+            className="flex items-center gap-3 cursor-pointer"
+            onClick={() => goTo("/")}
           >
-            <img src={logo} alt="N.C.R.H logo" className="w-14 h-14 sm:w-18 sm:h-18" />
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">N.C.R.H</h1>
+            <img src={logo} alt="N.C.R.H Logo" className="w-14 h-14" />
+            <h1 className="text-2xl font-bold">N.C.R.H</h1>
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-1" ref={dropdownRef}>
-            {navLinks.map((link) => (
-              <div key={link.name} className="relative">
-                {link.dropdown ? (
-                  <>
-                    <button
-                      onClick={() => toggleDropdown(link.dropdown)}
-                      className={`flex items-center gap-1 px-3 py-2 rounded-lg font-semibold text-lg transition-colors ${
-                        activePage.startsWith(link.path)
-                          ? "text-blue-500"
-                          : "text-gray-900 hover:text-blue-500"
-                      }`}
-                    >
-                      {link.name}
-                      <MdOutlineArrowDropDown className={`text-xl transition-transform duration-300 ${
+          <nav className="hidden lg:flex items-center gap-2" ref={dropdownRef}>
+            {navLinks.map((link) =>
+              !link.dropdown ? (
+                <button
+                  key={link.name}
+                  onClick={() => goTo(link.path)}
+                  className={`px-3 py-2 text-lg font-semibold rounded-lg ${
+                    activePath === link.path
+                      ? "text-blue-600"
+                      : "text-gray-900 hover:text-blue-600"
+                  }`}
+                >
+                  {link.name}
+                </button>
+              ) : (
+                <div key={link.name} className="relative">
+                  <button
+                    onClick={() =>
+                      setActiveDropdown(
+                        activeDropdown === link.dropdown ? null : link.dropdown
+                      )
+                    }
+                    className="flex items-center gap-1 px-3 py-2 text-lg font-semibold text-gray-900 hover:text-blue-600"
+                  >
+                    {link.name}
+                    <MdOutlineArrowDropDown
+                      className={`transition-transform ${
                         activeDropdown === link.dropdown ? "rotate-180" : ""
-                      }`} />
-                    </button>
-                    
-                    {/* Dropdown Menu */}
-                    {activeDropdown === link.dropdown && (
-                      <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-100 overflow-hidden">
-                        {link.dropdown === "departments" ? (
-                          loadingDivisions ? (
-                            <div className="px-4 py-8 text-center text-gray-500">
-                              <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-blue-600 border-t-transparent"></div>
-                              <p className="mt-2 text-sm">Loading departments...</p>
-                            </div>
-                          ) : divisions.length === 0 ? (
-                            <div className="px-4 py-3 text-center text-gray-500 text-sm">
-                              No departments available
-                            </div>
-                          ) : (
-                            divisions.map((division, index) => (
-                              <button
-                                key={division}
-                                onClick={() => handleDivisionClick(division)}
-                                className={`w-full text-left px-4 py-3 hover:bg-blue-100 transition-colors text-gray-700 hover:font-semibold ${
-                                  index !== divisions.length - 1 ? "border-b border-gray-100" : ""
-                                } ${
-                                  activePage.includes(encodeURIComponent(division))
-                                    ? "bg-blue-100 font-semibold"
-                                    : ""
-                                }`}
-                              >
-                                {division}
-                              </button>
-                            ))
-                          )
+                      }`}
+                    />
+                  </button>
+
+                  {activeDropdown === link.dropdown && (
+                    <div className="absolute top-full left-0 mt-2 w-56 bg-white shadow-lg rounded-lg border border-gray-200 overflow-hidden">
+                      {link.dropdown === "departments" ? (
+                        loadingDivisions ? (
+                          <div className="p-4 text-center text-gray-500">
+                            Loading...
+                          </div>
+                        ) : divisions.length === 0 ? (
+                          <div className="p-4 text-center text-gray-500">
+                            No departments
+                          </div>
                         ) : (
-                          link.items.map((item, index) => (
+                          divisions.map((d) => (
                             <button
-                              key={item.path}
-                              onClick={() => handleNavigate(item.path)}
-                              className={`w-full text-left px-4 py-3 hover:bg-blue-100 transition-colors text-gray-700 hover:font-semibold ${
-                                index !== link.items.length - 1 ? "border-b border-gray-100" : ""
-                              } ${
-                                activePage === item.path
+                              key={d}
+                              onClick={() =>
+                                goTo(
+                                  `/services?division=${encodeURIComponent(d)}`
+                                )
+                              }
+                              className={`w-full text-left px-4 py-3 hover:bg-blue-100 ${
+                                activeQuery.includes(encodeURIComponent(d))
                                   ? "bg-blue-100 font-semibold"
                                   : ""
                               }`}
                             >
-                              {item.name}
+                              {d}
                             </button>
                           ))
-                        )}
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <button
-                    onClick={() => handleNavigate(link.path)}
-                    className={`px-3 py-2 rounded-lg font-semibold text-lg transition-colors ${
-                      activePage === link.path
-                        ? "text-blue-500"
-                        : "text-gray-900 hover:text-blue-500"
-                    }`}
-                  >
-                    {link.name}
-                  </button>
-                )}
-              </div>
-            ))}
+                        )
+                      ) : (
+                        link.items.map((it) => (
+                          <button
+                            key={it.path}
+                            onClick={() => goTo(it.path)}
+                            className={`w-full text-left px-4 py-3 hover:bg-blue-100 ${
+                              activePath === it.path
+                                ? "bg-blue-100 font-semibold"
+                                : ""
+                            }`}
+                          >
+                            {it.name}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            )}
 
-            <div className="relative ml-2">
+            {/* Donations */}
+            <div className="relative">
               <button
-                onClick={() => toggleDropdown("donations")}
-                className="flex items-center gap-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors"
+                onClick={() =>
+                  setActiveDropdown(
+                    activeDropdown === "donations" ? null : "donations"
+                  )
+                }
+                className="flex items-center gap-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
               >
                 Donations
-                <MdOutlineArrowDropDown className={`text-xl transition-transform duration-300 ${
-                  activeDropdown === "donations" ? "rotate-180" : ""
-                }`} />
+                <MdOutlineArrowDropDown
+                  className={`transition-transform ${
+                    activeDropdown === "donations" ? "rotate-180" : ""
+                  }`}
+                />
               </button>
-              
+
               {activeDropdown === "donations" && (
-                <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-100 overflow-hidden">
-                  {donationItems.map((item, index) => (
+                <div className="absolute top-full right-0 mt-2 w-56 bg-white shadow-lg rounded-lg border border-gray-200 overflow-hidden">
+                  {donationItems.map((d) => (
                     <button
-                      key={item.path}
-                      onClick={() => handleNavigate(item.path)}
-                      className={`w-full text-left px-4 py-3 hover:bg-blue-100 transition-colors text-gray-700 hover:font-semibold ${
-                        index !== donationItems.length - 1 ? "border-b border-gray-100" : ""
-                      } ${
-                        activePage === item.path
-                          ? "bg-blue-100 font-semibold"
-                          : ""
+                      key={d.path}
+                      onClick={() => goTo(d.path)}
+                      className={`w-full text-left px-4 py-3 hover:bg-blue-100 ${
+                        activePath === d.path ? "bg-blue-100 font-semibold" : ""
                       }`}
                     >
-                      {item.name}
+                      {d.name}
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Login Button */}
+            {/* Login */}
             <button
-              onClick={() => handleNavigate("/hmis")}
-              className="ml-2 flex items-center gap-2 px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors"
+              onClick={() => goTo("/hmis")}
+              className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
             >
-              <MdPerson className="text-xl" />
-              Log In
+              <MdPerson className="text-xl" /> Log In
             </button>
           </nav>
 
-          {/* Mobile Menu Button */}
+          {/* Mobile menu button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="lg:hidden p-2 text-3xl text-gray-900 hover:text-blue-500 transition-colors"
+            className="lg:hidden text-3xl p-2"
           >
             {isOpen ? <MdClose /> : <MdMenu />}
           </button>
@@ -273,124 +269,137 @@ const Header = () => {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="lg:hidden fixed inset-0 top-[116px] w-1/2 h-screen bg-blue-400 overflow-y-auto z-40">
-          <div className="px-1 py-4 space-y-2">
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/50 z-[9998]"
+            onClick={() => setIsOpen(false)}
+          />
+          <div
+            className="fixed top-[116px] left-0 w-3/4 h-[calc(100vh-116px)]
+     bg-blue-500 z-[9999] overflow-y-auto p-4 space-y-3 text-white"
+          >
             {navLinks.map((link) => (
               <div key={link.name}>
-                {link.dropdown ? (
-                  <>
-                    <button
-                      onClick={() => toggleDropdown(link.dropdown)}
-                      className={`w-full flex items-center justify-between px-4 py-3 rounded-lg font-semibold text-lg transition-colors ${
-                        activePage.startsWith(link.path)
-                          ? "text-white bg-blue-500"
-                          : "text-white hover:bg-blue-500"
-                      }`}
-                    >
-                      {link.name}
-                      <MdOutlineArrowDropDown className={`text-xl transition-transform duration-300 ${
-                        activeDropdown === link.dropdown ? "rotate-180" : ""
-                      }`} />
-                    </button>
-                    {activeDropdown === link.dropdown && (
-                      <div className="ml-4 mt-2 space-y-1 bg-blue-300 rounded-lg p-2">
-                        {link.dropdown === "departments" ? (
-                          loadingDivisions ? (
-                            <div className="px-4 py-4 text-center text-white">
-                              <div className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                              <p className="mt-2 text-sm">Loading...</p>
-                            </div>
-                          ) : divisions.length === 0 ? (
-                            <div className="px-4 py-3 text-center text-white text-sm">
-                              No departments available
-                            </div>
-                          ) : (
-                            divisions.map((division) => (
-                              <button
-                                key={division}
-                                onClick={() => handleDivisionClick(division)}
-                                className={`w-full text-left px-4 py-2 rounded-lg transition-colors text-white hover:bg-blue-400 hover:font-semibold ${
-                                  activePage.includes(encodeURIComponent(division))
-                                    ? "bg-blue-400 font-semibold"
-                                    : ""
-                                }`}
-                              >
-                                {division}
-                              </button>
-                            ))
-                          )
-                        ) : (
-                          link.items.map((item) => (
-                            <button
-                              key={item.path}
-                              onClick={() => handleNavigate(item.path)}
-                              className={`w-full text-left px-4 py-2 rounded-lg transition-colors text-white hover:bg-blue-400 hover:font-semibold ${
-                                activePage === item.path
-                                  ? "bg-blue-400 font-semibold"
-                                  : ""
-                              }`}
-                            >
-                              {item.name}
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </>
-                ) : (
+                {!link.dropdown ? (
                   <button
-                    onClick={() => handleNavigate(link.path)}
-                    className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-lg transition-colors ${
-                      activePage === link.path
-                        ? "text-white bg-blue-500"
-                        : "text-white hover:bg-blue-500"
+                    onClick={() => goTo(link.path)}
+                    className={`w-full text-left px-3 py-3 rounded-lg text-lg font-semibold ${
+                      activePath === link.path
+                        ? "bg-blue-600"
+                        : "hover:bg-blue-600"
                     }`}
                   >
                     {link.name}
                   </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={() =>
+                        setActiveDropdown(
+                          activeDropdown === link.dropdown
+                            ? null
+                            : link.dropdown
+                        )
+                      }
+                      className="w-full flex justify-between items-center px-3 py-3 rounded-lg text-lg font-semibold hover:bg-blue-600"
+                    >
+                      {link.name}
+                      <MdOutlineArrowDropDown
+                        className={`transition-transform ${
+                          activeDropdown === link.dropdown ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+
+                    {activeDropdown === link.dropdown && (
+                      <div className="ml-4 mt-2 space-y-2">
+                        {link.dropdown === "departments"
+                          ? divisions.map((d) => (
+                              <button
+                                key={d}
+                                onClick={() =>
+                                  goTo(
+                                    `/services?division=${encodeURIComponent(
+                                      d
+                                    )}`
+                                  )
+                                }
+                                className={`w-full text-left px-3 py-2 rounded-lg ${
+                                  activeQuery.includes(encodeURIComponent(d))
+                                    ? "bg-blue-600 font-semibold"
+                                    : "hover:bg-blue-600"
+                                }`}
+                              >
+                                {d}
+                              </button>
+                            ))
+                          : link.items.map((it) => (
+                              <button
+                                key={it.path}
+                                onClick={() => goTo(it.path)}
+                                className={`w-full text-left px-3 py-2 rounded-lg ${
+                                  activePath === it.path
+                                    ? "bg-blue-600 font-semibold"
+                                    : "hover:bg-blue-600"
+                                }`}
+                              >
+                                {it.name}
+                              </button>
+                            ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             ))}
 
-
+            {/* Mobile Donations */}
             <div>
               <button
-                onClick={() => toggleDropdown("donations")}
-                className="w-full flex items-center justify-between px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold"
+                onClick={() =>
+                  setActiveDropdown(
+                    activeDropdown === "donations" ? null : "donations"
+                  )
+                }
+                className="w-full flex justify-between items-center px-3 py-3 rounded-lg text-lg font-semibold bg-green-500 hover:bg-green-600"
               >
                 Donations
-                <MdOutlineArrowDropDown className={`text-xl transition-transform duration-300 ${
-                  activeDropdown === "donations" ? "rotate-180" : ""
-                }`} />
+                <MdOutlineArrowDropDown
+                  className={`transition-transform ${
+                    activeDropdown === "donations" ? "rotate-180" : ""
+                  }`}
+                />
               </button>
+
               {activeDropdown === "donations" && (
-                <div className="ml-4 mt-2 space-y-1 bg-green-400 rounded-lg p-2">
-                  {donationItems.map((item) => (
+                <div className="ml-4 mt-2 space-y-2">
+                  {donationItems.map((d) => (
                     <button
-                      key={item.path}
-                      onClick={() => handleNavigate(item.path)}
-                      className={`w-full text-left px-4 py-2 rounded-lg transition-colors text-white hover:bg-green-500 hover:font-semibold ${
-                        activePage === item.path
-                          ? "bg-green-500 font-semibold"
-                          : ""
+                      key={d.path}
+                      onClick={() => goTo(d.path)}
+                      className={`w-full text-left px-3 py-2 rounded-lg ${
+                        activePath === d.path
+                          ? "bg-green-600 font-semibold"
+                          : "hover:bg-green-600"
                       }`}
                     >
-                      {item.name}
+                      {d.name}
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
+            {/* Mobile Login */}
             <button
-              onClick={() => handleNavigate("/hmis")}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold"
+              onClick={() => goTo("/hmis")}
+              className="w-full text-center mt-4 px-4 py-3 bg-green-500 hover:bg-green-600 rounded-lg font-semibold flex items-center justify-center gap-2"
             >
-              <MdPerson className="text-xl" />
-              Log In
+              <MdPerson className="text-xl" /> Log In
             </button>
           </div>
-        </div>
+        </>
       )}
     </header>
   );
