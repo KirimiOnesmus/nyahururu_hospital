@@ -53,31 +53,31 @@ const ServicesPage = () => {
   ];
 
   const serviceCategories = [
-      "General Medicine",
-      "Maternal and Child Health",
-      "Emergency Services ",
-      "Obstetrics and Gynecology",
-      "Dentistry",
-      "Ophthalmology",
-      "ENT",
-      "Surgery",
-      "Orthopedics",
-      "Radiology",
-      "Laboratory",
-      "Pharmacy",
-      "Physiotherapy",
-      "Mental Health",
-      "Dermatology",
-      "Emergency",
-      "Renal Dialysis",
-      "High Risk Ante-natal Care",
-      "Medical Outpatient Clinic",
-      "Pediatric Outpatient Clinic",
-      "Gynecology Outpatient Clinic",
-      "Diabetes Outpatient Clinic",
-      "Surgical Outpatient Clinic ",
-      "Orthopedic Surgery Clinic ",
-      "Others",
+"General Medicine",
+  "Maternal and Child Health",
+  "Emergency Services",        
+  "Obstetrics and Gynecology",
+  "Dentistry",
+  "Ophthalmology",
+  "ENT",
+  "Surgery",
+  "Orthopedics",
+  "Radiology",
+  "Laboratory",
+  "Pharmacy",
+  "Physiotherapy",
+  "Mental Health",
+  "Dermatology",
+  "Emergency",
+  "Renal Dialysis",
+  "High Risk Ante-natal Care",
+  "Medical Outpatient Clinic",
+  "Pediatric Outpatient Clinic",
+  "Gynecology Outpatient Clinic",
+  "Diabetes Outpatient Clinic",
+  "Surgical Outpatient Clinic",  
+  "Orthopedic Surgery Clinic",  
+  "Others"
   ];
 
   const fetchServices = async () => {
@@ -175,70 +175,148 @@ const ServicesPage = () => {
     }
   };
 
+  // const handleSubmit = async (e) => {
+  //   e.preventDefault();
+
+  //   // Validate required fields
+  //   if (!formData.name.trim()) {
+  //     toast.error("Service name is required");
+  //     return;
+  //   }
+  //   if (!formData.division) {
+  //     toast.error("Division is required");
+  //     return;
+  //   }
+  //   if (!formData.category) {
+  //     toast.error("Category is required");
+  //     return;
+  //   }
+  //   if (!formData.description.trim()) {
+  //     toast.error("Description is required");
+  //     return;
+  //   }
+  //   if (!isEditing && !formData.image) {
+  //     toast.error("Image is required for new services");
+  //     return;
+  //   }
+
+  //   try {
+  //     const payload = new FormData();
+  //     payload.append("name", formData.name.trim());
+  //     payload.append("division", formData.division);
+  //     payload.append("category", formData.category);
+  //     payload.append("description", formData.description.trim());
+  //     payload.append("headOfDepartment", formData.headOfDepartment.trim());
+  //     payload.append("contactInfo", formData.contactInfo.trim());
+  //     payload.append("serviceHours", formData.serviceHours.trim());
+  //     payload.append("location", formData.location.trim());
+  //     payload.append("tariffInfo", formData.tariffInfo.trim());
+  //     payload.append("nhifCovered", formData.nhifCovered);
+
+  //     if (formData.image) {
+  //       payload.append("image", formData.image);
+  //     }
+
+  //     const config = {
+  //       headers: {
+  //         "Content-Type": "multipart/form-data",
+  //       },
+  //     };
+
+  //     if (isEditing) {
+  //       await api.put(`/services/${selectedService._id}`, payload, config);
+  //       toast.success("Service updated successfully!");
+  //     } else {
+  //       await api.post("/services", payload, config);
+  //       toast.success("Service created successfully!");
+  //     }
+
+  //     fetchServices();
+  //     setModalOpen(false);
+  //     setImagePreview(null);
+  //   } catch (err) {
+  //     console.error("Error details:", err.response?.data);
+  //     toast.error(err.response?.data?.message || "Error saving service");
+  //   }
+  // };
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    // Validate required fields
-    if (!formData.name.trim()) {
-      toast.error("Service name is required");
-      return;
-    }
-    if (!formData.division) {
-      toast.error("Division is required");
-      return;
-    }
-    if (!formData.category) {
-      toast.error("Category is required");
-      return;
-    }
-    if (!formData.description.trim()) {
-      toast.error("Description is required");
-      return;
-    }
-    if (!isEditing && !formData.image) {
-      toast.error("Image is required for new services");
-      return;
-    }
+  // Validate required fields
+  if (!formData.name.trim()) {
+    toast.error("Service name is required");
+    return;
+  }
+  if (!formData.division) {
+    toast.error("Division is required");
+    return;
+  }
+  if (!formData.category) {
+    toast.error("Category is required");
+    return;
+  }
+  if (!formData.description.trim()) {
+    toast.error("Description is required");
+    return;
+  }
+  if (!isEditing && !formData.image) {
+    toast.error("Image is required for new services");
+    return;
+  }
 
-    try {
-      const payload = new FormData();
-      payload.append("name", formData.name.trim());
-      payload.append("division", formData.division);
-      payload.append("category", formData.category);
-      payload.append("description", formData.description.trim());
+  try {
+    const payload = new FormData();
+    payload.append("name", formData.name.trim());
+    payload.append("division", formData.division);
+    payload.append("category", formData.category);
+    payload.append("description", formData.description.trim());
+    
+    // Only append optional fields if they have a value
+    if (formData.headOfDepartment?.trim()) {
       payload.append("headOfDepartment", formData.headOfDepartment.trim());
-      payload.append("contactInfo", formData.contactInfo.trim());
-      payload.append("serviceHours", formData.serviceHours.trim());
-      payload.append("location", formData.location.trim());
-      payload.append("tariffInfo", formData.tariffInfo.trim());
-      payload.append("nhifCovered", formData.nhifCovered);
-
-      if (formData.image) {
-        payload.append("image", formData.image);
-      }
-
-      const config = {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      };
-
-      if (isEditing) {
-        await api.put(`/services/${selectedService._id}`, payload, config);
-        toast.success("Service updated successfully!");
-      } else {
-        await api.post("/services", payload, config);
-        toast.success("Service created successfully!");
-      }
-
-      fetchServices();
-      setModalOpen(false);
-      setImagePreview(null);
-    } catch (err) {
-      console.error("Error details:", err.response?.data);
-      toast.error(err.response?.data?.message || "Error saving service");
     }
-  };
+    if (formData.contactInfo?.trim()) {
+      payload.append("contactInfo", formData.contactInfo.trim());
+    }
+    if (formData.serviceHours?.trim()) {
+      payload.append("serviceHours", formData.serviceHours.trim());
+    }
+    if (formData.location?.trim()) {
+      payload.append("location", formData.location.trim());
+    }
+    if (formData.tariffInfo?.trim()) {
+      payload.append("tariffInfo", formData.tariffInfo.trim());
+    }
+    
+    payload.append("nhifCovered", formData.nhifCovered);
+
+    if (formData.image) {
+      payload.append("image", formData.image);
+    }
+
+
+    const config = {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    };
+
+    if (isEditing) {
+      await api.put(`/services/${selectedService._id}`, payload, config);
+      toast.success("Service updated successfully!");
+    } else {
+      await api.post("/services", payload, config);
+      toast.success("Service created successfully!");
+    }
+
+    fetchServices();
+    setModalOpen(false);
+    setImagePreview(null);
+  } catch (err) {
+    console.error("Error details:", err.response?.data);
+    toast.error(err.response?.data?.message || "Error saving service");
+  }
+};
 
   const handleViewService = (service) => {
     setSelectedService(service);
