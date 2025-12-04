@@ -691,29 +691,66 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
+// exports.syncDoctorProfile = async (userId, userData) => {
+//   try {
+//     if (userData.role && userData.role.toLowerCase() === "doctor") {
+//       const { department } = userData;
+
+//       if (!department) {
+//         console.warn("No department provided for doctor profile sync");
+//         return null;
+//       }
+
+//       let doctor = await Doctor.findOne({ userId });
+
+//       if (!doctor) {
+//         doctor = new Doctor({
+//           userId,
+//           department,
+//         });
+//         await doctor.save();
+//         console.log("Doctor profile created:", { userId, department });
+//       } else {
+//         doctor.department = department;
+//         doctor.updatedAt = Date.now();
+//         await doctor.save();
+//       }
+
+//       return doctor;
+//     }
+//   } catch (error) {
+//     console.error("Error syncing doctor profile:", error);
+//     throw error;
+//   }
+// };
 exports.syncDoctorProfile = async (userId, userData) => {
   try {
     if (userData.role && userData.role.toLowerCase() === "doctor") {
       const { department } = userData;
 
       if (!department) {
-        console.warn("No department provided for doctor profile sync");
+        console.warn("No specialization provided for doctor profile sync");
         return null;
       }
 
       let doctor = await Doctor.findOne({ userId });
 
       if (!doctor) {
+
         doctor = new Doctor({
           userId,
-          department,
+          // speciality: specialization,
+          department: specialization, 
         });
         await doctor.save();
         console.log("Doctor profile created:", { userId, department });
       } else {
-        doctor.department = department;
+  
+        // doctor.speciality = specialization;
+        doctor.department = department; 
         doctor.updatedAt = Date.now();
         await doctor.save();
+        
       }
 
       return doctor;
