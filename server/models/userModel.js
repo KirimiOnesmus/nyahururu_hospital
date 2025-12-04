@@ -6,8 +6,37 @@ const userSchema = new mongoose.Schema({
 
   name: { type: String, trim: true }, // auto combined
 
-  email: { type: String, unique: true, required: true },
+  email: { 
+    type: String, 
+    unique: true, 
+    required: true,
+    lowercase: true
+  },
   password: { type: String, required: true },
+
+  // Email verification fields
+  emailVerified: { 
+    type: Boolean, 
+    default: false 
+  },
+  emailVerificationToken: { 
+    type: String,
+    select: false
+  },
+  emailVerificationExpire: { 
+    type: Date,
+    select: false 
+  },
+
+  // Password reset fields
+  passwordResetToken: { 
+    type: String,
+    select: false 
+  },
+  passwordResetExpire: { 
+    type: Date,
+    select: false 
+  },
 
   role: {
     type: String,

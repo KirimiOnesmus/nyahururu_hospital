@@ -18,6 +18,7 @@ import {
   FaMapMarkerAlt,
   FaHospital,
   FaBed,
+  FaClinicMedical,
 } from "react-icons/fa";
 import{toast} from "react-toastify";
 
@@ -353,7 +354,7 @@ const ServicesPage = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
           <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
@@ -390,6 +391,19 @@ const ServicesPage = () => {
               </div>
               <div className="w-12 h-12 bg-indigo-50 rounded-lg flex items-center justify-center">
                 <FaBed className="text-xl text-indigo-600" />
+              </div>
+            </div>
+          </div>
+                    <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Clinics</p>
+                <h3 className="text-2xl font-bold text-indigo-600">
+                  {divisionStats.Clinics}
+                </h3>
+              </div>
+              <div className="w-12 h-12 bg-indigo-50 rounded-lg flex items-center justify-center">
+                <FaClinicMedical className="text-xl text-yellow-600" />
               </div>
             </div>
           </div>
