@@ -729,28 +729,23 @@ exports.syncDoctorProfile = async (userId, userData) => {
       const { department } = userData;
 
       if (!department) {
-        console.warn("No specialization provided for doctor profile sync");
+        console.warn("No department provided for doctor profile sync");
         return null;
       }
 
       let doctor = await Doctor.findOne({ userId });
 
       if (!doctor) {
-
         doctor = new Doctor({
           userId,
-          speciality: specialization,
-          department: specialization, 
+          department: department,
         });
         await doctor.save();
         console.log("Doctor profile created:", { userId, department });
       } else {
-  
-        doctor.speciality = specialization;
-        doctor.department = department; 
+        doctor.department = department;
         doctor.updatedAt = Date.now();
         await doctor.save();
-        
       }
 
       return doctor;
