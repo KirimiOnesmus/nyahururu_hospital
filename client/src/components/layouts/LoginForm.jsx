@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { loginUser } from "../../api/auth";
+import {toast} from "react-toastify"
 
 const LoginForm = () => {
   const [email, setEmail] = useState("");
@@ -19,11 +20,14 @@ const LoginForm = () => {
         )
       ) {
         navigate("/dashboard");
+        toast.success("Logged In Successfully!");
       } else {
-        alert("Login failed. Please check your credentials.");
+        // alert("Login failed. Please check your credentials.");
+        toast.error("Login failed. Please check your credentials.")
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Login failed");
+      console.error(err.response?.data?.message || "Login failed");
+      toast.error("Login failed")
     }
   };
 

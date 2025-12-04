@@ -17,3 +17,4 @@ export { default as EventsPage } from "./EventsPage";
 export { default as Gallery } from "./Gallery";
 export { default as Tenders } from "./TenderPage";
 export { default as Downloads } from "./Downloads";
+export {default as VerifyEmail} from "./VerifyEmail"

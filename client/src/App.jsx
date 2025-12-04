@@ -16,7 +16,8 @@ import {
   BloodRegistration,
   EventsPage,
   Downloads, 
-  Tenders
+  Tenders,
+  VerifyEmail
 } from "./pages/index";
 import {
   Dashboard,
@@ -71,6 +72,8 @@ function App() {
           <Route path="/events" element={<EventsPage/>}/>
           <Route path="/downloads" element={<Downloads/>}/>
           <Route path= "/tenders" element ={<Tenders/>}/>
+          <Route path="verify-email" element={<VerifyEmail/>}/>
+
           <Route path="/apply/:id" element={<ApplyCareer />} />
 
           <Route path="/services/:id" element={<ServiceDetails />} />
