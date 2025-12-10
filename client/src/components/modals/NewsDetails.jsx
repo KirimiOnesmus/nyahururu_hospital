@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Header, Footer } from "../../components/layouts";
-import axios from "axios";
+import api from "../../api/axios";
 
 const NewsDetails = () => {
   const { id } = useParams();
@@ -13,7 +13,7 @@ const NewsDetails = () => {
   useEffect(() => {
     const fetchNews = async () => {
       try {
-        const response = await axios.get(`/api/news/${id}`);
+        const response = await api.get(`/news/${id}`);
         setNews(response.data);
         console.log(response.data)
       } catch (err) {
