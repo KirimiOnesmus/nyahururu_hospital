@@ -23,7 +23,7 @@ const Feedback = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const response = await api.post("/api/feedback", formData);
+      const response = await api.post("/feedback", formData);
       // console.log("Feedback submitted successfully:", response.data);
       toast.success("Feedback submitted successfully.")
 
@@ -71,6 +71,7 @@ const Feedback = () => {
                 <input
                   type="text"
                   name="name"
+                  required
                   value={formData.name}
                   onChange={handleChange}
                   placeholder="David Kamau"
@@ -84,6 +85,7 @@ const Feedback = () => {
                 <input
                   type="email"
                   name="email"
+                  required
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="davidkamau@gmail.com"
@@ -108,6 +110,7 @@ const Feedback = () => {
                 <textarea
                   name="message"
                   value={formData.message}
+                  required
                   onChange={handleChange}
                   className="border border-gray-400 p-2 w-full rounded-lg outline-none 
                         focus:border-blue-500

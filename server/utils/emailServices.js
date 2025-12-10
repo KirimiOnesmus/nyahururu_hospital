@@ -385,3 +385,55 @@ exports.sendAppointmentStatusUpdateEmail = async (email, appointmentData, status
     throw error;
   }
 };
+
+// feedback handling email
+exports.sendFeedbackReplyEmail = async (email, userName, originalMessage, replyMessage) => {
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: 'Response to Your Feedback - Healthcare Management System',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px;">
+          <h2 style="color: #2196F3; margin-top: 0;">Thank You for Your Feedback!</h2>
+          
+          <p style="color: #555; line-height: 1.6;">Dear ${userName || 'User'},</p>
+          <p style="color: #555; line-height: 1.6;">
+            We have reviewed your feedback and would like to respond:
+          </p>
+          
+          <div style="background-color: #fff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #e0e0e0;">
+            <p style="color: #666; font-size: 13px; margin: 0 0 5px 0;"><strong>Your Message:</strong></p>
+            <p style="color: #333; margin: 0;">${originalMessage}</p>
+          </div>
+          
+          <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2196F3;">
+            <p style="color: #1976d2; font-size: 13px; margin: 0 0 5px 0;"><strong>Our Response:</strong></p>
+            <p style="color: #333; margin: 0;">${replyMessage}</p>
+          </div>
+          
+          <p style="color: #555; line-height: 1.6;">
+            We appreciate you taking the time to share your thoughts with us. If you have any further questions or concerns, please don't hesitate to reach out.
+          </p>
+          
+          <p style="color: #999; font-size: 11px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+            This is an automated response to your feedback submission. Please do not reply to this email directly.
+          </p>
+        </div>
+      </div>
+    `,
+  };
+
+  try {
+    if (!transporter) {
+      throw new Error('Email transporter not initialized');
+    }
+
+    const result = await transporter.sendMail(mailOptions);
+    console.log(`Feedback reply sent to ${email}:`, result.messageId);
+    return result;
+  } catch (error) {
+    console.error('Error sending feedback reply email:', error);
+    throw error;
+  }
+};

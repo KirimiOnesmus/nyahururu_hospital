@@ -1,5 +1,5 @@
 const Feedback = require('../models/feedbackModel');
-
+const { sendFeedbackReplyEmail } = require('../utils/emailServices');
 // Submit feedback (Public)
 exports.submitFeedback = async (req, res) => {
   try {
@@ -58,16 +58,32 @@ exports.respondToFeedback = async (req, res) => {
     if (typeof response !== 'undefined') feedback.response = response;
     if (typeof status !== 'undefined') feedback.status = status;
 
-    // prefer storing a user id for respondedBy if available
+
     if (req.user) {
       if (req.user._id) feedback.respondedBy = req.user._id;
       else if (req.user.id) feedback.respondedBy = req.user.id;
-      else if (req.user.name) feedback.respondedByName = req.user.name; // fallback human-friendly
+      else if (req.user.name) feedback.respondedByName = req.user.name;
     }
 
     feedback.respondedAt = new Date();
 
     await feedback.save();
+
+
+    if (response && feedback.email) {
+      try {
+        await sendFeedbackReplyEmail(
+          feedback.email,
+          feedback.name,
+          feedback.message,
+          response
+        );
+        console.log('Feedback reply email sent successfully');
+      } catch (emailError) {
+        console.error('Failed to send feedback reply email:', emailError);
+     
+      }
+    }
 
     res.json({ message: 'Feedback updated successfully', feedback });
   } catch (error) {
@@ -85,3 +101,5 @@ exports.deleteFeedback = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+

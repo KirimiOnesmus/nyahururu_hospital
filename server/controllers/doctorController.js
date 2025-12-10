@@ -151,6 +151,12 @@ exports.getAllDoctors = async (req, res) => {
     // Also get profile info for each doctor
     const doctorsWithProfiles = await Promise.all(
       doctors.map(async (doctor) => {
+        if (!doctor.userId) {
+          return {
+            ...doctor.toObject(),
+            profile: null,
+          };
+        }
         const profile = await Profile.findOne({ userId: doctor.userId._id });
         return {
           ...doctor.toObject(),

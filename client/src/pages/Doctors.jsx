@@ -17,7 +17,6 @@ const Doctors = () => {
       try {
         setLoading(true);
         const response = await api.get("/doctors/doctors");
-
         // Ensure we always get an array
         const doctorsData = Array.isArray(response.data.data)
           ? response.data.data

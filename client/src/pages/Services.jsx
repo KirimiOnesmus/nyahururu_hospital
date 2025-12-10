@@ -19,7 +19,7 @@ const Services = () => {
 
   const BACKEND_URL = "http://localhost:5000";
 
-  // Fetch services on component mount and when URL changes
+
   useEffect(() => {
     let isMounted = true;
 
@@ -33,19 +33,18 @@ const Services = () => {
           setError(null);
           
 
-          // Extract unique divisions
           const divisions = [
             ...new Set(res.data.map((s) => s.division).filter(Boolean)),
           ];
           setAllDivisions(divisions.sort());
 
-          // Extract unique categories
+ 
           const categories = [
             ...new Set(res.data.map((s) => s.category).filter(Boolean)),
           ];
           setAllCategories(categories.sort());
 
-          // Check if division is in URL query params
+      
           const divisionParam = searchParams.get("division");
           const categoryParam = searchParams.get("category");
 
@@ -53,7 +52,7 @@ const Services = () => {
             const decodedDivision = decodeURIComponent(divisionParam);
             setSelectedDivision(decodedDivision);
 
-            // Get categories for this division
+   
             const divisionCategories = [
               ...new Set(
                 res.data
@@ -102,7 +101,7 @@ const Services = () => {
     };
   }, [searchParams]);
 
-  // Helper function to filter services by division and/or category
+
   const filterServices = (servicesList, division, category) => {
     let filtered = servicesList;
 
@@ -117,7 +116,7 @@ const Services = () => {
     setFilteredServices(filtered);
   };
 
-  // Handle division change from filter buttons
+
   const handleDivisionChange = (division) => {
     if (division === null || division === selectedDivision) {
       // Clear division filter
@@ -126,11 +125,11 @@ const Services = () => {
       setCategoriesInDivision([]);
       filterServices(services, null, null);
     } else {
-      // Set new division
+
       setSelectedDivision(division);
       setSelectedCategory(null);
 
-      // Get categories for this division
+
       const divisionCategories = [
         ...new Set(
           services
@@ -145,20 +144,19 @@ const Services = () => {
     }
   };
 
-  // Handle category change from filter buttons
   const handleCategoryChange = (category) => {
     if (category === null || category === selectedCategory) {
-      // Clear category filter
+    
       setSelectedCategory(null);
       filterServices(services, selectedDivision, null);
     } else {
-      // Set new category
+  
       setSelectedCategory(category);
       filterServices(services, selectedDivision, category);
     }
   };
 
-  // Clear all filters
+  
   const handleClearFilters = () => {
     setSelectedDivision(null);
     setSelectedCategory(null);
@@ -253,7 +251,7 @@ const Services = () => {
                     </p>
                   )
                 ) : (
-                  // Show all categories when no division is selected
+           
                   <>
                     <button
                       onClick={() => handleCategoryChange(null)}
@@ -285,7 +283,7 @@ const Services = () => {
           </div>
         )}
 
-        {/* Services Display */}
+
         {loading ? (
           <div className="flex justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -308,11 +306,11 @@ const Services = () => {
           </div>
         ) : (
           <>
-            {/* Services Grid */}
+
             <div className="services grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredServices.map((service) => (
                 <div key={service._id} className="relative">
-                  {/* SHA Coverage Badge */}
+
                   {service.nhifCovered && (
                     <span className="absolute top-4 right-4 z-10 text-xs px-3 py-1 rounded-full font-semibold shadow-md bg-green-600 text-white">
                       SHA Covered
