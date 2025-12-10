@@ -83,7 +83,6 @@ const Home = () => {
           <TimeRibbon />
         </div>
         <div className="news">
-          <h3 className="text-3xl font-bold my-4 text-center">News</h3>
           <News />
         </div>
         <div className="partners py-4">
