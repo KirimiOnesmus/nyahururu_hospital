@@ -15,6 +15,7 @@ const NewsDetails = () => {
       try {
         const response = await axios.get(`/api/news/${id}`);
         setNews(response.data);
+        console.log(response.data)
       } catch (err) {
         setError("Failed to fetch news details.");
         console.error(err);

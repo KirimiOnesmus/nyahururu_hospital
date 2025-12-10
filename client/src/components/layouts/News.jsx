@@ -22,7 +22,7 @@ const News = () => {
       try {
         const res = await api.get("/news");
         setNews(res.data);
-        console.log("Fetched news data:", res.data);
+        // console.log("Fetched news data:", res.data);
       } catch (error) {
         console.error("Error fetching news data:", error);
       } finally {
