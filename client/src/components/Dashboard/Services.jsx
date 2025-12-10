@@ -20,7 +20,7 @@ import {
   FaBed,
   FaClinicMedical,
 } from "react-icons/fa";
-import{toast} from "react-toastify";
+import { toast } from "react-toastify";
 
 const ServicesPage = () => {
   const [services, setServices] = useState([]);
@@ -46,39 +46,35 @@ const ServicesPage = () => {
   });
   const [isEditing, setIsEditing] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
-  
-  const divisions = [
-    "Outpatient",
-    "Inpatient",
-    "Specialist Clinics"
-  ];
+
+  const divisions = ["Outpatient", "Inpatient", "Specialist Clinics"];
 
   const serviceCategories = [
-"General Medicine",
-  "Maternal and Child Health",
-  "Emergency Services",        
-  "Obstetrics and Gynecology",
-  "Dentistry",
-  "Ophthalmology",
-  "ENT",
-  "Surgery",
-  "Orthopedics",
-  "Radiology",
-  "Laboratory",
-  "Pharmacy",
-  "Physiotherapy",
-  "Mental Health",
-  "Dermatology",
-  "Emergency",
-  "Renal Dialysis",
-  "High Risk Ante-natal Care",
-  "Medical Outpatient Clinic",
-  "Pediatric Outpatient Clinic",
-  "Gynecology Outpatient Clinic",
-  "Diabetes Outpatient Clinic",
-  "Surgical Outpatient Clinic",  
-  "Orthopedic Surgery Clinic",  
-  "Others"
+    "General Medicine",
+    "Maternal and Child Health",
+    "Emergency Services",
+    "Obstetrics and Gynecology",
+    "Dentistry",
+    "Ophthalmology",
+    "ENT",
+    "Surgery",
+    "Orthopedics",
+    "Radiology",
+    "Laboratory",
+    "Pharmacy",
+    "Physiotherapy",
+    "Mental Health",
+    "Dermatology",
+    "Emergency",
+    "Renal Dialysis",
+    "High Risk Ante-natal Care",
+    "Medical Outpatient Clinic",
+    "Pediatric Outpatient Clinic",
+    "Gynecology Outpatient Clinic",
+    "Diabetes Outpatient Clinic",
+    "Surgical Outpatient Clinic",
+    "Orthopedic Surgery Clinic",
+    "Others",
   ];
 
   const fetchServices = async () => {
@@ -86,6 +82,7 @@ const ServicesPage = () => {
       setLoading(true);
       const res = await api.get("/services");
       setServices(res.data);
+
     } catch (err) {
       console.error(err.response?.data?.message || err.message);
       toast.error("Error fetching services");
@@ -99,22 +96,29 @@ const ServicesPage = () => {
   }, []);
 
   const filteredServices = services.filter((service) => {
-    const matchesSearch = 
+    const matchesSearch =
       service.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       service.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      service.headOfDepartment?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesDivision = 
+      service.headOfDepartment
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase());
+
+    const matchesDivision =
       filterDivision === "all" || service.division === filterDivision;
-    
-    const matchesCategory = 
+
+    const matchesCategory =
       filterCategory === "all" || service.category === filterCategory;
-    
+
     return matchesSearch && matchesDivision && matchesCategory;
   });
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this service/department?")) return;
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this service/department?"
+      )
+    )
+      return;
     try {
       await api.delete(`/services/${id}`);
       fetchServices();
@@ -141,7 +145,9 @@ const ServicesPage = () => {
         nhifCovered: service.nhifCovered || false,
         image: null,
       });
-      setImagePreview(service.imageUrl ? `http://localhost:5000${service.imageUrl}` : null);
+      setImagePreview(
+        service.imageUrl ? `http://localhost:5000${service.imageUrl}` : null
+      );
       setIsEditing(true);
     } else {
       setSelectedService(null);
@@ -176,7 +182,7 @@ const ServicesPage = () => {
     }
   };
 
-  // const handleSubmit = async (e) => {
+  //   const handleSubmit = async (e) => {
   //   e.preventDefault();
 
   //   // Validate required fields
@@ -207,11 +213,24 @@ const ServicesPage = () => {
   //     payload.append("division", formData.division);
   //     payload.append("category", formData.category);
   //     payload.append("description", formData.description.trim());
-  //     payload.append("headOfDepartment", formData.headOfDepartment.trim());
-  //     payload.append("contactInfo", formData.contactInfo.trim());
-  //     payload.append("serviceHours", formData.serviceHours.trim());
-  //     payload.append("location", formData.location.trim());
-  //     payload.append("tariffInfo", formData.tariffInfo.trim());
+
+  //     // Only append optional fields if they have a value
+  //     if (formData.headOfDepartment?.trim()) {
+  //       payload.append("headOfDepartment", formData.headOfDepartment.trim());
+  //     }
+  //     if (formData.contactInfo?.trim()) {
+  //       payload.append("contactInfo", formData.contactInfo.trim());
+  //     }
+  //     if (formData.serviceHours?.trim()) {
+  //       payload.append("serviceHours", formData.serviceHours.trim());
+  //     }
+  //     if (formData.location?.trim()) {
+  //       payload.append("location", formData.location.trim());
+  //     }
+  //     if (formData.tariffInfo?.trim()) {
+  //       payload.append("tariffInfo", formData.tariffInfo.trim());
+  //     }
+
   //     payload.append("nhifCovered", formData.nhifCovered);
 
   //     if (formData.image) {
@@ -240,95 +259,97 @@ const ServicesPage = () => {
   //     toast.error(err.response?.data?.message || "Error saving service");
   //   }
   // };
+
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  // Validate required fields
-  if (!formData.name.trim()) {
-    toast.error("Service name is required");
-    return;
-  }
-  if (!formData.division) {
-    toast.error("Division is required");
-    return;
-  }
-  if (!formData.category) {
-    toast.error("Category is required");
-    return;
-  }
-  if (!formData.description.trim()) {
-    toast.error("Description is required");
-    return;
-  }
-  if (!isEditing && !formData.image) {
-    toast.error("Image is required for new services");
-    return;
-  }
-
-  try {
-    const payload = new FormData();
-    payload.append("name", formData.name.trim());
-    payload.append("division", formData.division);
-    payload.append("category", formData.category);
-    payload.append("description", formData.description.trim());
-    
-    // Only append optional fields if they have a value
-    if (formData.headOfDepartment?.trim()) {
-      payload.append("headOfDepartment", formData.headOfDepartment.trim());
+    // Validate required fields
+    if (!formData.name.trim()) {
+      toast.error("Service name is required");
+      return;
     }
-    if (formData.contactInfo?.trim()) {
-      payload.append("contactInfo", formData.contactInfo.trim());
+    if (!formData.division) {
+      toast.error("Division is required");
+      return;
     }
-    if (formData.serviceHours?.trim()) {
-      payload.append("serviceHours", formData.serviceHours.trim());
+    if (!formData.category) {
+      toast.error("Category is required");
+      return;
     }
-    if (formData.location?.trim()) {
-      payload.append("location", formData.location.trim());
-    }
-    if (formData.tariffInfo?.trim()) {
-      payload.append("tariffInfo", formData.tariffInfo.trim());
-    }
-    
-    payload.append("nhifCovered", formData.nhifCovered);
-
-    if (formData.image) {
-      payload.append("image", formData.image);
+    if (!formData.description.trim()) {
+      toast.error("Description is required");
+      return;
     }
 
+    // Image is now optional - removed the validation check
 
-    const config = {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    };
+    try {
+      const payload = new FormData();
+      payload.append("name", formData.name.trim());
+      payload.append("division", formData.division);
+      payload.append("category", formData.category);
+      payload.append("description", formData.description.trim());
 
-    if (isEditing) {
-      await api.put(`/services/${selectedService._id}`, payload, config);
-      toast.success("Service updated successfully!");
-    } else {
-      await api.post("/services", payload, config);
-      toast.success("Service created successfully!");
+      // Only append optional fields if they have a value
+      if (formData.headOfDepartment?.trim()) {
+        payload.append("headOfDepartment", formData.headOfDepartment.trim());
+      }
+      if (formData.contactInfo?.trim()) {
+        payload.append("contactInfo", formData.contactInfo.trim());
+      }
+      if (formData.serviceHours?.trim()) {
+        payload.append("serviceHours", formData.serviceHours.trim());
+      }
+      if (formData.location?.trim()) {
+        payload.append("location", formData.location.trim());
+      }
+      if (formData.tariffInfo?.trim()) {
+        payload.append("tariffInfo", formData.tariffInfo.trim());
+      }
+
+      payload.append("nhifCovered", formData.nhifCovered);
+
+      // Only append image if one was selected
+      if (formData.image) {
+        payload.append("image", formData.image);
+      }
+
+      const config = {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      };
+
+      if (isEditing) {
+        await api.put(`/services/${selectedService._id}`, payload, config);
+        toast.success("Service updated successfully!");
+      } else {
+        await api.post("/services", payload, config);
+        toast.success("Service created successfully!");
+      }
+
+      fetchServices();
+      setModalOpen(false);
+      setImagePreview(null);
+    } catch (err) {
+      console.error("Error details:", err.response?.data);
+      toast.error(err.response?.data?.message || "Error saving service");
     }
-
-    fetchServices();
-    setModalOpen(false);
-    setImagePreview(null);
-  } catch (err) {
-    console.error("Error details:", err.response?.data);
-    toast.error(err.response?.data?.message || "Error saving service");
-  }
-};
-
+  };
   const handleViewService = (service) => {
     setSelectedService(service);
     setViewModal(true);
   };
 
   const getDivisionStats = () => {
+  
     return {
-      Outpatient: services.filter(s => s.division === "Outpatient").length,
-      Inpatient: services.filter(s => s.division === "Inpatient").length,
+      Outpatient: services.filter((s) => s.division === "Outpatient").length,
+      Inpatient: services.filter((s) => s.division === "Inpatient").length,
+      Clinics:services.filter((s)=>s.division==="Specialist Clinics").length,
+      
     };
+      
   };
 
   const divisionStats = getDivisionStats();
@@ -342,7 +363,9 @@ const ServicesPage = () => {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               Departments & Services Management
             </h1>
-            <p className="text-gray-600">Manage hospital departments, services, and medical units</p>
+            <p className="text-gray-600">
+              Manage hospital departments, services, and medical units
+            </p>
           </div>
           <button
             onClick={() => openModal()}
@@ -359,7 +382,9 @@ const ServicesPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 mb-1">Total Services</p>
-                <h3 className="text-2xl font-bold text-gray-900">{services.length}</h3>
+                <h3 className="text-2xl font-bold text-gray-900">
+                  {services.length}
+                </h3>
               </div>
               <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
                 <FaStethoscope className="text-xl text-blue-600" />
@@ -394,7 +419,7 @@ const ServicesPage = () => {
               </div>
             </div>
           </div>
-                    <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+          <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 mb-1">Clinics</p>
@@ -444,8 +469,10 @@ const ServicesPage = () => {
                 className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Divisions</option>
-                {divisions.map(div => (
-                  <option key={div} value={div}>{div}</option>
+                {divisions.map((div) => (
+                  <option key={div} value={div}>
+                    {div}
+                  </option>
                 ))}
               </select>
               <select
@@ -454,8 +481,10 @@ const ServicesPage = () => {
                 className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Categories</option>
-                {serviceCategories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
+                {serviceCategories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
                 ))}
               </select>
             </div>
@@ -494,11 +523,13 @@ const ServicesPage = () => {
                       </div>
                     )}
                     <div className="absolute top-2 left-2 flex gap-2">
-                      <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
-                        service.division === "Outpatient" 
-                          ? "bg-purple-500 text-white" 
-                          : "bg-indigo-500 text-white"
-                      }`}>
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full font-semibold ${
+                          service.division === "Outpatient"
+                            ? "bg-purple-500 text-white"
+                            : "bg-indigo-500 text-white"
+                        }`}
+                      >
                         {service.division}
                       </span>
                     </div>
@@ -520,14 +551,16 @@ const ServicesPage = () => {
                     <p className="text-sm text-gray-600 mb-3 line-clamp-2">
                       {service.description || "No description available"}
                     </p>
-                    
+
                     {service.headOfDepartment && (
                       <div className="flex items-center text-sm text-gray-600 mb-2">
                         <FaUserMd className="mr-2 text-gray-400" />
-                        <span className="truncate">{service.headOfDepartment}</span>
+                        <span className="truncate">
+                          {service.headOfDepartment}
+                        </span>
                       </div>
                     )}
-                    
+
                     {service.serviceHours && (
                       <div className="flex items-center text-sm text-gray-600 mb-2">
                         <FaClock className="mr-2 text-gray-400" />
@@ -576,18 +609,22 @@ const ServicesPage = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
-                      selectedService.division === "Outpatient" 
-                        ? "bg-purple-500 text-white" 
-                        : "bg-indigo-500 text-white"
-                    }`}>
+                    <span
+                      className={`text-xs px-2 py-1 rounded-full font-semibold ${
+                        selectedService.division === "Outpatient"
+                          ? "bg-purple-500 text-white"
+                          : "bg-indigo-500 text-white"
+                      }`}
+                    >
                       {selectedService.division}
                     </span>
                     <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
                       {selectedService.category}
                     </span>
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-900">{selectedService.name}</h3>
+                  <h3 className="text-2xl font-bold text-gray-900">
+                    {selectedService.name}
+                  </h3>
                 </div>
                 <button
                   onClick={() => setViewModal(false)}
@@ -614,66 +651,84 @@ const ServicesPage = () => {
                     {selectedService.description || "No description available"}
                   </p>
                 </div>
-                
+
                 {selectedService.headOfDepartment && (
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Head of Department</p>
+                    <p className="text-sm text-gray-500 mb-1">
+                      Head of Department
+                    </p>
                     <div className="flex items-center">
                       <FaUserMd className="text-blue-600 mr-2" />
-                      <p className="font-semibold text-gray-900">{selectedService.headOfDepartment}</p>
+                      <p className="font-semibold text-gray-900">
+                        {selectedService.headOfDepartment}
+                      </p>
                     </div>
                   </div>
                 )}
-                
+
                 {selectedService.contactInfo && (
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Contact Information</p>
+                    <p className="text-sm text-gray-500 mb-1">
+                      Contact Information
+                    </p>
                     <div className="flex items-center">
                       <FaPhone className="text-green-600 mr-2" />
-                      <p className="text-gray-900">{selectedService.contactInfo}</p>
+                      <p className="text-gray-900">
+                        {selectedService.contactInfo}
+                      </p>
                     </div>
                   </div>
                 )}
-                
+
                 {selectedService.serviceHours && (
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Service Hours</p>
                     <div className="flex items-center">
                       <FaClock className="text-purple-600 mr-2" />
-                      <p className="text-gray-900">{selectedService.serviceHours}</p>
+                      <p className="text-gray-900">
+                        {selectedService.serviceHours}
+                      </p>
                     </div>
                   </div>
                 )}
-                
+
                 {selectedService.location && (
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Location</p>
                     <div className="flex items-center">
                       <FaMapMarkerAlt className="text-red-600 mr-2" />
-                      <p className="text-gray-900">{selectedService.location}</p>
+                      <p className="text-gray-900">
+                        {selectedService.location}
+                      </p>
                     </div>
                   </div>
                 )}
-                
+
                 {selectedService.tariffInfo && (
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Tariff Information</p>
-                    <p className="text-gray-900">{selectedService.tariffInfo}</p>
+                    <p className="text-sm text-gray-500 mb-1">
+                      Tariff Information
+                    </p>
+                    <p className="text-gray-900">
+                      {selectedService.tariffInfo}
+                    </p>
                   </div>
                 )}
-                
+
                 <div>
                   <p className="text-sm text-gray-500 mb-1">SHA Coverage</p>
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                    selectedService.nhifCovered 
-                      ? "bg-green-100 text-green-700" 
-                      : "bg-gray-100 text-gray-700"
-                  }`}>
+                  <span
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                      selectedService.nhifCovered
+                        ? "bg-green-100 text-green-700"
+                        : "bg-gray-100 text-gray-700"
+                    }`}
+                  >
                     {selectedService.nhifCovered ? "✓ Covered" : "Not Covered"}
                   </span>
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-end gap-3 mt-6 pt-6 border-t border-gray-100">
                 <button
                   onClick={() => {
@@ -703,10 +758,14 @@ const ServicesPage = () => {
           <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-100">
               <h2 className="text-2xl font-bold text-gray-900">
-                {isEditing ? "Edit Department/Service" : "Add New Department/Service"}
+                {isEditing
+                  ? "Edit Department/Service"
+                  : "Add New Department/Service"}
               </h2>
               <p className="text-gray-600 mt-1">
-                {isEditing ? "Update department/service information" : "Create a new department or service"}
+                {isEditing
+                  ? "Update department/service information"
+                  : "Create a new department or service"}
               </p>
             </div>
 
@@ -742,8 +801,10 @@ const ServicesPage = () => {
                       required
                     >
                       <option value="">Select Division</option>
-                      {divisions.map(div => (
-                        <option key={div} value={div}>{div}</option>
+                      {divisions.map((div) => (
+                        <option key={div} value={div}>
+                          {div}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -762,8 +823,10 @@ const ServicesPage = () => {
                     required
                   >
                     <option value="">Select Category</option>
-                    {serviceCategories.map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
+                    {serviceCategories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -793,7 +856,10 @@ const ServicesPage = () => {
                       type="text"
                       value={formData.headOfDepartment}
                       onChange={(e) =>
-                        setFormData({ ...formData, headOfDepartment: e.target.value })
+                        setFormData({
+                          ...formData,
+                          headOfDepartment: e.target.value,
+                        })
                       }
                       placeholder="e.g., Dr. Jane Doe"
                       className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -808,7 +874,10 @@ const ServicesPage = () => {
                       type="text"
                       value={formData.contactInfo}
                       onChange={(e) =>
-                        setFormData({ ...formData, contactInfo: e.target.value })
+                        setFormData({
+                          ...formData,
+                          contactInfo: e.target.value,
+                        })
                       }
                       placeholder="e.g., +254 700 000 000"
                       className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -825,7 +894,10 @@ const ServicesPage = () => {
                       type="text"
                       value={formData.serviceHours}
                       onChange={(e) =>
-                        setFormData({ ...formData, serviceHours: e.target.value })
+                        setFormData({
+                          ...formData,
+                          serviceHours: e.target.value,
+                        })
                       }
                       placeholder="e.g., Mon-Fri 8:00 AM - 5:00 PM"
                       className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -869,20 +941,26 @@ const ServicesPage = () => {
                     id="nhifCovered"
                     checked={formData.nhifCovered}
                     onChange={(e) =>
-                      setFormData({ ...formData, nhifCovered: e.target.checked })
+                      setFormData({
+                        ...formData,
+                        nhifCovered: e.target.checked,
+                      })
                     }
                     className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   />
-                  <label htmlFor="nhifCovered" className="ml-2 text-sm font-medium text-gray-700">
+                  <label
+                    htmlFor="nhifCovered"
+                    className="ml-2 text-sm font-medium text-gray-700"
+                  >
                     SHA Covered Service
                   </label>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Service Image {!isEditing && "*"}
+                    Service Image (Optional)
                   </label>
-                  
+
                   {imagePreview && (
                     <div className="mb-4">
                       <img
@@ -896,11 +974,10 @@ const ServicesPage = () => {
                   <input
                     type="file"
                     accept="image/*"
-                    required={!isEditing}
                     onChange={handleImageChange}
                     className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
-                  
+
                   <p className="text-xs text-gray-500 mt-2">
                     Recommended: JPG, PNG or WEBP (Max 5MB)
                   </p>

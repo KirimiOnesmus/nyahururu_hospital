@@ -9,6 +9,7 @@
   "author": "Onesmus Kirimi",
   "license": "ISC",
   "dependencies": {
+    "africastalking": "^0.7.8",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",

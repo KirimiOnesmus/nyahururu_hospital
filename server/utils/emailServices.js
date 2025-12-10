@@ -140,7 +140,7 @@ exports.sendPasswordResetEmail = async (email, token, userId) => {
     }
 
     const result = await transporter.sendMail(mailOptions);
-    console.log(`Password reset email sent to ${email}:`, result.messageId);
+    // console.log(`Password reset email sent to ${email}:`, result.messageId);
     return result;
   } catch (error) {
     console.error('Error sending password reset email:', error);
@@ -193,7 +193,7 @@ exports.sendNewPasswordEmail = async (email, password, userId) => {
     }
 
     const result = await transporter.sendMail(mailOptions);
-    console.log(`New password email sent to ${email}:`, result.messageId);
+    // console.log(`New password email sent to ${email}:`, result.messageId);
     return result;
   } catch (error) {
     console.error('Error sending new password email:', error);
@@ -226,10 +226,162 @@ exports.sendAccountNotificationEmail = async (email, subject, message) => {
     }
 
     const result = await transporter.sendMail(mailOptions);
-    console.log(`Notification email sent to ${email}:`, result.messageId);
+    // console.log(`Notification email sent to ${email}:`, result.messageId);
     return result;
   } catch (error) {
     console.error('Error sending notification email:', error);
+    throw error;
+  }
+};
+
+
+// Appointment booking Notification
+
+
+exports.sendAppointmentConfirmationEmail = async (appointmentData) => {
+  const { patientName, patientEmail, service, appointmentDate, time, phone } = appointmentData;
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER, 
+    to: patientEmail,  
+    subject: 'Appointment Booking Confirmation',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px;">
+          <h2 style="color: #4CAF50; margin-top: 0;">✅ Appointment Booked Successfully!</h2>
+          
+          <p style="color: #555; line-height: 1.6;">Dear ${patientName},</p>
+          <p style="color: #555; line-height: 1.6;">
+            Your appointment has been received and is pending confirmation from our medical team.
+          </p>
+          
+          <div style="background-color: #fff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4CAF50;">
+            <h3 style="color: #333; margin-top: 0;">Appointment Details:</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-weight: bold;">Service:</td>
+                <td style="padding: 8px 0; color: #333;">${service}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-weight: bold;">Date:</td>
+                <td style="padding: 8px 0; color: #333;">${new Date(appointmentDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-weight: bold;">Time:</td>
+                <td style="padding: 8px 0; color: #333;">${time}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-weight: bold;">Contact:</td>
+                <td style="padding: 8px 0; color: #333;">${phone || 'N/A'}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <p style="color: #555; line-height: 1.6;">
+            You will receive a confirmation email once your appointment has been reviewed by our staff.
+          </p>
+          
+          <p style="color: #999; font-size: 11px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+            If you need to reschedule or cancel, please contact us as soon as possible.
+          </p>
+        </div>
+      </div>
+    `,
+  };
+
+  try {
+    if (!transporter) {
+      throw new Error('Email transporter not initialized');
+    }
+
+    const result = await transporter.sendMail(mailOptions);
+    // console.log(`Appointment confirmation sent to patient ${patientEmail}:`, result.messageId);
+    return result;
+  } catch (error) {
+    console.error('Error sending appointment confirmation email:', error);
+    throw error;
+  }
+};
+
+exports.sendAppointmentStatusUpdateEmail = async (email, appointmentData, status) => {
+  const { patientName, service, appointmentDate, time } = appointmentData;
+
+  let statusColor, statusText, statusMessage;
+
+  switch (status) {
+    case 'confirmed':
+      statusColor = '#4CAF50';
+      statusText = 'Confirmed';
+      statusMessage = 'Your appointment has been confirmed by our medical team.';
+      break;
+    case 'cancelled':
+      statusColor = '#f44336';
+      statusText = 'Cancelled';
+      statusMessage = 'Your appointment has been cancelled. Please contact us if you need to reschedule.';
+      break;
+    case 'rescheduled':
+      statusColor = '#ff9800';
+      statusText = 'Rescheduled';
+      statusMessage = 'Your appointment has been rescheduled. Please check the new details below.';
+      break;
+    default:
+      statusColor = '#2196F3';
+      statusText = status;
+      statusMessage = `Your appointment status has been updated to: ${status}`;
+  }
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER, 
+    to: email,   
+    subject: `Appointment ${statusText}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px;">
+          <h2 style="color: ${statusColor}; margin-top: 0;">Appointment ${statusText}</h2>
+          
+          <p style="color: #555; line-height: 1.6;">Dear ${patientName},</p>
+          <p style="color: #555; line-height: 1.6;">${statusMessage}</p>
+          
+          <div style="background-color: #fff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${statusColor};">
+            <h3 style="color: #333; margin-top: 0;">Appointment Details:</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-weight: bold;">Service:</td>
+                <td style="padding: 8px 0; color: #333;">${service}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-weight: bold;">Date:</td>
+                <td style="padding: 8px 0; color: #333;">${new Date(appointmentDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-weight: bold;">Time:</td>
+                <td style="padding: 8px 0; color: #333;">${time}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-weight: bold;">Status:</td>
+                <td style="padding: 8px 0; color: ${statusColor}; font-weight: bold;">${statusText}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <p style="color: #999; font-size: 11px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+            If you have any questions, please contact us.
+          </p>
+        </div>
+      </div>
+    `,
+  };
+
+  try {
+    if (!transporter) {
+      throw new Error('Email transporter not initialized');
+    }
+
+    const result = await transporter.sendMail(mailOptions);
+    // console.log(`Status update email sent to ${email}:`, result.messageId);
+    return result;
+  } catch (error) {
+    console.error('Error sending status update email:', error);
     throw error;
   }
 };

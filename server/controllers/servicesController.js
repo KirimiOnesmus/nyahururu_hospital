@@ -16,9 +16,100 @@ const deleteImageFile = (imagePath) => {
   }
 };
 
+// exports.createService = async (req, res) => {
+//   try {
+
+//     const {
+//       name,
+//       division,
+//       category,
+//       description,
+//       headOfDepartment,
+//       contactInfo,
+//       serviceHours,
+//       location,
+//       tariffInfo,
+//       nhifCovered,
+//     } = req.body;
+
+//     // Validate required fields
+//     if (!name || !name.trim()) {
+//       if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
+//       return res.status(400).json({ message: "Service name is required" });
+//     }
+
+//     if (!division) {
+//       if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
+//       return res.status(400).json({ message: "Division is required" });
+//     }
+
+//     if (!category) {
+//       if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
+//       return res.status(400).json({ message: "Category is required" });
+//     }
+
+//     if (!description || !description.trim()) {
+//       if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
+//       return res.status(400).json({ message: "Description is required" });
+//     }
+
+//     // Validate division enum
+//     const validDivisions = ["Outpatient", "Inpatient", "Specialist Clinics"];
+//     // console.log('Checking division:', division, 'against:', validDivisions);
+    
+//     if (!validDivisions.includes(division)) {
+//       if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
+//       return res.status(400).json({
+//         message: "Invalid division. Must be Outpatient, Inpatient, or Specialist Clinics",
+//       });
+//     }
+
+//     // Validate file 
+//     // if (!req.file) {
+//     //   return res.status(400).json({ message: "Service image is required" });
+//     // }
+
+//     if (!req.file.mimetype.startsWith("image/")) {
+//       deleteImageFile(`/uploads/services/${req.file.filename}`);
+//       return res.status(400).json({ message: "Only image files are allowed" });
+//     }
+
+//     // Check for duplicate name
+//     const existing = await Service.findOne({ name: name.trim() });
+//     if (existing) {
+//       deleteImageFile(`/uploads/services/${req.file.filename}`);
+//       return res.status(400).json({ message: "Service with this name already exists" });
+//     }
+
+//     const imageUrl = `/uploads/services/${req.file.filename}`;
+//     const newService = new Service({
+//       name: name.trim(),
+//       division,
+//       category,
+//       description: description.trim(),
+//       headOfDepartment: headOfDepartment?.trim() || null,
+//       contactInfo: contactInfo?.trim() || null,
+//       serviceHours: serviceHours?.trim() || null,
+//       location: location?.trim() || null,
+//       tariffInfo: tariffInfo?.trim() || null,
+//       nhifCovered: nhifCovered === "true" || nhifCovered === true || false,
+//       imageUrl,
+//     });
+
+//     await newService.save();
+//     console.log('✅ Service created successfully:', newService._id);
+//     res.status(201).json({ message: "Service created successfully", service: newService });
+//   } catch (error) {
+//     if (req.file) {
+//       deleteImageFile(`/uploads/services/${req.file.filename}`);
+//     }
+
+//     res.status(500).json({ message: "Server Error", error: error.message });
+//   }
+// };
+
 exports.createService = async (req, res) => {
   try {
-
     const {
       name,
       division,
@@ -55,7 +146,6 @@ exports.createService = async (req, res) => {
 
     // Validate division enum
     const validDivisions = ["Outpatient", "Inpatient", "Specialist Clinics"];
-    // console.log('Checking division:', division, 'against:', validDivisions);
     
     if (!validDivisions.includes(division)) {
       if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
@@ -64,12 +154,8 @@ exports.createService = async (req, res) => {
       });
     }
 
-    // Validate file
-    if (!req.file) {
-      return res.status(400).json({ message: "Service image is required" });
-    }
-
-    if (!req.file.mimetype.startsWith("image/")) {
+    // Validate file type only if a file was uploaded
+    if (req.file && !req.file.mimetype.startsWith("image/")) {
       deleteImageFile(`/uploads/services/${req.file.filename}`);
       return res.status(400).json({ message: "Only image files are allowed" });
     }
@@ -77,11 +163,13 @@ exports.createService = async (req, res) => {
     // Check for duplicate name
     const existing = await Service.findOne({ name: name.trim() });
     if (existing) {
-      deleteImageFile(`/uploads/services/${req.file.filename}`);
+      if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
       return res.status(400).json({ message: "Service with this name already exists" });
     }
 
-    const imageUrl = `/uploads/services/${req.file.filename}`;
+    // Set imageUrl only if file was uploaded
+    const imageUrl = req.file ? `/uploads/services/${req.file.filename}` : null;
+    
     const newService = new Service({
       name: name.trim(),
       division,
@@ -107,7 +195,6 @@ exports.createService = async (req, res) => {
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
-
 exports.updateService = async (req, res) => {
   try {
     

@@ -16,6 +16,7 @@ import {
   FaExclamationTriangle,
   FaArrowRight,
   FaArrowLeft,
+  FaLayerGroup 
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
@@ -46,17 +47,19 @@ const Appointment = () => {
   });
 
   const [loading, setLoading] = useState(false);
-  const [departments, setDepartments] = useState([]);
-  const [allDepartments, setAllDepartments] = useState([]);
+  const [services, setServices] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [filteredServices, setFilteredServices] = useState([]);
+  const [selectedService, setSelectedService] = useState(null);
+  const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
   const [submitStatus, setSubmitStatus] = useState(null);
 
   useEffect(() => {
-    const fetchDepartments = async () => {
+    const fetchServices = async () => {
       try {
         const res = await api.get("/services");
         console.log("Services response:", res.data);
 
-        // Ensure we have an array
         let servicesData = [];
         if (Array.isArray(res.data)) {
           servicesData = res.data;
@@ -69,21 +72,125 @@ const Appointment = () => {
           servicesData = [];
         }
 
-        setDepartments(servicesData);
+        setServices(servicesData);
 
         // Extract unique departments
-        const uniqueDepts = [
-          ...new Set(servicesData.map((s) => s.department).filter(Boolean)),
+        const uniqueCategories = [
+          ...new Set(servicesData.map((s) => s.category).filter(Boolean)),
         ].sort();
-        setAllDepartments(uniqueDepts);
+        setCategories(uniqueCategories);
       } catch (error) {
-        console.error("Error fetching departments", error);
+        // console.error("Error fetching departments", error);
         toast.error("Failed to load departments. Please refresh the page.");
-        setDepartments([]);
+        setServices([]);
       }
     };
-    fetchDepartments();
+    fetchServices();
   }, []);
+
+  // Filter services when category changes
+  useEffect(() => {
+    if (formData.category) {
+      const filtered = services.filter(
+        (service) => service.category === formData.category
+      );
+      setFilteredServices(filtered);
+    } else {
+      setFilteredServices([]);
+    }
+    // Reset service selection when category changes
+    setFormData((prev) => ({ ...prev, service: "", time: "" }));
+    setSelectedService(null);
+    setAvailableTimeSlots([]);
+  }, [formData.category, services]);
+
+  // Update selected service and generate time slots when service changes
+  useEffect(() => {
+    if (formData.service) {
+      const service = services.find((s) => s._id === formData.service);
+      setSelectedService(service);
+
+      if (service && service.serviceHours) {
+        generateTimeSlots(service.serviceHours);
+      }
+    } else {
+      setSelectedService(null);
+      setAvailableTimeSlots([]);
+    }
+    // Reset time when service changes
+    setFormData((prev) => ({ ...prev, time: "" }));
+  }, [formData.service, services]);
+
+  // Parse service hours and generate available time slots
+  const generateTimeSlots = (serviceHours) => {
+    if (!serviceHours) {
+      setAvailableTimeSlots([]);
+      return;
+    }
+
+    // Handle 24/7 services
+    if (
+      serviceHours.toLowerCase().includes("24/7") ||
+      serviceHours.toLowerCase().includes("24 hours") ||
+      serviceHours.toLowerCase().includes("24-hour")
+    ) {
+      const slots = [];
+      for (let hour = 0; hour < 24; hour++) {
+        for (let minute of [0, 60]) {
+          const time = `${hour.toString().padStart(2, "0")}:${minute
+            .toString()
+            .padStart(2, "0")}`;
+          slots.push(time);
+        }
+      }
+      setAvailableTimeSlots(slots);
+      return;
+    }
+
+    // Parse hours like "Mon-Fri, 8am to 5pm" or "Mon-Sat, 9am to 6pm"
+    const timeMatch = serviceHours.match(/(\d+)(am|pm)\s*to\s*(\d+)(am|pm)/i);
+    if (timeMatch) {
+      let startHour = parseInt(timeMatch[1]);
+      let endHour = parseInt(timeMatch[3]);
+
+      // Convert to 24-hour format
+      if (timeMatch[2].toLowerCase() === "pm" && startHour !== 12) {
+        startHour += 12;
+      }
+      if (timeMatch[4].toLowerCase() === "pm" && endHour !== 12) {
+        endHour += 12;
+      }
+      if (timeMatch[2].toLowerCase() === "am" && startHour === 12) {
+        startHour = 0;
+      }
+      if (timeMatch[4].toLowerCase() === "am" && endHour === 12) {
+        endHour = 0;
+      }
+
+      const slots = [];
+      for (let hour = startHour; hour < endHour; hour++) {
+        for (let minute of [0, 30]) {
+          const time = `${hour.toString().padStart(2, "0")}:${minute
+            .toString()
+            .padStart(2, "0")}`;
+          slots.push(time);
+        }
+      }
+      setAvailableTimeSlots(slots);
+    } else {
+      // Default to business hours (8am-5pm) if parsing fails
+      const slots = [];
+      for (let hour = 8; hour < 17; hour++) {
+        for (let minute of [0, 30]) {
+          const time = `${hour.toString().padStart(2, "0")}:${minute
+            .toString()
+            .padStart(2, "0")}`;
+          slots.push(time);
+        }
+      }
+      setAvailableTimeSlots(slots);
+    }
+  };
 
   // Normal booking handlers
   const handleChange = (e) => {
@@ -92,7 +199,7 @@ const Appointment = () => {
   };
 
   const validateNormalForm = () => {
-    const { name, email, phone, department, date, time } = formData;
+    const { name, email, phone, category, service, date, time } = formData;
 
     if (!name.trim()) {
       toast.error("Please enter your name");
@@ -106,8 +213,12 @@ const Appointment = () => {
       toast.error("Please enter a valid phone number");
       return false;
     }
-    if (!department) {
-      toast.error("Please select a department");
+    if (!category) {
+      toast.error("Please select a category");
+      return false;
+    }
+    if (!service) {
+      toast.error("Please select a service");
       return false;
     }
     if (!date) {
@@ -131,25 +242,32 @@ const Appointment = () => {
 
     try {
       const res = await api.post("/appointments", {
-        ...formData,
-        service: formData.department, // Send as service for backend compatibility
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        service: selectedService?.name || "",
+        department: selectedService?.department || formData.category, 
+        date: formData.date,
+        time: formData.time,
       });
       setFormData({
         name: "",
         email: "",
         phone: "",
-        department: "",
+        category: "",
+        service: "",
         date: "",
         time: "",
       });
       setSubmitStatus("success");
-      console.log("Booked successfully:", res.data);
+      // console.log("Booked successfully:", res.data);
       toast.success("Appointment booked successfully!");
       setTimeout(() => navigate("/"), 3000);
     } catch (error) {
       console.error(error);
       setSubmitStatus("error");
-      const errorMsg = error.response?.data?.message || "Failed to book appointment";
+      const errorMsg =
+        error.response?.data?.message || "Failed to book appointment";
       toast.error(errorMsg);
     } finally {
       setLoading(false);
@@ -206,12 +324,13 @@ const Appointment = () => {
       const res = await api.post("/anonymous", anonymousForm);
       setSubmitStatus("success");
       setStep(6);
-      console.log("Anonymous booking successful:", res.data);
+      // console.log("Anonymous booking successful:", res.data);
       toast.success("Anonymous appointment request submitted successfully!");
     } catch (error) {
       console.error(error);
       setSubmitStatus("error");
-      const errorMsg = error.response?.data?.message || "Failed to submit request";
+      const errorMsg =
+        error.response?.data?.message || "Failed to submit request";
       toast.error(errorMsg);
     } finally {
       setLoading(false);
@@ -438,30 +557,81 @@ const Appointment = () => {
                       </div>
                     </div>
 
+                    {/* NEW: Category Selection */}
                     <div className="group">
                       <label className="block mb-2 font-semibold text-gray-700 flex items-center">
-                        <FaStethoscope className="mr-2 text-blue-600" />
-                        Department *
+                        <FaLayerGroup className="mr-2 text-blue-600" />
+                        Category *
                       </label>
                       <select
-                        name="department"
-                        value={formData.department}
+                        name="category"
+                        value={formData.category}
                         onChange={handleChange}
                         required
-                        aria-label="Select department"
+                        aria-label="Select category"
                         className="w-full border border-gray-300 p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-gray-400 bg-white"
                       >
-                        <option value="">Select a Department</option>
-                        {Array.isArray(allDepartments) && allDepartments.length > 0 ? (
-                          allDepartments.map((dept) => (
-                            <option key={dept} value={dept}>
-                              {dept}
+                        <option value="">Select a Category</option>
+                        {Array.isArray(categories) && categories.length > 0 ? (
+                          categories.map((cat) => (
+                            <option key={cat} value={cat}>
+                              {cat}
                             </option>
                           ))
                         ) : (
-                          <option disabled>No departments available</option>
+                          <option disabled>No categories available</option>
                         )}
                       </select>
+                    </div>
+
+                    {/* UPDATED: Service Selection (filtered by category) */}
+                    <div className="group">
+                      <label className="block mb-2 font-semibold text-gray-700 flex items-center">
+                        <FaStethoscope className="mr-2 text-blue-600" />
+                        Service *
+                      </label>
+                      <select
+                        name="service"
+                        value={formData.service}
+                        onChange={handleChange}
+                        required
+                        disabled={!formData.category}
+                        aria-label="Select service"
+                        className="w-full border border-gray-300 p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-gray-400 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      >
+                        <option value="">
+                          {formData.category
+                            ? "Select a Service"
+                            : "Select a category first"}
+                        </option>
+                        {filteredServices.map((service) => (
+                          <option key={service._id} value={service._id}>
+                            {service.name} ({service.division})
+                          </option>
+                        ))}
+                      </select>
+                      {selectedService && (
+                        <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="space-y-2">
+                            <p className="text-sm text-blue-900">
+                              <strong>Service Hours:</strong>{" "}
+                              {selectedService.serviceHours}
+                            </p>
+                            {selectedService.department && (
+                              <p className="text-sm text-blue-900">
+                                <strong>Department:</strong>{" "}
+                                {selectedService.department}
+                              </p>
+                            )}
+                            {selectedService.nhifCovered && (
+                              <p className="text-sm text-green-700 flex items-center">
+                                <FaCheckCircle className="mr-2" />
+                                NHIF Covered
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -482,20 +652,38 @@ const Appointment = () => {
                         />
                       </div>
 
+                      {/* UPDATED: Time Selection (filtered by service hours) */}
                       <div className="group">
                         <label className="block mb-2 font-semibold text-gray-700 flex items-center">
                           <FaClock className="mr-2 text-blue-600" />
                           Preferred Time *
                         </label>
-                        <input
-                          type="time"
+                        <select
                           name="time"
                           value={formData.time}
                           onChange={handleChange}
                           required
+                          disabled={!formData.service}
                           aria-label="Appointment time"
-                          className="w-full border border-gray-300 p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-gray-400"
-                        />
+                          className="w-full border border-gray-300 p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-gray-400 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        >
+                          <option value="">
+                            {formData.service
+                              ? "Select a time slot"
+                              : "Select a service first"}
+                          </option>
+                          {availableTimeSlots.map((slot) => (
+                            <option key={slot} value={slot}>
+                              {slot}
+                            </option>
+                          ))}
+                        </select>
+                        {availableTimeSlots.length > 0 && (
+                          <p className="text-xs text-gray-500 mt-2">
+                            {availableTimeSlots.length} time slots available
+                            based on service hours
+                          </p>
+                        )}
                       </div>
                     </div>
 
