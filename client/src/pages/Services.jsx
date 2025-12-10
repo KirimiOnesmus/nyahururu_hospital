@@ -218,7 +218,6 @@ const Services = () => {
 
               <div className="flex flex-wrap gap-2 md:gap-3">
                 {selectedDivision ? (
-                  // Show categories for selected division
                   categoriesInDivision.length > 0 ? (
                     <>
                       <button

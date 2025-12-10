@@ -26,7 +26,7 @@ const DoctorDetails = () => {
       try {
         const res = await api.get(`/doctors/doctors/${id}`);
         setDoctor(res.data.data);
-        console.log("Doctor data:", res.data.data);
+        // console.log("Doctor data:", res.data.data);
       } catch (err) {
         console.error(err);
         setError("Doctor not found or error fetching data");
@@ -37,7 +37,7 @@ const DoctorDetails = () => {
     fetchDoctor();
   }, [id]);
 
-  // Format availability days
+ 
   const formatAvailability = (availability) => {
     if (!availability || availability.length === 0) {
       return "Schedule not available";
@@ -56,7 +56,7 @@ const DoctorDetails = () => {
     ));
   };
 
-  // Get full name
+ 
   const fullName = doctor?.userId?.firstName && doctor?.userId?.lastName
     ? `Dr. ${doctor.userId.firstName} ${doctor.userId.lastName}`
     : doctor?.userId?.firstName 
@@ -91,7 +91,7 @@ const DoctorDetails = () => {
             <p className="text-red-500 text-lg mb-4">{error || "Doctor not found"}</p>
             <button
               onClick={() => navigate("/doctors")}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg cursor-pointer hover:bg-blue-700 transition-colors"
             >
               Back to Specialists
             </button>
@@ -110,21 +110,21 @@ const DoctorDetails = () => {
 
       <div className="flex-1 bg-gray-50">
         <div className="px-6 py-8 max-w-7xl mx-auto">
-          {/* Back Button */}
+  
           <button
             onClick={() => navigate("/doctors")}
-            className="flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-6 font-semibold transition-colors"
+            className="flex items-center gap-2 text-blue-600 cursor-pointer hover:text-blue-700 mb-6 font-semibold transition-colors"
           >
             <FaArrowLeft />
             Back to Specialists
           </button>
 
-          {/* Doctor Profile Header */}
+
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-6">
             <div className="bg-gradient-to-r from-blue-400 to-indigo-400 h-32"></div>
             <div className="px-6 md:px-10 pb-8">
               <div className="flex flex-col md:flex-row gap-6 -mt-16">
-                {/* Profile Image */}
+       
                 <div className="flex-shrink-0">
                   {doctor.profile?.imageUrl ? (
                     <img
@@ -139,7 +139,7 @@ const DoctorDetails = () => {
                   )}
                 </div>
 
-                {/* Profile Info */}
+   
                 <div className="flex-1 mt-6">
                   <h1 className="text-3xl font-bold text-gray-900 mb-2">{fullName}</h1>
                   <div className="flex flex-wrap gap-3 mb-4">
@@ -156,11 +156,11 @@ const DoctorDetails = () => {
             </div>
           </div>
 
-          {/* Main Content Grid */}
+
           <div className="grid md:grid-cols-3 gap-6">
-            {/* Left Column - Bio & Education */}
+
             <div className="md:col-span-2 space-y-6">
-              {/* Professional Bio */}
+
               <div className="bg-white rounded-xl shadow-md p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                   <FaUserMd className="text-blue-600" />
@@ -171,7 +171,7 @@ const DoctorDetails = () => {
                 </p>
               </div>
 
-              {/* Education */}
+  
               <div className="bg-white rounded-xl shadow-md p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                   <FaGraduationCap className="text-blue-600" />
@@ -187,7 +187,6 @@ const DoctorDetails = () => {
               </div>
             </div>
 
-            {/* Right Column - Availability */}
             <div className="md:col-span-1">
               <div className="bg-white rounded-xl shadow-md p-6 sticky top-24">
                 <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -206,10 +205,10 @@ const DoctorDetails = () => {
                   )}
                 </div>
 
-                {/* Book Appointment Button */}
+
                 <button
                   onClick={() => navigate("/appointment")}
-                  className="w-full mt-6 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold shadow-md hover:shadow-lg"
+                  className="w-full mt-6 px-6 py-3 bg-blue-600 text-white rounded-lg cursor-pointer hover:bg-blue-700 transition-colors font-semibold shadow-md hover:shadow-lg"
                 >
                   Book Appointment
                 </button>

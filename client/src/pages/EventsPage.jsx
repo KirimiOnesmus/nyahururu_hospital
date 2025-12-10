@@ -107,9 +107,20 @@ const EventsPage = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600"></div>
-      </div>
+         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+           <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md shadow-sm">
+             <Header />
+           </div>
+           <div className="min-h-screen flex items-center justify-center">
+             <div className="flex flex-col items-center gap-4">
+               <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600"></div>
+               <p className="text-gray-600 font-medium text-lg">
+                 Loading Events...
+               </p>
+             </div>
+           </div>
+           <Footer />
+         </div>
     );
   }
 

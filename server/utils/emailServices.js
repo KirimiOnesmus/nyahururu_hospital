@@ -1,4 +1,4 @@
-const nodemailer = require('nodemailer');
+const nodemailer = require("nodemailer");
 
 // Configure your email service with error checking
 let transporter;
@@ -6,7 +6,7 @@ let transporter;
 const initializeTransporter = async () => {
   try {
     transporter = nodemailer.createTransport({
-      service: process.env.EMAIL_SERVICE || 'gmail',
+      service: process.env.EMAIL_SERVICE || "gmail",
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD,
@@ -15,10 +15,10 @@ const initializeTransporter = async () => {
 
     // Verify connection
     await transporter.verify();
-    console.log('Email transporter verified successfully');
+    console.log("Email transporter verified successfully");
     return true;
   } catch (error) {
-    console.error('Failed to verify email transporter:', error);
+    console.error("Failed to verify email transporter:", error);
     return false;
   }
 };
@@ -29,13 +29,13 @@ initializeTransporter();
 exports.testEmail = async (email) => {
   try {
     if (!transporter) {
-      throw new Error('Email transporter not initialized');
+      throw new Error("Email transporter not initialized");
     }
 
     const result = await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: email,
-      subject: 'Test Email - Healthcare Management System',
+      subject: "Test Email - Healthcare Management System",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333;">Test Email</h2>
@@ -44,10 +44,10 @@ exports.testEmail = async (email) => {
       `,
     });
 
-    console.log('Test email sent:', result);
+    console.log("Test email sent:", result);
     return { success: true, messageId: result.messageId };
   } catch (error) {
-    console.error('Error sending test email:', error);
+    console.error("Error sending test email:", error);
     throw error;
   }
 };
@@ -58,7 +58,7 @@ exports.sendVerificationEmail = async (email, token, userId) => {
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: email,
-    subject: 'Email Verification - Healthcare Management System',
+    subject: "Email Verification - Healthcare Management System",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px;">
@@ -88,14 +88,14 @@ exports.sendVerificationEmail = async (email, token, userId) => {
 
   try {
     if (!transporter) {
-      throw new Error('Email transporter not initialized');
+      throw new Error("Email transporter not initialized");
     }
 
     const result = await transporter.sendMail(mailOptions);
     console.log(`Verification email sent to ${email}:`, result.messageId);
     return result;
   } catch (error) {
-    console.error('Error sending verification email:', error);
+    console.error("Error sending verification email:", error);
     throw error;
   }
 };
@@ -106,7 +106,7 @@ exports.sendPasswordResetEmail = async (email, token, userId) => {
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: email,
-    subject: 'Password Reset Request - Healthcare Management System',
+    subject: "Password Reset Request - Healthcare Management System",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px;">
@@ -136,14 +136,14 @@ exports.sendPasswordResetEmail = async (email, token, userId) => {
 
   try {
     if (!transporter) {
-      throw new Error('Email transporter not initialized');
+      throw new Error("Email transporter not initialized");
     }
 
     const result = await transporter.sendMail(mailOptions);
     // console.log(`Password reset email sent to ${email}:`, result.messageId);
     return result;
   } catch (error) {
-    console.error('Error sending password reset email:', error);
+    console.error("Error sending password reset email:", error);
     throw error;
   }
 };
@@ -154,7 +154,7 @@ exports.sendNewPasswordEmail = async (email, password, userId) => {
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: email,
-    subject: 'Your New Password - Healthcare Management System',
+    subject: "Your New Password - Healthcare Management System",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px;">
@@ -189,14 +189,14 @@ exports.sendNewPasswordEmail = async (email, password, userId) => {
 
   try {
     if (!transporter) {
-      throw new Error('Email transporter not initialized');
+      throw new Error("Email transporter not initialized");
     }
 
     const result = await transporter.sendMail(mailOptions);
     // console.log(`New password email sent to ${email}:`, result.messageId);
     return result;
   } catch (error) {
-    console.error('Error sending new password email:', error);
+    console.error("Error sending new password email:", error);
     throw error;
   }
 };
@@ -222,29 +222,28 @@ exports.sendAccountNotificationEmail = async (email, subject, message) => {
 
   try {
     if (!transporter) {
-      throw new Error('Email transporter not initialized');
+      throw new Error("Email transporter not initialized");
     }
 
     const result = await transporter.sendMail(mailOptions);
     // console.log(`Notification email sent to ${email}:`, result.messageId);
     return result;
   } catch (error) {
-    console.error('Error sending notification email:', error);
+    console.error("Error sending notification email:", error);
     throw error;
   }
 };
 
-
 // Appointment booking Notification
 
-
 exports.sendAppointmentConfirmationEmail = async (appointmentData) => {
-  const { patientName, patientEmail, service, appointmentDate, time, phone } = appointmentData;
+  const { patientName, patientEmail, service, appointmentDate, time, phone } =
+    appointmentData;
 
   const mailOptions = {
-    from: process.env.EMAIL_USER, 
-    to: patientEmail,  
-    subject: 'Appointment Booking Confirmation',
+    from: process.env.EMAIL_USER,
+    to: patientEmail,
+    subject: "Appointment Booking Confirmation",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px;">
@@ -264,7 +263,14 @@ exports.sendAppointmentConfirmationEmail = async (appointmentData) => {
               </tr>
               <tr>
                 <td style="padding: 8px 0; color: #666; font-weight: bold;">Date:</td>
-                <td style="padding: 8px 0; color: #333;">${new Date(appointmentDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td>
+                <td style="padding: 8px 0; color: #333;">${new Date(
+                  appointmentDate
+                ).toLocaleDateString("en-US", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}</td>
               </tr>
               <tr>
                 <td style="padding: 8px 0; color: #666; font-weight: bold;">Time:</td>
@@ -272,7 +278,7 @@ exports.sendAppointmentConfirmationEmail = async (appointmentData) => {
               </tr>
               <tr>
                 <td style="padding: 8px 0; color: #666; font-weight: bold;">Contact:</td>
-                <td style="padding: 8px 0; color: #333;">${phone || 'N/A'}</td>
+                <td style="padding: 8px 0; color: #333;">${phone || "N/A"}</td>
               </tr>
             </table>
           </div>
@@ -291,48 +297,55 @@ exports.sendAppointmentConfirmationEmail = async (appointmentData) => {
 
   try {
     if (!transporter) {
-      throw new Error('Email transporter not initialized');
+      throw new Error("Email transporter not initialized");
     }
 
     const result = await transporter.sendMail(mailOptions);
     // console.log(`Appointment confirmation sent to patient ${patientEmail}:`, result.messageId);
     return result;
   } catch (error) {
-    console.error('Error sending appointment confirmation email:', error);
+    console.error("Error sending appointment confirmation email:", error);
     throw error;
   }
 };
 
-exports.sendAppointmentStatusUpdateEmail = async (email, appointmentData, status) => {
+exports.sendAppointmentStatusUpdateEmail = async (
+  email,
+  appointmentData,
+  status
+) => {
   const { patientName, service, appointmentDate, time } = appointmentData;
 
   let statusColor, statusText, statusMessage;
 
   switch (status) {
-    case 'confirmed':
-      statusColor = '#4CAF50';
-      statusText = 'Confirmed';
-      statusMessage = 'Your appointment has been confirmed by our medical team.';
+    case "confirmed":
+      statusColor = "#4CAF50";
+      statusText = "Confirmed";
+      statusMessage =
+        "Your appointment has been confirmed by our medical team.";
       break;
-    case 'cancelled':
-      statusColor = '#f44336';
-      statusText = 'Cancelled';
-      statusMessage = 'Your appointment has been cancelled. Please contact us if you need to reschedule.';
+    case "cancelled":
+      statusColor = "#f44336";
+      statusText = "Cancelled";
+      statusMessage =
+        "Your appointment has been cancelled. Please contact us if you need to reschedule.";
       break;
-    case 'rescheduled':
-      statusColor = '#ff9800';
-      statusText = 'Rescheduled';
-      statusMessage = 'Your appointment has been rescheduled. Please check the new details below.';
+    case "rescheduled":
+      statusColor = "#ff9800";
+      statusText = "Rescheduled";
+      statusMessage =
+        "Your appointment has been rescheduled. Please check the new details below.";
       break;
     default:
-      statusColor = '#2196F3';
+      statusColor = "#2196F3";
       statusText = status;
       statusMessage = `Your appointment status has been updated to: ${status}`;
   }
 
   const mailOptions = {
-    from: process.env.EMAIL_USER, 
-    to: email,   
+    from: process.env.EMAIL_USER,
+    to: email,
     subject: `Appointment ${statusText}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -351,7 +364,14 @@ exports.sendAppointmentStatusUpdateEmail = async (email, appointmentData, status
               </tr>
               <tr>
                 <td style="padding: 8px 0; color: #666; font-weight: bold;">Date:</td>
-                <td style="padding: 8px 0; color: #333;">${new Date(appointmentDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td>
+                <td style="padding: 8px 0; color: #333;">${new Date(
+                  appointmentDate
+                ).toLocaleDateString("en-US", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}</td>
               </tr>
               <tr>
                 <td style="padding: 8px 0; color: #666; font-weight: bold;">Time:</td>
@@ -374,30 +394,37 @@ exports.sendAppointmentStatusUpdateEmail = async (email, appointmentData, status
 
   try {
     if (!transporter) {
-      throw new Error('Email transporter not initialized');
+      throw new Error("Email transporter not initialized");
     }
 
     const result = await transporter.sendMail(mailOptions);
     // console.log(`Status update email sent to ${email}:`, result.messageId);
     return result;
   } catch (error) {
-    console.error('Error sending status update email:', error);
+    console.error("Error sending status update email:", error);
     throw error;
   }
 };
 
 // feedback handling email
-exports.sendFeedbackReplyEmail = async (email, userName, originalMessage, replyMessage) => {
+exports.sendFeedbackReplyEmail = async (
+  email,
+  userName,
+  originalMessage,
+  replyMessage
+) => {
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: email,
-    subject: 'Response to Your Feedback - Healthcare Management System',
+    subject: "Response to Your Feedback - Healthcare Management System",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px;">
           <h2 style="color: #2196F3; margin-top: 0;">Thank You for Your Feedback!</h2>
           
-          <p style="color: #555; line-height: 1.6;">Dear ${userName || 'User'},</p>
+          <p style="color: #555; line-height: 1.6;">Dear ${
+            userName || "User"
+          },</p>
           <p style="color: #555; line-height: 1.6;">
             We have reviewed your feedback and would like to respond:
           </p>
@@ -426,14 +453,145 @@ exports.sendFeedbackReplyEmail = async (email, userName, originalMessage, replyM
 
   try {
     if (!transporter) {
-      throw new Error('Email transporter not initialized');
+      throw new Error("Email transporter not initialized");
     }
 
     const result = await transporter.sendMail(mailOptions);
     console.log(`Feedback reply sent to ${email}:`, result.messageId);
     return result;
   } catch (error) {
-    console.error('Error sending feedback reply email:', error);
+    console.error("Error sending feedback reply email:", error);
+    throw error;
+  }
+};
+
+// blood donation
+
+exports.sendDonorRegistrationEmail = async (donorData) => {
+  const { fullName, email, donationDate, donationTime, phone } = donorData;
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject:
+      "Blood Donation Registration Confirmation - Thank You for Saving Lives!",
+    html: `
+
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px;">
+    
+
+    <p style="color: #333; line-height: 1.6; font-size: 16px;">
+      Dear <strong style="color: #e53935;">${fullName}</strong>,
+    </p>
+    
+    <p style="color: #555; line-height: 1.6;">
+      Your blood donation registration has been received successfully. Your willingness to donate blood 
+      is a gift of life that will help save lives in our community. We deeply appreciate your commitment!
+    </p>
+    
+
+    <div style="background: linear-gradient(135deg, #fff5f5 0%, #ffebee 100%); padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 5px solid #e53935;">
+      <h3 style="color: #c62828; margin: 0 0 15px 0; font-size: 18px;">📋 Appointment Details</h3>
+      
+      <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #ffcdd2;">
+        <p style="color: #666; font-size: 13px; margin: 0 0 5px 0;"><strong>📅 Scheduled Date:</strong></p>
+        <p style="color: #333; margin: 0; font-size: 15px;">${new Date(
+          donationDate
+        ).toLocaleDateString("en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })}</p>
+      </div>
+      
+      <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #ffcdd2;">
+        <p style="color: #666; font-size: 13px; margin: 0 0 5px 0;"><strong>⏰ Scheduled Time:</strong></p>
+        <p style="color: #333; margin: 0; font-size: 15px;">${donationTime}</p>
+      </div>
+      
+      <div>
+        <p style="color: #666; font-size: 13px; margin: 0 0 5px 0;"><strong>📞 Contact Phone:</strong></p>
+        <p style="color: #333; margin: 0; font-size: 15px;">${
+          phone || "Not provided"
+        }</p>
+      </div>
+    </div>
+    
+ 
+    <div style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 5px solid #2196F3;">
+      <h3 style="color: #1565c0; margin: 0 0 15px 0; font-size: 18px;">💡 Preparation Tips</h3>
+      
+      <div style="margin-bottom: 10px;">
+        <p style="margin: 0; color: #424242; font-size: 14px; line-height: 1.6;">
+          <span style="color: #2196F3; font-weight: bold;">✓</span> Get a good night's sleep before donation
+        </p>
+      </div>
+      
+      <div style="margin-bottom: 10px;">
+        <p style="margin: 0; color: #424242; font-size: 14px; line-height: 1.6;">
+          <span style="color: #2196F3; font-weight: bold;">✓</span> Eat a healthy meal and stay well-hydrated
+        </p>
+      </div>
+      
+      <div style="margin-bottom: 10px;">
+        <p style="margin: 0; color: #424242; font-size: 14px; line-height: 1.6;">
+          <span style="color: #2196F3; font-weight: bold;">✓</span> Avoid fatty foods for 24 hours before donation
+        </p>
+      </div>
+      
+      <div style="margin-bottom: 10px;">
+        <p style="margin: 0; color: #424242; font-size: 14px; line-height: 1.6;">
+          <span style="color: #2196F3; font-weight: bold;">✓</span> Bring a valid ID
+        </p>
+      </div>
+      
+      <div>
+        <p style="margin: 0; color: #424242; font-size: 14px; line-height: 1.6;">
+          <span style="color: #2196F3; font-weight: bold;">✓</span> Wear comfortable clothing with sleeves that can be rolled up
+        </p>
+      </div>
+    </div>
+    
+
+    <div style="background-color: #fff; padding: 20px; border-radius: 8px; text-align: center; border: 2px dashed #e0e0e0; margin: 25px 0;">
+      <p style="margin: 0 0 10px 0; color: #666; font-size: 14px; font-weight: 600;">
+        Questions or Need to Reschedule?
+      </p>
+      <p style="margin: 0; color: #333; font-size: 15px;">
+        Contact us: 
+        <a href="mailto:${
+          process.env.EMAIL_USER
+        }" style="color: #e53935; text-decoration: none; font-weight: 600;">
+          ${process.env.EMAIL_USER}
+        </a>
+      </p>
+    </div>
+
+    <p style="color: #999; font-size: 11px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center; line-height: 1.5;">
+      This is an automated confirmation email. Please do not reply directly to this message.<br/>
+      © ${new Date().getFullYear()} N.C.R.H - Healthcare Management System. All rights reserved.
+    </p>
+    
+  </div>
+</div>
+    `,
+  };
+
+  try {
+    if (!transporter) {
+      throw new Error("Email transporter not initialized");
+    }
+
+    const result = await transporter.sendMail(mailOptions);
+    console.log(
+      `Donor registration confirmation sent to ${email}:`,
+      result.messageId
+    );
+    return result;
+  } catch (error) {
+    console.error("Error sending donor registration email:", error);
     throw error;
   }
 };

@@ -149,7 +149,7 @@ const GeneralDashboard = () => {
 
       // Fetch pending appointments
       try {
-        const appointmentsResponse = await api.get("/appointments/pending", {
+        const appointmentsResponse = await api.get("/appointments/pending", { 
           headers: {
             Authorization: `Bearer ${token}`,
           },

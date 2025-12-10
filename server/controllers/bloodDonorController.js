@@ -1,18 +1,6 @@
 const BloodDonor = require("../models/BloodDonor");
-// const nodemailer = require("nodemailer");
+const emailService = require("../utils/emailServices");
 
-// Configure email service (use your email provider)
-// const transporter = nodemailer.createTransport({
-//   host: process.env.EMAIL_HOST,
-//   port: process.env.EMAIL_PORT,
-//   secure: process.env.EMAIL_SECURE === "true",
-//   auth: {
-//     user: process.env.EMAIL_USER,
-//     pass: process.env.EMAIL_PASSWORD,
-//   },
-// });
-
-// Register Blood Donor
 exports.registerDonor = async (req, res) => {
   try {
     const {
@@ -41,7 +29,6 @@ exports.registerDonor = async (req, res) => {
       });
     }
 
-    // Check if donor already exists with same email or national ID
     const existingDonor = await BloodDonor.findOne({
       $or: [{ email }, { nationalId }],
     });
@@ -56,7 +43,7 @@ exports.registerDonor = async (req, res) => {
       });
     }
 
-    // Create new donor
+
     const donor = new BloodDonor({
       fullName,
       email,
@@ -77,8 +64,20 @@ exports.registerDonor = async (req, res) => {
 
     await donor.save();
 
-    // Send confirmation email
-    // await sendConfirmationEmail(donor);
+    try {
+      await emailService.sendDonorRegistrationEmail({
+        fullName: donor.fullName,
+        email: donor.email,
+        donorId: donor.donorId,
+        bloodGroup: donor.bloodGroup,
+        donationDate: donor.donationDate,
+        donationTime: donor.donationTime,
+        phone: donor.phone
+      });
+      console.log('Registration confirmation email sent successfully');
+    } catch (emailError) {
+      console.error('Failed to send registration email:', emailError);
+    }
 
     res.status(201).json({
       success: true,

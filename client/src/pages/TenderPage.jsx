@@ -48,12 +48,21 @@ const TenderPage = () => {
     return "bg-gray-100 text-gray-700";
   };
 
-
-
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600"></div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md shadow-sm">
+          <Header />
+        </div>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600"></div>
+            <p className="text-gray-600 font-medium text-lg">
+              Loading Tenders...
+            </p>
+          </div>
+        </div>
+        <Footer />
       </div>
     );
   }
@@ -64,10 +73,11 @@ const TenderPage = () => {
         <Header />
       </div>
 
-      {/* Hero Banner */}
       <div className="relative  py-10 px-6">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold mb-4 border-l-4 border-blue-500 pl-3">Tenders and Proposals</h1>
+          <h1 className="text-3xl font-bold mb-4 border-l-4 border-blue-500 pl-3">
+            Tenders and Proposals
+          </h1>
           <p className="text-xl text-blue-500">
             Browse current opportunities and submit your proposals
           </p>
@@ -75,9 +85,6 @@ const TenderPage = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 md:px-12 py-4 space-y-8">
-
-
-        {/* Tenders Table */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -103,7 +110,10 @@ const TenderPage = () => {
               <tbody className="divide-y divide-gray-200">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
+                    <td
+                      colSpan="5"
+                      className="px-6 py-12 text-center text-gray-500"
+                    >
                       No tenders found
                     </td>
                   </tr>
@@ -114,7 +124,8 @@ const TenderPage = () => {
                       className="hover:bg-gray-50 transition-colors"
                     >
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                        {tender.reference || `TND-${String(index + 1).padStart(4, "0")}`}
+                        {tender.reference ||
+                          `TND-${String(index + 1).padStart(4, "0")}`}
                       </td>
                       <td className="px-6 py-4">
                         <div>
@@ -170,13 +181,10 @@ const TenderPage = () => {
             </table>
           </div>
         </div>
-
-
       </div>
 
       <Footer />
 
-      {/* Modal */}
       {selectedTender && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-3xl rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -185,9 +193,11 @@ const TenderPage = () => {
                 onClick={() => setSelectedTender(null)}
                 className="absolute top-4 right-4 text-white hover:text-gray-200 text-3xl font-bold"
               >
-                ×
+                X
               </button>
-              <h2 className="text-2xl font-bold pr-8">{selectedTender.title}</h2>
+              <h2 className="text-2xl font-bold pr-8">
+                {selectedTender.title}
+              </h2>
               <div className="mt-2">
                 <span
                   className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full ${getBadgeColor(

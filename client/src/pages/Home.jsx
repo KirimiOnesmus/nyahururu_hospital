@@ -49,10 +49,15 @@ const Home = () => {
         </div>
         <div className="services my-4 mx-6 py-4 px-6">
           <h2 className="text-3xl font-bold my-4 text-center">
-            Our Departments
+            Our Services
           </h2>
           {loading ? (
-            <p className="text-center text-gray-600">Loading services...</p>
+                  <div className="flex flex-col items-center gap-4">
+               <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600"></div>
+               <p className="text-gray-600 font-medium text-lg">
+                 Loading Services...
+               </p>
+             </div>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mt-2">
               {serviceLimit.map((service) => (
