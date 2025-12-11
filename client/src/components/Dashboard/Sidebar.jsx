@@ -45,7 +45,7 @@ const Sidebar = () => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
-  // Grouped navigation structure
+
   const navigationGroups = [
     {
       category: "Management",
@@ -116,7 +116,7 @@ const Sidebar = () => {
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* MOBILE HEADER */}
+
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white shadow-sm p-4 flex justify-between items-center">
         <h2 className="text-lg font-bold text-gray-800">N.C.R.H</h2>
         <button
@@ -127,7 +127,7 @@ const Sidebar = () => {
         </button>
       </div>
 
-      {/* MOBILE OVERLAY */}
+
       {isMobileMenuOpen && (
         <div
           className="fixed inset-0 z-30 bg-black/75 bg-opacity-30 lg:hidden"
@@ -135,7 +135,7 @@ const Sidebar = () => {
         />
       )}
 
-      {/* SIDEBAR */}
+  
       <aside
         className={`
           fixed lg:static z-40 h-full bg-white
@@ -161,7 +161,7 @@ const Sidebar = () => {
           )}
         </div>
 
-        {/* CATEGORY LABEL */}
+  
         {!collapsed && (
           <div className="px-6 mb-2">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
@@ -170,20 +170,20 @@ const Sidebar = () => {
           </div>
         )}
 
-        {/* NAVIGATION */}
+
         <nav className="flex-1 overflow-y-auto px-3">
           {navigationGroups.map((group, groupIndex) => {
-            // Filter items user has access to
+            
             const accessibleItems = group.items.filter(item => 
               item.roles.includes(role)
             );
 
-            // Skip empty groups
+        
             if (accessibleItems.length === 0) return null;
 
             return (
               <div key={groupIndex} className="mb-4">
-                {/* Category Header */}
+             
                 {!collapsed && (
                   <div className="px-3 mb-2 mt-4 first:mt-0">
                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
@@ -192,7 +192,7 @@ const Sidebar = () => {
                   </div>
                 )}
 
-                {/* Category Items */}
+          
                 {accessibleItems.map((link) => {
                   const Icon = link.icon;
                   const active = isActive(link.path);
@@ -224,7 +224,7 @@ const Sidebar = () => {
           })}
         </nav>
 
-        {/* SETTINGS SECTION */}
+
         <div className="px-3 mb-4 border-t border-gray-100 pt-4">
           <Link
             to="/dashboard/settings"
@@ -290,7 +290,7 @@ const Sidebar = () => {
           )}
         </div>
 
-        {/* COLLAPSE BUTTON */}
+     
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="absolute -right-3 top-6 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:shadow-md transition-shadow hidden lg:flex"
@@ -299,7 +299,7 @@ const Sidebar = () => {
         </button>
       </aside>
 
-      {/* MAIN CONTENT */}
+     
       <main className="flex-1 overflow-auto pt-20 lg:pt-0 bg-gray-50">
         <div className="py-1 px-4">
           <Outlet />

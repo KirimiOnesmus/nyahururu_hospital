@@ -37,12 +37,12 @@ const News = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600"></div>
           <p className="text-gray-600 font-medium">Loading news...</p>
         </div>
       </div>
     );
-  }
+  } 
 
   if (!Array.isArray(news) || news.length === 0) {
     return (
