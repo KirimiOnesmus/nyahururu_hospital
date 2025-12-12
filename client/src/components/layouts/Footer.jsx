@@ -31,13 +31,32 @@ const Footer = () => {
     { icon: FaSquareXTwitter, color: "text-black", label: "Twitter", url: "#" },
     { icon: AiFillInstagram, color: "text-pink-500", label: "Instagram", url: "#" },
   ];
+  
+  const externalLinks = [
+    {
+      label: "Ministry of Health",
+      path: "https://www.health.go.ke/"
+    },
+    {
+      label: "Laikipia County Government",
+      path: "https://laikipia.go.ke/"
+    },
+    {
+      label: "Social Health Authority",
+      path: "https://sha.go.ke/"
+    },
+    {
+      label: "Kenya Medical Training College",
+      path: "https://kmtc.ac.ke/"
+    }
+  ];
 
   return (
     <footer className="bg-gradient-to-b from-gray-50 to-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Main Footer Content */}
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 py-12">
-          {/* Logo Section */}
+    
           <div className="flex flex-col items-center md:items-start">
             <img src={logo} alt="Nyahururu Hospital logo" className="h-24 mb-4" />
             <p className="text-sm text-gray-600 text-center md:text-left">
@@ -45,7 +64,6 @@ const Footer = () => {
             </p>
           </div>
 
-          {/* Contact Section */}
           <div>
             <h3 className="text-lg font-bold text-gray-900 mb-4">Get in Touch</h3>
             <ul className="space-y-3">
@@ -61,9 +79,23 @@ const Footer = () => {
                 );
               })}
             </ul>
+            <div className="flex space-x-4 pt-3">
+              {socialLinks.map((social, idx) => {
+                const Icon = social.icon;
+                return (
+                  <a
+                    key={idx}
+                    href={social.url}
+                    aria-label={social.label}
+                    className={`${social.color} text-2xl hover:scale-110 transition-transform duration-300`}
+                  >
+                    <Icon />
+                  </a>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Quick Links Section */}
           <div>
             <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Links</h3>
             <ul className="space-y-2">
@@ -80,34 +112,27 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Social Links Section */}
           <div>
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Follow Us</h3>
-            <p className="text-gray-600 text-sm mb-4">
-              Connect with us on social media for updates and news
-            </p>
-            <div className="flex space-x-4">
-              {socialLinks.map((social, idx) => {
-                const Icon = social.icon;
-                return (
+            <h3 className="text-lg font-bold text-gray-900 mb-4">External Links</h3>
+            <ul className="space-y-2">
+              {externalLinks.map((link, idx) => (
+                <li key={idx}>
                   <a
-                    key={idx}
-                    href={social.url}
-                    aria-label={social.label}
-                    className={`${social.color} text-2xl hover:scale-110 transition-transform duration-300`}
+                    href={link.path}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-gray-700 text-sm hover:text-blue-600 transition-colors duration-300 font-medium"
                   >
-                    <Icon />
+                    {link.label}
                   </a>
-                );
-              })}
-            </div>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
 
-        {/* Divider */}
         <div className="border-t border-gray-300"></div>
 
-        {/* Bottom Footer */}
         <div className="py-6 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
           <p className="text-gray-600 text-sm">
             &copy; {currentYear} Nyahururu Hospital. All rights reserved.
@@ -118,7 +143,7 @@ const Footer = () => {
             rel="noopener noreferrer"
             className="text-blue-600 text-sm hover:text-blue-800 transition-colors duration-300 font-medium"
           >
-            Design & Development by Onesmus Kirimi
+            Design & Development by Onesmus Kirimi - ITR Limited
           </a>
         </div>
       </div>

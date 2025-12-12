@@ -125,29 +125,29 @@ const News = () => {
             <button
               onClick={() => setCurrentPage((prev) => prev - 1)}
               disabled={!hasPrev}
-              className={`group relative px-8 py-3 rounded-xl font-bold transition-all duration-300 ${
+              className={`group relative p-2 md:px-4 md:py-3 rounded-xl font-bold transition-all duration-300 ${
                 hasPrev
                   ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-lg hover:shadow-blue-500/50 hover:scale-105 active:scale-95"
                   : "bg-gray-200 text-gray-400 cursor-not-allowed"
               }`}
             >
               <span className="flex items-center gap-2">
-                <svg className={`w-5 h-5 ${hasPrev ? 'group-hover:-translate-x-1' : ''} transition-transform duration-300`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className={`w-3 h-3 md:w-5 md:h-5 ${hasPrev ? 'group-hover:-translate-x-1' : ''} transition-transform duration-300`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
-                Previous
+                Prev
               </span>
             </button>
 
      
-            <div className="px-6 py-3 bg-white rounded-xl shadow-md font-semibold text-gray-700">
+            <div className="p-2 md:px-6 md:py-3 bg-white rounded-xl shadow-md font-semibold text-gray-700">
               Page {currentPage + 1} of {Math.ceil(news.length / itemsPerPage)}
             </div>
 
             <button
               onClick={() => setCurrentPage((prev) => prev + 1)}
               disabled={!hasNext}
-              className={`group relative px-8 py-3 rounded-xl font-bold transition-all duration-300 ${
+              className={`group relative p-2 md:px-4 md:py-3 rounded-xl font-bold transition-all duration-300 ${
                 hasNext
                   ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-lg hover:shadow-blue-500/50 hover:scale-105 active:scale-95"
                   : "bg-gray-200 text-gray-400 cursor-not-allowed"
@@ -155,7 +155,7 @@ const News = () => {
             >
               <span className="flex items-center gap-2">
                 Next
-                <svg className={`w-5 h-5 ${hasNext ? 'group-hover:translate-x-1' : ''} transition-transform duration-300`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className={`w-3 h-3 md:w-5 md:h-5 ${hasNext ? 'group-hover:translate-x-1' : ''} transition-transform duration-300`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </span>

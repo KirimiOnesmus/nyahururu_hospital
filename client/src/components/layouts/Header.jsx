@@ -12,12 +12,13 @@ import logo from "../../assets/logo.png";
 import api from "../../api/axios";
 
 const Header = () => {
-  const [isOpen, setIsOpen] = useState(false); // mobile menu
-  const [activeDropdown, setActiveDropdown] = useState(null); // dropdowns
+  const [isOpen, setIsOpen] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState(null);
   const [divisions, setDivisions] = useState([]);
   const [loadingDivisions, setLoadingDivisions] = useState(false);
 
   const dropdownRef = useRef(null);
+  const mobileMenuRef = useRef(null);
 
   const navigate = useNavigate();
   const { pathname, search } = useLocation();
@@ -25,17 +26,14 @@ const Header = () => {
   const activePath = pathname;
   const activeQuery = search;
 
-  /** Fetch Divisions */
   useEffect(() => {
     const fetchDivisions = async () => {
       try {
         setLoadingDivisions(true);
-
-        const res = await api.get("/services"); // no localhost
+        const res = await api.get("/services");
         const unique = [
           ...new Set(res.data.map((s) => s.division).filter(Boolean)),
         ].sort();
-
         setDivisions(unique);
       } catch (error) {
         console.error("Division fetch failed", error.message);
@@ -44,27 +42,47 @@ const Header = () => {
         setLoadingDivisions(false);
       }
     };
-
     fetchDivisions();
   }, []);
 
-  /** Close dropdown on outside click */
   useEffect(() => {
     const handleOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setActiveDropdown(null);
       }
     };
-
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
   }, []);
 
-  /** Navigation helper */
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleClickOutside = (e) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target)) {
+        setIsOpen(false);
+        setActiveDropdown(null);
+      }
+    };
+
+    const timeoutId = setTimeout(() => {
+      document.addEventListener("mousedown", handleClickOutside);
+    }, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
   const goTo = (path) => {
     setIsOpen(false);
     setActiveDropdown(null);
     navigate(path);
+  };
+
+  const toggleDropdown = (dropdownName) => {
+    setActiveDropdown(activeDropdown === dropdownName ? null : dropdownName);
   };
 
   const navLinks = [
@@ -106,7 +124,6 @@ const Header = () => {
             >
               <MdPhone className="text-lg" /> +254712345678
             </a>
-
             <button
               onClick={() => goTo("/ambulance-services")}
               className="flex items-center gap-2 px-4 py-1 rounded-lg bg-white text-black font-semibold hover:bg-gray-100 hover:text-green-600"
@@ -117,10 +134,8 @@ const Header = () => {
         </div>
       </div>
 
-      {/* Main Navigation */}
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between py-2">
-          {/* Logo */}
           <div
             className="flex items-center gap-3 cursor-pointer"
             onClick={() => goTo("/")}
@@ -129,7 +144,6 @@ const Header = () => {
             <h1 className="text-2xl font-bold">N.C.R.H</h1>
           </div>
 
-          {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-2" ref={dropdownRef}>
             {navLinks.map((link) =>
               !link.dropdown ? (
@@ -147,11 +161,7 @@ const Header = () => {
               ) : (
                 <div key={link.name} className="relative">
                   <button
-                    onClick={() =>
-                      setActiveDropdown(
-                        activeDropdown === link.dropdown ? null : link.dropdown
-                      )
-                    }
+                    onClick={() => toggleDropdown(link.dropdown)}
                     className="flex items-center gap-1 px-3 py-2 text-lg font-semibold text-gray-900 hover:text-blue-600"
                   >
                     {link.name}
@@ -193,7 +203,7 @@ const Header = () => {
                           ))
                         )
                       ) : (
-                        link.items.map((it) => (
+                        link.items?.map((it) => (
                           <button
                             key={it.path}
                             onClick={() => goTo(it.path)}
@@ -213,15 +223,10 @@ const Header = () => {
               )
             )}
 
-            {/* Donations */}
             <div className="relative">
               <button
-                onClick={() =>
-                  setActiveDropdown(
-                    activeDropdown === "donations" ? null : "donations"
-                  )
-                }
-                className="flex items-center gap-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                onClick={() => toggleDropdown("donations")}
+                className="flex items-center gap-1 px-4 py-2 bg-green-500 text-white rounded-lg cursor-pointer hover:bg-green-600"
               >
                 Donations
                 <MdOutlineArrowDropDown
@@ -232,7 +237,10 @@ const Header = () => {
               </button>
 
               {activeDropdown === "donations" && (
-                <div className="absolute top-full right-0 mt-2 w-56 bg-white shadow-lg rounded-lg border border-gray-200 overflow-hidden">
+                <div
+                  className="absolute top-full right-0 mt-2 w-56 bg-white shadow-lg rounded-lg border
+                 border-gray-200 overflow-hidden cursor-pointer"
+                >
                   {donationItems.map((d) => (
                     <button
                       key={d.path}
@@ -248,7 +256,6 @@ const Header = () => {
               )}
             </div>
 
-            {/* Login */}
             <button
               onClick={() => goTo("/hmis")}
               className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
@@ -257,149 +264,167 @@ const Header = () => {
             </button>
           </nav>
 
-          {/* Mobile menu button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="lg:hidden text-3xl p-2"
+            className="lg:hidden text-3xl p-2 cursor-pointer"
           >
             {isOpen ? <MdClose /> : <MdMenu />}
           </button>
         </div>
       </div>
 
-      {/* Mobile Menu */}
       {isOpen && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-black/50 z-[9998]"
-            onClick={() => setIsOpen(false)}
-          />
-          <div
-            className="fixed top-[116px] left-0 w-3/4 h-[calc(100vh-116px)]
-     bg-blue-500 z-[9999] overflow-y-auto p-4 space-y-3 text-white"
-          >
-            {navLinks.map((link) => (
-              <div key={link.name}>
-                {!link.dropdown ? (
+        <div
+          ref={mobileMenuRef}
+          className="fixed top-[116px] left-0 w-3/4 max-w-sm h-[calc(100vh-116px)] bg-blue-400 z-[9999] overflow-y-auto p-4 space-y-3 text-white shadow-2xl"
+          style={{ touchAction: "auto" }}
+        >
+          {navLinks.map((link) => (
+            <div key={link.name}>
+              {!link.dropdown ? (
+                <button
+                  onClick={() => {
+                    goTo(link.path);
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-lg font-semibold ${
+                    activePath === link.path
+                      ? "bg-blue-500"
+                      : "hover:bg-blue-500"
+                  }`}
+                >
+                  {link.name}
+                </button>
+              ) : (
+                <>
                   <button
-                    onClick={() => goTo(link.path)}
-                    className={`w-full text-left px-3 py-3 rounded-lg text-lg font-semibold ${
-                      activePath === link.path
-                        ? "bg-blue-600"
-                        : "hover:bg-blue-600"
-                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleDropdown(link.dropdown);
+                    }}
+                    className="w-full flex justify-between items-center px-3 py-3 rounded-lg text-lg font-semibold hover:bg-blue-600"
                   >
                     {link.name}
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      onClick={() =>
-                        setActiveDropdown(
-                          activeDropdown === link.dropdown
-                            ? null
-                            : link.dropdown
-                        )
-                      }
-                      className="w-full flex justify-between items-center px-3 py-3 rounded-lg text-lg font-semibold hover:bg-blue-600"
-                    >
-                      {link.name}
-                      <MdOutlineArrowDropDown
-                        className={`transition-transform ${
-                          activeDropdown === link.dropdown ? "rotate-180" : ""
-                        }`}
-                      />
-                    </button>
-
-                    {activeDropdown === link.dropdown && (
-                      <div className="ml-4 mt-2 space-y-2">
-                        {link.dropdown === "departments"
-                          ? divisions.map((d) => (
-                              <button
-                                key={d}
-                                onClick={() =>
-                                  goTo(
-                                    `/services?division=${encodeURIComponent(
-                                      d
-                                    )}`
-                                  )
-                                }
-                                className={`w-full text-left px-3 py-2 rounded-lg ${
-                                  activeQuery.includes(encodeURIComponent(d))
-                                    ? "bg-blue-600 font-semibold"
-                                    : "hover:bg-blue-600"
-                                }`}
-                              >
-                                {d}
-                              </button>
-                            ))
-                          : link.items.map((it) => (
-                              <button
-                                key={it.path}
-                                onClick={() => goTo(it.path)}
-                                className={`w-full text-left px-3 py-2 rounded-lg ${
-                                  activePath === it.path
-                                    ? "bg-blue-600 font-semibold"
-                                    : "hover:bg-blue-600"
-                                }`}
-                              >
-                                {it.name}
-                              </button>
-                            ))}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            ))}
-
-            {/* Mobile Donations */}
-            <div>
-              <button
-                onClick={() =>
-                  setActiveDropdown(
-                    activeDropdown === "donations" ? null : "donations"
-                  )
-                }
-                className="w-full flex justify-between items-center px-3 py-3 rounded-lg text-lg font-semibold bg-green-500 hover:bg-green-600"
-              >
-                Donations
-                <MdOutlineArrowDropDown
-                  className={`transition-transform ${
-                    activeDropdown === "donations" ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-
-              {activeDropdown === "donations" && (
-                <div className="ml-4 mt-2 space-y-2">
-                  {donationItems.map((d) => (
-                    <button
-                      key={d.path}
-                      onClick={() => goTo(d.path)}
-                      className={`w-full text-left px-3 py-2 rounded-lg ${
-                        activePath === d.path
-                          ? "bg-green-600 font-semibold"
-                          : "hover:bg-green-600"
+                    <MdOutlineArrowDropDown
+                      className={`transition-transform ${
+                        activeDropdown === link.dropdown ? "rotate-180" : ""
                       }`}
+                    />
+                  </button>
+
+                  {activeDropdown === link.dropdown && (
+                    <div
+                      className="ml-4 mt-2 space-y-2 relative z-10"
+                      style={{ pointerEvents: "auto" }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                      }}
                     >
-                      {d.name}
-                    </button>
-                  ))}
-                </div>
+                      {link.dropdown === "departments" ? (
+                        loadingDivisions ? (
+                          <div className="p-2 text-center text-white/70">
+                            Loading...
+                          </div>
+                        ) : divisions.length === 0 ? (
+                          <div className="p-2 text-center text-white/70">
+                            No departments
+                          </div>
+                        ) : (
+                          divisions.map((d) => (
+                            <button
+                              key={d}
+                              type="button"
+                              onClick={() => {
+                                goTo(
+                                  `/services?division=${encodeURIComponent(d)}`
+                                );
+                              }}
+                              className={`w-full text-left px-3 py-2 rounded-lg ${
+                                activeQuery.includes(encodeURIComponent(d))
+                                  ? "bg-blue-600 font-semibold"
+                                  : "hover:bg-blue-600"
+                              }`}
+                            >
+                              {d}
+                            </button>
+                          ))
+                        )
+                      ) : (
+                        link.items?.map((it) => (
+                          <button
+                            key={it.path}
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              goTo(it.path);
+                            }}
+                            className={`block w-full text-left px-3 py-2 rounded-lg cursor-pointer ${
+                              activePath === it.path
+                                ? "bg-blue-600 font-semibold"
+                                : "hover:bg-blue-600"
+                            }`}
+                            style={{
+                              pointerEvents: "auto",
+                              userSelect: "none",
+                            }}
+                          >
+                            {it.name}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </div>
+          ))}
 
-            {/* Mobile Login */}
+          <div>
             <button
-              onClick={() => goTo("/hmis")}
-              className="w-full text-center mt-4 px-4 py-3 bg-green-500 hover:bg-green-600 rounded-lg font-semibold flex items-center justify-center gap-2"
+              onClick={() => toggleDropdown("donations")}
+              className="w-full flex justify-between items-center px-3 py-3 rounded-lg text-lg font-semibold bg-green-500 hover:bg-green-600"
             >
-              <MdPerson className="text-xl" /> Log In
+              Donations
+              <MdOutlineArrowDropDown
+                className={`transition-transform ${
+                  activeDropdown === "donations" ? "rotate-180" : ""
+                }`}
+              />
             </button>
+
+            {activeDropdown === "donations" && (
+              <div className="ml-4 mt-2 space-y-2">
+                {donationItems.map((d) => (
+                  <button
+                    key={d.path}
+                    type="button"
+                    onClick={() => {
+                      goTo(d.path);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-lg ${
+                      activePath === d.path
+                        ? "bg-green-600 font-semibold"
+                        : "hover:bg-green-600"
+                    }`}
+                  >
+                    {d.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        </>
+
+          <button
+            onClick={() => {
+              goTo("/hmis");
+            }}
+            className="w-full text-center mt-4 px-4 py-3 bg-green-500 hover:bg-green-600 rounded-lg font-semibold flex items-center justify-center gap-2"
+          >
+            <MdPerson className="text-xl" /> Log In
+          </button>
+        </div>
       )}
     </header>
   );

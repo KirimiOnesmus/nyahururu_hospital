@@ -58,7 +58,7 @@ const Appointment = () => {
     const fetchServices = async () => {
       try {
         const res = await api.get("/services");
-        console.log("Services response:", res.data);
+        // console.log("Services response:", res.data);
 
         let servicesData = [];
         if (Array.isArray(res.data)) {

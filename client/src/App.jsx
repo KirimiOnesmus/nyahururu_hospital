@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import {
   Doctors,
@@ -52,6 +53,26 @@ import "./App.css";
   import { ToastContainer } from 'react-toastify';
 
 function App() {
+    const [loading, setLoading] = useState(true);
+      useEffect(() => {
+    // 2 second delay to allow APIs to initialize
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+    if (loading) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-white z-50">
+        <div className="flex flex-col justify-center items-center gap-4">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600"></div>
+
+        </div>
+      </div>
+    );
+  }
   return (
     <>
       <BrowserRouter>
