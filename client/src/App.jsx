@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+// import logo from "./assets/logo.png"
 import {
   Doctors,
   Home,
@@ -67,7 +68,10 @@ function App() {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white z-50">
         <div className="flex flex-col justify-center items-center gap-4">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600">
+             
+          </div>
+           {/* <img src={logo} alt="logo" srcset="" className="w-12 h-12" /> */}
 
         </div>
       </div>

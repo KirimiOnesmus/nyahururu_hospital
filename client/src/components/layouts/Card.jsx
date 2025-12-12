@@ -5,6 +5,7 @@ import { FaStethoscope, FaArrowRight } from "react-icons/fa";
 const Card = ({ id, image, title, buttonText, description }) => {
   const navigate = useNavigate();
   const [imageError, setImageError] = useState(false);
+
   
   const handleServices = () => {
     navigate(`/services/${id}`);
@@ -60,7 +61,7 @@ const Card = ({ id, image, title, buttonText, description }) => {
    
         <div className="flex-1"></div>
 
-
+ 
         {buttonText && (
           <button
             onClick={handleServices}

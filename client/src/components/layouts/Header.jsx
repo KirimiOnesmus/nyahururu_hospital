@@ -19,6 +19,7 @@ const Header = () => {
 
   const dropdownRef = useRef(null);
   const mobileMenuRef = useRef(null);
+  const donationDropdownRef = useRef(null);
 
   const navigate = useNavigate();
   const { pathname, search } = useLocation();
@@ -47,7 +48,13 @@ const Header = () => {
 
   useEffect(() => {
     const handleOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+      const isInsideNav =
+        dropdownRef.current && dropdownRef.current.contains(e.target);
+      const isInsideDonation =
+        donationDropdownRef.current &&
+        donationDropdownRef.current.contains(e.target);
+
+      if (!isInsideNav && !isInsideDonation) {
         setActiveDropdown(null);
       }
     };
@@ -76,6 +83,7 @@ const Header = () => {
   }, [isOpen]);
 
   const goTo = (path) => {
+    // console.log("Navigating to:", path);
     setIsOpen(false);
     setActiveDropdown(null);
     navigate(path);
@@ -150,7 +158,7 @@ const Header = () => {
                 <button
                   key={link.name}
                   onClick={() => goTo(link.path)}
-                  className={`px-3 py-2 text-lg font-semibold rounded-lg ${
+                  className={`px-3 py-2 text-lg font-semibold rounded-lg cursor-pointer ${
                     activePath === link.path
                       ? "text-blue-600"
                       : "text-gray-900 hover:text-blue-600"
@@ -162,7 +170,7 @@ const Header = () => {
                 <div key={link.name} className="relative">
                   <button
                     onClick={() => toggleDropdown(link.dropdown)}
-                    className="flex items-center gap-1 px-3 py-2 text-lg font-semibold text-gray-900 hover:text-blue-600"
+                    className="flex items-center gap-1 px-3 py-2 text-lg font-semibold text-gray-900 cursor-pointer hover:text-blue-600"
                   >
                     {link.name}
                     <MdOutlineArrowDropDown
@@ -173,7 +181,8 @@ const Header = () => {
                   </button>
 
                   {activeDropdown === link.dropdown && (
-                    <div className="absolute top-full left-0 mt-2 w-56 bg-white shadow-lg rounded-lg border border-gray-200 overflow-hidden">
+                    <div className="absolute top-full left-0 mt-2 w-56 bg-white shadow-lg rounded-lg border 
+                     border-gray-200 overflow-hidden">
                       {link.dropdown === "departments" ? (
                         loadingDivisions ? (
                           <div className="p-4 text-center text-gray-500">
@@ -192,7 +201,7 @@ const Header = () => {
                                   `/services?division=${encodeURIComponent(d)}`
                                 )
                               }
-                              className={`w-full text-left px-4 py-3 hover:bg-blue-100 ${
+                              className={`w-full text-left px-4 py-3 hover:bg-blue-100 cursor-pointer ${
                                 activeQuery.includes(encodeURIComponent(d))
                                   ? "bg-blue-100 font-semibold"
                                   : ""
@@ -207,7 +216,7 @@ const Header = () => {
                           <button
                             key={it.path}
                             onClick={() => goTo(it.path)}
-                            className={`w-full text-left px-4 py-3 hover:bg-blue-100 ${
+                            className={`w-full text-left px-4 py-3 hover:bg-blue-100 cursor-pointer ${
                               activePath === it.path
                                 ? "bg-blue-100 font-semibold"
                                 : ""
@@ -245,7 +254,7 @@ const Header = () => {
                     <button
                       key={d.path}
                       onClick={() => goTo(d.path)}
-                      className={`w-full text-left px-4 py-3 hover:bg-blue-100 ${
+                      className={`w-full text-left px-4 py-3 hover:bg-blue-100 cursor-pointer ${
                         activePath === d.path ? "bg-blue-100 font-semibold" : ""
                       }`}
                     >
@@ -258,7 +267,7 @@ const Header = () => {
 
             <button
               onClick={() => goTo("/hmis")}
-              className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+              className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 cursor-pointer"
             >
               <MdPerson className="text-xl" /> Log In
             </button>
@@ -272,7 +281,7 @@ const Header = () => {
           </button>
         </div>
       </div>
-
+      {/* Phone menu */}
       {isOpen && (
         <div
           ref={mobileMenuRef}
@@ -286,7 +295,7 @@ const Header = () => {
                   onClick={() => {
                     goTo(link.path);
                   }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-lg font-semibold ${
+                  className={`w-full text-left px-3 py-2 rounded-lg text-lg font-semibold cursor-pointer ${
                     activePath === link.path
                       ? "bg-blue-500"
                       : "hover:bg-blue-500"
@@ -338,7 +347,7 @@ const Header = () => {
                                   `/services?division=${encodeURIComponent(d)}`
                                 );
                               }}
-                              className={`w-full text-left px-3 py-2 rounded-lg ${
+                              className={`w-full text-left px-3 py-2 rounded-lg cursor-pointer ${
                                 activeQuery.includes(encodeURIComponent(d))
                                   ? "bg-blue-600 font-semibold"
                                   : "hover:bg-blue-600"
@@ -381,10 +390,13 @@ const Header = () => {
             </div>
           ))}
 
-          <div>
+          <div ref={donationDropdownRef}>
             <button
-              onClick={() => toggleDropdown("donations")}
-              className="w-full flex justify-between items-center px-3 py-3 rounded-lg text-lg font-semibold bg-green-500 hover:bg-green-600"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleDropdown("donations");
+              }}
+              className="w-full flex justify-between items-center px-3 py-3 rounded-lg text-lg font-semibold cursor-pointer bg-green-500 hover:bg-green-600"
             >
               Donations
               <MdOutlineArrowDropDown
@@ -395,15 +407,26 @@ const Header = () => {
             </button>
 
             {activeDropdown === "donations" && (
-              <div className="ml-4 mt-2 space-y-2">
+              <div
+                className="ml-4 mt-2 space-y-2"
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                }}
+              >
                 {donationItems.map((d) => (
                   <button
                     key={d.path}
                     type="button"
-                    onClick={() => {
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+
                       goTo(d.path);
                     }}
-                    className={`w-full text-left px-3 py-2 rounded-lg ${
+                    className={`w-full text-left px-3 py-2 rounded-lg cursor-pointer ${
                       activePath === d.path
                         ? "bg-green-600 font-semibold"
                         : "hover:bg-green-600"
@@ -420,7 +443,7 @@ const Header = () => {
             onClick={() => {
               goTo("/hmis");
             }}
-            className="w-full text-center mt-4 px-4 py-3 bg-green-500 hover:bg-green-600 rounded-lg font-semibold flex items-center justify-center gap-2"
+            className="w-full text-center mt-4 px-4 py-3 bg-green-500 cursor-pointer hover:bg-green-600 rounded-lg font-semibold flex items-center justify-center gap-2"
           >
             <MdPerson className="text-xl" /> Log In
           </button>

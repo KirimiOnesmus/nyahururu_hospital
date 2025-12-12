@@ -15,6 +15,7 @@ import { toast } from "react-toastify";
 const Home = () => {
   const navigate = useNavigate();
   const [services, setServices] = useState([]);
+  const [loading,setLoading] = useState(true)
 
 
   const BACKEND_URL =
@@ -26,6 +27,7 @@ const Home = () => {
         const res = await api.get("/services");
         setServices(res.data);
         // console.log("Services Data:", res.data);
+        setLoading(false)
       } catch (error) {
         console.error("Failed to fetch services:", error);
         toast.error("Failed to fetch services.");
@@ -47,7 +49,15 @@ const Home = () => {
         <div className="slider">
           <Slider />
         </div>
-        <div className="services my-4 mx-6 py-4 px-6">
+        {loading ?(
+                  <div className="flex flex-col items-center gap-4">
+               <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600"></div>
+               <p className="text-gray-600 font-medium text-lg">
+                 Loading Services...
+               </p>
+             </div>
+          ) : (
+<div className="services my-4 mx-6 py-4 px-6">
           <h2 className="text-3xl font-bold my-4 text-center">Our Services</h2>
    
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mt-2">
@@ -62,10 +72,12 @@ const Home = () => {
               ))}
               {services.length > 5 && (
                 <div className="h-full">
-                  <div className="rounded-2xl shadow-md flex items-center justify-center p-6 bg-gray-600 text-white hover:shadow-xl transition-all duration-300 cursor-pointer h-full">
+                  <div className="rounded-2xl shadow-md flex items-center justify-center p-6 bg-gray-600 hover:bg-gray-400 text-white hover:shadow-xl transition-all duration-300 cursor-pointer h-full"
+                     onClick={() => navigate("/services")}
+                  >
                     <button
                       className="w-full text-xl font-bold hover:text-2xl transition-all duration-300"
-                      onClick={() => navigate("/services")}
+                   
                     >
                       Load More Services
                     </button>
@@ -75,6 +87,10 @@ const Home = () => {
             </div>
 
         </div>
+        )
+        
+        }
+
         <div className="hours ribbon">
           <TimeRibbon />
         </div>
