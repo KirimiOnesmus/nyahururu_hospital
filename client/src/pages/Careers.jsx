@@ -17,7 +17,7 @@ const Careers = () => {
         ? res.data 
         : (res.data.careers || res.data.data || []);
       setCareers(careersData);
-        // console.log(careersData)
+        console.log("Careers:",careersData)
       } catch (error) {
         console.error("failed to fetch jobs", error);
       }
