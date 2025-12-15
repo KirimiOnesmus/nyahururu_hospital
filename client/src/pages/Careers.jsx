@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Header, Footer } from "../components/layouts";
-// import api from " ../"
-import axios from "axios";
+import api from "../api/axios"
+// import axios from "axios";
 
 const Careers = () => {
   const [careers, setCareers] = useState([]);
@@ -11,7 +11,7 @@ const Careers = () => {
   useEffect(() => {
     const fetchCareers = async () => {
       try {
-        const res = await axios.get("/api/careers");
+        const res = await api.get("/careers");
         // setCareers(res.data);
             const careersData = Array.isArray(res.data) 
         ? res.data 
