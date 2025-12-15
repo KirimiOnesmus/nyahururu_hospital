@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import axios from "axios";
+// import axios from "axios";
+import api from "../api/axios"
 import { Header, Footer } from "../components/layouts";
 const ApplyCareer = () => {
   const { id } = useParams();
@@ -17,7 +18,7 @@ const ApplyCareer = () => {
   useEffect(() => {
     const fetchCareer = async () => {
       try {
-        const res = await axios.get(`/api/careers/${id}`);
+        const res = await api.get(`/careers/${id}`);
         setCareer(res.data);
       } catch (error) {
         console.error("Failed to fetch career details", error);
@@ -35,7 +36,7 @@ const ApplyCareer = () => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const res = await axios.post("/api/applications", formData);
+      const res = await api.post("/applications", formData);
       console.log("Your job application was successfull");
       setFormData({
         name: "",
