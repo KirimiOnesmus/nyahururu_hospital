@@ -37,33 +37,33 @@ const Careers = () => {
           <p>No open positions available right now.</p>
         )}
         <div className="grid gap-6">
-          {careers.map((career) => (
+          {careers.map((careers) => (
             <div
-              key={career._id}
+              key={careers._id}
               className="px-6 py-2 rounded-xl shadow-sm hover:shadow-md transition bg-white"
             >
               <h3 className="text-2xl font-semibold text-gray-800 flex justify-between">
-                {career.title}
-                {career.deadline && (
+                {careers.title}
+                {careers.deadline && (
                   <p className="text-sm text-red-500">
-                    Deadline: {new Date(career.deadline).toLocaleDateString()}
+                    Deadline: {new Date(careers.deadline).toLocaleDateString()}
                   </p>
                 )}
               </h3>
               <p className="text-sm text-gray-500">
-                Location: {career.location}
+                Location: {careers.location}
               </p>
 
              
               <div className="mt-4 flex gap-4">
                 <button
-                  onClick={() => setSelectedCareer(career)}
+                  onClick={() => setSelectedCareer(careers)}
                   className="px-2 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-700 cursor-pointer"
                 >
                   View Details
                 </button>
                 <a
-                  href={`/apply/${career._id}`}
+                  href={`/apply/${careers._id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-2 py-1 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50"
