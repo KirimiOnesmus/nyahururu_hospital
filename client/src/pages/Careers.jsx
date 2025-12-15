@@ -12,7 +12,12 @@ const Careers = () => {
     const fetchCareers = async () => {
       try {
         const res = await axios.get("/api/careers");
-        setCareers(res.data);
+        // setCareers(res.data);
+            const careersData = Array.isArray(res.data) 
+        ? res.data 
+        : (res.data.careers || res.data.data || []);
+      setCareers(careersData);
+        // console.log(careersData)
       } catch (error) {
         console.error("failed to fetch jobs", error);
       }
