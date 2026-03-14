@@ -18,8 +18,23 @@ router.get("/", async (req, res) => {
 
     res.json(response.data);
   } catch (error) {
-    console.error("Error fetching jobs:", error.message);
-    res.status(500).json({ message: "Failed to fetch jobs" });
+       console.error("Full error:", {
+      message: error.message,
+      code: error.code,
+      status: error.response?.status,
+      data: error.response?.data,     // <-- this is what your API actually returned
+      url: error.config?.url,
+      headers: error.config?.headers
+    });
+    res.status(500).json({
+       message: "Failed to fetch jobs" ,
+         debug: {                         // remove this block before going to production
+        error: error.message,
+        status: error.response?.status,
+        detail: error.response?.data
+      }
+
+    });
   }
 });
 
