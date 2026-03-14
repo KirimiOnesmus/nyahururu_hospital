@@ -7,11 +7,11 @@ router.get("/", async (req, res) => {
   try {
     const response = await axios.get(
     //   "https://api.medihire.com/api/v2/public/jobs",
-    "https://localhost:5000/api/v2/public/jobs",
+    process.env.MEDIHIRE_JOBS_URL || "http://localhost:5000/api/v2/public/jobs",
       {
         headers: {
-          "X-API-KEY": process.env.MEDIHIRE_API_KEY,
-          "X-API-SECRET": process.env.MEDIHIRE_API_SECRET,
+           "x-api-key": process.env.MEDIHIRE_API_KEY,
+          "x-api-secret": process.env.MEDIHIRE_API_SECRET,
         },
       }
     );

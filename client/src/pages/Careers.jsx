@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Header, Footer } from "../components/layouts";
-import api from "../api/axios";
+// import api from "../api/axios";
+import publicApi from "../api/publicApi";
 import {
   FaUserPlus,
   FaSignInAlt,
@@ -9,7 +10,7 @@ import {
   FaDownload,
   FaPrint,
 } from "react-icons/fa";
-// import axios from "axios";
+
 
 const Careers = () => {
   const [careers, setCareers] = useState([]);
@@ -36,8 +37,8 @@ const Careers = () => {
   useEffect(() => {
     const fetchCareers = async () => {
       try {
-        const res = await api.get("/jobs");
-        setCareers(res.data.data || []);
+      const res = await publicApi.get("/jobs"); 
+      setCareers(res.data.data || []);
       } catch (error) {
         console.error("failed to fetch jobs", error);
       } finally {
