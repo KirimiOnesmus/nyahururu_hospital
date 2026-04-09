@@ -5,7 +5,7 @@ import { Header, Footer } from "../../components/layouts";
 import ReviewModal       from "../../components/research/ReviewModal";
 import SubmitProposalPage from "../../components/research/SubmitProposal";
 import SubmitFullPaper   from "../../components/research/SubmitFullPaper";
-import MyProfile         from "./Myprofile";
+import MyProfile         from "./MyProfile";
 import {
   FaFlask, FaFileAlt, FaCheckCircle, FaTimesCircle, FaClock,
   FaPlus, FaEye, FaDownload, FaUsers, FaChartBar, FaInbox,
