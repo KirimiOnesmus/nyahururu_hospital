@@ -50,12 +50,12 @@ const Sidebar = () => {
     {
       category: "Management",
       items: [
-        { title: "Dashboard", path: "/dashboard", roles: ["superadmin", "admin", "it", "doctor", "communication"], icon: FaTh },
+        { title: "Dashboard", path: "/dashboard", roles: ["superadmin", "admin", "it", "doctor", "communication", "research"], icon: FaTh },
         { title: "Hospitals", path: "/dashboard/hospitals", roles: ["superadmin"], icon: FaHospital },
         { title: "Appointments", path: "/dashboard/appointments", roles: ["superadmin", "doctor", "admin"], icon: FaCalendarAlt },
         { title: "Careers", path: "/dashboard/careers", roles: ["superadmin", "it", "admin"], icon: FaBriefcase },
         { title: "Services", path: "/dashboard/services", roles: ["superadmin", "it", "admin"], icon: FaStethoscope },
-        { title: "Research", path: "/dashboard/research", roles: ["superadmin", "it", "admin"], icon: FaFileAlt },
+        { title: "Research", path: "/dashboard/research", roles: ["superadmin", "it", "admin", "research"], icon: FaFileAlt },
         { title: "Feedback", path: "/dashboard/feedback", roles: ["superadmin", "communication", "it", "admin"], icon: FaComments },
         { title: "Donations", path: "/dashboard/donations", roles: ["superadmin",  "it", "admin"], icon: BiSolidDonateHeart }
         
@@ -93,8 +93,8 @@ const Sidebar = () => {
     {
       category: "Public Notice & Announcements",
       items: [
-        { title: "Notices", path: "/dashboard/notices", roles: ["superadmin", "communication", "it", "admin"], icon: FaBullhorn },
-        { title: "Tenders", path: "/dashboard/tenders", roles: ["superadmin", "communication", "it", "admin"], icon: FaGavel },
+        { title: "Notices", path: "/dashboard/notices", roles: ["superadmin", "communication", "it", "admin", "research"], icon: FaBullhorn },
+        { title: "Tenders", path: "/dashboard/tenders", roles: ["superadmin", "communication", "it", "admin", "research" ], icon: FaGavel },
       ]
     },
     {

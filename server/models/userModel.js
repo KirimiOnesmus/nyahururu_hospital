@@ -47,8 +47,9 @@ const userSchema = new mongoose.Schema({
       "staff",
       "it",
       "nurse",
-      "pharmacist",
+      "pharmacist", 
       "communication",
+      "research"
     ],
     default: "staff",
   },

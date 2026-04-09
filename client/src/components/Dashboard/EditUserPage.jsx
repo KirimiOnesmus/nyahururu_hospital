@@ -539,6 +539,7 @@ const handleSave = async (e) => {
                       <option value="staff">Staff</option>
                       <option value="it">IT Support</option>
                       <option value="communication">Communication</option>
+                      <option value="research">Research</option>
                     </select>
                   </div>
                      {user.role.toLowerCase() === "doctor" && (

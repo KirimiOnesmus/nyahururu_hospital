@@ -49,6 +49,7 @@ import {
   DoctorDetails,
   NewsDetails,
 } from "./components/modals";
+import{ ResearchPage, PublicResearch, ResearchRegister, ResearchDashboard, Myprofile } from "./pages/research";
 
 import "./App.css";
   import { ToastContainer } from 'react-toastify';
@@ -97,14 +98,18 @@ function App() {
           <Route path="/events" element={<EventsPage/>}/>
           <Route path="/downloads" element={<Downloads/>}/>
           <Route path= "/tenders" element ={<Tenders/>}/>
+          
+          <Route path="/research" element={<ResearchPage />} />
+          <Route path="/research/public" element={<PublicResearch />} />
+          <Route path="/research/register" element={<ResearchRegister />} />
+          <Route path="/research/dashboard" element={<ResearchDashboard />} />
+          <Route path="/research/profile" element={<Myprofile />} />
+
           <Route path="verify-email" element={<VerifyEmail/>}/>
-
           <Route path="/apply/:id" element={<ApplyCareer />} />
-
           <Route path="/services/:id" element={<ServiceDetails />} />
           <Route path="/doctors/:id" element={<DoctorDetails />} />
           <Route path="/news/:id" element={<NewsDetails />} />
-
           <Route path="/dashboard" element={<Sidebar />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/dashboard/users" element={<Users />} />

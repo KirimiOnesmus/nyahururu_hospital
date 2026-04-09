@@ -595,3 +595,617 @@ exports.sendDonorRegistrationEmail = async (donorData) => {
     throw error;
   }
 };
+
+
+
+
+// RESEARCHER EMAILS
+const shell = (content, title = "Nyahururu Research Portal") => `
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px;">
+    ${content}
+    <p style="color: #999; font-size: 11px; margin-top: 20px; padding-top: 20px;
+       border-top: 1px solid #ddd; text-align: center; line-height: 1.5;">
+      This is an automated message from the ${title}.<br/>
+      © ${new Date().getFullYear()} N.C.R.H — Healthcare Management System. All rights reserved.
+    </p>
+  </div>
+</div>`;
+ 
+//Helper to create button
+ 
+const btn = (url, label, color = "#2196F3") => `
+<div style="margin: 30px 0; text-align: center;">
+  <a href="${url}"
+     style="display: inline-block; padding: 12px 30px; background-color: ${color};
+            color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
+    ${label}
+  </a>
+</div>`;
+ 
+// Helper to send email
+
+const sendMail = async (to, subject, html) => {
+  try {
+    if (!transporter) {
+      throw new Error("Email transporter not initialized");
+    }
+ 
+    const result = await transporter.sendMail({
+      from: `"Nyahururu Research Portal" <${process.env.EMAIL_USER}>`,
+      to,
+      subject,
+      html,
+    });
+ 
+    console.log(`[Email] ${subject} → ${to} (${result.messageId})`);
+    return result;
+  } catch (error) {
+    console.error(`[Email] Error sending ${subject}:`, error);
+    throw error;
+  }
+};
+  
+ 
+exports.sendResearcherVerificationEmail = async ({
+  email,
+  name,
+  verifyLink,
+}) => {
+  const html = shell(`
+    <h2 style="color: #2196F3; margin-top: 0;">Verify Your Email</h2>
+    <p style="color: #555; line-height: 1.6;">
+      Dear <strong>${name}</strong>,<br/>
+      Thank you for registering with Nyahururu Research Portal.
+      Please verify your email address to complete your account setup.
+    </p>
+    ${btn(verifyLink, "Verify Email Address", "#2196F3")}
+    <p style="color: #666; font-size: 12px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+      <strong>Or copy this link:</strong><br/>
+      <a href="${verifyLink}" style="color: #2196F3; word-break: break-all; font-size: 11px;">${verifyLink}</a>
+    </p>
+    <p style="color: #999; font-size: 11px; margin-top: 15px;">
+      This link expires in 24 hours. If you didn't create this account, please ignore this email.
+    </p>
+  `);
+ 
+  return sendMail(email, "Verify Your Email — Nyahururu Research Portal", html);
+};
+ 
+// Send password reset email
+
+exports.sendPasswordResetEmail = async ({
+  email,
+  name,
+  resetLink,
+}) => {
+  const html = shell(`
+    <h2 style="color: #f44336; margin-top: 0;">Password Reset Request</h2>
+    <p style="color: #555; line-height: 1.6;">
+      Dear <strong>${name}</strong>,<br/>
+      You requested to reset your password. Click the button below to proceed.
+    </p>
+    ${btn(resetLink, "Reset Your Password", "#f44336")}
+    <p style="color: #666; font-size: 12px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+      <strong>Or copy this link:</strong><br/>
+      <a href="${resetLink}" style="color: #2196F3; word-break: break-all; font-size: 11px;">${resetLink}</a>
+    </p>
+    <p style="color: #999; font-size: 11px; margin-top: 15px;">
+      This link expires in 24 hours. If you didn't request this, please ignore this email.
+    </p>
+  `);
+ 
+  return sendMail(email, "Password Reset Request — Nyahururu Research Portal", html);
+};
+ 
+// Send proposal submission confirmation
+
+exports.sendProposalSubmitted = async ({
+  email,
+  name,
+  proposalTitle,
+  mpesaReceipt,
+  amount,
+}) => {
+  const html = shell(`
+    <h2 style="color: #4CAF50; margin-top: 0;">Proposal Submitted Successfully</h2>
+    <p style="color: #555; line-height: 1.6;">
+      Dear <strong>${name}</strong>,<br/>
+      Your research proposal has been submitted successfully and is now under review.
+    </p>
+    <div style="background-color: #fff; padding: 20px; border-radius: 8px;
+         margin: 20px 0; border-left: 4px solid #4CAF50;">
+      <h3 style="color: #333; margin-top: 0; font-size: 16px;">Submission Details</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Title:</td>
+          <td style="padding: 8px 0; color: #333;">${proposalTitle}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Status:</td>
+          <td style="padding: 8px 0; color: #333;">Under Review</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">M-Pesa Receipt:</td>
+          <td style="padding: 8px 0; color: #333;">${mpesaReceipt}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Amount Paid:</td>
+          <td style="padding: 8px 0; color: #333;">KES ${amount}</td>
+        </tr>
+      </table>
+    </div>
+    <p style="color: #555; line-height: 1.6;">
+      You will receive an email update once a reviewer has made a decision.
+      Resubmissions after a revision request are <strong>completely free</strong>.
+    </p>
+  `);
+ 
+  return sendMail(email, "Proposal Submitted — Nyahururu Research Portal", html);
+};
+ 
+//Send proposal approved notification
+ 
+exports.sendProposalApproved = async ({
+  email,
+  name,
+  proposalTitle,
+  stage,
+  reviewerComment,
+}) => {
+  const stageLabel = {
+    proposal: "Stage 1 — Proposal",
+    abstract: "Stage 2 — Abstract",
+    final_paper: "Stage 3 — Final Paper",
+  }[stage] || stage;
+ 
+  const nextStep =
+    stage === "proposal"
+      ? "You may now proceed to submit your <strong>Abstract (Stage 2)</strong>."
+      : stage === "abstract"
+      ? "You may now proceed to submit your <strong>Final Paper (Stage 3)</strong>."
+      : "Your research is now published on the public research portal!";
+ 
+  const html = shell(`
+    <h2 style="color: #4CAF50; margin-top: 0;">${stageLabel} Approved</h2>
+    <p style="color: #555; line-height: 1.6;">
+      Dear <strong>${name}</strong>,<br/>
+      Congratulations! Your submission has been reviewed and approved.
+    </p>
+    <div style="background-color: #e8f5e9; padding: 20px; border-radius: 8px;
+         margin: 20px 0; border-left: 4px solid #4CAF50;">
+      <h3 style="color: #2e7d32; margin-top: 0; font-size: 16px;">Details</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Title:</td>
+          <td style="padding: 8px 0; color: #333;">${proposalTitle}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Stage:</td>
+          <td style="padding: 8px 0; color: #2e7d32; font-weight: bold;">${stageLabel}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Status:</td>
+          <td style="padding: 8px 0; color: #4CAF50; font-weight: bold;">Approved</td>
+        </tr>
+      </table>
+    </div>
+    ${
+      reviewerComment
+        ? `
+    <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px;
+         margin: 20px 0; border-left: 4px solid #666;">
+      <p style="color: #666; font-size: 13px; margin: 0 0 5px 0;"><strong>Reviewer Comments:</strong></p>
+      <p style="color: #333; margin: 0; line-height: 1.6;">${reviewerComment}</p>
+    </div>`
+        : ""
+    }
+    <p style="color: #555; line-height: 1.6;">
+      ${nextStep}
+    </p>
+  `);
+ 
+  return sendMail(email, `${stageLabel} Approved — Nyahururu Research Portal`, html);
+};
+ 
+// Send revision requested notification
+
+exports.sendRevisionRequested = async ({
+  email,
+  name,
+  proposalTitle,
+  stage,
+  reviewerComment,
+}) => {
+  const stageLabel = {
+    proposal: "Stage 1 — Proposal",
+    abstract: "Stage 2 — Abstract",
+    final_paper: "Stage 3 — Final Paper",
+  }[stage] || stage;
+ 
+  const html = shell(`
+    <h2 style="color: #ff9800; margin-top: 0;">Revision Requested</h2>
+    <p style="color: #555; line-height: 1.6;">
+      Dear <strong>${name}</strong>,<br/>
+      Your submission has been reviewed. The reviewer has requested some revisions
+      before it can be approved.
+    </p>
+    <div style="background-color: #fff3e0; padding: 20px; border-radius: 8px;
+         margin: 20px 0; border-left: 4px solid #ff9800;">
+      <h3 style="color: #e65100; margin-top: 0; font-size: 16px;">Details</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Title:</td>
+          <td style="padding: 8px 0; color: #333;">${proposalTitle}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Stage:</td>
+          <td style="padding: 8px 0; color: #333;">${stageLabel}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Status:</td>
+          <td style="padding: 8px 0; color: #ff9800; font-weight: bold;">Needs Revision</td>
+        </tr>
+      </table>
+    </div>
+    <div style="background-color: #ffebee; padding: 15px; border-radius: 8px;
+         margin: 20px 0; border-left: 4px solid #f44336;">
+      <p style="color: #c62828; font-size: 13px; margin: 0 0 5px 0;"><strong>Reviewer Feedback:</strong></p>
+      <p style="color: #333; margin: 0; line-height: 1.6;">${reviewerComment}</p>
+    </div>
+    <p style="color: #555; line-height: 1.6;">
+      Please address the reviewer's comments and resubmit.
+      <strong style="color: #4CAF50;">Resubmission is completely free</strong> — no additional payment required.
+    </p>
+  `);
+ 
+  return sendMail(email, `Revision Requested — ${proposalTitle}`, html);
+};
+ 
+//Send download receipt
+
+exports.sendDownloadReceipt = async ({
+  email,
+  name,
+  proposalTitle,
+  mpesaReceipt,
+  amount,
+  downloadLink,
+}) => {
+  const html = shell(`
+    <h2 style="color: #4CAF50; margin-top: 0;">Download Receipt</h2>
+    <p style="color: #555; line-height: 1.6;">
+      Dear <strong>${name}</strong>,<br/>
+      Your payment has been confirmed. You can now download the research paper.
+    </p>
+    <div style="background-color: #e8f5e9; padding: 20px; border-radius: 8px;
+         margin: 20px 0; border-left: 4px solid #4CAF50;">
+      <h3 style="color: #2e7d32; margin-top: 0; font-size: 16px;">Receipt Details</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Paper Title:</td>
+          <td style="padding: 8px 0; color: #333;">${proposalTitle}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">M-Pesa Receipt:</td>
+          <td style="padding: 8px 0; color: #333;">${mpesaReceipt}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Amount Paid:</td>
+          <td style="padding: 8px 0; color: #333;">KES ${amount}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Date:</td>
+          <td style="padding: 8px 0; color: #333;">${new Date().toLocaleDateString("en-KE")}</td>
+        </tr>
+      </table>
+    </div>
+    ${btn(downloadLink, "Download Paper Now", "#4CAF50")}
+    <p style="color: #999; font-size: 12px; margin-top: 15px;">
+      This download link is valid for 24 hours. If you have trouble downloading,
+      please contact support.
+    </p>
+  `);
+ 
+  return sendMail(email, `Download Receipt — ${proposalTitle}`, html);
+};
+//REVIEWER EMAILS
+
+ 
+//Send reviewer invitation (when new reviewer is invited)
+
+exports.sendReviewerInvite = async ({
+  email,
+  name,
+  inviteLink,
+  invitedBy,
+}) => {
+  const html = shell(`
+    <h2 style="color: #2196F3; margin-top: 0;">You've Been Invited as a Reviewer</h2>
+    <p style="color: #555; line-height: 1.6;">
+      Dear <strong>${name}</strong>,<br/>
+      <strong>${invitedBy}</strong> has invited you to join the Nyahururu Research Portal
+      as a <strong>Reviewer</strong>.
+    </p>
+    <div style="background-color: #e3f2fd; padding: 20px; border-radius: 8px;
+         margin: 20px 0; border-left: 4px solid #2196F3;">
+      <p style="color: #1565c0; line-height: 1.6;">
+        As a reviewer, you will evaluate research proposals, abstracts, and final papers submitted
+        by researchers across Central Kenya. Your expertise and feedback are valuable to the research community.
+      </p>
+    </div>
+    <p style="color: #d32f2f; font-weight: bold; background-color: #ffebee;
+       padding: 15px; border-radius: 4px; line-height: 1.6;">
+      <strong>Important:</strong> This invitation link expires in <strong>72 hours</strong>.
+      Please set your password promptly to activate your reviewer account.
+    </p>
+    ${btn(inviteLink, "Set Password & Activate Account", "#2196F3")}
+    <p style="color: #666; font-size: 12px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+      <strong>Or copy this link:</strong><br/>
+      <a href="${inviteLink}" style="color: #2196F3; word-break: break-all; font-size: 11px;">${inviteLink}</a>
+    </p>
+  `);
+ 
+  return sendMail(email, "You're Invited as a Reviewer — Nyahururu Research Portal", html);
+};
+ 
+//Send reviewer promotion notification (when existing researcher becomes reviewer)
+
+exports.sendReviewerPromoted = async ({
+  email,
+  name,
+  promotedBy,
+}) => {
+  const html = shell(`
+    <h2 style="color: #4CAF50; margin-top: 0;">✨ You're Now a Reviewer</h2>
+    <p style="color: #555; line-height: 1.6;">
+      Dear <strong>${name}</strong>,<br/>
+      Congratulations! Your account has been upgraded to <strong>Reviewer</strong> status
+      by <strong>${promotedBy}</strong>.
+    </p>
+    <div style="background-color: #e8f5e9; padding: 20px; border-radius: 8px;
+         margin: 20px 0; border-left: 4px solid #4CAF50;">
+      <h3 style="color: #2e7d32; margin-top: 0; font-size: 16px;">🎯 What's Next?</h3>
+      <ul style="color: #333; margin: 10px 0; padding-left: 20px;">
+        <li style="margin-bottom: 8px;">Log in to your dashboard</li>
+        <li style="margin-bottom: 8px;">Review pending research submissions</li>
+        <li style="margin-bottom: 8px;">Provide constructive feedback to researchers</li>
+        <li>Help shape the future of research in Central Kenya</li>
+      </ul>
+    </div>
+    ${btn(`${process.env.FRONTEND_URL}/research/dashboard`, "Go to Reviewer Dashboard", "#4CAF50")}
+    <p style="color: #555; line-height: 1.6; margin-top: 20px;">
+      Thank you for joining our review team. Your expertise is invaluable!
+    </p>
+  `);
+ 
+  return sendMail(email, "You're Now a Reviewer — Nyahururu Research Portal", html);
+};
+ 
+//Send new proposal assignment notification
+
+exports.sendNewProposalToReview = async ({
+  email,
+  reviewerName,
+  proposalTitle,
+  researcherName,
+  discipline,
+  reviewLink,
+}) => {
+  const html = shell(`
+    <h2 style="color: #2196F3; margin-top: 0;">New Proposal for Review</h2>
+    <p style="color: #555; line-height: 1.6;">
+      Dear <strong>${reviewerName}</strong>,<br/>
+      A new research proposal has been assigned to you for review.
+    </p>
+    <div style="background-color: #e3f2fd; padding: 20px; border-radius: 8px;
+         margin: 20px 0; border-left: 4px solid #2196F3;">
+      <h3 style="color: #1565c0; margin-top: 0; font-size: 16px;">Proposal Details</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold; width: 35%;">Title:</td>
+          <td style="padding: 8px 0; color: #333;">${proposalTitle}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Researcher:</td>
+          <td style="padding: 8px 0; color: #333;">${researcherName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Discipline:</td>
+          <td style="padding: 8px 0; color: #333;">${discipline}</td>
+        </tr>
+      </table>
+    </div>
+    <p style="color: #555; line-height: 1.6;">
+      Please review the proposal and provide your feedback. Your thorough evaluation
+      helps researchers improve their work and contributes to the research community.
+    </p>
+    ${btn(reviewLink, "Review Proposal", "#2196F3")}
+  `);
+ 
+  return sendMail(email, `New Proposal for Review — ${proposalTitle}`, html);
+};
+ 
+//Send resubmission notice (researcher resubmitted after revision request)
+ 
+exports.sendResubmissionNotice = async ({
+  email,
+  reviewerName,
+  proposalTitle,
+  researcherName,
+  reviewLink,
+}) => {
+  const html = shell(`
+    <h2 style="color: #ff9800; margin-top: 0;">Resubmission Received</h2>
+    <p style="color: #555; line-height: 1.6;">
+      Dear <strong>${reviewerName}</strong>,<br/>
+      <strong>${researcherName}</strong> has resubmitted their proposal after addressing
+      your previous feedback.
+    </p>
+    <div style="background-color: #fff3e0; padding: 20px; border-radius: 8px;
+         margin: 20px 0; border-left: 4px solid #ff9800;">
+      <h3 style="color: #e65100; margin-top: 0; font-size: 16px;">Details</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Title:</td>
+          <td style="padding: 8px 0; color: #333;">${proposalTitle}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Researcher:</td>
+          <td style="padding: 8px 0; color: #333;">${researcherName}</td>
+        </tr>
+      </table>
+    </div>
+    <p style="color: #555; line-height: 1.6;">
+      Please review the revised version and confirm whether the changes address your feedback.
+    </p>
+    ${btn(reviewLink, "Review Resubmission", "#ff9800")}
+  `);
+ 
+  return sendMail(email, `Resubmission Received — ${proposalTitle}`, html);
+};
+ 
+//Send review submission confirmation
+ 
+exports.sendReviewCompletedConfirmation = async ({
+  email,
+  reviewerName,
+  proposalTitle,
+  decision,
+}) => {
+  const decisionLabel = {
+    approved: "Approved",
+    revision: "Revision Requested",
+    rejected: "Rejected",
+  }[decision] || decision;
+ 
+  const decisionColor = {
+    approved: "#4CAF50",
+    revision: "#ff9800",
+    rejected: "#f44336",
+  }[decision] || "#2196F3";
+ 
+  const html = shell(`
+    <h2 style="color: ${decisionColor}; margin-top: 0;">Review Submitted</h2>
+    <p style="color: #555; line-height: 1.6;">
+      Dear <strong>${reviewerName}</strong>,<br/>
+      Thank you for submitting your review. Your feedback has been recorded.
+    </p>
+    <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px;
+         margin: 20px 0; border-left: 4px solid ${decisionColor};">
+      <h3 style="color: #333; margin-top: 0; font-size: 16px;">Review Summary</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Proposal Title:</td>
+          <td style="padding: 8px 0; color: #333;">${proposalTitle}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Decision:</td>
+          <td style="padding: 8px 0; color: ${decisionColor}; font-weight: bold;">${decisionLabel}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Submitted:</td>
+          <td style="padding: 8px 0; color: #333;">${new Date().toLocaleString("en-KE")}</td>
+        </tr>
+      </table>
+    </div>
+    <p style="color: #555; line-height: 1.6;">
+      The researcher will be notified of your decision shortly.
+      Thank you for your valuable contribution to the research community!
+    </p>
+  `);
+ 
+  return sendMail(email, `Review Submitted — ${proposalTitle}`, html);
+};
+ 
+// Send monthly reviewer statistics
+
+exports.sendMonthlySummary = async ({
+  email,
+  reviewerName,
+  reviewsCompleted,
+  approvalsCount,
+  revisionsCount,
+  rejectionsCount,
+}) => {
+  const html = shell(`
+    <h2 style="color: #2196F3; margin-top: 0;">Your Monthly Review Summary</h2>
+    <p style="color: #555; line-height: 1.6;">
+      Dear <strong>${reviewerName}</strong>,<br/>
+      Here's a summary of your review activity this month.
+    </p>
+    <div style="background-color: #e3f2fd; padding: 20px; border-radius: 8px;
+         margin: 20px 0; border-left: 4px solid #2196F3;">
+      <h3 style="color: #1565c0; margin-top: 0; font-size: 16px;">Statistics</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 12px 0; color: #666; font-weight: bold; width: 60%;">Total Reviews Completed:</td>
+          <td style="padding: 12px 0; color: #1565c0; font-size: 18px; font-weight: bold;">${reviewsCompleted}</td>
+        </tr>
+        <tr style="border-top: 1px solid #bbdefb;">
+          <td style="padding: 12px 0; color: #666;">Approvals:</td>
+          <td style="padding: 12px 0; color: #4CAF50; font-weight: bold;">${approvalsCount}</td>
+        </tr>
+        <tr style="border-top: 1px solid #bbdefb;">
+          <td style="padding: 12px 0; color: #666;">Revisions Requested:</td>
+          <td style="padding: 12px 0; color: #ff9800; font-weight: bold;">${revisionsCount}</td>
+        </tr>
+        <tr style="border-top: 1px solid #bbdefb;">
+          <td style="padding: 12px 0; color: #666;"> Rejections:</td>
+          <td style="padding: 12px 0; color: #f44336; font-weight: bold;">${rejectionsCount}</td>
+        </tr>
+      </table>
+    </div>
+    <p style="color: #555; line-height: 1.6;">
+      Thank you for your continued contribution to the research community.
+      Your diligent review work helps maintain the quality of our research portal.
+    </p>
+  `);
+ 
+  return sendMail(email, `Your Monthly Review Summary — Nyahururu Research Portal`, html);
+};
+ 
+//PAYMENT EMAILS
+
+exports.sendPaymentConfirmation = async ({
+  email,
+  name,
+  mpesaReceipt,
+  amount,
+  purpose,
+}) => {
+  const html = shell(`
+    <h2 style="color: #4CAF50; margin-top: 0;">Payment Confirmed</h2>
+    <p style="color: #555; line-height: 1.6;">
+      Dear <strong>${name}</strong>,<br/>
+      Your M-Pesa payment has been received successfully.
+    </p>
+    <div style="background-color: #e8f5e9; padding: 20px; border-radius: 8px;
+         margin: 20px 0; border-left: 4px solid #4CAF50;">
+      <h3 style="color: #2e7d32; margin-top: 0; font-size: 16px;">🧾 Payment Details</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">M-Pesa Receipt:</td>
+          <td style="padding: 8px 0; color: #333;">${mpesaReceipt}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Amount:</td>
+          <td style="padding: 8px 0; color: #333;">KES ${amount}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Purpose:</td>
+          <td style="padding: 8px 0; color: #333;">${purpose}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Date:</td>
+          <td style="padding: 8px 0; color: #333;">${new Date().toLocaleDateString("en-KE")}</td>
+        </tr>
+      </table>
+    </div>
+    <p style="color: #555; line-height: 1.6;">
+      Please keep this receipt for your records.
+    </p>
+  `);
+ 
+  return sendMail(email, `Payment Confirmed — Nyahururu Research Portal`, html);
+};

@@ -20,6 +20,7 @@ const Dashboard = () => {
         "doctor",
         "staff",
         "superadmin",
+        "research"
       ].includes(storedRole)
     ) {
       navigate("/");

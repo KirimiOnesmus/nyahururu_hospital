@@ -194,7 +194,7 @@ exports.verifyEmail = async (req, res) => {
   try {
     const { token, userId } = req.body;
 
-    if (!token || !userId) {
+    if (!token || !userId) { 
       return res.status(400).json({ message: "Token and user ID are required" });
     }
 

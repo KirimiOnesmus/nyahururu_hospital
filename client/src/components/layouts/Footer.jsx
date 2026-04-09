@@ -18,6 +18,8 @@ const Footer = () => {
     { label: "Careers", path: "/careers" },
     { label: "Tenders", path: "/tenders" },
     { label: "Downloads", path: "/downloads" },
+    { label: "Research", path: "/research" },
+   
   ];
 
   const contactInfo = [
@@ -103,7 +105,8 @@ const Footer = () => {
                 <li key={idx}>
                   <button
                     onClick={() => navigate(link.path)}
-                    className="text-gray-700 text-sm hover:text-blue-600 transition-colors duration-300 font-medium"
+                    className="text-gray-700 text-sm hover:text-blue-600 transition-colors
+                    cursor-pointer duration-300 font-medium"
                   >
                     {link.label}
                   </button>

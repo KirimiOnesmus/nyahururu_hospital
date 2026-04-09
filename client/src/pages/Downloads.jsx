@@ -164,7 +164,7 @@ const Downloads = () => {
 
               {report.fileSize && (
                 <span className="inline-flex items-center">
-                  📦 {formatFileSize(report.fileSize)}
+                  {formatFileSize(report.fileSize)}
                 </span>
               )}
             </div>
