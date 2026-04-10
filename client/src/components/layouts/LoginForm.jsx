@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { loginUser, loginResearcher } from "../../api/auth";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { loginUser, loginResearcher, verifyResearcherEmail } from "../../api/auth";
 import { toast } from "react-toastify";
 
 const STAFF_ROLES = ["superadmin", "admin", "it", "communication", "doctor", "staff","research"];
@@ -10,9 +10,42 @@ const LoginForm = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  // "staff" | "researcher"
+  const [verifying, setVerifying] = useState(false);
   const [loginType, setLoginType] = useState("staff");
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+
+  useEffect(() => {
+    const isVerifying = searchParams.get("verify");
+    const token = searchParams.get("token");
+    const emailParam = searchParams.get("email");
+
+    if (isVerifying && token && emailParam) {
+      handleEmailVerification(token, emailParam);
+    }
+  }, [searchParams]);
+
+  const handleEmailVerification = async (token, emailParam) => {
+    setVerifying(true);
+    try {
+      const response = await verifyResearcherEmail(token, emailParam);
+      
+      if (response) {
+        toast.success("Email verified successfully! You can now log in.");
+        
+        setEmail(emailParam);
+        setLoginType("researcher");
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.message || "Verification link is invalid or expired";
+      toast.error(errorMsg);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -66,6 +99,17 @@ const LoginForm = () => {
           </div>
 
           <div className="p-8 space-y-6">
+
+           
+            {verifying && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
+                <svg className="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                </svg>
+                <span className="text-blue-700 font-medium">Verifying your email...</span>
+              </div>
+            )}
 
            
             <div className="flex rounded-lg border border-gray-200 overflow-hidden">
@@ -178,7 +222,7 @@ const LoginForm = () => {
                  transform hover:scale-[1.02] transition duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 
                  cursor-pointer disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center"
                 type="submit"
-                disabled={loading}
+                disabled={loading || verifying}
               >
                 {loading ? (
                   <>

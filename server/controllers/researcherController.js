@@ -3,9 +3,6 @@ const crypto = require("crypto");
 const Researcher = require("../models/ResearcherModel");
 const researchEmail = require("../utils/emailServices");
 
-/**
- * Sign a JWT token for researcher
- */
 const signToken = (id, role) =>
   jwt.sign(
     { id, role, collection: "researchers" },
@@ -26,12 +23,6 @@ const sanitize = (doc) => {
   return obj;
 };
 
-/**
- * ═══════════════════════════════════════════════════════════════
- * RESEARCHER SELF-REGISTRATION
- * POST /api/research/researchers/register
- * ═══════════════════════════════════════════════════════════════
- */
 exports.register = async (req, res) => {
   try {
     const {
@@ -99,9 +90,9 @@ exports.register = async (req, res) => {
     const jwtToken = signToken(researcher._id, researcher.role);
 
     // Send verification email
-    const verifyLink = `${process.env.FRONTEND_URL}/research/verify-email?token=${rawToken}&email=${encodeURIComponent(
-      email
-    )}`;
+   const verifyLink = `${process.env.FRONTEND_URL}/hmis?verify=true&token=${rawToken}&email=${encodeURIComponent(
+  email
+)}`;
     await researchEmail
       .sendResearcherVerificationEmail({
         email: researcher.email,
@@ -125,12 +116,7 @@ exports.register = async (req, res) => {
   }
 };
 
-/**
- * ═══════════════════════════════════════════════════════════════
- * VERIFY EMAIL ADDRESS
- * POST /api/research/researchers/verify-email
- * ═══════════════════════════════════════════════════════════════
- */
+
 exports.verifyEmail = async (req, res) => {
   try {
     const { token, email } = req.body;
@@ -173,12 +159,7 @@ exports.verifyEmail = async (req, res) => {
   }
 };
 
-/**
- * ═══════════════════════════════════════════════════════════════
- * LOGIN
- * POST /api/research/researchers/login
- * ═══════════════════════════════════════════════════════════════
- */
+
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -234,12 +215,7 @@ exports.login = async (req, res) => {
   }
 };
 
-/**
- * ═══════════════════════════════════════════════════════════════
- * GET CURRENT RESEARCHER PROFILE
- * GET /api/research/researchers/me
- * ═══════════════════════════════════════════════════════════════
- */
+
 exports.getMe = async (req, res) => {
   try {
     const researcher = await Researcher.findById(req.researcher.id);
@@ -254,12 +230,7 @@ exports.getMe = async (req, res) => {
   }
 };
 
-/**
- * ═══════════════════════════════════════════════════════════════
- * UPDATE RESEARCHER PROFILE
- * PUT /api/research/researchers/profile
- * ═══════════════════════════════════════════════════════════════
- */
+
 exports.updateProfile = async (req, res) => {
   try {
     const allowed = [
@@ -307,12 +278,7 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
-/**
- * ═══════════════════════════════════════════════════════════════
- * CHANGE PASSWORD
- * POST /api/research/researchers/change-password
- * ═══════════════════════════════════════════════════════════════
- */
+
 exports.changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword, confirmPassword } = req.body;
@@ -357,12 +323,6 @@ exports.changePassword = async (req, res) => {
   }
 };
 
-/**
- * ═══════════════════════════════════════════════════════════════
- * REQUEST PASSWORD RESET
- * POST /api/research/researchers/forgot-password
- * ═══════════════════════════════════════════════════════════════
- */
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -419,12 +379,7 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
-/**
- * ═══════════════════════════════════════════════════════════════
- * RESET PASSWORD WITH TOKEN
- * POST /api/research/researchers/reset-password
- * ═══════════════════════════════════════════════════════════════
- */
+
 exports.resetPassword = async (req, res) => {
   try {
     const { token, email, password, confirmPassword } = req.body;

@@ -144,7 +144,7 @@ const Register = () => {
 
       setTimeout(() => {
         navigate("/hmis");
-      }, 2000);
+      }, 3000);
 
     } catch (err) {
       
@@ -508,7 +508,7 @@ const Register = () => {
                 </div>
 
           
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
+                {/* <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
                   <p className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-2">
                     Registration Summary
                   </p>
@@ -519,7 +519,7 @@ const Register = () => {
                     <p><span className="font-medium text-gray-800">Discipline:</span> {form.discipline === "Other" ? form.otherDiscipline : form.discipline}</p>
                     <p><span className="font-medium text-gray-800">Qualification:</span> {form.qualification}</p>
                   </div>
-                </div>
+                </div> */}
               </>
             )}
 
