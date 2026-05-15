@@ -113,9 +113,20 @@ router.get("/verify/:checkoutRequestId", async (req, res) => {
   try {
     const { checkoutRequestId } = req.params;
 
+     console.log(`[Verify] Checking: ${checkoutRequestId}`);
+
+
     const payment = await Payment.findOne({ checkoutRequestId }).select(
       "status mpesaReceiptNumber amount type research researcher resultCode resultDesc"
     );
+
+      console.log(`[Verify] Found payment:`, payment ? {
+      id: payment._id,
+      status: payment.status,
+      receipt: payment.mpesaReceiptNumber,
+      resultCode: payment.resultCode,
+      resultDesc: payment.resultDesc,
+    } : "NOT FOUND");
 
     if (!payment) {
         return res.status(404).json({
