@@ -118,23 +118,16 @@ router.get("/verify/:checkoutRequestId", async (req, res) => {
     );
 
     if (!payment) {
-      console.log(
-        `[Verify] Payment not found: ${checkoutRequestId}`
-      );
-      return res.status(404).json({
+        return res.status(404).json({
         message: "Payment record not found",
         checkoutRequestId,
         status: "not_found",
       });
     }
 
-    console.log(
-      `✓ [Verify] ${checkoutRequestId} → Status: ${payment.status}`
-    );
-
     res.json({
-      checkoutRequestId,
-      status: payment.status, // pending, completed, failed, cancelled
+       checkoutRequestId,
+      status: payment.status,
       mpesaReceiptNumber: payment.mpesaReceiptNumber || null,
       amount: payment.amount,
       type: payment.type,

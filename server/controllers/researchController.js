@@ -89,7 +89,7 @@ exports.initiateProposalSubmission = async (req, res) => {
 
     // Create pending payment record
     const payment = await Payment.create({
-      researcher: req.researcher?._id || null,
+      // researcher: req.researcher?._id || null,
       type,
       amount,
       phone: normalizedPhone,
