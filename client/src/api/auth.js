@@ -1,105 +1,163 @@
-
 import api from './axios';
 
-export const loginUser = async (email, password) => { 
-  const res = await api.post('/auth/login', { email, password });
-  localStorage.setItem('token', res.data.token); 
-  return res.data;
-};
 
-//RESEARCHER REGISTRATION & AUTH
+
+export const loginUser = async (email, password) => {
+  try {
+    const res = await api.post('/auth/login', { email, password });
+    if (res.data.token) {
+      localStorage.setItem('token', res.data.token);
+    }
+    return res.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Login failed' };
+  }
+};
 
 
 export const registerResearcher = async (formData) => {
-  const response = await api.post('/researchers/register', {
-    firstName: formData.firstName,
-    lastName: formData.lastName,
-    email: formData.email,
-    phone: formData.phone,
-    institution: formData.institution,
-    discipline: formData.discipline,
-    qualification: formData.qualification,
-    bio: formData.bio,
-    password: formData.password,
-  });
-  
+  try {
+    const response = await api.post('/researchers/register', {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      phone: formData.phone || '',
+      institution: formData.institution || '',
+      discipline: formData.discipline || '',
+      qualification: formData.qualification || '',
+      bio: formData.bio || '',
+      password: formData.password,
+    });
 
-  if (response.data.token) {
-    localStorage.setItem('token', response.data.token);
-    localStorage.setItem('role', response.data.researcher?.role || 'researcher');
-    localStorage.setItem('collection', 'researchers');
+    if (response.data.token) {
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('role', response.data.researcher?.role || 'researcher');
+      localStorage.setItem('collection', 'researchers');
+      localStorage.setItem('researcher', JSON.stringify(response.data.researcher));
+    }
+
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Registration failed' };
   }
-  
-  return response.data;
 };
- 
+
 
 export const verifyResearcherEmail = async (token, email) => {
-  const response = await api.post('/researchers/verify-email', {
-    token,
-    email,
-  });
-  return response.data;
+  try {
+    const response = await api.post('/researchers/verify-email', {
+      token,
+      email,
+    });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Email verification failed' };
+  }
 };
- 
+
 
 export const loginResearcher = async (email, password) => {
-  const response = await api.post('/researchers/login', {
-    email,
-    password,
-  });
- 
+  try {
+    const response = await api.post('/researchers/login', {
+      email,
+      password,
+    });
 
-  if (response.data.token) {
-    localStorage.setItem('token', response.data.token);
-    localStorage.setItem('role', response.data.researcher?.role || 'researcher');
-    localStorage.setItem('collection', 'researchers');
+    if (response.data.token) {
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('role', response.data.researcher?.role || 'researcher');
+      localStorage.setItem('collection', 'researchers');
+      localStorage.setItem('researcher', JSON.stringify(response.data.researcher));
+    }
+
+    return response.data;
+
+    
+
+  } catch (error) {
+    throw error.response?.data || { message: 'Login failed' };
   }
- 
-  return response.data;
 };
- 
+
 
 export const getResearcherProfile = async () => {
-  const response = await api.get('/researchers/me');
-  return response.data;
+  try {
+    const response = await api.get('/researchers/me');
+    if (response.data.researcher) {
+      localStorage.setItem('researcher', JSON.stringify(response.data.researcher));
+    }
+
+    return response.data;
+
+  } catch (error) {
+
+    throw error.response?.data || { message: 'Failed to fetch profile' };
+  }
 };
- 
+
 
 export const updateResearcherProfile = async (updates) => {
-  const response = await api.put('/researchers/profile', updates);
-  return response.data;
+  try {
+    const response = await api.put('/researchers/profile', updates);
+    if (response.data.researcher) {
+      localStorage.setItem('researcher', JSON.stringify(response.data.researcher));
+    }
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Failed to update profile' };
+  }
 };
- 
 
-export const changeResearcherPassword = async (currentPassword, newPassword, confirmPassword) => {
-  const response = await api.post('/researchers/change-password', {
-    currentPassword,
-    newPassword,
-    confirmPassword,
-  });
-  return response.data;
+
+
+
+export const changeResearcherPassword = async (
+  currentPassword,
+  newPassword,
+  confirmPassword
+) => {
+  try {
+    const response = await api.post('/researchers/change-password', {
+      currentPassword,
+      newPassword,
+      confirmPassword,
+    });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Password change failed' };
+  }
 };
- 
 
 export const forgotResearcherPassword = async (email) => {
-  const response = await api.post('/researchers/forgot-password', {
-    email,
-  });
-  return response.data;
+  try {
+    const response = await api.post('/researchers/forgot-password', {
+      email,
+    });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Password reset request failed' };
+  }
 };
- 
 
-export const resetResearcherPassword = async (token, email, password, confirmPassword) => {
-  const response = await api.post('/researchers/reset-password', {
-    token,
-    email,
-    password,
-    confirmPassword,
-  });
-  return response.data;
+
+export const resetResearcherPassword = async (
+  token,
+  email,
+  password,
+  confirmPassword
+) => {
+  try {
+    const response = await api.post('/researchers/reset-password', {
+      token,
+      email,
+      password,
+      confirmPassword,
+    });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Password reset failed' };
+  }
 };
- 
 
 export const logout = () => {
   localStorage.removeItem('token');
@@ -107,17 +165,16 @@ export const logout = () => {
   localStorage.removeItem('collection');
   localStorage.removeItem('researcher');
 };
- 
+
 
 export const isAuthenticated = () => {
   return !!localStorage.getItem('token');
 };
- 
 
 export const getToken = () => {
   return localStorage.getItem('token');
 };
- 
+
 
 export const getUserRole = () => {
   return localStorage.getItem('role');
@@ -125,4 +182,64 @@ export const getUserRole = () => {
 
 export const isResearcher = () => {
   return localStorage.getItem('collection') === 'researchers';
+};
+
+
+export const getCachedResearcherProfile = () => {
+  const cached = localStorage.getItem('researcher');
+  return cached ? JSON.parse(cached) : null;
+};
+
+
+export const isAdmin = () => {
+  const role = getUserRole();
+  return role === 'admin' || role === 'superadmin';
+};
+
+export const isReviewer = () => {
+  const role = getUserRole();
+  return ['reviewer', 'admin', 'superadmin'].includes(role);
+};
+
+
+export const canManageReviewers = () => {
+  return isAdmin();
+};
+
+export const getUserDisplayName = () => {
+  const profile = getCachedResearcherProfile();
+  if (!profile) return 'User';
+  return `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'User';
+};
+
+
+export default {
+  // Generic
+  loginUser,
+
+  // Researcher auth
+  registerResearcher,
+  verifyResearcherEmail,
+  loginResearcher,
+
+  // Profile
+  getResearcherProfile,
+  updateResearcherProfile,
+
+  // Password
+  changeResearcherPassword,
+  forgotResearcherPassword,
+  resetResearcherPassword,
+
+  // Session
+  logout,
+  isAuthenticated,
+  getToken,
+  getUserRole,
+  isResearcher,
+  isAdmin,
+  isReviewer,
+  canManageReviewers,
+  getCachedResearcherProfile,
+  getUserDisplayName,
 };

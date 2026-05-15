@@ -360,4 +360,4 @@ researcherSchema.statics.findPendingInvitations = function () {
 
 const Researcher = mongoose.model("Researcher", researcherSchema);
 
-module.exports = Researcher; 
+module.exports = Researcher;   

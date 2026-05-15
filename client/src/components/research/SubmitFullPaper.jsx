@@ -1,12 +1,22 @@
 import React, { useState, useEffect, useRef } from "react";
 import { toast } from "react-toastify";
 import {
-  FaFlask, FaFileAlt, FaBook, FaUpload,
-  FaFilePdf, FaTrash, FaMobileAlt, FaCheckCircle,
-  FaSpinner, FaChevronDown, FaArrowRight,
-  FaArrowLeft, FaInfoCircle, FaArrowUp,
+  FaFlask,
+  FaFileAlt,
+  FaBook,
+  FaUpload,
+  FaFilePdf,
+  FaTrash,
+  FaMobileAlt,
+  FaCheckCircle,
+  FaSpinner,
+  FaChevronDown,
+  FaArrowRight,
+  FaArrowLeft,
+  FaInfoCircle,
+  FaArrowUp,
 } from "react-icons/fa";
-
+import { initiateSTKPush, submitFinalPaper } from "../../api/research";
 /* ══════════════════════════════════════════
    CONSTANTS
 ══════════════════════════════════════════ */
@@ -14,24 +24,18 @@ const SUBMISSION_FEE = 200;
 
 const formatPhone = (v) => {
   const d = v.replace(/\D/g, "");
-  if (d.startsWith("0"))   return d.slice(0, 10);
+  if (d.startsWith("0")) return d.slice(0, 10);
   if (d.startsWith("254")) return d.slice(0, 12);
   return d.slice(0, 10);
 };
 
-/* ══════════════════════════════════════════
-   STEP CONFIG
-══════════════════════════════════════════ */
 const STEPS = [
-  { id: "details",  label: "Details",   icon: FaFileAlt   },
-  { id: "upload",   label: "Upload",    icon: FaUpload    },
-  { id: "review",   label: "Review",    icon: FaBook      },
-  { id: "payment",  label: "Payment",   icon: FaMobileAlt },
+  { id: "details", label: "Details", icon: FaFileAlt },
+  { id: "upload", label: "Upload", icon: FaUpload },
+  { id: "review", label: "Review", icon: FaBook },
+  { id: "payment", label: "Payment", icon: FaMobileAlt },
 ];
 
-/* ══════════════════════════════════════════
-   SMALL HELPERS
-══════════════════════════════════════════ */
 const inputCls = (err) =>
   `w-full px-3.5 py-2.5 border rounded-lg text-gray-800 placeholder-gray-400 text-sm
    outline-none focus:ring focus:ring-blue-500 transition-all bg-gray-50 hover:border-gray-300
@@ -41,7 +45,8 @@ const Field = ({ label, error, required, hint, children }) => (
   <div>
     <div className="flex items-center justify-between mb-1.5">
       <label className="text-sm font-semibold text-gray-700">
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+        {label}
+        {required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
       {hint && <span className="text-xs text-gray-400">{hint}</span>}
     </div>
@@ -50,19 +55,22 @@ const Field = ({ label, error, required, hint, children }) => (
   </div>
 );
 
-/* ══════════════════════════════════════════
-   STEP 0 — DETAILS
-══════════════════════════════════════════ */
 const StepDetails = ({ form, setField, errors, proposalTitle }) => (
   <div className="space-y-5">
     <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 flex gap-3 items-start">
       <FaInfoCircle className="text-blue-500 mt-0.5 flex-shrink-0 text-sm" />
       <p className="text-xs text-blue-700 leading-relaxed">
-        You are submitting the final paper for: <span className="font-semibold">{proposalTitle}</span>
+        You are submitting the final paper for:{" "}
+        <span className="font-semibold">{proposalTitle}</span>
       </p>
     </div>
 
-    <Field label="Paper Title" required error={errors.title} hint="Main title of your paper">
+    <Field
+      label="Paper Title"
+      required
+      error={errors.title}
+      hint="Main title of your paper"
+    >
       <input
         type="text"
         placeholder="e.g. Impact of X on Y: A Comprehensive Analysis"
@@ -72,7 +80,12 @@ const StepDetails = ({ form, setField, errors, proposalTitle }) => (
       />
     </Field>
 
-    <Field label="Keywords" required error={errors.keywords} hint="Comma-separated, min 3">
+    <Field
+      label="Keywords"
+      required
+      error={errors.keywords}
+      hint="Comma-separated, min 3"
+    >
       <input
         type="text"
         placeholder="e.g. medicine, research, methodology, data analysis"
@@ -82,7 +95,12 @@ const StepDetails = ({ form, setField, errors, proposalTitle }) => (
       />
     </Field>
 
-    <Field label="Authors" required error={errors.authors} hint="All co-authors">
+    <Field
+      label="Authors"
+      required
+      error={errors.authors}
+      hint="All co-authors"
+    >
       <textarea
         rows={3}
         placeholder="Enter author names, one per line. First author should be you."
@@ -92,7 +110,12 @@ const StepDetails = ({ form, setField, errors, proposalTitle }) => (
       />
     </Field>
 
-    <Field label="Summary/Abstract" required error={errors.summary} hint="100–300 words">
+    <Field
+      label="Summary/Abstract"
+      required
+      error={errors.summary}
+      hint="100–300 words"
+    >
       <div className="relative">
         <textarea
           rows={4}
@@ -108,7 +131,11 @@ const StepDetails = ({ form, setField, errors, proposalTitle }) => (
     </Field>
 
     <div className="grid grid-cols-2 gap-4">
-      <Field label="Publication Status" required error={errors.publicationStatus}>
+      <Field
+        label="Publication Status"
+        required
+        error={errors.publicationStatus}
+      >
         <select
           value={form.publicationStatus}
           onChange={(e) => setField("publicationStatus", e.target.value)}
@@ -123,7 +150,12 @@ const StepDetails = ({ form, setField, errors, proposalTitle }) => (
         <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none" />
       </Field>
 
-      <Field label="Word Count" required error={errors.wordCount} hint="Approximate">
+      <Field
+        label="Word Count"
+        required
+        error={errors.wordCount}
+        hint="Approximate"
+      >
         <input
           type="number"
           placeholder="e.g. 8500"
@@ -136,9 +168,6 @@ const StepDetails = ({ form, setField, errors, proposalTitle }) => (
   </div>
 );
 
-/* ══════════════════════════════════════════
-   STEP 1 — UPLOAD
-══════════════════════════════════════════ */
 const StepUpload = ({ file, onFile, onClear, error }) => {
   const handleDrop = (e) => {
     e.preventDefault();
@@ -156,14 +185,24 @@ const StepUpload = ({ file, onFile, onClear, error }) => {
           className={`flex flex-col items-center justify-center gap-4 border-2 border-dashed rounded-2xl p-10 cursor-pointer transition-all
             ${error ? "border-red-400 bg-red-50" : "border-gray-200 bg-gray-50 hover:border-blue-400 hover:bg-blue-50/50"}`}
         >
-          <input type="file" accept=".pdf" className="hidden"
-            onChange={(e) => { const f = e.target.files[0]; if (f) onFile(f); }} />
+          <input
+            type="file"
+            accept=".pdf"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files[0];
+              if (f) onFile(f);
+            }}
+          />
           <div className="w-14 h-14 bg-white border border-gray-200 rounded-2xl flex items-center justify-center shadow-sm">
             <FaUpload className="text-blue-500 text-xl" />
           </div>
           <div className="text-center">
             <p className="font-semibold text-gray-700 text-sm">
-              Drag & drop or <span className="text-blue-600 underline underline-offset-2">browse files</span>
+              Drag & drop or{" "}
+              <span className="text-blue-600 underline underline-offset-2">
+                browse files
+              </span>
             </p>
             <p className="text-xs text-gray-400 mt-1">PDF only · Max 50 MB</p>
           </div>
@@ -174,12 +213,19 @@ const StepUpload = ({ file, onFile, onClear, error }) => {
             <FaFilePdf className="text-red-500 text-lg" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-800 truncate">{file.name}</p>
-            <p className="text-xs text-gray-500">{(file.size / 1024 / 1024).toFixed(2)} MB · PDF</p>
+            <p className="text-sm font-semibold text-gray-800 truncate">
+              {file.name}
+            </p>
+            <p className="text-xs text-gray-500">
+              {(file.size / 1024 / 1024).toFixed(2)} MB · PDF
+            </p>
           </div>
-          <button type="button" onClick={onClear}
+          <button
+            type="button"
+            onClick={onClear}
             className="text-gray-400 hover:text-red-500 cursor-pointer
-             transition-colors p-1.5 rounded-lg hover:bg-red-50">
+             transition-colors p-1.5 rounded-lg hover:bg-red-50"
+          >
             <FaTrash size={14} />
           </button>
         </div>
@@ -202,17 +248,17 @@ const StepUpload = ({ file, onFile, onClear, error }) => {
   );
 };
 
-/* ══════════════════════════════════════════
-   STEP 2 — REVIEW
-══════════════════════════════════════════ */
 const StepReview = ({ form, file }) => {
   const rows = [
-    { label: "Paper Title",         value: form.title },
-    { label: "Keywords",            value: form.keywords },
-    { label: "Authors",             value: form.authors },
-    { label: "Summary",             value: form.summary },
-    { label: "Publication Status",  value: form.publicationStatus },
-    { label: "Word Count",          value: form.wordCount ? `${form.wordCount} words` : "" },
+    { label: "Paper Title", value: form.title },
+    { label: "Keywords", value: form.keywords },
+    { label: "Authors", value: form.authors },
+    { label: "Summary", value: form.summary },
+    { label: "Publication Status", value: form.publicationStatus },
+    {
+      label: "Word Count",
+      value: form.wordCount ? `${form.wordCount} words` : "",
+    },
   ];
 
   return (
@@ -220,20 +266,30 @@ const StepReview = ({ form, file }) => {
       <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex gap-2 items-start">
         <FaInfoCircle className="text-blue-500 mt-0.5 flex-shrink-0 text-sm" />
         <p className="text-xs text-blue-700 leading-relaxed">
-          Please review your submission details below. After confirmation, you'll proceed to payment.
+          Please review your submission details below. After confirmation,
+          you'll proceed to payment.
         </p>
       </div>
 
       <div className="border border-gray-100 rounded-xl overflow-hidden divide-y divide-gray-50">
-        {rows.map(({ label, value }) => value && (
-          <div key={label} className="px-4 py-3 flex gap-3">
-            <span className="text-xs font-semibold text-gray-400 w-32 flex-shrink-0 pt-0.5">{label}</span>
-            <span className="text-xs text-gray-700 leading-relaxed flex-1 line-clamp-2">{value}</span>
-          </div>
-        ))}
+        {rows.map(
+          ({ label, value }) =>
+            value && (
+              <div key={label} className="px-4 py-3 flex gap-3">
+                <span className="text-xs font-semibold text-gray-400 w-32 flex-shrink-0 pt-0.5">
+                  {label}
+                </span>
+                <span className="text-xs text-gray-700 leading-relaxed flex-1 line-clamp-2">
+                  {value}
+                </span>
+              </div>
+            ),
+        )}
         {file && (
           <div className="px-4 py-3 flex gap-3 items-center">
-            <span className="text-xs font-semibold text-gray-400 w-32 flex-shrink-0">Document</span>
+            <span className="text-xs font-semibold text-gray-400 w-32 flex-shrink-0">
+              Document
+            </span>
             <span className="flex items-center gap-1.5 text-xs text-gray-700">
               <FaFilePdf className="text-red-500" /> {file.name}
             </span>
@@ -242,26 +298,28 @@ const StepReview = ({ form, file }) => {
       </div>
 
       <p className="text-xs text-gray-400 text-center pt-1">
-        By submitting you confirm this is original work and agree to the repository's publication terms.
+        By submitting you confirm this is original work and agree to the
+        repository's publication terms.
       </p>
     </div>
   );
 };
 
-/* ══════════════════════════════════════════
-   STEP 3 — PAYMENT (LAST STEP)
-══════════════════════════════════════════ */
 const StepPayment = ({ onPaid }) => {
-  const [phone, setPhone]   = useState("");
+  const [phone, setPhone] = useState("");
   const [status, setStatus] = useState("idle"); // idle | processing | success
-  const [error, setError]   = useState("");
+  const [error, setError] = useState("");
 
   const handlePay = async () => {
     const digits = phone.replace(/\D/g, "");
-    if (digits.length < 10) { setError("Enter a valid Safaricom number"); return; }
-    setError(""); setStatus("processing");
+    if (digits.length < 10) {
+      setError("Enter a valid Safaricom number");
+      return;
+    }
+    setError("");
+    setStatus("processing");
     try {
-      const res  = await fetch("/api/mpesa/stk-push", {
+      const res = await fetch("/api/mpesa/stk-push", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -275,41 +333,49 @@ const StepPayment = ({ onPaid }) => {
       setStatus("success");
       setTimeout(() => onPaid(data.transactionCode || "TXN-DEMO"), 1800);
     } catch (err) {
-      setError(err.message); setStatus("idle");
+      setError(err.message);
+      setStatus("idle");
     }
   };
 
-  if (status === "processing") return (
-    <div className="flex flex-col items-center justify-center py-10 gap-4">
-      <FaSpinner className="text-4xl text-blue-600 animate-spin" />
-      <div className="text-center">
-        <p className="font-bold text-gray-900 text-lg">Check Your Phone</p>
-        <p className="text-gray-500 text-sm mt-1">
-          M-Pesa prompt sent to <strong>{phone}</strong>.<br/>Enter your PIN to confirm.
-        </p>
+  if (status === "processing")
+    return (
+      <div className="flex flex-col items-center justify-center py-10 gap-4">
+        <FaSpinner className="text-4xl text-blue-600 animate-spin" />
+        <div className="text-center">
+          <p className="font-bold text-gray-900 text-lg">Check Your Phone</p>
+          <p className="text-gray-500 text-sm mt-1">
+            M-Pesa prompt sent to <strong>{phone}</strong>.<br />
+            Enter your PIN to confirm.
+          </p>
+        </div>
       </div>
-    </div>
-  );
+    );
 
-  if (status === "success") return (
-    <div className="flex flex-col items-center justify-center py-10 gap-4">
-      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-        <FaCheckCircle className="text-3xl text-green-600" />
+  if (status === "success")
+    return (
+      <div className="flex flex-col items-center justify-center py-10 gap-4">
+        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+          <FaCheckCircle className="text-3xl text-green-600" />
+        </div>
+        <div className="text-center">
+          <p className="font-bold text-gray-900 text-lg">Payment Confirmed!</p>
+          <p className="text-gray-500 text-sm mt-1">Submitting your paper…</p>
+        </div>
       </div>
-      <div className="text-center">
-        <p className="font-bold text-gray-900 text-lg">Payment Confirmed!</p>
-        <p className="text-gray-500 text-sm mt-1">Submitting your paper…</p>
-      </div>
-    </div>
-  );
+    );
 
   return (
     <div className="space-y-5">
       {/* amount card */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4 flex items-center justify-between">
         <div>
-          <p className="text-xs text-gray-400 mb-0.5">Final paper submission fee</p>
-          <p className="text-3xl font-extrabold text-gray-900">KES {SUBMISSION_FEE}</p>
+          <p className="text-xs text-gray-400 mb-0.5">
+            Final paper submission fee
+          </p>
+          <p className="text-3xl font-extrabold text-gray-900">
+            KES {SUBMISSION_FEE}
+          </p>
         </div>
         <div className="text-right">
           <p className="text-xs text-gray-400 mb-0.5">via</p>
@@ -322,7 +388,8 @@ const StepPayment = ({ onPaid }) => {
       <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 flex gap-2 items-start">
         <FaInfoCircle className="text-blue-400 mt-0.5 flex-shrink-0 text-sm" />
         <p className="text-xs text-blue-700 leading-relaxed">
-          This fee applies only to final paper submissions. Your paper will be made available in the research repository upon approval.
+          This fee applies only to final paper submissions. Your paper will be
+          made available in the research repository upon approval.
         </p>
       </div>
 
@@ -331,7 +398,10 @@ const StepPayment = ({ onPaid }) => {
           type="tel"
           placeholder="0712 345 678"
           value={phone}
-          onChange={(e) => { setPhone(formatPhone(e.target.value)); setError(""); }}
+          onChange={(e) => {
+            setPhone(formatPhone(e.target.value));
+            setError("");
+          }}
           className={inputCls(error)}
         />
       </Field>
@@ -351,21 +421,27 @@ const StepPayment = ({ onPaid }) => {
   );
 };
 
-/* ══════════════════════════════════════════
-   MAIN PAGE
-══════════════════════════════════════════ */
-const SubmitFullPaper = ({ onClose, onSubmitted, proposalId, proposalTitle }) => {
-  const [step, setStep]           = useState(0);
-  const [paid, setPaid]           = useState(false);
+const SubmitFullPaper = ({
+  onClose,
+  onSubmitted,
+  proposalId,
+  proposalTitle,
+}) => {
+  const [step, setStep] = useState(0);
+  const [paid, setPaid] = useState(false);
   const [transactionCode, setTxCode] = useState("");
-  const [submitting, setSubmitting]  = useState(false);
-  const [errors, setErrors]          = useState({});
-  const [paperFile, setFile]         = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [paperFile, setFile] = useState(null);
   const bodyRef = useRef(null);
 
   const [form, setFormState] = useState({
-    title: "", keywords: "", authors: "",
-    summary: "", publicationStatus: "", wordCount: "",
+    title: "",
+    keywords: "",
+    authors: "",
+    summary: "",
+    publicationStatus: "",
+    wordCount: "",
   });
 
   const setField = (k, v) => {
@@ -373,24 +449,26 @@ const SubmitFullPaper = ({ onClose, onSubmitted, proposalId, proposalTitle }) =>
     if (errors[k]) setErrors((p) => ({ ...p, [k]: "" }));
   };
 
-  /* scroll body to top on step change */
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [step]);
 
-  /* ── Validation per step ── */
   const validate = (s) => {
     const e = {};
     if (s === 0) {
-      if (!form.title.trim() || form.title.length < 10) e.title = "Please enter a descriptive title (min 10 chars)";
+      if (!form.title.trim() || form.title.length < 10)
+        e.title = "Please enter a descriptive title (min 10 chars)";
       if (!form.keywords.trim()) e.keywords = "Enter at least 3 keywords";
-      else if (form.keywords.split(",").length < 3) e.keywords = "Provide at least 3 keywords, separated by commas";
+      else if (form.keywords.split(",").length < 3)
+        e.keywords = "Provide at least 3 keywords, separated by commas";
       if (!form.authors.trim()) e.authors = "List all authors";
       const wc = form.summary.trim().split(/\s+/).filter(Boolean).length;
       if (!form.summary.trim()) e.summary = "Summary is required";
       else if (wc < 50) e.summary = `Too short — ${wc} words (min 50)`;
-      if (!form.publicationStatus) e.publicationStatus = "Select publication type";
-      if (!form.wordCount || parseInt(form.wordCount) < 1000) e.wordCount = "Word count must be at least 1000";
+      if (!form.publicationStatus)
+        e.publicationStatus = "Select publication type";
+      if (!form.wordCount || parseInt(form.wordCount) < 1000)
+        e.wordCount = "Word count must be at least 1000";
     }
     if (s === 1) {
       if (!paperFile) e.paperFile = "Please upload your paper PDF";
@@ -400,12 +478,18 @@ const SubmitFullPaper = ({ onClose, onSubmitted, proposalId, proposalTitle }) =>
 
   const next = () => {
     const errs = validate(step);
-    if (Object.keys(errs).length) { setErrors(errs); return; }
+    if (Object.keys(errs).length) {
+      setErrors(errs);
+      return;
+    }
     setErrors({});
     setStep((s) => s + 1);
   };
 
-  const back = () => { setErrors({}); setStep((s) => s - 1); };
+  const back = () => {
+    setErrors({});
+    setStep((s) => s - 1);
+  };
 
   const handleSubmit = async () => {
     if (!paid) {
@@ -439,149 +523,184 @@ const SubmitFullPaper = ({ onClose, onSubmitted, proposalId, proposalTitle }) =>
 
   const isLastStep = step === STEPS.length - 1;
 
-  /* ── Step content renderer ── */
   const renderStep = () => {
     switch (step) {
-      case 0: return <StepDetails form={form} setField={setField} errors={errors} proposalTitle={proposalTitle} />;
-      case 1: return (
-        <StepUpload
-          file={paperFile}
-          onFile={setFile}
-          onClear={() => setFile(null)}
-          error={errors.paperFile}
-        />
-      );
-      case 2: return <StepReview form={form} file={paperFile} />;
-      case 3: return (
-        <StepPayment
-          onPaid={(code) => { setPaid(true); setTxCode(code); }}
-        />
-      );
-      default: return null;
+      case 0:
+        return (
+          <StepDetails
+            form={form}
+            setField={setField}
+            errors={errors}
+            proposalTitle={proposalTitle}
+          />
+        );
+      case 1:
+        return (
+          <StepUpload
+            file={paperFile}
+            onFile={setFile}
+            onClear={() => setFile(null)}
+            error={errors.paperFile}
+          />
+        );
+      case 2:
+        return <StepReview form={form} file={paperFile} />;
+      case 3:
+        return (
+          <StepPayment
+            onPaid={(code) => {
+              setPaid(true);
+              setTxCode(code);
+            }}
+          />
+        );
+      default:
+        return null;
     }
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-      {/* ── Header ── */}
-      <div className="bg-green-800 px-8 py-6 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-11 h-11 bg-white/20 rounded-xl flex items-center justify-center">
-            <FaBook className="text-white text-lg" />
-          </div>
-          <div>
-            <p className="text-white font-bold text-lg">Submit Final Paper</p>
-            <p className="text-green-200 text-sm">Research Portal · Stage 3 of 3</p>
+    <div>
+      <button
+        onClick={onClose}
+         className="flex items-center gap-2 text-gray-600 hover:cursor-pointer hover:text-gray-900 transition-colors mb-6"
+            >
+              <FaArrowLeft /> Back to Dashboard
+      </button>
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+        <div className="bg-green-800 px-8 py-6 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-11 h-11 bg-white/20 rounded-xl flex items-center justify-center">
+              <FaBook className="text-white text-lg" />
+            </div>
+            <div>
+              <p className="text-white font-bold text-lg">Submit Final Paper</p>
+              <p className="text-green-200 text-sm">
+                Research Portal · Stage 3 of 3
+              </p>
+            </div>
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className="text-white/60 hover:text-white transition-colors p-2
-           hover:bg-white/10 rounded-lg cursor-pointer"
-        >
-          <FaArrowUp size={20} />
-        </button>
-      </div>
 
-      {/* ── Step indicator ── */}
-      <div className="px-8 py-6 border-b border-gray-100">
-        <div className="flex items-center gap-1.5">
-          {STEPS.map((s, i) => {
-            const done    = i < step;
-            const current = i === step;
-            const Icon    = s.icon;
-            return (
-              <React.Fragment key={s.id}>
-                <div className="flex flex-col items-center gap-2 flex-shrink-0">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border-2
-                    ${done    ? "bg-green-600 border-green-600 text-white"
-                    : current ? "bg-white border-green-600 text-green-600 shadow-sm"
-                    :           "bg-gray-100 border-gray-200 text-gray-400"}`}
-                  >
-                    {done
-                      ? <FaCheckCircle className="text-sm" />
-                      : <Icon className="text-sm" />}
+        <div className="px-8 py-6 border-b border-gray-100">
+          <div className="flex items-center gap-1.5">
+            {STEPS.map((s, i) => {
+              const done = i < step;
+              const current = i === step;
+              const Icon = s.icon;
+              return (
+                <React.Fragment key={s.id}>
+                  <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border-2
+                    ${
+                      done
+                        ? "bg-green-600 border-green-600 text-white"
+                        : current
+                          ? "bg-white border-green-600 text-green-600 shadow-sm"
+                          : "bg-gray-100 border-gray-200 text-gray-400"
+                    }`}
+                    >
+                      {done ? (
+                        <FaCheckCircle className="text-sm" />
+                      ) : (
+                        <Icon className="text-sm" />
+                      )}
+                    </div>
+                    <span
+                      className={`text-xs font-semibold whitespace-nowrap
+                    ${current ? "text-green-600 font-bold" : done ? "text-green-400" : "text-gray-400"}`}
+                    >
+                      {s.label}
+                    </span>
                   </div>
-                  <span className={`text-xs font-semibold whitespace-nowrap
-                    ${current ? "text-green-600 font-bold" : done ? "text-green-400" : "text-gray-400"}`}>
-                    {s.label}
-                  </span>
-                </div>
-                {i < STEPS.length - 1 && (
-                  <div className={`flex-1 h-0.5 mb-8 transition-all duration-500 ${i < step ? "bg-green-500" : "bg-gray-200"}`} />
-                )}
-              </React.Fragment>
-            );
-          })}
+                  {i < STEPS.length - 1 && (
+                    <div
+                      className={`flex-1 h-0.5 mb-8 transition-all duration-500 ${i < step ? "bg-green-500" : "bg-gray-200"}`}
+                    />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
         </div>
-      </div>
 
-      {/* ── Step title ── */}
-      <div className="px-8 pt-6 pb-2">
-        <h3 className="font-bold text-gray-900 text-lg">
-          {step === 0 && "Paper Details"}
-          {step === 1 && "Upload Paper"}
-          {step === 2 && "Review & Submit"}
-          {step === 3 && "Complete Payment"}
-        </h3>
-        <p className="text-sm text-gray-500 mt-1">
-          {step === 0 && "Provide details about your final paper including title, authors, and abstract."}
-          {step === 1 && "Upload your complete final paper as a PDF file."}
-          {step === 2 && "Check your details before final submission."}
-          {step === 3 && `A one-time fee of KES ${SUBMISSION_FEE} is required to submit your final paper.`}
-        </p>
-      </div>
+        <div className="px-8 pt-6 pb-2">
+          <h3 className="font-bold text-gray-900 text-lg">
+            {step === 0 && "Paper Details"}
+            {step === 1 && "Upload Paper"}
+            {step === 2 && "Review & Submit"}
+            {step === 3 && "Complete Payment"}
+          </h3>
+          <p className="text-sm text-gray-500 mt-1">
+            {step === 0 &&
+              "Provide details about your final paper including title, authors, and abstract."}
+            {step === 1 && "Upload your complete final paper as a PDF file."}
+            {step === 2 && "Check your details before final submission."}
+            {step === 3 &&
+              `A one-time fee of KES ${SUBMISSION_FEE} is required to submit your final paper.`}
+          </p>
+        </div>
 
-      {/* ── Scrollable body ── */}
-      <div ref={bodyRef} className="px-8 py-6 overflow-y-auto" style={{ maxHeight: "500px" }}>
-        {renderStep()}
-      </div>
+        <div
+          ref={bodyRef}
+          className="px-8 py-6 overflow-y-auto"
+          style={{ maxHeight: "500px" }}
+        >
+          {renderStep()}
+        </div>
 
-      {/* ── Footer nav ── */}
-      <div className="px-8 py-6 border-t border-gray-100 flex gap-3 bg-gray-50/50">
-        {step > 0 && (
-          <button
-            type="button"
-            onClick={back}
-            className="flex items-center gap-2 border-2 border-gray-200
+        <div className="px-8 py-6 border-t border-gray-100 flex gap-3 bg-gray-50/50">
+          {step > 0 && (
+            <button
+              type="button"
+              onClick={back}
+              className="flex items-center gap-2 border-2 border-gray-200
              text-gray-600 hover:border-green-300 hover:text-green-600 font-semibold px-6 py-3 rounded-xl transition-all text-sm"
-          >
-            <FaArrowLeft /> Back
-          </button>
-        )}
+            >
+              <FaArrowLeft /> Back
+            </button>
+          )}
 
-        {!isLastStep && (
-          <button
-            type="button"
-            onClick={next}
-            className="flex-1 bg-green-600 hover:from-green-700 hover:to-teal-700 text-white 
+          {!isLastStep && (
+            <button
+              type="button"
+              onClick={next}
+              className="flex-1 bg-green-600 hover:from-green-700 hover:to-teal-700 text-white 
             font-bold py-3 rounded-xl transition-all hover:shadow-lg flex items-center 
             justify-center gap-2 text-sm cursor-pointer"
-          >
-            Continue <FaArrowRight className="text-xs" />
-          </button>
-        )}
+            >
+              Continue <FaArrowRight className="text-xs" />
+            </button>
+          )}
 
-        {isLastStep && (
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={submitting || !paid}
-            className="flex-1 bg-gradient-to-r from-green-500 to-green-600
+          {isLastStep && (
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitting || !paid}
+              className="flex-1 bg-gradient-to-r from-green-500 to-green-600
              hover:from-green-600 hover:to-green-700 text-white font-bold 
              py-3 rounded-xl transition-all hover:shadow-lg flex items-center 
              justify-center gap-2 text-sm disabled:opacity-50 cursor-pointer 
              disabled:cursor-not-allowed disabled:shadow-none"
-          >
-            {submitting ? (
-              <><FaSpinner className="animate-spin" /> Submitting…</>
-            ) : paid ? (
-              <><FaCheckCircle /> Submit Paper</>
-            ) : (
-              <><FaFlask /> Complete Payment</>
-            )}
-          </button>
-        )}
+            >
+              {submitting ? (
+                <>
+                  <FaSpinner className="animate-spin" /> Submitting…
+                </>
+              ) : paid ? (
+                <>
+                  <FaCheckCircle /> Submit Paper
+                </>
+              ) : (
+                <>
+                  <FaFlask /> Complete Payment
+                </>
+              )}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

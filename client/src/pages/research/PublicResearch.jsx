@@ -29,7 +29,8 @@ const MOCK_RESEARCH = [
     year: 2024,
     abstract:
       "This study examines the long-term effects of shifting rainfall patterns and rising temperatures on smallholder farming communities across the Rift Valley region. Using satellite data and field surveys conducted between 2019 and 2023, the research identifies critical vulnerability zones and proposes adaptive strategies for sustainable food production.",
-    downloadPrice: 150,
+    // downloadPrice: 150,
+    downloadPrice: 1, // Set to 1 KES for testing. Change to 150 for production.
     downloads: 342,
     pages: 48,
   },

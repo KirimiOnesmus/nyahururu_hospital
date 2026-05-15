@@ -42,7 +42,9 @@ const researchSchema = new mongoose.Schema({
 
   downloadPrice:  { 
     type: Number, 
-    default: 150,  // KES - amount public pays to download
+    // default: 150,  // KES - amount public pays to download
+    default: 1,    // Set to 1 KES for testing. Change to 150 for production.
+    min: 0,
   },
 
 

@@ -6,8 +6,9 @@ import {
   FaCheck,
   FaSpinner,
 } from "react-icons/fa";
+  import { submitReview } from "../../api/research";
 
-/* ── Stage labels defined here so the modal is fully self-contained ── */
+
 const STAGE_LABELS = {
   proposal:    "Proposal",
   abstract:    "Abstract",
@@ -19,39 +20,23 @@ const ReviewModal = ({ item, onClose, onDecision }) => {
   const [comment, setComment]   = useState("");
   const [loading, setLoading]   = useState(false);
 
-  const handleSubmit = async () => {
+    const handleSubmit = async () => {
     if (!decision) {
       toast.error("Please select a decision");
       return;
     }
-    if (!comment.trim()) {
-      toast.error("Please add a review comment");
-      return;
-    }
-
     setLoading(true);
     try {
-      const res = await fetch(`/api/research/${item.id}/review`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify({ decision, comment }),
+      const result = await submitReview(item.id, {
+        decision,
+        comment,
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Review submission failed");
-
+      
       onDecision(item.id, decision, comment);
-      toast.success(
-        decision === "approved"
-          ? "Proposal approved successfully"
-          : "Revision request sent to researcher"
-      );
+      toast.success("Review submitted!");
       onClose();
     } catch (err) {
-      toast.error(err.message || "Review submission failed");
+      toast.error(err.message);
     } finally {
       setLoading(false);
     }
@@ -221,7 +206,7 @@ const ReviewModal = ({ item, onClose, onDecision }) => {
                hover:text-white hover:bg-red-500 cursor-pointer rounded-lg
                border border-red-500 py-3.5 transition-colors"
             >
-              Cancel
+              Cancel 
             </button>
           )}
         </div>

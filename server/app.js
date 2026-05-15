@@ -39,6 +39,7 @@ const bloodDonorRoutes = require('./routes/bloodDonorRoutes');
 const UrgentRequest = require('./routes/UrgentRequest');
 const researcherRoutes = require('./routes/researcherRoute');
 const reviewerRoutes = require("./routes/reviewerRoutes");
+const mpesaRoutes = require('./routes/mpesaRoute');
 
 
 app.get('/', (req, res) => res.send("NCRH API running"));

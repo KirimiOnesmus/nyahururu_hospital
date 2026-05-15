@@ -31,65 +31,66 @@ exports.getResearchById = async (req, res) => {
   }
 };
 
+//STEP 1: Initiate proposal submission
+ //Validates form data and triggers M-Pesa STK Push.
+ 
 exports.initiateProposalSubmission = async (req, res) => {
   try {
-    // Researcher only
-    if (!req.researcher) {
-      return res.status(401).json({ message: "Authentication required" });
-    }
-
     const {
-      title, discipline, abstract,
-      background, objectives, methodology,
-      expectedOutcome, timeline, teamMembers, references,
-      phone
+      title,
+      discipline,
+      abstract,
+      background,
+      objectives,
+      methodology,
+      expectedOutcome,
+      timeline,
+      phone,
+      // amount = 100, Default proposal submission fee
+      amount=1, // Set to 1 KES for testing. Change to 100 for production.
+      type = "proposal_submission"
     } = req.body;
 
     // Validate required fields
-    if (!title || !discipline) {
-      return res.status(400).json({ 
-        message: "Title and discipline are required" 
+    if (!title || !discipline || !abstract || !phone) {
+      return res.status(400).json({
+        message: "Title, discipline, abstract, and phone are required"
       });
     }
 
-    if (!phone) {
-      return res.status(400).json({ 
-        message: "Phone number required for M-Pesa payment" 
-      });
-    }
-
-    
+    // Normalize and validate phone
     let normalizedPhone = String(phone).replace(/\D/g, "");
-    if (normalizedPhone.startsWith("0")) normalizedPhone = "254" + normalizedPhone.slice(1);
+    if (normalizedPhone.startsWith("0")) {
+      normalizedPhone = "254" + normalizedPhone.slice(1);
+    }
     if (!normalizedPhone.startsWith("254") || normalizedPhone.length !== 12) {
-      return res.status(400).json({ message: "Enter a valid Safaricom number" });
+      return res.status(400).json({
+        message: "Enter a valid Safaricom number (e.g., 0712345678 or 254712345678)"
+      });
     }
 
-    // Import M-Pesa service for STK push
+    // Import M-Pesa service
     const mpesaService = require("../utils/mpesaService");
 
-    const amount = 150; // Fixed proposal fee
-    const accountRef = "ResearchProposal";
-    const description = "Research proposal submission fee";
-
-    // Initiate M-Pesa payment
+    // Initiate M-Pesa STK Push
     const stkResponse = await mpesaService.initiateSTKPush({
       phone: normalizedPhone,
       amount,
-      accountRef,
-      description,
+      accountRef: "Proposal",
+      description: "Research proposal submission fee",
     });
 
+
     if (stkResponse.ResponseCode !== "0") {
-      return res.status(502).json({ 
-        message: stkResponse.ResponseDescription || "Payment initiation failed" 
+      return res.status(502).json({
+        message: stkResponse.ResponseDescription || "Payment initiation failed"
       });
     }
 
     // Create pending payment record
     const payment = await Payment.create({
-      researcher: req.researcher._id,
-      type: "proposal_submission",
+      researcher: req.researcher?._id || null,
+      type,
       amount,
       phone: normalizedPhone,
       merchantRequestId: stkResponse.MerchantRequestID,
@@ -97,70 +98,76 @@ exports.initiateProposalSubmission = async (req, res) => {
       status: "pending",
     });
 
-    // Store proposal data temporarily (in session or cache)
-    // OR return it to frontend to resubmit after payment
+    // Return payment tracking info to frontend
     res.json({
-      message: "STK Push sent. Enter your M-Pesa PIN to proceed.",
+      message: "STK Push sent. Check your phone and enter your M-Pesa PIN.",
       checkoutRequestId: stkResponse.CheckoutRequestID,
       paymentId: payment._id,
       amount,
-      proposalData: {
-        title, discipline, abstract,
-        background, objectives, methodology,
-        expectedOutcome, timeline, teamMembers, references,
-      }
+      phone: normalizedPhone,
+      // Frontend should use this to poll payment status every 5 seconds
     });
 
   } catch (error) {
-    console.error("Proposal submission error:", error);
-    res.status(500).json({ message: error.message || "Failed to initiate proposal submission" });
+    console.error("Proposal submission initiation error:", error);
+    res.status(500).json({
+      message: error.message || "Failed to initiate proposal submission"
+    });
   }
 };
 
+//STEP 2: Confirm proposal submission after payment
+ //Verifies payment was completed, uploads PDF, and creates research record.
 
 exports.confirmProposalSubmission = async (req, res) => {
   try {
-    // Researcher only
     if (!req.researcher) {
       return res.status(401).json({ message: "Authentication required" });
     }
 
     const {
-      paymentId, checkoutRequestId,
-      title, discipline, abstract,
-      background, objectives, methodology,
-      expectedOutcome, timeline, teamMembers, references
+      title,
+      discipline,
+      abstract,
+      background,
+      objectives,
+      methodology,
+      expectedOutcome,
+      timeline,
+      paymentId,
     } = req.body;
 
-    if (!title || !discipline) {
-      return res.status(400).json({ 
-        message: "Title and discipline are required" 
+    // Validate required fields
+    if (!title || !discipline || !paymentId) {
+      return res.status(400).json({
+        message: "Title, discipline, and paymentId are required"
       });
     }
 
     // Verify payment was completed
-    const paymentQuery = paymentId 
-      ? { _id: paymentId, researcher: req.researcher._id }
-      : { checkoutRequestId, researcher: req.researcher._id };
-
-    const payment = await Payment.findOne(paymentQuery);
+    const payment = await Payment.findOne({
+      _id: paymentId,
+      researcher: req.researcher._id,
+    });
 
     if (!payment) {
-      return res.status(404).json({ message: "Payment record not found" });
-    }
-
-    if (payment.status !== "completed") {
-      return res.status(400).json({ 
-        message: `Payment status is ${payment.status}. Ensure M-Pesa payment succeeded.` 
+      return res.status(404).json({
+        message: "Payment record not found"
       });
     }
 
-    // Handle file upload if provided
-    const proposalFile = req.files?.proposal
-      ? `/uploads/research/${req.files.proposal[0].filename}`
+    if (payment.status !== "completed") {
+      return res.status(400).json({
+        message: `Payment status is ${payment.status}. Ensure M-Pesa payment succeeded.`
+      });
+    }
+
+    // Extract uploaded file if present
+    const proposalFile = req.files?.proposalFile
+      ? `/uploads/research/${req.files.proposalFile[0].filename}`
       : null;
 
-    // Create research document with payment linked
+    // Create research document
     const newResearch = await Research.create({
       title,
       discipline,
@@ -170,13 +177,14 @@ exports.confirmProposalSubmission = async (req, res) => {
       methodology,
       expectedOutcome,
       timeline,
-      teamMembers,
-      references,
       proposalFile,
       researcher: req.researcher._id,
       stage: "proposal",
-      status: "pending", // Awaiting review
+      status: "pending", // Awaiting reviewer approval
       submissionPayment: payment._id,
+      isPublished: false, // Not public until final paper is approved
+      downloadPrice: 50, // Default price
+      downloads: 0,
     });
 
     // Link payment to research
@@ -188,26 +196,36 @@ exports.confirmProposalSubmission = async (req, res) => {
       req.researcher,
       newResearch,
       payment
-    ).catch(console.error);
+    ).catch(err => console.error("Email error:", err));
 
     res.status(201).json({
-      message: "Proposal submitted successfully. Awaiting review.",
-      research: newResearch,
+      message: "Proposal submitted successfully! Awaiting reviewer feedback.",
+      research: {
+        id: newResearch._id,
+        title: newResearch.title,
+        stage: newResearch.stage,
+        status: newResearch.status,
+        submittedAt: newResearch.createdAt,
+      },
       payment: {
-        mpesaReceiptNumber: payment.mpesaReceiptNumber,
         amount: payment.amount,
+        transactionId: payment.merchantRequestId,
       }
     });
 
   } catch (error) {
-    console.error("Confirm proposal error:", error);
-    res.status(500).json({ message: error.message || "Failed to confirm proposal submission" });
+    console.error("Confirm proposal submission error:", error);
+    res.status(500).json({
+      message: error.message || "Failed to confirm proposal submission"
+    });
   }
 };
 
+//Submit final paper for an approved proposal
+
+ 
 exports.submitFinalPaper = async (req, res) => {
   try {
-    // Researcher only
     if (!req.researcher) {
       return res.status(401).json({ message: "Authentication required" });
     }
@@ -222,32 +240,34 @@ exports.submitFinalPaper = async (req, res) => {
 
     // Verify ownership
     if (research.researcher.toString() !== req.researcher._id.toString()) {
-      return res.status(403).json({ message: "You can only submit papers for your own research" });
+      return res.status(403).json({
+        message: "You can only submit papers for your own research"
+      });
     }
 
-    // Check if proposal is approved
+    // Check stage and approval status
     if (research.stage !== "proposal") {
-      return res.status(400).json({ 
-        message: `Cannot submit final paper. Current stage is '${research.stage}'` 
+      return res.status(400).json({
+        message: `Cannot submit final paper. Current stage is '${research.stage}'`
       });
     }
 
     if (research.status !== "approved") {
-      return res.status(400).json({ 
-        message: "Your proposal must be approved before submitting final paper" 
+      return res.status(400).json({
+        message: "Your proposal must be approved before submitting the final paper"
       });
     }
 
     // Handle file upload
-    const finalPaperFile = req.files?.paper
-      ? `/uploads/research/${req.files.paper[0].filename}`
+    const finalPaperFile = req.files?.finalPaperFile
+      ? `/uploads/research/${req.files.finalPaperFile[0].filename}`
       : null;
 
     if (!finalPaperFile) {
       return res.status(400).json({ message: "Final paper file is required" });
     }
 
-
+    // Update research
     research.finalAbstract = finalAbstract || research.abstract;
     research.keywords = keywords || [];
     research.finalPaperFile = finalPaperFile;
@@ -261,30 +281,33 @@ exports.submitFinalPaper = async (req, res) => {
     await researchEmail.sendFinalPaperSubmissionConfirmation(
       req.researcher,
       research
-    ).catch(console.error);
+    ).catch(err => console.error("Email error:", err));
 
     res.json({
       message: "Final paper submitted successfully. Awaiting review.",
-      research,
+      research: {
+        id: research._id,
+        title: research.title,
+        stage: research.stage,
+        status: research.status,
+      }
     });
 
   } catch (error) {
     console.error("Submit final paper error:", error);
-    res.status(500).json({ message: error.message || "Failed to submit final paper" });
+    res.status(500).json({
+      message: error.message || "Failed to submit final paper"
+    });
   }
 };
 
+//Update download price (admin only)
 
 exports.updateDownloadPrice = async (req, res) => {
   try {
-    // Admin only
-    if (req.user?.role !== "admin" && req.user?.role !== "superadmin") {
-      return res.status(403).json({ message: "Admin only" });
-    }
-
     const { downloadPrice } = req.body;
 
-    if (!downloadPrice || downloadPrice < 0) {
+    if (downloadPrice === undefined || downloadPrice < 0) {
       return res.status(400).json({ message: "Valid download price required" });
     }
 
@@ -294,15 +317,24 @@ exports.updateDownloadPrice = async (req, res) => {
       { new: true }
     );
 
-    if (!research) return res.status(404).json({ message: "Research not found" });
+    if (!research) {
+      return res.status(404).json({ message: "Research not found" });
+    }
 
-    res.json({ message: "Download price updated", research });
+    res.json({
+      message: "Download price updated",
+      research: {
+        id: research._id,
+        title: research.title,
+        downloadPrice: research.downloadPrice,
+      }
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-
+// Get researcher's revenue data
 exports.getResearcherRevenue = async (req, res) => {
   try {
     if (!req.researcher) {
@@ -316,9 +348,11 @@ exports.getResearcherRevenue = async (req, res) => {
       return res.status(404).json({ message: "Research not found" });
     }
 
-    //  Verify ownership
+    // Verify ownership
     if (research.researcher.toString() !== req.researcher._id.toString()) {
-      return res.status(403).json({ message: "You can only view revenue for your own research" });
+      return res.status(403).json({
+        message: "You can only view revenue for your own research"
+      });
     }
 
     // Get download payments
@@ -335,10 +369,12 @@ exports.getResearcherRevenue = async (req, res) => {
         id: research._id,
         title: research.title,
         downloads: research.downloads,
+        downloadPrice: research.downloadPrice,
       },
       revenue: {
         totalFromDownloads: totalDownloadRevenue,
         downloadCount: downloadPayments.length,
+        estimatedEarnings: research.downloads * research.downloadPrice,
       },
     });
 
@@ -347,13 +383,9 @@ exports.getResearcherRevenue = async (req, res) => {
   }
 };
 
-// Keep existing endpoints for backward compatibility
-exports.createResearch = async (req, res) => {
-  return res.status(400).json({ 
-    message: "Use POST /api/research/proposals to submit research" 
-  });
-};
-
+/**
+ * Update research (admin only)
+ */
 exports.updateResearch = async (req, res) => {
   try {
     const { title, downloadPrice } = req.body;
@@ -368,23 +400,29 @@ exports.updateResearch = async (req, res) => {
       { new: true }
     );
 
-    if (!research) return res.status(404).json({ message: "Research not found" });
+    if (!research) {
+      return res.status(404).json({ message: "Research not found" });
+    }
 
-    res.json({ message: "Research updated", research });
+    res.json({
+      message: "Research updated",
+      research
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
+/**
+ * Delete research (admin only)
+ */
 exports.deleteResearch = async (req, res) => {
   try {
-    //  Admin only
-    if (req.user?.role !== "admin" && req.user?.role !== "superadmin") {
-      return res.status(403).json({ message: "Admin only" });
-    }
-
     const deleted = await Research.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ message: "Research not found" });
+    
+    if (!deleted) {
+      return res.status(404).json({ message: "Research not found" });
+    }
 
     res.json({ message: "Research deleted successfully" });
   } catch (error) {

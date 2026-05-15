@@ -98,7 +98,7 @@ exports.register = async (req, res) => {
         email: researcher.email,
         name: researcher.firstName,
         verifyLink,
-      })
+      }) 
       .catch((err) =>
         console.error("[Email] sendResearcherVerificationEmail:", err.message)
       );

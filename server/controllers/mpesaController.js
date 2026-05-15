@@ -1,9 +1,8 @@
-const mpesaService  = require("../utils/mpesaService");
-const Payment       = require("../models/PaymentModel");
-const Research      = require("../models/researchModel");
-const Researcher    = require("../models/ResearcherModel");
+const mpesaService = require("../utils/mpesaService");
+const Payment = require("../models/PaymentModel");
+const Research = require("../models/researchModel");
+const Researcher = require("../models/ResearcherModel");
 const researchEmail = require("../utils/emailServices");
-
 
 exports.initiateSTKPush = async (req, res) => {
   try {
@@ -18,31 +17,35 @@ exports.initiateSTKPush = async (req, res) => {
       return res.status(400).json({ message: "Invalid payment type" });
     }
 
-    /* ── Normalise phone to 2547XXXXXXXX ── */
     phone = String(phone).replace(/\D/g, "");
     if (phone.startsWith("0")) phone = "254" + phone.slice(1);
     if (!phone.startsWith("254") || phone.length !== 12) {
-      return res.status(400).json({ message: "Enter a valid Safaricom number" });
+      return res
+        .status(400)
+        .json({ message: "Enter a valid Safaricom number" });
     }
 
     /* ── PROPOSAL SUBMISSION (Researcher only, 150 KES) ── */
     if (type === "proposal_submission") {
       if (!req.researcher) {
-        return res.status(401).json({ message: "Authentication required for proposal submission" });
+        return res
+          .status(401)
+          .json({ message: "Authentication required for proposal submission" });
       }
 
-      amount = 150; // Fixed amount for proposal
+      // amount = 150; Fixed amount for proposal
+      amount = 1; // Set to 1 KES for testing. Change to 150 for production.
 
-      // Check if researcher already paid for a proposal (if researchId provided)
       if (researchId) {
         const research = await Research.findById(researchId);
         if (!research) {
           return res.status(404).json({ message: "Research not found" });
         }
 
-        // If payment already made, don't allow re-payment
         if (research.submissionPayment) {
-          const existingPayment = await Payment.findById(research.submissionPayment);
+          const existingPayment = await Payment.findById(
+            research.submissionPayment,
+          );
           if (existingPayment && existingPayment.status === "completed") {
             return res.status(400).json({
               message: "You have already paid for this proposal submission",
@@ -52,155 +55,189 @@ exports.initiateSTKPush = async (req, res) => {
         }
       }
 
-      const accountRef  = "ResearchProposal";
+      const accountRef = "ResearchProposal";
       const description = "Research proposal submission fee";
 
       const stkResponse = await mpesaService.initiateSTKPush({
-        phone, amount, accountRef, description,
+        phone,
+        amount,
+        accountRef,
+        description,
       });
 
       if (stkResponse.ResponseCode !== "0") {
-        return res.status(502).json({ 
-          message: stkResponse.ResponseDescription || "STK Push failed" 
+        return res.status(502).json({
+          message: stkResponse.ResponseDescription || "STK Push failed",
         });
       }
 
-      /* ── Create pending Payment record ── */
       const payment = await Payment.create({
-        researcher:        req.researcher._id,
-        type:              "proposal_submission",
-        research:          researchId || null,
+        researcher: req.researcher._id,
+        type: "proposal_submission",
+        research: researchId || null,
         amount,
         phone,
         merchantRequestId: stkResponse.MerchantRequestID,
         checkoutRequestId: stkResponse.CheckoutRequestID,
-        status:            "pending",
+        status: "pending",
       });
 
       return res.json({
-        message:          stkResponse.CustomerMessage || "STK Push sent. Enter your M-Pesa PIN.",
+        message:
+          stkResponse.CustomerMessage ||
+          "STK Push sent. Enter your M-Pesa PIN.",
         checkoutRequestId: stkResponse.CheckoutRequestID,
-        paymentId:        payment._id,
+        paymentId: payment._id,
         amount,
-        type:             "proposal_submission",
+        type: "proposal_submission",
       });
     }
 
-    /* ── PAPER DOWNLOAD (Public, dynamic price) ── */
     if (type === "paper_download") {
       if (!researchId) {
-        return res.status(400).json({ message: "researchId required for download" });
+        return res
+          .status(400)
+          .json({ message: "researchId required for download" });
       }
 
-      const research = await Research.findById(researchId).select("downloadPrice isPublished");
+      const research = await Research.findById(researchId).select(
+        "downloadPrice isPublished",
+      );
       if (!research) {
         return res.status(404).json({ message: "Research not found" });
       }
 
       if (!research.isPublished) {
-        return res.status(400).json({ message: "This paper is not yet available for download" });
+        return res
+          .status(400)
+          .json({ message: "This paper is not yet available for download" });
       }
 
-      amount = research.downloadPrice || 150; // Use research's download price
+      //amount = research.downloadPrice || 150; // Use research's download price
+      amount = 1; // Set to 1 KES for testing. Change to research.downloadPrice || 150 for production.
 
-      const accountRef  = "ResearchDownload";
+      const accountRef = "ResearchDownload";
       const description = `Research paper download - ${researchId}`;
 
       const stkResponse = await mpesaService.initiateSTKPush({
-        phone, amount, accountRef, description,
+        phone,
+        amount,
+        accountRef,
+        description,
       });
 
       if (stkResponse.ResponseCode !== "0") {
-        return res.status(502).json({ 
-          message: stkResponse.ResponseDescription || "STK Push failed" 
+        return res.status(502).json({
+          message: stkResponse.ResponseDescription || "STK Push failed",
         });
       }
 
-      /* ── Create pending Payment record (NO researcher for public) ── */
       const payment = await Payment.create({
-        researcher:        null, // Public download - no researcher
-        type:              "paper_download",
-        research:          researchId,
+        researcher: null,
+        type: "paper_download",
+        research: researchId,
         amount,
         phone,
         merchantRequestId: stkResponse.MerchantRequestID,
         checkoutRequestId: stkResponse.CheckoutRequestID,
-        status:            "pending",
+        status: "pending",
       });
 
       return res.json({
-        message:          stkResponse.CustomerMessage || "STK Push sent. Enter your M-Pesa PIN.",
+        message:
+          stkResponse.CustomerMessage ||
+          "STK Push sent. Enter your M-Pesa PIN.",
         checkoutRequestId: stkResponse.CheckoutRequestID,
-        paymentId:        payment._id,
+        paymentId: payment._id,
         amount,
-        type:             "paper_download",
+        type: "paper_download",
       });
     }
   } catch (err) {
     console.error("STK Push error:", err.response?.data || err.message);
-    res.status(500).json({ message: err.message || "Payment initiation failed" });
+    res
+      .status(500)
+      .json({ message: err.message || "Payment initiation failed" });
   }
 };
 
-
 exports.mpesaCallback = async (req, res) => {
-  /* Always respond 200 immediately — Daraja expects a fast ACK */
+  // Always respond 200 immediately — Daraja expects a fast ACK
   res.json({ ResultCode: 0, ResultDesc: "Accepted" });
 
   try {
+    console.log(
+      "[Mpesa Callback] Received callback:",
+      JSON.stringify(req.body, null,2),
+    );
+
     const parsed = mpesaService.parseCallback(req.body);
     if (!parsed) {
       console.warn("[Mpesa Callback] Could not parse callback body");
       return;
     }
 
+    const { checkoutRequestId, status, mpesaReceiptNumber, resultCode } = parsed;
+    
+
+    console.log(
+      `[Mpesa Callback] Processing: ${checkoutRequestId} - ${status}`,
+    );
+
     const payment = await Payment.findOne({
-      checkoutRequestId: parsed.checkoutRequestId,
+      checkoutRequestId,
     });
 
     if (!payment) {
-      console.warn(`[Mpesa Callback] No payment found for checkoutRequestId: ${parsed.checkoutRequestId}`);
+      console.warn(
+        `[Mpesa Callback] No payment found for checkoutRequestId: ${parsed.checkoutRequestId}`,
+      );
       return;
     }
 
-    if (parsed.resultCode === 0) {
-  
-      payment.status             = "completed";
+    if (status === "complete" && resultCode === "0") {
+      payment.status = "completed";
       payment.mpesaReceiptNumber = parsed.mpesaReceiptNumber;
-      payment.transactionDate    = parsed.transactionDate;
-      payment.resultCode         = 0;
-      payment.resultDesc         = parsed.resultDesc;
+      payment.transactionDate = parsed.transactionDate;
+      payment.resultCode = resultCode;
+      payment.resultDesc = parsed.resultDesc;
       await payment.save();
 
-      /* Send payment confirmation email to researcher (if exists) */
+      console.log(`✅ [Mpesa] Payment completed: ${mpesaReceiptNumber}`);
+
+      //Send payment confirmation email to researcher (if exists)
       if (payment.researcher) {
         const researcher = await Researcher.findById(payment.researcher);
-        if (researcher) {
-          await researchEmail.sendPaymentConfirmation(researcher, payment).catch(console.error);
+        if (researcher && researcher.email) {
+          await researchEmail
+            .sendPaymentConfirmation(researcher, payment)
+            .catch((err) => console.error("Email send error:", err.message));
         }
       }
 
-      /* For proposal payments, increment download counter on research (for tracking) */
-      if (payment.type === "proposal_submission" && payment.research) {
-        // Track proposal payment completion
-        console.log(`[Mpesa] Proposal submission paid: ${parsed.mpesaReceiptNumber}`);
-      }
+      //For proposal payments, increment download counter on research (for tracking)
+      // if (payment.type === "proposal_submission" && payment.research) {
+      //   // Track proposal payment completion
+      //   console.log(
+      //     `[Mpesa] Proposal submission paid: ${parsed.mpesaReceiptNumber}`,
+      //   );
+      // }
 
-      /* For paper downloads, increment views */
+      // For paper downloads, increment view
       if (payment.type === "paper_download" && payment.research) {
         await Research.findByIdAndUpdate(
           payment.research,
           { $inc: { downloads: 1 } },
-          { new: false }
+          { new: false },
         );
-        console.log(`[Mpesa] Paper download paid: ${parsed.mpesaReceiptNumber}`);
+        console.log(
+          `[Mpesa] Paper download paid: ${parsed.mpesaReceiptNumber}`,
+        );
       }
-
-      console.log(`[Mpesa] Payment completed: ${parsed.mpesaReceiptNumber}`);
     } else {
-  
-      payment.status     = parsed.resultCode === 1032 ? "cancelled" : "failed";
-      payment.resultCode = parsed.resultCode;
+      const paymentStatus = resultCode === "1032" ? "cancelled" : "failed";
+      payment.status = paymentStatus;
+      payment.resultCode = resultCode;
       payment.resultDesc = parsed.resultDesc;
       await payment.save();
 
@@ -208,13 +245,16 @@ exports.mpesaCallback = async (req, res) => {
     }
   } catch (err) {
     console.error("[Mpesa Callback] Processing error:", err.message);
+    console.error(err.stack);
   }
 };
 
 exports.verifyPayment = async (req, res) => {
   try {
+    const { checkoutRequestId } = req.params;
+
     const filter = {
-      checkoutRequestId: req.params.checkoutRequestId,
+      checkoutRequestId,
     };
 
     // If authenticated researcher, restrict to their payments (for security)
@@ -224,25 +264,33 @@ exports.verifyPayment = async (req, res) => {
     // Public can check payment without researcher filter
 
     const payment = await Payment.findOne(filter).select(
-      "status mpesaReceiptNumber amount type research researcher"
+      "status mpesaReceiptNumber amount type research researcher",
     );
 
     if (!payment) {
-      return res.status(404).json({ message: "Payment record not found" });
+      return res.status(404).json({
+        message: "Payment record not found",
+        checkoutRequestId,
+      });
     }
 
+    console.log(
+      `[Verify Payment] ${checkoutRequestId} - Status: ${payment.status}`,
+    );
+
     res.json({
-      status:             payment.status,
-      mpesaReceiptNumber: payment.mpesaReceiptNumber,
-      amount:             payment.amount,
-      type:               payment.type,
-      researchId:         payment.research,
+      status: payment.status,
+      mpesaReceiptNumber: payment.mpesaReceiptNumber || null,
+      amount: payment.amount,
+      type: payment.type,
+      researchId: payment.research,
+      transactionId: payment.mpesaReceiptNumber,
     });
   } catch (err) {
+    console.error("verifyPayment error:", err.message);
     res.status(500).json({ message: err.message });
   }
 };
-
 
 exports.getResearchRevenue = async (req, res) => {
   try {
@@ -253,7 +301,9 @@ exports.getResearchRevenue = async (req, res) => {
 
     const { researchId } = req.params;
 
-    const research = await Research.findById(researchId).select("title researcher downloads");
+    const research = await Research.findById(researchId).select(
+      "title researcher downloads",
+    );
     if (!research) {
       return res.status(404).json({ message: "Research not found" });
     }
@@ -265,14 +315,23 @@ exports.getResearchRevenue = async (req, res) => {
     }).select("type amount createdAt mpesaReceiptNumber");
 
     // Calculate breakdown
-    const proposalPayment = payments.find(p => p.type === "proposal_submission");
-    const downloadPayments = payments.filter(p => p.type === "paper_download");
+    const proposalPayment = payments.find(
+      (p) => p.type === "proposal_submission",
+    );
+    const downloadPayments = payments.filter(
+      (p) => p.type === "paper_download",
+    );
 
     const proposalAmount = proposalPayment ? proposalPayment.amount : 0;
-    const downloadAmount = downloadPayments.reduce((sum, p) => sum + p.amount, 0);
+    const downloadAmount = downloadPayments.reduce(
+      (sum, p) => sum + p.amount,
+      0,
+    );
     const totalRevenue = proposalAmount + downloadAmount;
 
-    const researcher = await Researcher.findById(research.researcher).select("name email");
+    const researcher = await Researcher.findById(research.researcher).select(
+      "name email",
+    );
 
     res.json({
       researchId,
@@ -294,7 +353,7 @@ exports.getResearchRevenue = async (req, res) => {
         total: totalRevenue,
       },
       downloadCount: research.downloads,
-      paymentDetails: payments.map(p => ({
+      paymentDetails: payments.map((p) => ({
         type: p.type,
         amount: p.amount,
         date: p.createdAt,
@@ -309,12 +368,16 @@ exports.getResearchRevenue = async (req, res) => {
 
 exports.getAllResearchRevenue = async (req, res) => {
   try {
-   
     if (req.user?.role !== "admin" && req.user?.role !== "superadmin") {
       return res.status(403).json({ message: "Admin only" });
     }
 
-    const { researcher: researcherId, startDate, endDate, status = "completed" } = req.query;
+    const {
+      researcher: researcherId,
+      startDate,
+      endDate,
+      status = "completed",
+    } = req.query;
 
     // Build filter for payments
     const paymentFilter = { status };
@@ -331,9 +394,9 @@ exports.getAllResearchRevenue = async (req, res) => {
     const revenueByResearch = {};
     let totalRevenue = 0;
 
-    payments.forEach(payment => {
+    payments.forEach((payment) => {
       const key = payment.research._id.toString();
-      
+
       if (!revenueByResearch[key]) {
         revenueByResearch[key] = {
           researchId: payment.research._id,
@@ -354,14 +417,15 @@ exports.getAllResearchRevenue = async (req, res) => {
         revenueByResearch[key].downloadCount += 1;
       }
 
-      revenueByResearch[key].totalRevenue = 
-        revenueByResearch[key].proposalRevenue + revenueByResearch[key].downloadRevenue;
+      revenueByResearch[key].totalRevenue =
+        revenueByResearch[key].proposalRevenue +
+        revenueByResearch[key].downloadRevenue;
 
       totalRevenue += payment.amount;
     });
 
     const revenue = Object.values(revenueByResearch).sort(
-      (a, b) => b.totalRevenue - a.totalRevenue
+      (a, b) => b.totalRevenue - a.totalRevenue,
     );
 
     res.json({
@@ -369,8 +433,11 @@ exports.getAllResearchRevenue = async (req, res) => {
         totalRevenue,
         totalPayments: payments.length,
         totalResearch: revenue.length,
-        proposalSubmissions: payments.filter(p => p.type === "proposal_submission").length,
-        paperDownloads: payments.filter(p => p.type === "paper_download").length,
+        proposalSubmissions: payments.filter(
+          (p) => p.type === "proposal_submission",
+        ).length,
+        paperDownloads: payments.filter((p) => p.type === "paper_download")
+          .length,
       },
       byResearch: revenue,
     });
@@ -380,10 +447,8 @@ exports.getAllResearchRevenue = async (req, res) => {
   }
 };
 
-
 exports.refundPayment = async (req, res) => {
   try {
-
     if (req.user?.role !== "admin" && req.user?.role !== "superadmin") {
       return res.status(403).json({ message: "Admin only" });
     }
@@ -396,10 +461,12 @@ exports.refundPayment = async (req, res) => {
     }
 
     if (payment.status !== "completed") {
-      return res.status(400).json({ message: "Only completed payments can be refunded" });
+      return res
+        .status(400)
+        .json({ message: "Only completed payments can be refunded" });
     }
 
-    // ✅ Call M-Pesa refund API (pseudocode)
+    // Call M-Pesa refund API (pseudocode)
     const refundResponse = await mpesaService.initiateRefund({
       transactionId: payment.mpesaReceiptNumber,
       amount: payment.amount,
@@ -407,8 +474,8 @@ exports.refundPayment = async (req, res) => {
     });
 
     if (refundResponse.ResponseCode !== "0") {
-      return res.status(502).json({ 
-        message: refundResponse.ResponseDescription || "Refund failed" 
+      return res.status(502).json({
+        message: refundResponse.ResponseDescription || "Refund failed",
       });
     }
 

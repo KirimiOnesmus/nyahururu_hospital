@@ -10,7 +10,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000, 
+  timeout: 30000, 
 });
 
 
@@ -36,7 +36,7 @@ api.interceptors.response.use(
       localStorage.removeItem('role');
       localStorage.removeItem('collection');
     
-     window.location.href = '/research/login';
+     window.location.href = '/hmis';
     }
     if (error.response?.status === 403) {
       console.warn('[Auth] Access forbidden:', error.response.data.message);

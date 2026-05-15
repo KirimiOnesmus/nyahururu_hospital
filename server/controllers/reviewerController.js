@@ -503,7 +503,7 @@ exports.updateReviewer = async (req, res) => {
     res.json({
       message: "Reviewer updated successfully",
       reviewer: sanitize(reviewer),
-    });
+    }); 
   } catch (err) {
     console.error("updateReviewer error:", err);
     res.status(500).json({ message: err.message || "Update failed" });

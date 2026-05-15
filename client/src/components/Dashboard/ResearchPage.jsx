@@ -8,10 +8,7 @@ import {
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import api from "../../api/axios";
-import {
-  listReviewers, listAllResearchers, inviteReviewer,
-  revokeReviewer, promoteToAdmin, resendInvite,
-} from "../../api/research";
+import * as research from '../../api/research';
 
 
 // ─── shared helpers ───────────────────────────────────────────────────────────
