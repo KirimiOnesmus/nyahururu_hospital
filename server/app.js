@@ -83,11 +83,10 @@ app.use('/api/bids', bidRoutes);
 
 app.use('/api/reports', reportRoutes);
 
-
+//research and mpesa
+app.use('/api/mpesa', mpesaRoutes);
 app.use('/api/research', researchRoutes);
-
 app.use('/api/researchers', researcherRoutes);
-
 app.use('/api/reviewers', reviewerRoutes);
 
 

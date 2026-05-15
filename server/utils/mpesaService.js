@@ -260,7 +260,6 @@ const querySTKStatus = async (config) => {
 const parseCallback = (callbackData) => {
   try {
     console.log('🔔 [Parse Callback] Processing M-Pesa callback...');
-    console.log('🔔 [Parse Callback] Full callback:', JSON.stringify(callbackData, null, 2));
  
     const result = callbackData.Body?.stkCallback;
  
@@ -282,11 +281,8 @@ const parseCallback = (callbackData) => {
  
     // ResultCode 0 = Success
     const isSuccess = Number(ResultCode) === 0;
-    
-    return {
-  resultCode: ResultCode,  // 
-}
- 
+
+
     // Initialize variables BEFORE the loop
     let mpesaReceiptNumber = null;
     let amount = null;
@@ -328,7 +324,7 @@ const parseCallback = (callbackData) => {
       status: isSuccess ? 'complete' : 'failed',  // Match 'complete', not 'completed'
       merchantRequestId: MerchantRequestID,
       checkoutRequestId: CheckoutRequestID,
-      resultCode: ResultCode,
+      resultCode: String(ResultCode),
       resultDesc: ResultDesc,
       mpesaReceiptNumber,  // FIX: Return correct field name
       amount,
@@ -405,7 +401,7 @@ const processCallback = (callbackData) => {
       status: isSuccess ? "completed" : "failed",
       merchantRequestId: MerchantRequestID,
       checkoutRequestId: CheckoutRequestID,
-      resultCode: ResultCode,
+      resultCode: String(ResultCode),
       resultDesc: ResultDesc,
       mpesaReceiptNumber,
       amount,
