@@ -178,7 +178,7 @@ exports.mpesaCallback = async (req, res) => {
     }
 
     const { checkoutRequestId, status, mpesaReceiptNumber, resultCode } = parsed;
-    
+
 
     console.log(
       `[Mpesa Callback] Processing: ${checkoutRequestId} - ${status}`,
@@ -215,15 +215,7 @@ exports.mpesaCallback = async (req, res) => {
         }
       }
 
-      //For proposal payments, increment download counter on research (for tracking)
-      // if (payment.type === "proposal_submission" && payment.research) {
-      //   // Track proposal payment completion
-      //   console.log(
-      //     `[Mpesa] Proposal submission paid: ${parsed.mpesaReceiptNumber}`,
-      //   );
-      // }
-
-      // For paper downloads, increment view
+    
       if (payment.type === "paper_download" && payment.research) {
         await Research.findByIdAndUpdate(
           payment.research,

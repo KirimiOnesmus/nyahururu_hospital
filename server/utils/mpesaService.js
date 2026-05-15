@@ -282,6 +282,10 @@ const parseCallback = (callbackData) => {
  
     // ResultCode 0 = Success
     const isSuccess = Number(ResultCode) === 0;
+    
+    return {
+  resultCode: ResultCode,  // 
+}
  
     // Initialize variables BEFORE the loop
     let mpesaReceiptNumber = null;
