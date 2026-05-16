@@ -76,7 +76,8 @@ export const confirmProposalSubmission = async (formData, paymentId, proposalFil
       fd.append('proposalFile', proposalFile);
     }
 
-    const response = await api.post('/research/proposals/confirm', fd, {
+    // const response = await api.post('/research/proposals/confirm', fd, {
+    const response = await api.post(`/research/proposals/confirm?paymentId=${paymentId}`, fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     return response.data;
