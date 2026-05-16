@@ -153,7 +153,9 @@ export const initiateSTKPush = async (config) => {
 export const verifyPaymentStatus = async (checkoutRequestId) => {
  try {
     const response = await api.get(`/research/mpesa/verify/${checkoutRequestId}`); // ← was /research/mpesa/verify/
+     console.log(`[Verify] API response for ${checkoutRequestId}:`, response.data);
     return response.data;
+   
   } catch (error) {
     throw error.response?.data || { message: 'Failed to verify payment' };
   }
