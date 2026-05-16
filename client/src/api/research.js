@@ -89,27 +89,26 @@ export const initiateProposalSubmission = async (formData, phone) => {
 export const confirmProposalSubmission = async (formData, paymentId, proposalFile) => {
   try {
     const fd = new FormData();
+
+      const allowedFields = [
+      'title', 'discipline', 'abstract', 'background',
+      'objectives', 'methodology', 'expectedOutcome', 'timeline'
+    ];
     
-    // Add form fields (NO paymentId!)
-    Object.entries(formData).forEach(([key, value]) => {
-      if (value && key !== 'proposalFile' && key !== 'paymentId') {
-        fd.append(key, value);
-        console.log(`Appending: ${key} = ${value}`);
+    allowedFields.forEach((key) => {
+      if (formData[key]) {
+        fd.append(key, formData[key]);
       }
     });
+    
     
     // Add file
     if (proposalFile) {
       fd.append('proposalFile', proposalFile);
     }
-      console.log('paymentId being sent:', paymentId);
-
-    // ✅ KEY: Send paymentId as QUERY PARAMETER, not FormData
     const url = `/research/proposals/confirm?paymentId=${paymentId}`;
     
-    const response = await api.post(url, fd, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const response = await api.post(url, fd);
     
     return response.data;
   } catch (error) {

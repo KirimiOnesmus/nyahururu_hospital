@@ -396,7 +396,7 @@ const StepPayment = ({ form, file, onPaymentComplete }) => {
   const submitProposal = async (paymentId) => {
     try {
       setStage("processing");
-      console.log("📝 Submitting proposal with paymentId:", paymentId);
+    
 
       const result = await confirmProposalSubmission(
         {
@@ -412,8 +412,6 @@ const StepPayment = ({ form, file, onPaymentComplete }) => {
         paymentId,
         file
       );
-
-      console.log("✅ Proposal submitted successfully:", result);
       setStage("success");
 
       // Notify parent component

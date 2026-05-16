@@ -124,12 +124,12 @@ exports.confirmProposalSubmission = async (req, res) => {
      console.log('req.body:', req.body);           // ← add
     console.log('req.query:', req.query);         // ← add  
     console.log('req.files:', req.files); 
-    
+
     if (!req.researcher) {
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    const { paymentId } = req.query;
+   const paymentId = req.query.paymentId || req.body.paymentId;
 
     const {
       title,
