@@ -168,7 +168,7 @@ exports.mpesaCallback = async (req, res) => {
   try {
     console.log(
       "[Mpesa Callback] Received callback:",
-      JSON.stringify(req.body, null,2),
+      JSON.stringify(req.body, null, 2),
     );
 
     const parsed = mpesaService.parseCallback(req.body);
@@ -177,8 +177,8 @@ exports.mpesaCallback = async (req, res) => {
       return;
     }
 
-    const { checkoutRequestId, status, mpesaReceiptNumber, resultCode } = parsed;
-
+    const { checkoutRequestId, status, mpesaReceiptNumber, resultCode } =
+      parsed;
 
     console.log(
       `[Mpesa Callback] Processing: ${checkoutRequestId} - ${status}`,
@@ -210,12 +210,17 @@ exports.mpesaCallback = async (req, res) => {
         const researcher = await Researcher.findById(payment.researcher);
         if (researcher && researcher.email) {
           await researchEmail
-            .sendPaymentConfirmation(researcher, payment)
+            .sendPaymentConfirmation({
+              email: researcher.email,
+              name: researcher.name || researcher.firstName,
+              mpesaReceipt: payment.mpesaReceiptNumber,
+              amount: payment.amount,
+              purpose: "Research Proposal Submission",
+            })
             .catch((err) => console.error("Email send error:", err.message));
         }
       }
 
-    
       if (payment.type === "paper_download" && payment.research) {
         await Research.findByIdAndUpdate(
           payment.research,
@@ -245,13 +250,22 @@ exports.verifyPayment = async (req, res) => {
   try {
     const { checkoutRequestId } = req.params;
 
-      console.log(`[Verify Payment] Verifying checkoutRequestId: ${checkoutRequestId}`);
-
-        const payment = await Payment.findOne({ checkoutRequestId }).select(
-      "status mpesaReceiptNumber amount type research researcher resultCode resultDesc"
+    console.log(
+      `[Verify Payment] Verifying checkoutRequestId: ${checkoutRequestId}`,
     );
 
-    console.log(`[Verify Payment] Found:`, payment ? { /* ... */ } : 'NOT FOUND');
+    const payment = await Payment.findOne({ checkoutRequestId }).select(
+      "status mpesaReceiptNumber amount type research researcher resultCode resultDesc",
+    );
+
+    console.log(
+      `[Verify Payment] Found:`,
+      payment
+        ? {
+            /* ... */
+          }
+        : "NOT FOUND",
+    );
 
     if (!payment) {
       return res.status(404).json({
@@ -267,7 +281,7 @@ exports.verifyPayment = async (req, res) => {
       type: payment.type,
       researchId: payment.research,
       transactionId: payment.mpesaReceiptNumber,
-        resultCode: payment.resultCode,
+      resultCode: payment.resultCode,
       resultDesc: payment.resultDesc,
     });
   } catch (err) {

@@ -204,9 +204,13 @@ exports.confirmProposalSubmission = async (req, res) => {
     await payment.save();
 
     // Send confirmation email to researcher
-    await researchEmail
-      .sendProposalSubmissionConfirmation(req.researcher, newResearch, payment)
-      .catch((err) => console.error("Email error:", err));
+await researchEmail.sendProposalSubmitted({
+  email: req.researcher.email,
+  name: req.researcher.name || req.researcher.firstName,
+  proposalTitle: newResearch.title,
+  mpesaReceipt: payment.mpesaReceiptNumber,
+  amount: payment.amount,
+}).catch((err) => console.error("Email error:", err));
 
     res.status(201).json({
       message: "Proposal submitted successfully! Awaiting reviewer feedback.",
