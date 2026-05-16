@@ -314,10 +314,9 @@ const StepReview = ({ form, file }) => {
   );
 };
 
-
 const StepPayment = ({ form, file, onPaymentComplete }) => {
   const [phone, setPhone] = useState("");
-  const [stage, setStage] = useState("input"); 
+  const [stage, setStage] = useState("input");
   const [error, setError] = useState("");
   const [paymentData, setPaymentData] = useState(null);
   const [pollProgress, setPollProgress] = useState(0);
@@ -332,7 +331,6 @@ const StepPayment = ({ form, file, onPaymentComplete }) => {
     };
   }, []);
 
-
   const pollPaymentAndSubmit = async (checkoutRequestId, paymentId) => {
     let attempts = 0;
     const maxAttempts = 40; // Poll for up to 2 minutes (40 attempts x 3 seconds)
@@ -346,7 +344,6 @@ const StepPayment = ({ form, file, onPaymentComplete }) => {
       setPollProgress(progress);
 
       try {
-       
         if (abortControllerRef.current.signal.aborted) {
           clearInterval(pollIntervalRef.current);
           return;
@@ -356,7 +353,6 @@ const StepPayment = ({ form, file, onPaymentComplete }) => {
         console.log("Payment status:", result.status);
 
         if (result.status === "completed") {
-          
           clearInterval(pollIntervalRef.current);
           setPaymentData({
             paymentId,
@@ -364,45 +360,44 @@ const StepPayment = ({ form, file, onPaymentComplete }) => {
             mpesaReceiptNumber: result.mpesaReceiptNumber,
           });
 
-         
           setStage("success");
           console.log("✅ Payment confirmed, submitting proposal...");
 
           // Wait 1.5 seconds to show success, then submit proposal
           setTimeout(() => submitProposal(paymentId), 1500);
-        } else if (result.status === "failed" || result.status === "cancelled") {
+        } else if (
+          result.status === "failed" ||
+          result.status === "cancelled"
+        ) {
           clearInterval(pollIntervalRef.current);
           setStage("error");
           setError(
             result.status === "cancelled"
               ? "Payment was cancelled. Please try again."
-              : "Payment failed. Please try again."
+              : "Payment failed. Please try again.",
           );
           console.log("❌ Payment failed");
         }
       } catch (err) {
         console.error("Payment status check error:", err);
-       
       }
 
       if (attempts >= maxAttempts) {
         clearInterval(pollIntervalRef.current);
         setStage("error");
         setError(
-          "Payment verification timed out after 2 minutes. Please contact support."
+          "Payment verification timed out after 2 minutes. Please contact support.",
         );
         console.log("⏱️ Payment polling timeout");
       }
     }, 3000); // Poll every 3 seconds
   };
 
- 
   const submitProposal = async (paymentId) => {
     try {
       setStage("processing");
       console.log("📝 Submitting proposal with paymentId:", paymentId);
 
-  
       const result = await confirmProposalSubmission(
         {
           title: form.title,
@@ -413,10 +408,9 @@ const StepPayment = ({ form, file, onPaymentComplete }) => {
           methodology: form.methodology,
           expectedOutcome: form.expectedOutcome,
           timeline: form.timeline,
-          
         },
-        paymentId,  
-      proposalFile 
+        paymentId,
+        file
       );
 
       console.log("✅ Proposal submitted successfully:", result);
@@ -434,13 +428,13 @@ const StepPayment = ({ form, file, onPaymentComplete }) => {
       console.error("Proposal submission error:", err);
       setStage("error");
       setError(
-        err.message || "Failed to submit proposal after payment. Please contact support."
+        err.message ||
+          "Failed to submit proposal after payment. Please contact support.",
       );
       toast.error("Proposal submission failed: " + err.message);
     }
   };
 
-  
   const handleComplete = async () => {
     const digits = phone.replace(/\D/g, "");
     if (digits.length < 10) {
@@ -466,7 +460,7 @@ const StepPayment = ({ form, file, onPaymentComplete }) => {
           expectedOutcome: form.expectedOutcome,
           timeline: form.timeline,
         },
-        phone
+        phone,
       );
 
       console.log("📱 STK Push initiated:", result);
@@ -649,7 +643,6 @@ const StepPayment = ({ form, file, onPaymentComplete }) => {
     </div>
   );
 };
-
 
 const SubmitProposal = ({ onClose, onSubmitted }) => {
   const [step, setStep] = useState(0);
