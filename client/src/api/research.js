@@ -94,6 +94,7 @@ export const confirmProposalSubmission = async (formData, paymentId, proposalFil
     Object.entries(formData).forEach(([key, value]) => {
       if (value && key !== 'proposalFile' && key !== 'paymentId') {
         fd.append(key, value);
+        console.log(`Appending: ${key} = ${value}`);
       }
     });
     
@@ -101,6 +102,7 @@ export const confirmProposalSubmission = async (formData, paymentId, proposalFil
     if (proposalFile) {
       fd.append('proposalFile', proposalFile);
     }
+      console.log('paymentId being sent:', paymentId);
 
     // ✅ KEY: Send paymentId as QUERY PARAMETER, not FormData
     const url = `/research/proposals/confirm?paymentId=${paymentId}`;
