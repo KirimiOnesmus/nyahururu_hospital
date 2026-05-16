@@ -291,9 +291,14 @@ exports.submitFinalPaper = async (req, res) => {
     await research.save();
 
     // Send confirmation email
-    await researchEmail
-      .sendFinalPaperSubmissionConfirmation(req.researcher, research)
-      .catch((err) => console.error("Email error:", err));
+   await researchEmail.sendProposalSubmitted({
+  email: req.researcher.email,
+  name: req.researcher.name || req.researcher.firstName,
+  proposalTitle: research.title,
+  mpesaReceipt: "N/A",
+  amount: "N/A",
+}).catch((err) => console.error("Email error:", err));
+
 
     res.json({
       message: "Final paper submitted successfully. Awaiting review.",
