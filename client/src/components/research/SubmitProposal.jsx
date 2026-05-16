@@ -413,9 +413,10 @@ const StepPayment = ({ form, file, onPaymentComplete }) => {
           methodology: form.methodology,
           expectedOutcome: form.expectedOutcome,
           timeline: form.timeline,
-          paymentId,
+          
         },
-        file
+        paymentId,  
+      proposalFile 
       );
 
       console.log("✅ Proposal submitted successfully:", result);
