@@ -89,7 +89,7 @@ exports.initiateProposalSubmission = async (req, res) => {
 
     // Create pending payment record
     const payment = await Payment.create({
-      // researcher: req.researcher?._id || null,
+      researcher: req.researcher?._id || null,
       type,
       amount,
       phone: normalizedPhone,
@@ -137,18 +137,8 @@ exports.confirmProposalSubmission = async (req, res) => {
       paymentId,
     } = req.body;
 
-    // Validate required fields
-    if (!title || !discipline || !paymentId) {
-      return res.status(400).json({
-        message: "Title, discipline, and paymentId are required"
-      });
-    }
-
     // Verify payment was completed
-    const payment = await Payment.findOne({
-      _id: paymentId,
-      researcher: req.researcher._id,
-    });
+  const payment = await Payment.findById(paymentId);
 
     if (!payment) {
       return res.status(404).json({
@@ -161,6 +151,13 @@ exports.confirmProposalSubmission = async (req, res) => {
         message: `Payment status is ${payment.status}. Ensure M-Pesa payment succeeded.`
       });
     }
+    
+       if (!payment.researcher) {
+      payment.researcher = req.researcher._id;
+      await payment.save();
+      console.log(`[Confirm Proposal] Linked researcher to payment`);
+    }
+
 
     // Extract uploaded file if present
     const proposalFile = req.files?.proposalFile

@@ -245,19 +245,13 @@ exports.verifyPayment = async (req, res) => {
   try {
     const { checkoutRequestId } = req.params;
 
-    const filter = {
-      checkoutRequestId,
-    };
+      console.log(`[Verify Payment] Verifying checkoutRequestId: ${checkoutRequestId}`);
 
-    // If authenticated researcher, restrict to their payments (for security)
-    if (req.researcher) {
-      filter.researcher = req.researcher._id;
-    }
-    // Public can check payment without researcher filter
-
-    const payment = await Payment.findOne(filter).select(
-      "status mpesaReceiptNumber amount type research researcher",
+        const payment = await Payment.findOne({ checkoutRequestId }).select(
+      "status mpesaReceiptNumber amount type research researcher resultCode resultDesc"
     );
+
+    console.log(`[Verify Payment] Found:`, payment ? { /* ... */ } : 'NOT FOUND');
 
     if (!payment) {
       return res.status(404).json({
@@ -266,10 +260,6 @@ exports.verifyPayment = async (req, res) => {
       });
     }
 
-    console.log(
-      `[Verify Payment] ${checkoutRequestId} - Status: ${payment.status}`,
-    );
-
     res.json({
       status: payment.status,
       mpesaReceiptNumber: payment.mpesaReceiptNumber || null,
@@ -277,6 +267,8 @@ exports.verifyPayment = async (req, res) => {
       type: payment.type,
       researchId: payment.research,
       transactionId: payment.mpesaReceiptNumber,
+        resultCode: payment.resultCode,
+      resultDesc: payment.resultDesc,
     });
   } catch (err) {
     console.error("verifyPayment error:", err.message);
