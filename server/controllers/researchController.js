@@ -137,12 +137,10 @@ exports.confirmProposalSubmission = async (req, res) => {
       timeline,
     } = req.body;
 
-    
-    
-// Validate required fields
+    // Validate required fields
     if (!title || !discipline || !paymentId) {
       return res.status(400).json({
-        message: "Title, discipline, and paymentId are required"
+        message: "Title, discipline, and paymentId are required",
       });
     }
 
@@ -168,8 +166,12 @@ exports.confirmProposalSubmission = async (req, res) => {
     }
 
     // Extract uploaded file if present
-    const proposalFile = req.files?.proposalFile
-      ? `/uploads/research/${req.files.proposalFile[0].filename}`
+    const uploadedFile = Array.isArray(req.files)
+      ? req.files.find((f) => f.fieldname === "proposalFile")
+      : req.files?.proposalFile?.[0];
+
+    const proposalFile = uploadedFile
+      ? `/uploads/research/${uploadedFile.filename}`
       : null;
 
     // Create research document

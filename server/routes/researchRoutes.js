@@ -99,7 +99,8 @@ router.post("/proposals/initiate", async (req, res, next) => {
 router.post(
   "/proposals/confirm",
   protectResearcher,
-  uploadFields,
+  // uploadFields,
+  uploader.any(),
   researchController.confirmProposalSubmission
 );
 
