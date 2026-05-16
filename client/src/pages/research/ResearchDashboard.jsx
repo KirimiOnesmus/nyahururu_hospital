@@ -203,7 +203,8 @@ const ResearcherDashboard = ({ user, onNewProposal, onSubmitFullPaper }) => {
                       </p>
                       <p className="text-xs text-gray-400 mt-1 flex items-center gap-3 flex-wrap">
                         <span className="flex items-center gap-1">
-                          <FaCalendarAlt /> Submitted {fmt(item.submittedAt)}
+                          {/* <FaCalendarAlt /> Submitted {fmt(item.submittedAt)} */}
+                            <FaCalendarAlt /> Submitted {new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(item.submittedAt))}
                         </span>
                         {item.downloads > 0 && (
                           <span className="flex items-center gap-1">

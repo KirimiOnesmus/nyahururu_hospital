@@ -350,7 +350,7 @@ const StepPayment = ({ form, file, onPaymentComplete }) => {
         }
 
         const result = await verifyPaymentStatus(checkoutRequestId);
-        console.log("Payment status:", result.status);
+        // console.log("Payment status:", result.status);
 
         if (result.status === "completed") {
           clearInterval(pollIntervalRef.current);
@@ -361,7 +361,7 @@ const StepPayment = ({ form, file, onPaymentComplete }) => {
           });
 
           setStage("success");
-          console.log("✅ Payment confirmed, submitting proposal...");
+        
 
           // Wait 1.5 seconds to show success, then submit proposal
           setTimeout(() => submitProposal(paymentId), 1500);
@@ -376,10 +376,10 @@ const StepPayment = ({ form, file, onPaymentComplete }) => {
               ? "Payment was cancelled. Please try again."
               : "Payment failed. Please try again.",
           );
-          console.log("❌ Payment failed");
+        
         }
       } catch (err) {
-        console.error("Payment status check error:", err);
+        // console.error("Payment status check error:", err);
       }
 
       if (attempts >= maxAttempts) {
@@ -388,7 +388,7 @@ const StepPayment = ({ form, file, onPaymentComplete }) => {
         setError(
           "Payment verification timed out after 2 minutes. Please contact support.",
         );
-        console.log("⏱️ Payment polling timeout");
+        
       }
     }, 3000); // Poll every 3 seconds
   };
@@ -421,9 +421,9 @@ const StepPayment = ({ form, file, onPaymentComplete }) => {
         status: "completed",
       });
 
-      toast.success("Proposal submitted successfully! 🎉");
+      toast.success("Proposal submitted successfully! ");
     } catch (err) {
-      console.error("Proposal submission error:", err);
+      // console.error("Proposal submission error:", err);
       setStage("error");
       setError(
         err.message ||
@@ -444,7 +444,7 @@ const StepPayment = ({ form, file, onPaymentComplete }) => {
     setStage("processing");
 
     try {
-      console.log("🚀 Initiating payment for phone:", phone);
+     
 
       // Step 1: Initiate M-Pesa STK Push
       const result = await initiateProposalSubmission(
@@ -461,19 +461,19 @@ const StepPayment = ({ form, file, onPaymentComplete }) => {
         phone,
       );
 
-      console.log("📱 STK Push initiated:", result);
+ 
       setPaymentData(result);
 
-      // Step 2: Start polling payment status and auto-submit proposal
+      
       pollPaymentAndSubmit(result.checkoutRequestId, result.paymentId);
     } catch (err) {
-      console.error("Payment initiation error:", err);
+      // console.error("Payment initiation error:", err);
       setError(err.message || "Failed to initiate payment");
       setStage("input");
     }
   };
 
-  // Processing state - showing spinner while initiating STK
+
   if (stage === "processing" && !paymentData)
     return (
       <div className="flex flex-col items-center justify-center py-10 gap-4">
@@ -710,7 +710,7 @@ const SubmitProposal = ({ onClose, onSubmitted }) => {
 
   const handlePaymentComplete = (paymentData) => {
     setSubmissionComplete(true);
-    console.log("Payment and submission complete:", paymentData);
+    // console.log("Payment and submission complete:", paymentData);
 
     // Auto-close modal after 2 seconds to show success
     setTimeout(() => {
