@@ -57,29 +57,58 @@ export const initiateProposalSubmission = async (formData, phone) => {
 
 // Step 2: Confirm proposal submission after payment
  
+// export const confirmProposalSubmission = async (formData, paymentId, proposalFile) => {
+//   try {
+//     const fd = new FormData();
+    
+//     // Add form fields
+//     Object.entries(formData).forEach(([key, value]) => {
+//       if (value && key !== 'proposalFile') {
+//         fd.append(key, value);
+//       }
+//     });
+    
+//     // Add payment reference
+//     fd.append('paymentId', paymentId);
+    
+//     // Add file
+//     if (proposalFile) {
+//       fd.append('proposalFile', proposalFile);
+//     }
+
+//     // const response = await api.post('/research/proposals/confirm', fd, {
+//     const response = await api.post(`/research/proposals/confirm?paymentId=${paymentId}`, fd, {
+//       headers: { 'Content-Type': 'multipart/form-data' },
+//     });
+//     return response.data;
+//   } catch (error) {
+//     throw error.response?.data || { message: 'Failed to confirm proposal submission' };
+//   }
+// };
+
 export const confirmProposalSubmission = async (formData, paymentId, proposalFile) => {
   try {
     const fd = new FormData();
     
-    // Add form fields
+    // Add form fields (NO paymentId!)
     Object.entries(formData).forEach(([key, value]) => {
-      if (value && key !== 'proposalFile') {
+      if (value && key !== 'proposalFile' && key !== 'paymentId') {
         fd.append(key, value);
       }
     });
-    
-    // Add payment reference
-    fd.append('paymentId', paymentId);
     
     // Add file
     if (proposalFile) {
       fd.append('proposalFile', proposalFile);
     }
 
-    // const response = await api.post('/research/proposals/confirm', fd, {
-    const response = await api.post(`/research/proposals/confirm?paymentId=${paymentId}`, fd, {
+    // ✅ KEY: Send paymentId as QUERY PARAMETER, not FormData
+    const url = `/research/proposals/confirm?paymentId=${paymentId}`;
+    
+    const response = await api.post(url, fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+    
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: 'Failed to confirm proposal submission' };

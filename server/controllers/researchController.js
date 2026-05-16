@@ -1,6 +1,6 @@
-const Research      = require("../models/researchModel");
-const Payment       = require("../models/PaymentModel");
-const Researcher    = require("../models/ResearcherModel");
+const Research = require("../models/researchModel");
+const Payment = require("../models/PaymentModel");
+const Researcher = require("../models/ResearcherModel");
 const researchEmail = require("../utils/emailServices");
 
 exports.getAllResearch = async (req, res) => {
@@ -9,7 +9,7 @@ exports.getAllResearch = async (req, res) => {
       .select("title abstract researcher downloadPrice downloads createdAt")
       .populate("researcher", "name institution")
       .sort({ createdAt: -1 });
-    
+
     res.json(research);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -22,9 +22,9 @@ exports.getResearchById = async (req, res) => {
     const item = await Research.findById(req.params.id)
       .populate("researcher", "name institution bio socialLinks")
       .populate("reviewedBy", "name");
-    
+
     if (!item) return res.status(404).json({ message: "Research not found" });
-    
+
     res.json(item);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -32,8 +32,8 @@ exports.getResearchById = async (req, res) => {
 };
 
 //STEP 1: Initiate proposal submission
- //Validates form data and triggers M-Pesa STK Push.
- 
+//Validates form data and triggers M-Pesa STK Push.
+
 exports.initiateProposalSubmission = async (req, res) => {
   try {
     const {
@@ -47,14 +47,14 @@ exports.initiateProposalSubmission = async (req, res) => {
       timeline,
       phone,
       // amount = 100, Default proposal submission fee
-      amount=1, // Set to 1 KES for testing. Change to 100 for production.
-      type = "proposal_submission"
+      amount = 1, // Set to 1 KES for testing. Change to 100 for production.
+      type = "proposal_submission",
     } = req.body;
 
     // Validate required fields
     if (!title || !discipline || !abstract || !phone) {
       return res.status(400).json({
-        message: "Title, discipline, abstract, and phone are required"
+        message: "Title, discipline, abstract, and phone are required",
       });
     }
 
@@ -65,7 +65,8 @@ exports.initiateProposalSubmission = async (req, res) => {
     }
     if (!normalizedPhone.startsWith("254") || normalizedPhone.length !== 12) {
       return res.status(400).json({
-        message: "Enter a valid Safaricom number (e.g., 0712345678 or 254712345678)"
+        message:
+          "Enter a valid Safaricom number (e.g., 0712345678 or 254712345678)",
       });
     }
 
@@ -80,10 +81,9 @@ exports.initiateProposalSubmission = async (req, res) => {
       description: "Research proposal submission fee",
     });
 
-
     if (stkResponse.ResponseCode !== "0") {
       return res.status(502).json({
-        message: stkResponse.ResponseDescription || "Payment initiation failed"
+        message: stkResponse.ResponseDescription || "Payment initiation failed",
       });
     }
 
@@ -107,23 +107,24 @@ exports.initiateProposalSubmission = async (req, res) => {
       phone: normalizedPhone,
       // Frontend should use this to poll payment status every 5 seconds
     });
-
   } catch (error) {
     console.error("Proposal submission initiation error:", error);
     res.status(500).json({
-      message: error.message || "Failed to initiate proposal submission"
+      message: error.message || "Failed to initiate proposal submission",
     });
   }
 };
 
 //STEP 2: Confirm proposal submission after payment
- //Verifies payment was completed, uploads PDF, and creates research record.
+//Verifies payment was completed, uploads PDF, and creates research record.
 
 exports.confirmProposalSubmission = async (req, res) => {
   try {
     if (!req.researcher) {
       return res.status(401).json({ message: "Authentication required" });
     }
+
+    const { paymentId } = req.query;
 
     const {
       title,
@@ -134,30 +135,37 @@ exports.confirmProposalSubmission = async (req, res) => {
       methodology,
       expectedOutcome,
       timeline,
-      paymentId,
     } = req.body;
 
+    
+    
+// Validate required fields
+    if (!title || !discipline || !paymentId) {
+      return res.status(400).json({
+        message: "Title, discipline, and paymentId are required"
+      });
+    }
+
     // Verify payment was completed
-  const payment = await Payment.findById(paymentId);
+    const payment = await Payment.findById(paymentId);
 
     if (!payment) {
       return res.status(404).json({
-        message: "Payment record not found"
+        message: "Payment record not found",
       });
     }
 
     if (payment.status !== "completed") {
       return res.status(400).json({
-        message: `Payment status is ${payment.status}. Ensure M-Pesa payment succeeded.`
+        message: `Payment status is ${payment.status}. Ensure M-Pesa payment succeeded.`,
       });
     }
-    
-       if (!payment.researcher) {
+
+    if (!payment.researcher) {
       payment.researcher = req.researcher._id;
       await payment.save();
       console.log(`[Confirm Proposal] Linked researcher to payment`);
     }
-
 
     // Extract uploaded file if present
     const proposalFile = req.files?.proposalFile
@@ -189,11 +197,9 @@ exports.confirmProposalSubmission = async (req, res) => {
     await payment.save();
 
     // Send confirmation email to researcher
-    await researchEmail.sendProposalSubmissionConfirmation(
-      req.researcher,
-      newResearch,
-      payment
-    ).catch(err => console.error("Email error:", err));
+    await researchEmail
+      .sendProposalSubmissionConfirmation(req.researcher, newResearch, payment)
+      .catch((err) => console.error("Email error:", err));
 
     res.status(201).json({
       message: "Proposal submitted successfully! Awaiting reviewer feedback.",
@@ -207,20 +213,18 @@ exports.confirmProposalSubmission = async (req, res) => {
       payment: {
         amount: payment.amount,
         transactionId: payment.merchantRequestId,
-      }
+      },
     });
-
   } catch (error) {
     console.error("Confirm proposal submission error:", error);
     res.status(500).json({
-      message: error.message || "Failed to confirm proposal submission"
+      message: error.message || "Failed to confirm proposal submission",
     });
   }
 };
 
 //Submit final paper for an approved proposal
 
- 
 exports.submitFinalPaper = async (req, res) => {
   try {
     if (!req.researcher) {
@@ -238,20 +242,21 @@ exports.submitFinalPaper = async (req, res) => {
     // Verify ownership
     if (research.researcher.toString() !== req.researcher._id.toString()) {
       return res.status(403).json({
-        message: "You can only submit papers for your own research"
+        message: "You can only submit papers for your own research",
       });
     }
 
     // Check stage and approval status
     if (research.stage !== "proposal") {
       return res.status(400).json({
-        message: `Cannot submit final paper. Current stage is '${research.stage}'`
+        message: `Cannot submit final paper. Current stage is '${research.stage}'`,
       });
     }
 
     if (research.status !== "approved") {
       return res.status(400).json({
-        message: "Your proposal must be approved before submitting the final paper"
+        message:
+          "Your proposal must be approved before submitting the final paper",
       });
     }
 
@@ -275,10 +280,9 @@ exports.submitFinalPaper = async (req, res) => {
     await research.save();
 
     // Send confirmation email
-    await researchEmail.sendFinalPaperSubmissionConfirmation(
-      req.researcher,
-      research
-    ).catch(err => console.error("Email error:", err));
+    await researchEmail
+      .sendFinalPaperSubmissionConfirmation(req.researcher, research)
+      .catch((err) => console.error("Email error:", err));
 
     res.json({
       message: "Final paper submitted successfully. Awaiting review.",
@@ -287,13 +291,12 @@ exports.submitFinalPaper = async (req, res) => {
         title: research.title,
         stage: research.stage,
         status: research.status,
-      }
+      },
     });
-
   } catch (error) {
     console.error("Submit final paper error:", error);
     res.status(500).json({
-      message: error.message || "Failed to submit final paper"
+      message: error.message || "Failed to submit final paper",
     });
   }
 };
@@ -311,7 +314,7 @@ exports.updateDownloadPrice = async (req, res) => {
     const research = await Research.findByIdAndUpdate(
       req.params.id,
       { downloadPrice },
-      { new: true }
+      { new: true },
     );
 
     if (!research) {
@@ -324,7 +327,7 @@ exports.updateDownloadPrice = async (req, res) => {
         id: research._id,
         title: research.title,
         downloadPrice: research.downloadPrice,
-      }
+      },
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -348,7 +351,7 @@ exports.getResearcherRevenue = async (req, res) => {
     // Verify ownership
     if (research.researcher.toString() !== req.researcher._id.toString()) {
       return res.status(403).json({
-        message: "You can only view revenue for your own research"
+        message: "You can only view revenue for your own research",
       });
     }
 
@@ -359,7 +362,10 @@ exports.getResearcherRevenue = async (req, res) => {
       status: "completed",
     }).select("amount createdAt");
 
-    const totalDownloadRevenue = downloadPayments.reduce((sum, p) => sum + p.amount, 0);
+    const totalDownloadRevenue = downloadPayments.reduce(
+      (sum, p) => sum + p.amount,
+      0,
+    );
 
     res.json({
       research: {
@@ -374,7 +380,6 @@ exports.getResearcherRevenue = async (req, res) => {
         estimatedEarnings: research.downloads * research.downloadPrice,
       },
     });
-
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -391,11 +396,9 @@ exports.updateResearch = async (req, res) => {
     if (title) updates.title = title;
     if (downloadPrice !== undefined) updates.downloadPrice = downloadPrice;
 
-    const research = await Research.findByIdAndUpdate(
-      req.params.id,
-      updates,
-      { new: true }
-    );
+    const research = await Research.findByIdAndUpdate(req.params.id, updates, {
+      new: true,
+    });
 
     if (!research) {
       return res.status(404).json({ message: "Research not found" });
@@ -403,7 +406,7 @@ exports.updateResearch = async (req, res) => {
 
     res.json({
       message: "Research updated",
-      research
+      research,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -416,7 +419,7 @@ exports.updateResearch = async (req, res) => {
 exports.deleteResearch = async (req, res) => {
   try {
     const deleted = await Research.findByIdAndDelete(req.params.id);
-    
+
     if (!deleted) {
       return res.status(404).json({ message: "Research not found" });
     }
