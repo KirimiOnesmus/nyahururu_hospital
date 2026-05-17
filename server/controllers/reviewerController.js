@@ -3,9 +3,8 @@ const crypto = require("crypto");
 const Researcher = require("../models/ResearcherModel");
 const researchEmail = require("../utils/emailServices");
 
-/**
- * Sign a JWT token for reviewer/admin
- */
+// Sign a JWT token for reviewer/admin
+
 const signToken = (id, role) =>
   jwt.sign(
     { id, role, collection: "researchers" },
@@ -13,9 +12,8 @@ const signToken = (id, role) =>
     { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
   );
 
-/**
- * Sanitize researcher object (remove sensitive fields)
- */
+// Sanitize researcher object (remove sensitive fields)
+
 const sanitize = (doc) => {
   const obj = doc.toObject();
   delete obj.password;
@@ -26,11 +24,8 @@ const sanitize = (doc) => {
   return obj;
 };
 
-/**
- * Check if caller can manage reviewers
- * - Staff admin (req.user with admin/superadmin role)
- * - Research admin (req.researcher with admin role)
- */
+//Check if caller can manage reviewers
+
 const canManageReviewers = (req) => {
   const staffAdmin = req.user && ["superadmin", "admin"].includes(req.user.role);
   const researchAdmin =
@@ -38,9 +33,7 @@ const canManageReviewers = (req) => {
   return staffAdmin || researchAdmin;
 };
 
-/**
- * Get caller's name for emails
- */
+
 const getCallerName = (req) => {
   if (req.user) {
     return req.user.name || `${req.user.firstName} ${req.user.lastName}`.trim();
@@ -51,13 +44,8 @@ const getCallerName = (req) => {
   return "Administration";
 };
 
-/**
- * ═══════════════════════════════════════════════════════════════
- * INVITE REVIEWER
- * POST /api/research/reviewers/invite
- * Admin only - creates new reviewer account with invite link
- * ═══════════════════════════════════════════════════════════════
- */
+// INVITE REVIEWER
+
 exports.inviteReviewer = async (req, res) => {
   // Check authorization
   if (!canManageReviewers(req)) {
@@ -82,7 +70,7 @@ exports.inviteReviewer = async (req, res) => {
       email: email.toLowerCase(),
     });
 
-    // Case A: Existing researcher → promote to reviewer
+
     if (existing) {
       if (["reviewer", "admin"].includes(existing.role)) {
         return res.status(409).json({
@@ -111,7 +99,7 @@ exports.inviteReviewer = async (req, res) => {
       });
     }
 
-    // Case B: New email → create reviewer account with invite link
+    //  New email create reviewer account with invite link
     const rawToken = crypto.randomBytes(32).toString("hex");
     const hashedToken = crypto
       .createHash("sha256")
@@ -128,7 +116,7 @@ exports.inviteReviewer = async (req, res) => {
       specialisations: specialisations || [],
       role: "reviewer",
       status: "invited",
-      password: crypto.randomBytes(16).toString("hex"), // Temporary password
+      password: crypto.randomBytes(16).toString("hex"), 
       emailVerified: false,
       emailVerificationToken: hashedToken,
       emailVerificationExpire: expiry,
@@ -153,9 +141,7 @@ exports.inviteReviewer = async (req, res) => {
         console.error("[Email] sendReviewerInvite:", err.message)
       );
 
-    console.log(
-      `[DEV] Reviewer invite link for ${email}: ${inviteLink}`
-    );
+ 
 
     res.status(201).json({
       message: `Invite sent to ${email}. They have 72 hours to set their password.`,
@@ -169,13 +155,8 @@ exports.inviteReviewer = async (req, res) => {
   }
 };
 
-/**
- * ═══════════════════════════════════════════════════════════════
- * SET PASSWORD (Reviewer Accepts Invitation)
- * POST /api/research/reviewers/set-password
- * Public endpoint - called when reviewer clicks invite link
- * ═══════════════════════════════════════════════════════════════
- */
+//SET PASSWORD (Reviewer Accepts Invitation)
+
 exports.setPassword = async (req, res) => {
   try {
     const { token, email, password, confirmPassword } = req.body;
@@ -238,13 +219,8 @@ exports.setPassword = async (req, res) => {
   }
 };
 
-/**
- * ═══════════════════════════════════════════════════════════════
- * RESEND INVITATION
- * POST /api/research/reviewers/:id/resend-invite
- * Admin only - resends invite if token expired
- * ═══════════════════════════════════════════════════════════════
- */
+//RESEND INVITATION
+
 exports.resendInvite = async (req, res) => {
   if (!canManageReviewers(req)) {
     return res.status(403).json({ message: "Access denied" });
@@ -312,13 +288,8 @@ exports.resendInvite = async (req, res) => {
   }
 };
 
-/**
- * ═══════════════════════════════════════════════════════════════
- * REVOKE REVIEWER (Demote Back to Researcher)
- * PATCH /api/research/reviewers/:id/revoke
- * Admin only
- * ═══════════════════════════════════════════════════════════════
- */
+// REVOKE REVIEWER (Demote Back to Researcher)
+
 exports.revokeReviewer = async (req, res) => {
   if (!canManageReviewers(req)) {
     return res.status(403).json({ message: "Access denied" });
@@ -357,13 +328,8 @@ exports.revokeReviewer = async (req, res) => {
   }
 };
 
-/**
- * ═══════════════════════════════════════════════════════════════
- * PROMOTE TO ADMIN
- * PATCH /api/research/reviewers/:id/promote-admin
- * Admin only
- * ═══════════════════════════════════════════════════════════════
- */
+//PROMOTE TO ADMIN
+
 exports.promoteToAdmin = async (req, res) => {
   if (!canManageReviewers(req)) {
     return res.status(403).json({ message: "Access denied" });
@@ -395,13 +361,8 @@ exports.promoteToAdmin = async (req, res) => {
   }
 };
 
-/**
- * ═══════════════════════════════════════════════════════════════
- * LIST REVIEWERS
- * GET /api/research/reviewers
- * Admin only - list all reviewers
- * ═══════════════════════════════════════════════════════════════
- */
+// LIST REVIEWERS
+
 exports.listReviewers = async (req, res) => {
   if (!canManageReviewers(req)) {
     return res.status(403).json({ message: "Access denied" });
@@ -423,53 +384,42 @@ exports.listReviewers = async (req, res) => {
   }
 };
 
-/**
- * ═══════════════════════════════════════════════════════════════
- * LIST ALL RESEARCHERS (WITH FILTERS)
- * GET /api/research/reviewers/all
- * Admin only - list all researchers with optional role filter
- * Query: ?role=researcher|reviewer|admin&page=1&limit=20
- * ═══════════════════════════════════════════════════════════════
- */
-exports.listAllResearchers = async (req, res) => {
-  if (!canManageReviewers(req)) {
-    return res.status(403).json({ message: "Access denied" });
-  }
+//LIST ALL RESEARCHERS (WITH FILTERS)
 
-  try {
-    const { role, page = 1, limit = 20 } = req.query;
-    const filter = role ? { role } : {};
+// exports.listAllResearchers = async (req, res) => {
+//   if (!canManageReviewers(req)) {
+//     return res.status(403).json({ message: "Access denied" });
+//   }
 
-    const [researchers, total] = await Promise.all([
-      Researcher.find(filter)
-        .select(
-          "name email role institution discipline emailVerified createdAt invitedAt status"
-        )
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(Number(limit)),
-      Researcher.countDocuments(filter),
-    ]);
+//   try {
+//     const { role, page = 1, limit = 20 } = req.query;
+//     const filter = role ? { role } : {};
 
-    res.json({
-      total,
-      page: Number(page),
-      limit: Number(limit),
-      researchers,
-    });
-  } catch (err) {
-    console.error("listAllResearchers error:", err);
-    res.status(500).json({ message: err.message });
-  }
-};
+//     const [researchers, total] = await Promise.all([
+//       Researcher.find(filter)
+//         .select(
+//           "name email role institution discipline emailVerified createdAt invitedAt status"
+//         )
+//         .sort({ createdAt: -1 })
+//         .skip((page - 1) * limit)
+//         .limit(Number(limit)),
+//       Researcher.countDocuments(filter),
+//     ]);
 
-/**
- * ═══════════════════════════════════════════════════════════════
- * UPDATE REVIEWER DETAILS
- * PUT /api/research/reviewers/:id
- * Admin only - update reviewer specializations, institution, etc
- * ═══════════════════════════════════════════════════════════════
- */
+//     res.json({
+//       total,
+//       page: Number(page),
+//       limit: Number(limit),
+//       researchers,
+//     });
+//   } catch (err) {
+//     console.error("listAllResearchers error:", err);
+//     res.status(500).json({ message: err.message });
+//   }
+// };
+
+//UPDATE REVIEWER DETAILS
+
 exports.updateReviewer = async (req, res) => {
   if (!canManageReviewers(req)) {
     return res.status(403).json({ message: "Access denied" });
@@ -504,7 +454,7 @@ exports.updateReviewer = async (req, res) => {
       message: "Reviewer updated successfully",
       reviewer: sanitize(reviewer),
     }); 
-  } catch (err) {
+  } catch (err) { 
     console.error("updateReviewer error:", err);
     res.status(500).json({ message: err.message || "Update failed" });
   }

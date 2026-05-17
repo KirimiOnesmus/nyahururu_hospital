@@ -53,7 +53,7 @@ router.get(
   reviewerController.listReviewers
 );
 
-router.get(
+router.get( 
   "/all",
   verifyToken,
   authorizeRoles("admin", "superadmin"),

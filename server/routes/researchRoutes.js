@@ -21,15 +21,22 @@ const uploadFields = uploader.fields([
   { name: "pdf", maxCount: 1 },
 ]);
 
-// ────────────────────────────────────────────────────────
+
 // PUBLIC ENDPOINTS
-// ────────────────────────────────────────────────────────
 
-router.get("/", researchController.getAllResearch);
 
-// ────────────────────────────────────────────────────────
-// RESEARCHER ROUTES (Named/specific paths BEFORE :id)
-// ────────────────────────────────────────────────────────
+router.get("/", researchController.getAllPublishedResearch);
+
+// ADMIN ROUTES
+router.get(
+  "/admin/all",
+  verifyToken,
+  authorizeRoles("admin", "superadmin"),
+  researchController.getAllResearchAdmin
+);
+
+
+// RESEARCHER ROUTES 
 
 router.get(
   "/my-research",
@@ -61,14 +68,12 @@ router.get(
   researchController.getResearcherRevenue
 );
 
-// ────────────────────────────────────────────────────────
-// PROPOSAL SUBMISSION ROUTES (Two-step flow)
-// ────────────────────────────────────────────────────────
+// PROPOSAL SUBMISSION ROUTES 
 
 
 router.post("/proposals/initiate", async (req, res, next) => {
   try {
-    // Optional: Attach researcher if authenticated
+    
     const token = req.headers.authorization?.split(" ")[1];
     if (token) {
       const jwt = require("jsonwebtoken");
@@ -89,24 +94,18 @@ router.post("/proposals/initiate", async (req, res, next) => {
   }
 }, researchController.initiateProposalSubmission);
 
-/**
- * Step 2: Confirm proposal submission after payment
- * POST /research/proposals/confirm
- * - Verifies payment completed
- * - Uploads PDF file
- * - Creates research record
- */
+//Verifies payment completed
+
+ 
 router.post(
-  "/proposals/confirm",
+  "/proposals/confirm", 
   protectResearcher,
   // uploadFields,
   uploader.any(),
   researchController.confirmProposalSubmission
 );
 
-// ────────────────────────────────────────────────────────
 // PAYMENT ROUTES
-// ────────────────────────────────────────────────────────
 
 router.post(
   "/mpesa/stk-push",
@@ -154,9 +153,16 @@ router.get(
 
 router.post("/mpesa/callback", mpesaController.mpesaCallback);
 
-// ────────────────────────────────────────────────────────
+//Publish research (Admin only)
+router.patch(
+  "/:id/publish",
+  verifyToken,
+  authorizeRoles("admin", "superadmin"),
+  researchController.publishResearch
+);
+
 // REVIEWER ROUTES
-// ────────────────────────────────────────────────────────
+
 
 router.get(
   "/reviews/pending",
@@ -305,9 +311,7 @@ router.get(
   }
 );
 
-// ────────────────────────────────────────────────────────
 // REVIEWER MANAGEMENT (Admin only)
-// ────────────────────────────────────────────────────────
 
 router.post(
   "/reviewers/invite",
@@ -360,9 +364,14 @@ router.put(
   reviewerController.updateReviewer
 );
 
-// ────────────────────────────────────────────────────────
+router.post(
+  "/:id/assign-reviewer",
+  verifyToken,
+  authorizeRoles("admin", "superadmin"),
+  researchController.assignReviewer
+);
+
 // ADMIN ENDPOINTS
-// ────────────────────────────────────────────────────────
 
 router.get(
   "/admin/research/:researchId/revenue",
@@ -392,20 +401,12 @@ router.patch(
   researchController.updateDownloadPrice
 );
 
-// ────────────────────────────────────────────────────────
-// PARAMETERIZED ROUTES (LAST - catches /:id)
-// ────────────────────────────────────────────────────────
 
-// Get single research by ID - MUST come LAST
+// PARAMETERIZED ROUTES 
+
 router.get("/:id", researchController.getResearchById);
 
-router.put(
-  "/:id",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  uploadFields,
-  researchController.updateResearch
-);
+
 
 router.delete(
   "/:id",

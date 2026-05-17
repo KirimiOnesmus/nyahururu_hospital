@@ -3,15 +3,91 @@ import {
   FaPlus, FaTrash, FaUser, FaSearch, FaFilter, FaEye,
   FaTimes, FaCheckCircle, FaClock, FaUserTie, FaEnvelope,
   FaUniversity, FaRedo, FaUserCheck, FaUserSlash, FaCrown,
-  FaBookOpen, FaFilePdf, FaFileAlt, FaImage, FaEdit,
-  FaDownload,
+  FaBookOpen, FaFilePdf, FaFileAlt, FaImage,
+  FaDownload, FaPhone, FaShieldAlt, FaKey, FaUserPlus,
+  FaLayerGroup, FaMicroscope, FaRegFileAlt, FaChevronDown,
+  FaGlobe,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import api from "../../api/axios";
 import * as research from '../../api/research';
 
+// ─── Stage config ─────────────────────────────────────────────────────────────
+const STAGE_META = {
+  proposal: {
+    label: "Proposal",
+    color: "bg-amber-500",
+    lightColor: "bg-amber-50",
+    textColor: "text-amber-700",
+    borderColor: "border-amber-200",
+    dotColor: "bg-amber-400",
+    icon: FaRegFileAlt,
+  },
+  abstract: {
+    label: "Abstract",
+    color: "bg-sky-500",
+    lightColor: "bg-sky-50",
+    textColor: "text-sky-700",
+    borderColor: "border-sky-200",
+    dotColor: "bg-sky-400",
+    icon: FaLayerGroup,
+  },
+  final_paper: {
+    label: "Final Paper",
+    color: "bg-emerald-500",
+    lightColor: "bg-emerald-50",
+    textColor: "text-emerald-700",
+    borderColor: "border-emerald-200",
+    dotColor: "bg-emerald-400",
+    icon: FaMicroscope,
+  },
+};
 
-// ─── shared helpers ───────────────────────────────────────────────────────────
+const STATUS_META = {
+  pending: {
+    label: "Under Review",
+    color: "bg-blue-100",
+    textColor: "text-blue-700",
+    icon: FaClock,
+    dot: "bg-blue-400",
+  },
+  approved: {
+    label: "Approved",
+    color: "bg-green-100",
+    textColor: "text-green-700",
+    icon: FaCheckCircle,
+    dot: "bg-green-500",
+  },
+  rejected: {
+    label: "Rejected",
+    color: "bg-red-100",
+    textColor: "text-red-700",
+    icon: FaTimes,
+    dot: "bg-red-400",
+  },
+};
+
+// Category colors — cycling palette
+const CATEGORY_COLORS = [
+  { bg: "bg-purple-100", text: "text-purple-700" },
+  { bg: "bg-blue-100",   text: "text-blue-700"   },
+  { bg: "bg-teal-100",   text: "text-teal-700"   },
+  { bg: "bg-rose-100",   text: "text-rose-700"   },
+  { bg: "bg-orange-100", text: "text-orange-700" },
+  { bg: "bg-indigo-100", text: "text-indigo-700" },
+  { bg: "bg-cyan-100",   text: "text-cyan-700"   },
+  { bg: "bg-lime-100",   text: "text-lime-700"   },
+];
+
+const buildCategoryColorMap = (papers) => {
+  const cats = [...new Set(papers.map(p => p.category).filter(Boolean))];
+  return cats.reduce((acc, cat, i) => {
+    acc[cat] = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
+    return acc;
+  }, {});
+};
+
+// ─── Shared sub-components ────────────────────────────────────────────────────
 const ROLE_META = {
   admin:      { label: "Research Admin", color: "bg-purple-100 text-purple-700", icon: FaCrown },
   reviewer:   { label: "Reviewer",       color: "bg-blue-100 text-blue-700",     icon: FaUserTie },
@@ -32,37 +108,31 @@ const RESEARCH_CATEGORIES = [
   "Laboratory Research","Epidemiology","Health Policy",
   "Nursing Research","Other",
 ];
-const EMPTY_INVITE  = { email:"", firstName:"", lastName:"", institution:"", department:"", discipline:"" };
-const EMPTY_PAPER   = { title:"", author:"", abstract:"", category:"", pdf:null, thumbnail:null };
 
-// ─── top-level tabs ───────────────────────────────────────────────────────────
+const EMPTY_RESEARCHER = { firstName:"", lastName:"", email:"", phone:"" };
+const EMPTY_INVITE     = { email:"", firstName:"", lastName:"", institution:"", department:"", discipline:"" };
+
 const TOP_TABS = [
   { key:"papers",    label:"Research Papers",    icon: FaBookOpen },
   { key:"reviewers", label:"Reviewer Management",icon: FaUserTie  },
 ];
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ─── Root page ────────────────────────────────────────────────────────────────
 const ResearchPage = () => {
   const [topTab, setTopTab] = useState("papers");
-
   return (
-    <div className="min-h-screen bg-gray-50 ">
+    <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
-
-     
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-1">Research Management</h1>
-          <p className="text-gray-500 text-sm">Manage published research papers and reviewer assignments</p>
+          <p className="text-gray-500 text-sm">Manage research papers across all stages and reviewer assignments</p>
         </div>
-
-
-        <div className="flex gap-1 mb-6  p-1 w-fit">
+        <div className="flex gap-1 mb-6 p-1 w-fit">
           {TOP_TABS.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setTopTab(key)}
-              className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold 
-                cursor-pointer transition-all duration-200 ${
+              className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold cursor-pointer transition-all duration-200 ${
                 topTab === key
                   ? "bg-blue-600 text-white shadow-sm"
                   : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
@@ -72,7 +142,6 @@ const ResearchPage = () => {
             </button>
           ))}
         </div>
-
         {topTab === "papers"    && <PapersPanel />}
         {topTab === "reviewers" && <ReviewersPanel />}
       </div>
@@ -80,107 +149,174 @@ const ResearchPage = () => {
   );
 };
 
-
+// ─── PAPERS PANEL ─────────────────────────────────────────────────────────────
 const PapersPanel = () => {
-  const [research,       setResearch]       = useState([]);
-  const [loading,        setLoading]        = useState(false);
-  const [searchTerm,     setSearchTerm]     = useState("");
-  const [filterCategory, setFilterCategory] = useState("all");
+  const [researchList,    setResearchList]    = useState([]);
+  const [loading,         setLoading]         = useState(false);
+  const [searchTerm,      setSearchTerm]      = useState("");
+  const [filterCategory,  setFilterCategory]  = useState("all");
+  const [filterStage,     setFilterStage]     = useState("all");
+  const [filterStatus,    setFilterStatus]    = useState("all");
+  const [categoryColorMap,setCategoryColorMap]= useState({});
+  const [downloadingId,   setDownloadingId]   = useState(null);
+  const [publishingId,    setPublishingId]    = useState(null);
 
-  const [modalOpen,    setModalOpen]    = useState(false);
-  const [editingItem,  setEditingItem]  = useState(null);
-  const [formData,     setFormData]     = useState(EMPTY_PAPER);
-  const [previewImage, setPreviewImage] = useState(null);
-
-
+  // View modal
   const [viewModal,        setViewModal]        = useState(false);
   const [selectedResearch, setSelectedResearch] = useState(null);
 
-  
+  // Add Researcher modal
+  const [addResearcherOpen,   setAddResearcherOpen]   = useState(false);
+  const [researcherForm,      setResearcherForm]      = useState(EMPTY_RESEARCHER);
+  const [researcherLoading,   setResearcherLoading]   = useState(false);
+  const [researcherSubmitted, setResearcherSubmitted] = useState(false);
+
+  // Assign Reviewer modal
+  const [assignReviewerOpen,  setAssignReviewerOpen]  = useState(false);
+  const [assignTarget,        setAssignTarget]        = useState(null);
+  const [assignReviewerEmail, setAssignReviewerEmail] = useState("");
+  const [assignLoading,       setAssignLoading]       = useState(false);
+
+  // Fetch ALL papers (admin view)
   const fetchResearch = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/research");
-      setResearch(res.data);
-    } catch {
-      toast.error("Error fetching research papers");
+      const res = await api.get("/research/admin/all");
+      const papers = Array.isArray(res.data) ? res.data : res.data.research || [];
+      setResearchList(papers);
+      setCategoryColorMap(buildCategoryColorMap(papers));
+    } catch (err) {
+      console.error("[Research] Fetch error:", err);
+      try {
+        const fallback = await api.get("/research");
+        const papers = Array.isArray(fallback.data) ? fallback.data : fallback.data.research || [];
+        setResearchList(papers);
+        setCategoryColorMap(buildCategoryColorMap(papers));
+      } catch {
+        toast.error("Error fetching research papers");
+        setResearchList([]);
+      }
     } finally {
       setLoading(false);
     }
   };
+
   useEffect(() => { fetchResearch(); }, []);
 
-
-  const filtered = research.filter((item) => {
+  // Filter
+  const filtered = researchList.filter((item) => {
     const q = searchTerm.toLowerCase();
     const matchSearch =
       item.title?.toLowerCase().includes(q) ||
+      item.researcher?.name?.toLowerCase().includes(q) ||
       item.author?.toLowerCase().includes(q) ||
       item.abstract?.toLowerCase().includes(q);
-    return matchSearch && (filterCategory === "all" || item.category === filterCategory);
+
+    const matchStage  = filterStage  === "all" || (item.stage || "proposal") === filterStage;
+    const matchStatus = filterStatus === "all" || item.status === filterStatus;
+    return matchSearch && matchStage && matchStatus;
   });
 
-
-  const openModal = (item = null) => {
-    setEditingItem(item);
-    setFormData(item
-      ? { title:item.title, author:item.author, abstract:item.abstract, category:item.category, pdf:null, thumbnail:null }
-      : EMPTY_PAPER
-    );
-    setPreviewImage(item?.thumbnailUrl || null);
-    setModalOpen(true);
-  };
-  const closeModal = () => {
-    setEditingItem(null); setFormData(EMPTY_PAPER);
-    setPreviewImage(null); setModalOpen(false);
+  const stageCounts = {
+    proposal:    researchList.filter(r => (r.stage || "proposal") === "proposal").length,
+    abstract:    researchList.filter(r => r.stage === "abstract").length,
+    final_paper: researchList.filter(r => r.stage === "final_paper").length,
   };
 
-  const handleChange = (e) => setFormData(p => ({ ...p, [e.target.name]: e.target.value }));
-  const handleFileChange = (e) => {
-    const { name } = e.target;
-    const file = e.target.files[0];
-    setFormData(p => ({ ...p, [name]: file }));
-    if (name === "thumbnail" && file) setPreviewImage(URL.createObjectURL(file));
+  // ── Add Researcher handlers ──
+  const openAddResearcher = () => {
+    setResearcherForm(EMPTY_RESEARCHER);
+    setResearcherSubmitted(false);
+    setAddResearcherOpen(true);
   };
+  const closeAddResearcher = () => {
+    setAddResearcherOpen(false);
+    setResearcherForm(EMPTY_RESEARCHER);
+    setResearcherSubmitted(false);
+  };
+  const handleResearcherChange = (e) =>
+    setResearcherForm(p => ({ ...p, [e.target.name]: e.target.value }));
 
-  const handleSubmit = async (e) => {
+  const handleAddResearcher = async (e) => {
     e.preventDefault();
+    setResearcherLoading(true);
     try {
-      const data = new FormData();
-      Object.entries(formData).forEach(([k, v]) => { if (v) data.append(k, v); });
-      if (editingItem) {
-        await api.put(`/research/${editingItem._id}`, data, { headers: { "Content-Type": "multipart/form-data" } });
-      } else {
-        await api.post("/research", data, { headers: { "Content-Type": "multipart/form-data" } });
-      }
-      toast.success("Research paper saved successfully!");
-      fetchResearch(); closeModal();
-    } catch {
-      toast.error("Error saving research paper");
+      await api.post("/researchers", researcherForm);
+      setResearcherSubmitted(true);
+      toast.success("Researcher added! Login credentials sent via email.");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to add researcher");
+    } finally {
+      setResearcherLoading(false);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Delete this research paper?")) return;
+  // ── Download handler ──
+  const handleDownload = async (item) => {
     try {
-      await api.delete(`/research/${id}`);
-      toast.success("Research paper deleted!");
+      setDownloadingId(item._id);
+      const fileUrl = item.fileUrl || item.proposalFile;
+      if (!fileUrl) { toast.error("No PDF available for download"); return; }
+
+      const link = document.createElement("a");
+      link.href = fileUrl;
+      link.download = `${item.title || 'research'}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      try { await api.post(`/research/${item._id}/download`); } catch (err) { console.warn("Could not record download:", err); }
+      toast.success("Download started");
+    } catch (err) {
+      toast.error("Download failed");
+      console.error(err);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  // ── Publish handler ──
+  const handlePublish = async (item) => {
+    if (!window.confirm(`Publish "${item.title}"? This will make it publicly visible.`)) return;
+    try {
+      setPublishingId(item._id);
+      await api.patch(`/research/${item._id}/publish`);
+      toast.success("Research published successfully!");
       fetchResearch();
-    } catch {
-      toast.error("Error deleting research paper");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to publish");
+    } finally {
+      setPublishingId(null);
     }
   };
 
+  // ── Assign Reviewer handler ──
+  const handleAssignReviewer = async (e) => {
+    e.preventDefault();
+    setAssignLoading(true);
+    try {
+      await api.post(`/research/${assignTarget._id}/assign-reviewer`, { email: assignReviewerEmail });
+      toast.success("Reviewer assigned successfully!");
+      setAssignReviewerOpen(false);
+      setAssignReviewerEmail("");
+      setAssignTarget(null);
+      fetchResearch();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to assign reviewer");
+    } finally {
+      setAssignLoading(false);
+    }
+  };
 
   return (
     <>
-  
+      {/* ── Summary stat cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {[
-          { label:"Total Papers",     value: research.length,                                         color:"blue",   icon: FaBookOpen },
-          { label:"With PDFs",        value: research.filter(r => r.fileUrl).length,                  color:"green",  icon: FaFilePdf  },
-          { label:"Categories",       value: new Set(research.map(r=>r.category).filter(Boolean)).size,color:"purple", icon: FaFileAlt  },
-          { label:"With Thumbnails",  value: research.filter(r => r.thumbnailUrl).length,             color:"orange", icon: FaImage    },
+          { label:"Total Papers",  value: researchList.length,                              color:"blue",   icon: FaBookOpen    },
+          { label:"Proposals",     value: stageCounts.proposal,                             color:"amber",  icon: FaRegFileAlt  },
+          { label:"Final Papers",  value: stageCounts.final_paper,                          color:"emerald",icon: FaMicroscope  },
+          { label:"Published",     value: researchList.filter(r => r.isPublished).length,   color:"purple", icon: FaGlobe       },
         ].map(({ label, value, color, icon: Icon }) => (
           <div key={label} className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
             <div className="flex items-center justify-between">
@@ -196,7 +332,30 @@ const PapersPanel = () => {
         ))}
       </div>
 
+      {/* ── Stage filter pills ── */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {[
+          { key: "all",         label: "All Stages",  count: researchList.length,       color: "bg-gray-100 text-gray-600 border-gray-200"             },
+          { key: "proposal",    label: "Proposal",    count: stageCounts.proposal,       color: "bg-amber-50 text-amber-700 border-amber-200"            },
+          { key: "abstract",    label: "Abstract",    count: stageCounts.abstract,       color: "bg-sky-50 text-sky-700 border-sky-200"                  },
+          { key: "final_paper", label: "Final Paper", count: stageCounts.final_paper,    color: "bg-emerald-50 text-emerald-700 border-emerald-200"      },
+        ].map(({ key, label, count, color }) => (
+          <button
+            key={key}
+            onClick={() => setFilterStage(key)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border cursor-pointer transition-all
+              ${filterStage === key
+                ? "ring-2 ring-offset-1 ring-blue-400 shadow-sm " + color
+                : color + " opacity-70 hover:opacity-100"
+              }`}
+          >
+            {label}
+            <span className="bg-white/60 px-1.5 py-0.5 rounded-full text-[10px] font-bold">{count}</span>
+          </button>
+        ))}
+      </div>
 
+      {/* ── Search & filters bar ── */}
       <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm mb-4">
         <div className="flex flex-col md:flex-row gap-3">
           <div className="flex-1 relative">
@@ -206,31 +365,54 @@ const PapersPanel = () => {
               placeholder="Search by title, author, or abstract…"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring  focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring focus:ring-blue-500 focus:border-transparent"
             />
           </div>
           <div className="flex items-center gap-2">
-            <FaFilter className="text-gray-400 text-sm" />
             <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring  focus:ring-blue-500"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-3 py-2 border border-gray-200 rounded-lg text-sm cursor-pointer outline-none focus:ring focus:ring-blue-500"
             >
-              <option value="all">All Categories</option>
-              {RESEARCH_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              <option value="all">All Statuses</option>
+              <option value="pending">Under Review</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
             </select>
           </div>
           <button
-            onClick={() => openModal()}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold
-            cursor-pointer outline-none hover:bg-blue-700 transition-colors shadow-sm shrink-0"
+            onClick={openAddResearcher}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold cursor-pointer outline-none hover:bg-blue-700 transition-colors shadow-sm shrink-0"
           >
-            <FaPlus /> Add Paper
+            <FaUserPlus /> Add Researcher
           </button>
         </div>
+
+        {/* Active filter chips */}
+        {(filterStage !== "all" || filterStatus !== "all" || searchTerm) && (
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100 flex-wrap">
+            <span className="text-xs text-gray-400">Showing {filtered.length} of {researchList.length} papers</span>
+            {[
+              filterStage  !== "all" && { label: STAGE_META[filterStage]?.label  || filterStage,  clear: () => setFilterStage("all")  },
+              filterStatus !== "all" && { label: STATUS_META[filterStatus]?.label || filterStatus, clear: () => setFilterStatus("all") },
+              searchTerm             && { label: `"${searchTerm}"`,                                clear: () => setSearchTerm("")      },
+            ].filter(Boolean).map((chip, i) => (
+              <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full border border-blue-100">
+                {chip.label}
+                <button onClick={chip.clear} className="hover:text-red-500 cursor-pointer ml-0.5"><FaTimes className="text-[9px]" /></button>
+              </span>
+            ))}
+            <button
+              onClick={() => { setFilterStage("all"); setFilterStatus("all"); setSearchTerm(""); }}
+              className="text-xs text-gray-400 hover:text-red-500 cursor-pointer underline"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
       </div>
 
-
+      {/* ── Table ── */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-12 text-center">
@@ -240,233 +422,478 @@ const PapersPanel = () => {
         ) : filtered.length === 0 ? (
           <div className="p-12 text-center">
             <FaBookOpen className="text-4xl text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-400 text-sm">No research papers found</p>
+            <p className="text-gray-400 text-sm">No research papers match your filters</p>
+            <button
+              onClick={() => { setFilterCategory("all"); setFilterStage("all"); setFilterStatus("all"); setSearchTerm(""); }}
+              className="mt-3 text-blue-600 text-xs hover:underline cursor-pointer"
+            >
+              Clear filters
+            </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
-            {filtered.map((item) => (
-              <div key={item._id} className="border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="relative h-44 bg-gradient-to-br from-blue-50 to-indigo-50">
-                  {item.thumbnailUrl ? (
-                    <img src={item.thumbnailUrl} alt={item.title} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <FaBookOpen className="text-5xl text-blue-200" />
-                    </div>
-                  )}
-                  {item.fileUrl && (
-                    <span className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-semibold flex items-center gap-1">
-                      <FaFilePdf /> PDF
-                    </span>
-                  )}
-                </div>
-                <div className="p-4">
-                  <span className="text-xs font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
-                    {item.category || "Uncategorized"}
-                  </span>
-                  <h3 className="text-sm font-bold text-gray-900 mt-2 mb-1 line-clamp-2">{item.title}</h3>
-                  <div className="flex items-center text-xs text-gray-500 mb-2">
-                    <FaUser className="mr-1 text-gray-400" />
-                    <span className="truncate">{item.author}</span>
-                  </div>
-                  <p className="text-xs text-gray-500 line-clamp-2 mb-3">
-                    {item.abstract || "No abstract available"}
-                  </p>
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                    <button
-                      onClick={() => { setSelectedResearch(item); setViewModal(true); }}
-                      className="flex items-center text-blue-600 cursor-pointer hover:text-blue-700 text-xs font-semibold gap-1"
-                    >
-                      <FaEye /> View
-                    </button>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => openModal(item)}
-                        className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg cursor-pointer"
-                        title="Edit"
-                      >
-                        <FaEdit className="text-xs" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(item._id)}
-                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"
-                        title="Delete"
-                      >
-                        <FaTrash className="text-xs" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-left">Title</th>
+                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-left">Author</th>
+                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">Stage</th>
+                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">Status</th>
+                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">Downloads</th>
+                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filtered.map((item) => {
+                  const stage      = item.stage || "proposal";
+                  const stageMeta  = STAGE_META[stage] || STAGE_META.proposal;
+                  const statusMeta = STATUS_META[item.status] || STATUS_META.pending;
+                  const StatusIcon = statusMeta.icon;
+                  const hasFile    = item.fileUrl || item.proposalFile;
+                  const canPublish = stage === "final_paper" && item.status === "approved" && !item.isPublished;
+
+                  return (
+                    <tr key={item._id} className="hover:bg-gray-50 transition-colors">
+                      {/* Title */}
+                      <td className="px-5 py-4">
+                        <div className="flex items-start gap-3 min-w-0">
+                          {item.thumbnailUrl && (
+                            <img
+                              src={item.thumbnailUrl}
+                              alt={item.title}
+                              className="w-10 h-10 rounded-lg object-cover shrink-0"
+                            />
+                          )}
+                          <div className="min-w-0">
+                            <p
+                              className="font-semibold text-gray-900 truncate hover:text-blue-600 cursor-pointer transition-colors"
+                              onClick={() => { setSelectedResearch(item); setViewModal(true); }}
+                            >
+                              {item.title}
+                            </p>
+                            {item.isPublished && (
+                              <span className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded bg-green-50 text-green-700 mt-0.5">
+                                Published
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Author */}
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <FaUser className="text-gray-400 text-xs shrink-0" />
+                          <span className="truncate text-xs">{item.researcher?.name || item.author || "Unknown"}</span>
+                        </div>
+                      </td>
+
+                      {/* Stage */}
+                      <td className="px-5 py-4 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className={`w-2 h-2 rounded-full ${stageMeta.dotColor}`} />
+                          <span className="inline-block text-[10px] font-bold px-2 py-1 rounded-full bg-gray-100 text-gray-700 uppercase tracking-wider">
+                            {stageMeta.label}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-5 py-4 text-center">
+                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg ${statusMeta.color}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${statusMeta.dot} shrink-0`} />
+                          <StatusIcon className={`text-[10px] ${statusMeta.textColor}`} />
+                          <span className={`text-[11px] font-semibold ${statusMeta.textColor}`}>
+                            {statusMeta.label}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Downloads */}
+                      <td className="px-5 py-4 text-center">
+                        <span className="text-gray-600 font-semibold text-xs">{item.downloads ?? 0}</span>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-5 py-4">
+                        <div className="flex items-center justify-end gap-1">
+                          {/* Download */}
+                          {hasFile && (
+                            <button
+                              onClick={() => handleDownload(item)}
+                              disabled={downloadingId === item._id}
+                              className="p-2 rounded-lg text-green-600 hover:bg-green-50 cursor-pointer transition-colors disabled:opacity-50"
+                              title="Download PDF"
+                            >
+                              {downloadingId === item._id ? (
+                                <div className="w-4 h-4 border-2 border-green-400 border-t-green-600 rounded-full animate-spin" />
+                              ) : (
+                                <FaDownload className="text-sm" />
+                              )}
+                            </button>
+                          )}
+
+                          {/* View */}
+                          <button
+                            onClick={() => { setSelectedResearch(item); setViewModal(true); }}
+                            className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 cursor-pointer transition-colors"
+                            title="View details"
+                          >
+                            <FaEye className="text-sm" />
+                          </button>
+
+                          {/* Assign Reviewer */}
+                          <button
+                            onClick={() => { setAssignTarget(item); setAssignReviewerEmail(""); setAssignReviewerOpen(true); }}
+                            className="p-2 rounded-lg text-purple-600 hover:bg-purple-50 cursor-pointer transition-colors"
+                            title="Assign reviewer"
+                          >
+                            <FaUserTie className="text-sm" />
+                          </button>
+
+                          {/* Publish — only final_paper + approved + not yet published */}
+                          {canPublish && (
+                            <button
+                              onClick={() => handlePublish(item)}
+                              disabled={publishingId === item._id}
+                              className="p-2 rounded-lg text-emerald-600 hover:bg-emerald-50 cursor-pointer transition-colors disabled:opacity-50"
+                              title="Publish paper"
+                            >
+                              {publishingId === item._id ? (
+                                <div className="w-4 h-4 border-2 border-emerald-400 border-t-emerald-600 rounded-full animate-spin" />
+                              ) : (
+                                <FaGlobe className="text-sm" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
 
-
-      {viewModal && selectedResearch && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-            <div className="flex items-start justify-between p-6 border-b border-gray-100">
-              <div className="flex-1 mr-4">
-                <h3 className="text-xl font-bold text-gray-900 mb-1">{selectedResearch.title}</h3>
-                <div className="flex items-center gap-3 text-sm text-gray-500">
-                  <span className="flex items-center gap-1"><FaUser className="text-gray-400" />{selectedResearch.author}</span>
-                  <span className="text-purple-600 font-semibold">{selectedResearch.category}</span>
-                </div>
-              </div>
-              <button onClick={() => setViewModal(false)} className="p-2  cursor-pointer rounded-lg shrink-0
-              " title="Close">
-                <FaTimes className="text-gray-400 hover:text-red-500" />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              {selectedResearch.thumbnailUrl && (
-                <img src={selectedResearch.thumbnailUrl} alt={selectedResearch.title} className="w-full h-56 object-cover rounded-lg" />
-              )}
-              <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Abstract</p>
-                <p className="text-sm text-gray-700 leading-relaxed">{selectedResearch.abstract || "No abstract available"}</p>
-              </div>
-              {selectedResearch.fileUrl && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <FaFilePdf className="text-2xl text-green-600" />
-                    <div>
-                      <p className="font-semibold text-gray-900 text-sm">PDF Document</p>
-                      <p className="text-xs text-gray-500">Full research paper available</p>
+      {/* ── View Modal ── */}
+      {viewModal && selectedResearch && (() => {
+        const stage      = selectedResearch.stage || "proposal";
+        const stageMeta  = STAGE_META[stage] || STAGE_META.proposal;
+        const statusMeta = STATUS_META[selectedResearch.status] || STATUS_META.pending;
+        const StatusIcon = statusMeta.icon;
+        return (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className={`${stageMeta.color} px-6 py-4 rounded-t-2xl`}>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        {stageMeta.label}
+                      </span>
+                      <span className="bg-white/20 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
+                        {statusMeta.label}
+                      </span>
+                      {selectedResearch.isPublished && (
+                        <span className="bg-white/20 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
+                          Published
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-xl font-bold text-white leading-tight">{selectedResearch.title}</h3>
+                    <div className="flex items-center gap-3 mt-1 text-white/80 text-sm flex-wrap">
+                      <span className="flex items-center gap-1">
+                        <FaUser className="text-xs" />
+                        {selectedResearch.researcher?.name || selectedResearch.author || "Unknown"}
+                      </span>
                     </div>
                   </div>
-                  
-                    <a href={selectedResearch.fileUrl}
-                    target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white
-                    cursor-pointer rounded-lg text-sm font-medium hover:bg-green-700"
+                  <button
+                    onClick={() => setViewModal(false)}
+                    className="p-2 cursor-pointer rounded-lg bg-white/20 hover:bg-white/30 transition-colors ml-4 shrink-0"
                   >
-                    <FaDownload /> Download
-                  </a>
+                    <FaTimes className="text-white" />
+                  </button>
                 </div>
-              )}
-              <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
-                <button
-                  onClick={() => { setViewModal(false); openModal(selectedResearch); }}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg
-                  cursor-pointer text-sm font-semibold hover:bg-blue-700"
-                >
-                  <FaEdit /> Edit
-                </button>
-                <button
-                  onClick={() => setViewModal(false)}
-                  className="px-4 py-2 border border-gray-200 hover:text-white rounded-lg text-sm
-                   hover:bg-red-500 cursor-pointer"
-                >
-                  Close
-                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {selectedResearch.thumbnailUrl && (
+                  <img src={selectedResearch.thumbnailUrl} alt={selectedResearch.title} className="w-full h-56 object-cover rounded-lg" />
+                )}
+
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Abstract</p>
+                  <p className="text-sm text-gray-700 leading-relaxed">{selectedResearch.abstract || "No abstract available"}</p>
+                </div>
+
+                {selectedResearch.background && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Background</p>
+                    <p className="text-sm text-gray-700 leading-relaxed">{selectedResearch.background}</p>
+                  </div>
+                )}
+
+                {selectedResearch.methodology && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Methodology</p>
+                    <p className="text-sm text-gray-700 leading-relaxed">{selectedResearch.methodology}</p>
+                  </div>
+                )}
+
+                {(selectedResearch.fileUrl || selectedResearch.proposalFile) && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <FaFilePdf className="text-2xl text-green-600" />
+                      <div>
+                        <p className="font-semibold text-gray-900 text-sm">PDF Document</p>
+                        <p className="text-xs text-gray-500">
+                          {selectedResearch.isPublished
+                            ? `Price: KES ${selectedResearch.downloadPrice}`
+                            : "Full document available"}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDownload(selectedResearch)}
+                      disabled={downloadingId === selectedResearch._id}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white cursor-pointer rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
+                    >
+                      {downloadingId === selectedResearch._id ? (
+                        <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Downloading…</>
+                      ) : (
+                        <><FaDownload /> Download</>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {selectedResearch.researcher && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Researcher</p>
+                    <p className="text-sm font-semibold text-gray-900">{selectedResearch.researcher.name}</p>
+                    <p className="text-xs text-gray-600">{selectedResearch.researcher.institution}</p>
+                    {selectedResearch.researcher.email && (
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                        <FaEnvelope /> {selectedResearch.researcher.email}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {selectedResearch.reviewComment && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Reviewer Comment</p>
+                    <p className="text-sm text-gray-700">{selectedResearch.reviewComment}</p>
+                  </div>
+                )}
+
+                <div className="flex justify-end pt-2 border-t border-gray-100">
+                  <button
+                    onClick={() => setViewModal(false)}
+                    className="px-4 py-2 border border-gray-200 hover:text-white rounded-lg text-sm hover:bg-red-500 cursor-pointer transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Add Researcher Modal ── */}
+      {addResearcherOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden" style={{ animation: "modalPop .25s cubic-bezier(.34,1.56,.64,1) both" }}>
+            <div className="relative bg-gradient-to-br from-blue-600 to-blue-700 px-6 pt-6 pb-8">
+              <button onClick={closeAddResearcher} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors cursor-pointer">
+                <FaTimes className="text-white text-xs" />
+              </button>
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <FaUserPlus className="text-white text-base" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white leading-tight">Add Researcher</h3>
+                  <p className="text-blue-200 text-xs">Account created by admin</p>
+                </div>
+              </div>
+            </div>
+            <div className="h-3 bg-gradient-to-br from-blue-600 to-blue-700 relative">
+              <div className="absolute inset-x-0 bottom-0 h-3 bg-white rounded-t-2xl" />
+            </div>
+
+            {!researcherSubmitted ? (
+              <form onSubmit={handleAddResearcher} className="px-6 pb-6 pt-2 space-y-4">
+                <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                  <FaKey className="text-amber-500 text-sm mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-amber-700 leading-relaxed">
+                    A secure password will be <span className="font-semibold">auto-generated</span> and sent to the researcher's email along with their login credentials.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {[["firstName","First Name","Jane"],["lastName","Last Name","Wanjiru"]].map(([name,label,ph]) => (
+                    <div key={name}>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1.5">{label} <span className="text-red-500">*</span></label>
+                      <input type="text" name={name} required value={researcherForm[name]} onChange={handleResearcherChange} placeholder={ph}
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow" />
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Email Address <span className="text-red-500">*</span></label>
+                  <div className="relative">
+                    <FaEnvelope className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
+                    <input type="email" name="email" required value={researcherForm.email} onChange={handleResearcherChange} placeholder="jane.wanjiru@university.ac.ke"
+                      className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow" />
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-1">Login credentials will be delivered to this address.</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Phone Number <span className="text-red-500">*</span></label>
+                  <div className="relative">
+                    <FaPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
+                    <input type="tel" name="phone" required value={researcherForm.phone} onChange={handleResearcherChange} placeholder="+254 700 000 000"
+                      className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow" />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 pt-1">
+                  <button type="button" onClick={closeAddResearcher} className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-red-500 hover:text-white hover:border-red-500 transition-colors cursor-pointer">Cancel</button>
+                  <button type="submit" disabled={researcherLoading} className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-60 cursor-pointer transition-colors">
+                    {researcherLoading ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Creating…</> : <><FaUserPlus /> Create Account</>}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="px-6 pb-8 pt-4 flex flex-col items-center text-center gap-3">
+                <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-2">
+                  <FaCheckCircle className="text-green-500 text-3xl" />
+                </div>
+                <h4 className="text-lg font-bold text-gray-900">Account Created!</h4>
+                <p className="text-sm text-gray-500 leading-relaxed max-w-xs">
+                  <span className="font-semibold text-gray-700">{researcherForm.firstName} {researcherForm.lastName}</span>{" "}
+                  has been added as a researcher. Login instructions have been sent to{" "}
+                  <span className="font-semibold text-blue-600">{researcherForm.email}</span>.
+                </p>
+                <div className="flex gap-2 mt-3">
+                  <button onClick={() => { setResearcherForm(EMPTY_RESEARCHER); setResearcherSubmitted(false); }} className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50 cursor-pointer transition-colors">Add Another</button>
+                  <button onClick={closeAddResearcher} className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 cursor-pointer transition-colors">Done</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-   
-      {modalOpen && (
+      {/* ── Assign Reviewer Modal ── */}
+      {assignReviewerOpen && assignTarget && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-gray-900">{editingItem ? "Edit Research Paper" : "Add Research Paper"}</h3>
-              <button onClick={closeModal} className="p-2  cursor-pointer rounded-lg">
-                <FaTimes className="text-gray-400 hover:text-red-500" />
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" style={{ animation: "modalPop .25s cubic-bezier(.34,1.56,.64,1) both" }}>
+            {/* Header */}
+            <div className="relative bg-gradient-to-br from-purple-600 to-purple-700 px-6 pt-6 pb-8">
+              <button
+                onClick={() => { setAssignReviewerOpen(false); setAssignTarget(null); setAssignReviewerEmail(""); }}
+                className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors cursor-pointer"
+              >
+                <FaTimes className="text-white text-xs" />
               </button>
-            </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Title <span className="text-red-500">*</span></label>
-                <input
-                  type="text" name="title" required
-                  value={formData.title} onChange={handleChange}
-                  placeholder="Research title"
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring focus:ring-blue-500 focus:border-transparent"
-                />
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <FaUserTie className="text-white text-base" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-lg font-bold text-white leading-tight">Assign Reviewer</h3>
+                  <p className="text-purple-200 text-xs truncate">{assignTarget.title}</p>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Author <span className="text-red-500">*</span></label>
+            </div>
+            <div className="h-3 bg-gradient-to-br from-purple-600 to-purple-700 relative">
+              <div className="absolute inset-x-0 bottom-0 h-3 bg-white rounded-t-2xl" />
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleAssignReviewer} className="px-6 pb-6 pt-2 space-y-4">
+              <div className="flex items-start gap-3 bg-purple-50 border border-purple-200 rounded-xl px-4 py-3">
+                <FaShieldAlt className="text-purple-500 text-sm mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-purple-700 leading-relaxed">
+                  Enter the email of an existing <span className="font-semibold">reviewer or admin</span>. They will receive a notification to review this paper.
+                </p>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  Reviewer Email <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <FaEnvelope className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
                   <input
-                    type="text" name="author" required
-                    value={formData.author} onChange={handleChange}
-                    placeholder="Author name"
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring focus:ring-blue-500 focus:border-transparent"
+                    type="email"
+                    required
+                    value={assignReviewerEmail}
+                    onChange={(e) => setAssignReviewerEmail(e.target.value)}
+                    placeholder="reviewer@institution.ac.ke"
+                    className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-shadow"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Category</label>
-                  <select
-                    name="category"
-                    value={formData.category} onChange={handleChange}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select category</option>
-                    {RESEARCH_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                <p className="text-[11px] text-gray-400 mt-1">Must be a registered reviewer or research admin.</p>
+              </div>
+
+              {/* Paper summary */}
+              <div className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 space-y-1">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Paper being assigned</p>
+                <p className="text-sm font-semibold text-gray-900 truncate">{assignTarget.title}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-200 text-gray-700 uppercase tracking-wider`}>
+                    {STAGE_META[assignTarget.stage || "proposal"]?.label}
+                  </span>
+                  <span className="text-[10px] text-gray-500">
+                    {assignTarget.researcher?.name || assignTarget.author || "Unknown author"}
+                  </span>
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Abstract</label>
-                <textarea
-                  name="abstract" rows={4}
-                  value={formData.abstract} onChange={handleChange}
-                  placeholder="Abstract / summary…"
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring focus:ring-blue-500 focus:border-transparent resize-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Upload PDF</label>
-                <input
-                  type="file" name="pdf" accept="application/pdf"
-                  onChange={handleFileChange}
-                  className="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg
-                   file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 
-                   hover:file:bg-blue-100 outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Upload Thumbnail (optional)</label>
-                <input
-                  type="file" name="thumbnail" accept="image/*"
-                  onChange={handleFileChange}
-                  className="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg 
-                  file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700
-                   hover:file:bg-blue-100 outline-none"
-                />
-                {previewImage && (
-                  <img src={previewImage} alt="Preview" className="mt-2 w-full h-36 object-cover rounded-lg" />
-                )}
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={closeModal} className="px-4 py-2 border border-gray-200
-                 text-gray-600 rounded-lg text-sm hover:bg-red-500 hover:text-white transition-colors cursor-pointer">
+
+              <div className="flex justify-end gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => { setAssignReviewerOpen(false); setAssignTarget(null); setAssignReviewerEmail(""); }}
+                  className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-red-500 hover:text-white hover:border-red-500 transition-colors cursor-pointer"
+                >
                   Cancel
                 </button>
-                <button type="submit" className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm 
-                font-semibold hover:bg-blue-700 cursor-pointer transition-colors">
-                  {editingItem ? "Update Paper" : "Save Paper"}
+                <button
+                  type="submit"
+                  disabled={assignLoading}
+                  className="flex items-center gap-2 px-5 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700 disabled:opacity-60 cursor-pointer transition-colors"
+                >
+                  {assignLoading
+                    ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Assigning…</>
+                    : <><FaUserTie /> Assign Reviewer</>
+                  }
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes modalPop {
+          from { opacity: 0; transform: scale(0.93) translateY(12px); }
+          to   { opacity: 1; transform: scale(1)    translateY(0);    }
+        }
+      `}</style>
     </>
   );
 };
 
-
-//  PANEL 2 — Reviewer Management 
+// ─── REVIEWERS PANEL ──────────────────────────────────────────────────────────
 const ReviewersPanel = () => {
   const [reviewers,     setReviewers]     = useState([]);
   const [allMembers,    setAllMembers]    = useState([]);
   const [loading,       setLoading]       = useState(false);
-  const [memberTab,     setMemberTab]     = useState("reviewers"); // "reviewers" | "all"
+  const [memberTab,     setMemberTab]     = useState("reviewers");
   const [searchTerm,    setSearchTerm]    = useState("");
   const [filterRole,    setFilterRole]    = useState("all");
   const [inviteOpen,    setInviteOpen]    = useState(false);
@@ -475,21 +902,17 @@ const ReviewersPanel = () => {
   const [drawer,        setDrawer]        = useState(null);
 
   const loadReviewers = async () => {
-    try {
-      setLoading(true);
-      const data = await listReviewers();
-      setReviewers(data.reviewers ?? []);
-    } catch { toast.error("Failed to load reviewers"); }
+    try { setLoading(true); const data = await research.listReviewers(); setReviewers(data.reviewers ?? []); }
+    catch (err) { toast.error("Failed to load reviewers"); }
     finally { setLoading(false); }
   };
+
   const loadAll = async () => {
-    try {
-      setLoading(true);
-      const data = await listAllResearchers({ limit: 100 });
-      setAllMembers(data.researchers ?? []);
-    } catch { toast.error("Failed to load members"); }
+    try { setLoading(true); const data = await research.listAllResearchers({ limit: 100 }); setAllMembers(data.researchers ?? []); }
+    catch (err) { toast.error("Failed to load members"); }
     finally { setLoading(false); }
   };
+
   useEffect(() => { loadReviewers(); loadAll(); }, []);
 
   const source   = memberTab === "reviewers" ? reviewers : allMembers;
@@ -510,48 +933,46 @@ const ReviewersPanel = () => {
   const handleInvite = async (e) => {
     e.preventDefault(); setInviteLoading(true);
     try {
-      const result = await inviteReviewer(inviteForm);
+      const result = await research.inviteReviewer(inviteForm);
       toast.success(result.message);
       setInviteOpen(false); setInviteForm(EMPTY_INVITE);
       loadReviewers(); loadAll();
     } catch (err) { toast.error(err.response?.data?.message || "Failed to invite reviewer"); }
     finally { setInviteLoading(false); }
   };
+
   const handleRevoke = async (member) => {
     if (!window.confirm(`Revoke reviewer access for ${member.name}?`)) return;
     try {
-      const result = await revokeReviewer(member._id);
+      const result = await research.revokeReviewer(member._id);
       toast.success(result.message);
       if (drawer?._id === member._id) setDrawer(null);
       loadReviewers(); loadAll();
     } catch (err) { toast.error(err.response?.data?.message || "Failed to revoke reviewer"); }
   };
+
   const handlePromote = async (member) => {
     if (!window.confirm(`Promote ${member.name} to Research Admin?`)) return;
     try {
-      const result = await promoteToAdmin(member._id);
+      const result = await research.promoteToAdmin(member._id);
       toast.success(result.message);
       if (drawer?._id === member._id) setDrawer({ ...drawer, role: "admin" });
       loadReviewers(); loadAll();
     } catch (err) { toast.error(err.response?.data?.message || "Promotion failed"); }
   };
+
   const handleResend = async (member) => {
-    try {
-      const result = await resendInvite(member._id);
-      toast.success(result.message);
-    } catch (err) { toast.error(err.response?.data?.message || "Failed to resend invite"); }
+    try { const result = await research.resendInvite(member._id); toast.success(result.message); }
+    catch (err) { toast.error(err.response?.data?.message || "Failed to resend invite"); }
   };
+
   const handleAssignFromTable = async (member) => {
-    try {
-      const result = await inviteReviewer({ email: member.email });
-      toast.success(result.message);
-      loadReviewers(); loadAll();
-    } catch (err) { toast.error(err.response?.data?.message || "Failed"); }
+    try { const result = await research.inviteReviewer({ email: member.email }); toast.success(result.message); loadReviewers(); loadAll(); }
+    catch (err) { toast.error(err.response?.data?.message || "Failed"); }
   };
 
   return (
     <>
-
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {[
           { label:"Active Reviewers", value: totalReviewers,   color:"blue",   icon: FaUserTie },
@@ -573,54 +994,32 @@ const ReviewersPanel = () => {
         ))}
       </div>
 
-      {/* Sub-tabs + invite button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-        <div className="flex gap-1 bg-white  p-1 w-fit">
-          {[
-            { key:"reviewers", label:"Reviewers & Admins" },
-            { key:"all",       label:"All Members" },
-          ].map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => { setMemberTab(key); setSearchTerm(""); setFilterRole("all"); }}
-              className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-                memberTab === key ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-50"
-              }`}
-            >
+        <div className="flex gap-1 bg-white p-1 w-fit border border-gray-100 rounded-lg">
+          {[{ key:"reviewers", label:"Reviewers & Admins" },{ key:"all", label:"All Members" }].map(({ key, label }) => (
+            <button key={key} onClick={() => { setMemberTab(key); setSearchTerm(""); setFilterRole("all"); }}
+              className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${memberTab === key ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-50"}`}>
               {label}
             </button>
           ))}
         </div>
-        <button
-          onClick={() => setInviteOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm
-           font-semibold hover:bg-blue-700 shadow-sm cursor-pointer transition-colors"
-        >
+        <button onClick={() => setInviteOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 shadow-sm cursor-pointer transition-colors">
           <FaPlus /> Invite Reviewer
         </button>
       </div>
 
-     
       <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm mb-4">
         <div className="flex flex-col md:flex-row gap-3">
           <div className="flex-1 relative">
             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
-            <input
-              type="text"
-              placeholder="Search by name, email, institution…"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-gray-200 outline-none rounded-lg text-sm focus:ring
-               focus:ring-blue-500 focus:border-transparent"
-            />
+            <input type="text" placeholder="Search by name, email, institution…" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 border border-gray-200 outline-none rounded-lg text-sm focus:ring focus:ring-blue-500 focus:border-transparent" />
           </div>
           <div className="flex items-center gap-2">
             <FaFilter className="text-gray-400 text-sm" />
-            <select
-              value={filterRole}
-              onChange={(e) => setFilterRole(e.target.value)}
-              className="px-3 py-2 border border-gray-200 rounded-lg text-sm cursor-pointer outline-none focus:ring focus:ring-blue-500"
-            >
+            <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)}
+              className="px-3 py-2 border border-gray-200 rounded-lg text-sm cursor-pointer outline-none focus:ring focus:ring-blue-500">
               <option value="all">All Roles</option>
               <option value="admin">Research Admin</option>
               <option value="reviewer">Reviewer</option>
@@ -630,7 +1029,6 @@ const ReviewersPanel = () => {
         </div>
       </div>
 
-    
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-12 text-center">
@@ -648,7 +1046,9 @@ const ReviewersPanel = () => {
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
                   {["Member","Institution","Discipline","Role","Status",""].map(h => (
-                    <th key={h} className={`px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider ${h ? "text-left" : "text-right"}`}>{h || "Actions"}</th>
+                    <th key={h} className={`px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider ${h ? "text-left" : "text-right"}`}>
+                      {h || "Actions"}
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -672,21 +1072,23 @@ const ReviewersPanel = () => {
                     <td className="px-5 py-4">
                       {member.emailVerified
                         ? <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600"><FaCheckCircle /> Active</span>
-                        : <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-500"><FaClock /> Pending setup</span>
-                      }
+                        : <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-500"><FaClock /> Pending setup</span>}
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => setDrawer(member)} className="p-1.5 rounded-lg text-gray-400
-                         hover:bg-gray-100 hover:text-gray-700 cursor-pointer" title="View details"><FaEye /></button>
-                        {!member.emailVerified && <button onClick={() => handleResend(member)} 
-                        className="p-1.5 rounded-lg text-orange-400 hover:bg-orange-50 cursor-pointer" title="Resend invite"><FaRedo /></button>}
-                        {member.role === "reviewer" && <button onClick={() => handlePromote(member)} 
-                        className="p-1.5 rounded-lg text-purple-400 hover:bg-purple-50 cursor-pointer" title="Promote to admin"><FaCrown /></button>}
-                        {member.role === "researcher" && <button onClick={() => handleAssignFromTable(member)} 
-                        className="p-1.5 rounded-lg text-blue-400 hover:bg-blue-50 cursor-pointer" title="Assign as reviewer"><FaUserCheck /></button>}
-                        {member.role === "reviewer" && <button onClick={() => handleRevoke(member)}
-                         className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 cursor-pointer" title="Revoke reviewer access"><FaUserSlash /></button>}
+                        <button onClick={() => setDrawer(member)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 cursor-pointer" title="View details"><FaEye /></button>
+                        {!member.emailVerified && (
+                          <button onClick={() => handleResend(member)} className="p-1.5 rounded-lg text-orange-400 hover:bg-orange-50 cursor-pointer" title="Resend invite"><FaRedo /></button>
+                        )}
+                        {member.role === "reviewer" && (
+                          <button onClick={() => handlePromote(member)} className="p-1.5 rounded-lg text-purple-400 hover:bg-purple-50 cursor-pointer" title="Promote to admin"><FaCrown /></button>
+                        )}
+                        {member.role === "researcher" && (
+                          <button onClick={() => handleAssignFromTable(member)} className="p-1.5 rounded-lg text-blue-400 hover:bg-blue-50 cursor-pointer" title="Assign as reviewer"><FaUserCheck /></button>
+                        )}
+                        {member.role === "reviewer" && (
+                          <button onClick={() => handleRevoke(member)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 cursor-pointer" title="Revoke reviewer access"><FaUserSlash /></button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -697,7 +1099,7 @@ const ReviewersPanel = () => {
         )}
       </div>
 
-   
+      {/* ── Invite Modal ── */}
       {inviteOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl">
@@ -706,29 +1108,21 @@ const ReviewersPanel = () => {
                 <h3 className="text-lg font-bold text-gray-900">Invite Reviewer</h3>
                 <p className="text-xs text-gray-500 mt-0.5">Enter an existing researcher's email to promote them, or fill all fields to create a new account.</p>
               </div>
-              <button onClick={() => { setInviteOpen(false); setInviteForm(EMPTY_INVITE); }} className="p-2
-                rounded-lg cursor-pointer" title="Close">
-                <FaTimes className="text-gray-400 hover:text-red-500 text-xl"  />
-              </button>
+              <button onClick={() => { setInviteOpen(false); setInviteForm(EMPTY_INVITE); }} className="p-2 rounded-lg cursor-pointer"><FaTimes className="text-gray-400 hover:text-red-500 text-xl" /></button>
             </div>
             <form onSubmit={handleInvite} className="p-6 space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">Email Address <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <FaEnvelope className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
-                  <input
-                    type="email" required
-                    value={inviteForm.email}
-                    onChange={(e) => setInviteForm(p => ({ ...p, email: e.target.value }))}
-                    placeholder="reviewer@institution.ac.ke"
-                    className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring focus:ring-blue-500 focus:border-transparent"
-                  />
+                  <input type="email" required value={inviteForm.email} onChange={(e) => setInviteForm(p => ({ ...p, email: e.target.value }))} placeholder="reviewer@institution.ac.ke"
+                    className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring focus:ring-blue-500 focus:border-transparent" />
                 </div>
                 <p className="text-xs text-gray-400 mt-1">If this email belongs to an existing researcher they'll be promoted automatically.</p>
               </div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider pt-1">New account details (leave blank if promoting existing)</p>
               <div className="grid grid-cols-2 gap-3">
-                {[["firstName","First Name","Jane"],["lastName","Last Name","Wanjiru"]].map(([name, label, ph]) => (
+                {[["firstName","First Name","Jane"],["lastName","Last Name","Wanjiru"]].map(([name,label,ph]) => (
                   <div key={name}>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">{label}</label>
                     <input type="text" value={inviteForm[name]} onChange={(e) => setInviteForm(p => ({ ...p, [name]: e.target.value }))} placeholder={ph}
@@ -742,20 +1136,19 @@ const ReviewersPanel = () => {
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring focus:ring-blue-500 focus:border-transparent" />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {[["department","Department","Medicine"],["discipline","Discipline","Public Health"]].map(([name, label, ph]) => (
+                {[["department","Department","Medicine"],["discipline","Discipline","Public Health"]].map(([name,label,ph]) => (
                   <div key={name}>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">{label}</label>
                     <input type="text" value={inviteForm[name]} onChange={(e) => setInviteForm(p => ({ ...p, [name]: e.target.value }))} placeholder={ph}
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm  outline-none focus:ring focus:ring-blue-500 focus:border-transparent" />
+                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring focus:ring-blue-500 focus:border-transparent" />
                   </div>
                 ))}
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={() => { setInviteOpen(false); setInviteForm(EMPTY_INVITE); }}
-                 className="px-4 py-2 border border-gray-200 text-gray-600 cursor-pointer rounded-lg text-sm
-                  hover:bg-red-500 hover:text-white">Cancel</button>
-                <button type="submit" disabled={inviteLoading} className="px-5 py-2 bg-blue-600 text-white cursor-pointer
-                 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
+                  className="px-4 py-2 border border-gray-200 text-gray-600 cursor-pointer rounded-lg text-sm hover:bg-red-500 hover:text-white">Cancel</button>
+                <button type="submit" disabled={inviteLoading}
+                  className="px-5 py-2 bg-blue-600 text-white cursor-pointer rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
                   {inviteLoading ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Sending…</> : <><FaEnvelope /> Send Invite</>}
                 </button>
               </div>
@@ -764,6 +1157,7 @@ const ReviewersPanel = () => {
         </div>
       )}
 
+      {/* ── Drawer ── */}
       {drawer && (
         <div className="fixed inset-0 z-50 flex">
           <div className="flex-1 bg-black/40" onClick={() => setDrawer(null)} />
@@ -782,8 +1176,7 @@ const ReviewersPanel = () => {
                 <RoleBadge role={drawer.role} />
                 {drawer.emailVerified
                   ? <span className="text-xs text-green-600 flex items-center gap-1"><FaCheckCircle /> Account active</span>
-                  : <span className="text-xs text-orange-500 flex items-center gap-1"><FaClock /> Awaiting password setup</span>
-                }
+                  : <span className="text-xs text-orange-500 flex items-center gap-1"><FaClock /> Awaiting password setup</span>}
               </div>
               {[
                 { label:"Institution", value: drawer.institution },
@@ -799,33 +1192,27 @@ const ReviewersPanel = () => {
             </div>
             <div className="p-5 border-t border-gray-100 space-y-2">
               {!drawer.emailVerified && (
-                <button onClick={() => handleResend(drawer)} className="w-full flex items-center justify-center
-                 gap-2 px-4 py-2 bg-orange-50 text-orange-600 rounded-lg text-sm font-semibold cursor-pointer
-                  hover:bg-orange-100">
+                <button onClick={() => handleResend(drawer)} className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-orange-50 text-orange-600 rounded-lg text-sm font-semibold cursor-pointer hover:bg-orange-100">
                   <FaRedo /> Resend Invite Email
                 </button>
               )}
               {drawer.role === "reviewer" && (
                 <>
-                  <button onClick={() => handlePromote(drawer)} className="w-full flex items-center justify-center 
-                  gap-2 px-4 py-2 bg-purple-50 text-purple-600 rounded-lg text-sm font-semibold cursor-pointer
-                   hover:bg-purple-100">
+                  <button onClick={() => handlePromote(drawer)} className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-50 text-purple-600 rounded-lg text-sm font-semibold cursor-pointer hover:bg-purple-100">
                     <FaCrown /> Promote to Admin
                   </button>
-                  <button onClick={() => handleRevoke(drawer)} className="w-full flex items-center justify-center gap-2 
-                  px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-semibold cursor-pointer hover:bg-red-100">
+                  <button onClick={() => handleRevoke(drawer)} className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-semibold cursor-pointer hover:bg-red-100">
                     <FaUserSlash /> Revoke Reviewer Access
                   </button>
                 </>
               )}
               {drawer.role === "researcher" && (
                 <button
-                  onClick={() => inviteReviewer({ email: drawer.email })
+                  onClick={() => research.inviteReviewer({ email: drawer.email })
                     .then(r => { toast.success(r.message); loadReviewers(); loadAll(); setDrawer(null); })
                     .catch(err => toast.error(err.response?.data?.message || "Failed"))
                   }
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 text-blue-600
-                   rounded-lg text-sm font-semibold cursor-pointer hover:bg-blue-100"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-semibold cursor-pointer hover:bg-blue-100"
                 >
                   <FaUserCheck /> Assign as Reviewer
                 </button>

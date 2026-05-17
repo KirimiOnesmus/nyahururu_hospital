@@ -93,7 +93,7 @@ exports.register = async (req, res) => {
    const verifyLink = `${process.env.FRONTEND_URL}/hmis?verify=true&token=${rawToken}&email=${encodeURIComponent(
   email
 )}`;
-    await researchEmail
+    await researchEmail 
       .sendResearcherVerificationEmail({
         email: researcher.email,
         name: researcher.firstName,

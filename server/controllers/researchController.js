@@ -3,7 +3,11 @@ const Payment = require("../models/PaymentModel");
 const Researcher = require("../models/ResearcherModel");
 const researchEmail = require("../utils/emailServices");
 
-exports.getAllResearch = async (req, res) => {
+
+
+
+//published research papers (public endpoint)
+exports.getAllPublishedResearch = async (req, res) => {
   try {
     const research = await Research.find({ isPublished: true })
       .select("title abstract researcher downloadPrice downloads createdAt")
@@ -15,6 +19,7 @@ exports.getAllResearch = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 // Get research by ID (public endpoint)
 exports.getResearchById = async (req, res) => {
@@ -31,7 +36,7 @@ exports.getResearchById = async (req, res) => {
   }
 };
 
-//STEP 1: Initiate proposal submission
+
 //Validates form data and triggers M-Pesa STK Push.
 
 exports.initiateProposalSubmission = async (req, res) => {
@@ -51,14 +56,13 @@ exports.initiateProposalSubmission = async (req, res) => {
       type = "proposal_submission",
     } = req.body;
 
-    // Validate required fields
+   
     if (!title || !discipline || !abstract || !phone) {
       return res.status(400).json({
         message: "Title, discipline, abstract, and phone are required",
       });
     }
 
-    // Normalize and validate phone
     let normalizedPhone = String(phone).replace(/\D/g, "");
     if (normalizedPhone.startsWith("0")) {
       normalizedPhone = "254" + normalizedPhone.slice(1);
@@ -105,7 +109,6 @@ exports.initiateProposalSubmission = async (req, res) => {
       paymentId: payment._id,
       amount,
       phone: normalizedPhone,
-      // Frontend should use this to poll payment status every 5 seconds
     });
   } catch (error) {
     console.error("Proposal submission initiation error:", error);
@@ -115,15 +118,11 @@ exports.initiateProposalSubmission = async (req, res) => {
   }
 };
 
-//STEP 2: Confirm proposal submission after payment
+
 //Verifies payment was completed, uploads PDF, and creates research record.
 
 exports.confirmProposalSubmission = async (req, res) => {
   try {
-
-     console.log('req.body:', req.body);           // ← add
-    console.log('req.query:', req.query);         // ← add  
-    console.log('req.files:', req.files); 
 
     if (!req.researcher) {
       return res.status(401).json({ message: "Authentication required" });
@@ -142,14 +141,12 @@ exports.confirmProposalSubmission = async (req, res) => {
       timeline,
     } = req.body;
 
-    // Validate required fields
     if (!title || !discipline || !paymentId) {
       return res.status(400).json({
         message: "Title, discipline, and paymentId are required",
       });
     }
 
-    // Verify payment was completed
     const payment = await Payment.findById(paymentId);
 
     if (!payment) {
@@ -170,7 +167,7 @@ exports.confirmProposalSubmission = async (req, res) => {
       console.log(`[Confirm Proposal] Linked researcher to payment`);
     }
 
-    // Extract uploaded file if present
+  
     const uploadedFile = Array.isArray(req.files)
       ? req.files.find((f) => f.fieldname === "proposalFile")
       : req.files?.proposalFile?.[0];
@@ -179,7 +176,7 @@ exports.confirmProposalSubmission = async (req, res) => {
       ? `/uploads/research/${uploadedFile.filename}`
       : null;
 
-    // Create research document
+   
     const newResearch = await Research.create({
       title,
       discipline,
@@ -192,10 +189,10 @@ exports.confirmProposalSubmission = async (req, res) => {
       proposalFile,
       researcher: req.researcher._id,
       stage: "proposal",
-      status: "pending", // Awaiting reviewer approval
+      status: "pending", 
       submissionPayment: payment._id,
-      isPublished: false, // Not public until final paper is approved
-      downloadPrice: 50, // Default price
+      isPublished: false, 
+      downloadPrice: 50,
       downloads: 0,
     });
 
@@ -250,14 +247,13 @@ exports.submitFinalPaper = async (req, res) => {
       return res.status(404).json({ message: "Research not found" });
     }
 
-    // Verify ownership
+   
     if (research.researcher.toString() !== req.researcher._id.toString()) {
       return res.status(403).json({
         message: "You can only submit papers for your own research",
       });
     }
 
-    // Check stage and approval status
     if (research.stage !== "proposal") {
       return res.status(400).json({
         message: `Cannot submit final paper. Current stage is '${research.stage}'`,
@@ -271,7 +267,7 @@ exports.submitFinalPaper = async (req, res) => {
       });
     }
 
-    // Handle file upload
+   
     const finalPaperFile = req.files?.finalPaperFile
       ? `/uploads/research/${req.files.finalPaperFile[0].filename}`
       : null;
@@ -280,17 +276,17 @@ exports.submitFinalPaper = async (req, res) => {
       return res.status(400).json({ message: "Final paper file is required" });
     }
 
-    // Update research
+  
     research.finalAbstract = finalAbstract || research.abstract;
     research.keywords = keywords || [];
     research.finalPaperFile = finalPaperFile;
     research.stage = "final_paper";
-    research.status = "pending"; // Reset to pending for final paper review
+    research.status = "pending"; 
     research.updatedAt = new Date();
 
     await research.save();
 
-    // Send confirmation email
+    
    await researchEmail.sendProposalSubmitted({
   email: req.researcher.email,
   name: req.researcher.name || req.researcher.firstName,
@@ -314,8 +310,103 @@ exports.submitFinalPaper = async (req, res) => {
     res.status(500).json({
       message: error.message || "Failed to submit final paper",
     });
+  } 
+};
+
+exports.publishResearch = async (req, res) => {
+  try {
+    const research = await Research.findById(req.params.id);
+
+    if (!research) {
+      return res.status(404).json({ message: "Research not found" });
+    }
+
+    if (research.isPublished) {
+      return res.status(400).json({ message: "Research is already published" });
+    }
+
+    if (research.stage !== "final_paper") {
+      return res.status(400).json({
+        message: `Only final papers can be published. Current stage: '${research.stage}'`,
+      });
+    }
+
+    if (research.status !== "approved") {
+      return res.status(400).json({
+        message: "Research must be approved before publishing",
+      });
+    }
+
+    // The pre("save") hook will also flip isPublished = true,
+    // but we set it explicitly here so publishedAt is recorded.
+    research.isPublished = true;
+    research.publishedAt = new Date();
+    await research.save();
+
+    const researcher = await Researcher.findById(research.researcher);
+    if (researcher) {
+      await researchEmail.sendProposalApproved({
+        email: researcher.email,
+        name: researcher.firstName || researcher.name,
+        proposalTitle: research.title,
+        stage: "final_paper",
+        reviewerComment: "Congratulations! Your paper has been published on the Nyahururu platform.",
+      }).catch((err) => console.error("Publish email error:", err));
+    }
+
+    res.json({
+      message: "Research published successfully",
+      research: {
+        id: research._id,
+        title: research.title,
+        isPublished: research.isPublished,
+        publishedAt: research.publishedAt,
+      },
+    });
+  } catch (error) {
+    console.error("Publish research error:", error);
+    res.status(500).json({ message: error.message });
   }
 };
+
+
+//ADMIN SECTION - Research management by admin users
+// get all research papers no isPublished filter
+exports.getAllResearchAdmin = async (req, res) => {
+  try {
+    const { stage, status,  search, page = 1, limit = 10 } = req.query;
+ 
+    const filter = {};
+    if (stage)    filter.stage    = stage;
+    if (status)   filter.status   = status;
+  
+    if (search) {
+      filter.$or = [
+        { title:    { $regex: search, $options: "i" } },
+        { abstract: { $regex: search, $options: "i" } },
+      ];
+    }
+ 
+    const [papers, total] = await Promise.all([
+      Research.find(filter)
+        .select(
+          "title abstract category stage status isPublished " +
+          "researcher fileUrl proposalFile finalPaperFile thumbnailUrl " +
+          "downloadPrice downloads reviewComment createdAt updatedAt"
+        )
+        .populate("researcher", "name institution email")
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(Number(limit)),
+      Research.countDocuments(filter),
+    ]);
+ 
+    res.json({ total, page: Number(page), limit: Number(limit), research: papers });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 
 //Update download price (admin only)
 
@@ -371,7 +462,7 @@ exports.getResearcherRevenue = async (req, res) => {
       });
     }
 
-    // Get download payments
+ 
     const downloadPayments = await Payment.find({
       research: researchId,
       type: "paper_download",
@@ -401,37 +492,67 @@ exports.getResearcherRevenue = async (req, res) => {
   }
 };
 
-/**
- * Update research (admin only)
- */
-exports.updateResearch = async (req, res) => {
+//Admin assign reviewer to research proposal
+
+exports.assignReviewer = async (req, res) => {
   try {
-    const { title, downloadPrice } = req.body;
-    const updates = {};
+    const { email } = req.body;
 
-    if (title) updates.title = title;
-    if (downloadPrice !== undefined) updates.downloadPrice = downloadPrice;
+    if (!email) {
+      return res.status(400).json({ message: "Reviewer email is required" });
+    }
 
-    const research = await Research.findByIdAndUpdate(req.params.id, updates, {
-      new: true,
-    });
-
+    const research = await Research.findById(req.params.id);
     if (!research) {
       return res.status(404).json({ message: "Research not found" });
     }
 
+    // Reviewers and admins are stored in the Researcher collection
+    const reviewer = await Researcher.findOne({
+      email: email.toLowerCase().trim(),
+      role: { $in: ["reviewer", "admin", "superadmin"] },
+    });
+
+    if (!reviewer) {
+      return res.status(404).json({
+        message: "No reviewer or admin found with that email address",
+      });
+    }
+
+    research.assignedReviewer = reviewer._id;
+    research.assignedAt = new Date();
+    await research.save();
+
+    // Notify the assigned reviewer
+    await researchEmail.sendRevisionRequested({
+      email: reviewer.email,
+      name: reviewer.firstName || reviewer.name,
+      proposalTitle: research.title,
+      stage: research.stage,
+      reviewerComment: "You have been assigned to review this submission. Please log in to the platform to begin.",
+    }).catch((err) => console.error("Assign reviewer email error:", err));
+
     res.json({
-      message: "Research updated",
-      research,
+      message: `${reviewer.firstName || reviewer.name} assigned as reviewer successfully`,
+      research: {
+        id: research._id,
+        title: research.title,
+        assignedReviewer: {
+          id: reviewer._id,
+          name: reviewer.name || `${reviewer.firstName} ${reviewer.lastName}`,
+          email: reviewer.email,
+        },
+      },
     });
   } catch (error) {
+    console.error("Assign reviewer error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-/**
- * Delete research (admin only)
- */
+
+// Delete research (admin only)
+ 
 exports.deleteResearch = async (req, res) => {
   try {
     const deleted = await Research.findByIdAndDelete(req.params.id);

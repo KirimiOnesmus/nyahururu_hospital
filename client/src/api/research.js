@@ -1,12 +1,12 @@
 import api from './axios';
 
-//PUBLIC ENDPOINTS (No auth required)
+// ─── PUBLIC ENDPOINTS (No auth required) ──────────────────────────────────────
 
 export const getAllPublishedResearch = async (filters = {}) => {
   try {
     const { search, discipline, category, page = 1, limit = 12 } = filters;
     const params = new URLSearchParams();
-    
+
     if (search) params.append('search', search);
     if (discipline) params.append('discipline', discipline);
     if (category) params.append('category', category);
@@ -29,10 +29,9 @@ export const getResearchById = async (id) => {
   }
 };
 
-// RESEARCHER ENDPOINTS (Auth required: researcher role)
+// ─── RESEARCHER ENDPOINTS (Auth required: researcher role) ────────────────────
 
-
- 
+// Step 1: Initiate proposal submission (triggers M-Pesa STK push)
 export const initiateProposalSubmission = async (formData, phone) => {
   try {
     const response = await api.post('/research/proposals/initiate', {
@@ -47,7 +46,7 @@ export const initiateProposalSubmission = async (formData, phone) => {
       phone,
       // amount: 150,
       amount: 1, // Set to 1 KES for testing. Change to 150 for production.
-      type: 'proposal_submission'
+      type: 'proposal_submission',
     });
     return response.data;
   } catch (error) {
@@ -56,68 +55,33 @@ export const initiateProposalSubmission = async (formData, phone) => {
 };
 
 // Step 2: Confirm proposal submission after payment
- 
-// export const confirmProposalSubmission = async (formData, paymentId, proposalFile) => {
-//   try {
-//     const fd = new FormData();
-    
-//     // Add form fields
-//     Object.entries(formData).forEach(([key, value]) => {
-//       if (value && key !== 'proposalFile') {
-//         fd.append(key, value);
-//       }
-//     });
-    
-//     // Add payment reference
-//     fd.append('paymentId', paymentId);
-    
-//     // Add file
-//     if (proposalFile) {
-//       fd.append('proposalFile', proposalFile);
-//     }
-
-//     // const response = await api.post('/research/proposals/confirm', fd, {
-//     const response = await api.post(`/research/proposals/confirm?paymentId=${paymentId}`, fd, {
-//       headers: { 'Content-Type': 'multipart/form-data' },
-//     });
-//     return response.data;
-//   } catch (error) {
-//     throw error.response?.data || { message: 'Failed to confirm proposal submission' };
-//   }
-// };
-
 export const confirmProposalSubmission = async (formData, paymentId, proposalFile) => {
   try {
     const fd = new FormData();
 
-      const allowedFields = [
+    const allowedFields = [
       'title', 'discipline', 'abstract', 'background',
-      'objectives', 'methodology', 'expectedOutcome', 'timeline'
+      'objectives', 'methodology', 'expectedOutcome', 'timeline',
     ];
-    
+
     allowedFields.forEach((key) => {
       if (formData[key]) {
         fd.append(key, formData[key]);
       }
     });
-    
-    
-    // Add file
+
     if (proposalFile) {
       fd.append('proposalFile', proposalFile);
     }
-    const url = `/research/proposals/confirm?paymentId=${paymentId}`;
-    
-    const response = await api.post(url, fd);
-    
+
+    const response = await api.post(`/research/proposals/confirm?paymentId=${paymentId}`, fd);
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: 'Failed to confirm proposal submission' };
   }
 };
 
-//DEPRECATED: Use initiateProposalSubmission + confirmProposalSubmission instead
- 
+// DEPRECATED: Use initiateProposalSubmission + confirmProposalSubmission instead
 export const submitProposal = async (formData) => {
   console.warn('submitProposal is deprecated. Use initiateProposalSubmission + confirmProposalSubmission');
   return confirmProposalSubmission(formData, formData.transactionCode, formData.proposalFile);
@@ -126,8 +90,7 @@ export const submitProposal = async (formData) => {
 export const submitFinalPaper = async (formData) => {
   try {
     const fd = new FormData();
-    
-    // Add all form fields
+
     Object.entries(formData).forEach(([key, value]) => {
       if (value && key !== 'finalPaperFile') {
         if (Array.isArray(value)) {
@@ -137,8 +100,7 @@ export const submitFinalPaper = async (formData) => {
         }
       }
     });
-    
-    // Add file
+
     if (formData.finalPaperFile) {
       fd.append('finalPaperFile', formData.finalPaperFile);
     }
@@ -170,7 +132,7 @@ export const getResearcherRevenue = async (researchId) => {
   }
 };
 
-//PAYMENT ENDPOINTS (M-Pesa STK Push & Verification)
+// ─── PAYMENT ENDPOINTS (M-Pesa STK Push & Verification) ──────────────────────
 
 export const initiateSTKPush = async (config) => {
   try {
@@ -182,31 +144,28 @@ export const initiateSTKPush = async (config) => {
 };
 
 export const verifyPaymentStatus = async (checkoutRequestId) => {
- try {
-    const response = await api.get(`/research/mpesa/verify/${checkoutRequestId}`); // ← was /research/mpesa/verify/
-     console.log(`[Verify] API response for ${checkoutRequestId}:`, response.data);
+  try {
+    const response = await api.get(`/research/mpesa/verify/${checkoutRequestId}`);
+    console.log(`[Verify] API response for ${checkoutRequestId}:`, response.data);
     return response.data;
-   
   } catch (error) {
     throw error.response?.data || { message: 'Failed to verify payment' };
   }
 };
 
-//REVIEWER ENDPOINTS (Auth required: reviewer/admin role)
+// ─── REVIEWER ENDPOINTS (Auth required: reviewer/admin role) ──────────────────
 
 export const getPendingReviews = async (filters = {}) => {
   try {
     const { stage, search, page = 1, limit = 20 } = filters;
     const params = new URLSearchParams();
-    
+
     if (stage) params.append('stage', stage);
     if (search) params.append('search', search);
     params.append('page', page);
     params.append('limit', limit);
 
-    const response = await api.get(
-      `/research/reviews/pending?${params.toString()}`
-    );
+    const response = await api.get(`/research/reviews/pending?${params.toString()}`);
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: 'Failed to fetch pending reviews' };
@@ -215,10 +174,7 @@ export const getPendingReviews = async (filters = {}) => {
 
 export const submitReview = async (researchId, reviewData) => {
   try {
-    const response = await api.post(
-      `/research/${researchId}/review`,
-      reviewData
-    );
+    const response = await api.post(`/research/${researchId}/review`, reviewData);
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: 'Failed to submit review' };
@@ -234,7 +190,7 @@ export const getReviewHistory = async (researchId) => {
   }
 };
 
-//REVIEWER MANAGEMENT (Admin only)
+// ─── REVIEWER MANAGEMENT (Admin only) ────────────────────────────────────────
 
 export const inviteReviewer = async (inviteData) => {
   try {
@@ -261,9 +217,7 @@ export const setReviewerPassword = async (token, email, password) => {
 
 export const resendInvite = async (reviewerId) => {
   try {
-    const response = await api.post(
-      `/research/reviewers/${reviewerId}/resend-invite`
-    );
+    const response = await api.post(`/research/reviewers/${reviewerId}/resend-invite`);
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: 'Failed to resend invite' };
@@ -283,14 +237,12 @@ export const listAllResearchers = async (filters = {}) => {
   try {
     const { role, page = 1, limit = 100 } = filters;
     const params = new URLSearchParams();
-    
+
     if (role) params.append('role', role);
     params.append('page', page);
     params.append('limit', limit);
 
-    const response = await api.get(
-      `/research/reviewers/all?${params.toString()}`
-    );
+    const response = await api.get(`/research/reviewers/all?${params.toString()}`);
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: 'Failed to fetch researchers' };
@@ -299,9 +251,7 @@ export const listAllResearchers = async (filters = {}) => {
 
 export const revokeReviewer = async (reviewerId) => {
   try {
-    const response = await api.patch(
-      `/research/reviewers/${reviewerId}/revoke`
-    );
+    const response = await api.patch(`/research/reviewers/${reviewerId}/revoke`);
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: 'Failed to revoke reviewer' };
@@ -310,9 +260,7 @@ export const revokeReviewer = async (reviewerId) => {
 
 export const promoteToAdmin = async (reviewerId) => {
   try {
-    const response = await api.patch(
-      `/research/reviewers/${reviewerId}/promote-admin`
-    );
+    const response = await api.patch(`/research/reviewers/${reviewerId}/promote-admin`);
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: 'Failed to promote reviewer' };
@@ -321,23 +269,49 @@ export const promoteToAdmin = async (reviewerId) => {
 
 export const updateReviewerDetails = async (reviewerId, updates) => {
   try {
-    const response = await api.put(
-      `/research/reviewers/${reviewerId}`,
-      updates
-    );
+    const response = await api.put(`/research/reviewers/${reviewerId}`, updates);
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: 'Failed to update reviewer' };
   }
 };
 
-// ADMIN ENDPOINTS — Revenue & Analytics
+// ─── ADMIN ENDPOINTS — Publish & Assign Reviewer ─────────────────────────────
+
+/**
+ * Publish a fully reviewed final paper (admin only).
+ * Makes the paper publicly visible on the platform.
+ * Endpoint: PATCH /research/:id/publish
+ */
+export const publishResearch = async (researchId) => {
+  try {
+    const response = await api.patch(`/research/${researchId}/publish`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Failed to publish research' };
+  }
+};
+
+/**
+ * Assign a reviewer to a specific research paper (admin only).
+ * Accepts the reviewer's registered email address.
+ * Endpoint: POST /research/:id/assign-reviewer
+ * Body: { email: string }
+ */
+export const assignReviewer = async (researchId, email) => {
+  try {
+    const response = await api.post(`/research/${researchId}/assign-reviewer`, { email });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Failed to assign reviewer' };
+  }
+};
+
+// ─── ADMIN ENDPOINTS — Revenue & Analytics ───────────────────────────────────
 
 export const getResearchRevenue = async (researchId) => {
   try {
-    const response = await api.get(
-      `/research/admin/research/${researchId}/revenue`
-    );
+    const response = await api.get(`/research/admin/research/${researchId}/revenue`);
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: 'Failed to fetch research revenue' };
@@ -348,15 +322,13 @@ export const getAllResearchRevenue = async (filters = {}) => {
   try {
     const { researcherId, startDate, endDate, status = 'completed' } = filters;
     const params = new URLSearchParams();
-    
+
     if (researcherId) params.append('researcher', researcherId);
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
     params.append('status', status);
 
-    const response = await api.get(
-      `/research/admin/revenue?${params.toString()}`
-    );
+    const response = await api.get(`/research/admin/revenue?${params.toString()}`);
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: 'Failed to fetch revenue data' };
@@ -365,10 +337,7 @@ export const getAllResearchRevenue = async (filters = {}) => {
 
 export const refundPayment = async (paymentId, reason) => {
   try {
-    const response = await api.post('/research/admin/payments/refund', {
-      paymentId,
-      reason,
-    });
+    const response = await api.post('/research/admin/payments/refund', { paymentId, reason });
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: 'Failed to process refund' };
@@ -377,16 +346,14 @@ export const refundPayment = async (paymentId, reason) => {
 
 export const updateDownloadPrice = async (researchId, downloadPrice) => {
   try {
-    const response = await api.patch(`/research/${researchId}/download-price`, {
-      downloadPrice,
-    });
+    const response = await api.patch(`/research/${researchId}/download-price`, { downloadPrice });
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: 'Failed to update download price' };
   }
 };
 
-// HELPER FUNCTIONS
+// ─── HELPER FUNCTIONS ─────────────────────────────────────────────────────────
 
 export const pollPaymentStatus = async (checkoutRequestId, maxAttempts = 12) => {
   return new Promise((resolve, reject) => {
@@ -435,24 +402,29 @@ export const validatePaymentAmount = (amount, type) => {
 };
 
 export default {
+  // Public
   getAllPublishedResearch,
   getResearchById,
 
+  // Researcher
   initiateProposalSubmission,
   confirmProposalSubmission,
   submitProposal,
   submitFinalPaper,
   getMyResearch,
   getResearcherRevenue,
-  
+
+  // Payment
   initiateSTKPush,
   verifyPaymentStatus,
   pollPaymentStatus,
 
+  // Reviewer
   getPendingReviews,
   submitReview,
   getReviewHistory,
-  
+
+  // Reviewer management
   inviteReviewer,
   setReviewerPassword,
   resendInvite,
@@ -462,12 +434,17 @@ export default {
   promoteToAdmin,
   updateReviewerDetails,
 
+  // Admin — publish & assign
+  publishResearch,
+  assignReviewer,
+
+  // Admin — revenue & analytics
   getResearchRevenue,
   getAllResearchRevenue,
   refundPayment,
   updateDownloadPrice,
-  
+
+  // Helpers
   formatPhoneNumber,
   validatePaymentAmount,
 };
-

@@ -51,4 +51,4 @@ router.post(
   researcherController.changePassword
 );
 
-module.exports = router;
+module.exports = router; 
