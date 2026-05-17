@@ -810,57 +810,54 @@ exports.sendProposalApproved = async ({
  
 // Send revision requested notification
 
-exports.sendRevisionRequested = async ({
-  email,
-  name,
-  proposalTitle,
-  stage,
-  reviewerComment,
-}) => {
-  const stageLabel = {
-    proposal: "Stage 1 — Proposal",
-    abstract: "Stage 2 — Abstract",
-    final_paper: "Stage 3 — Final Paper",
-  }[stage] || stage;
+// exports.sendRevisionRequested = async ({
+//   email,
+//   name,
+//   proposalTitle,
+//   stage,
+//   reviewerComment,
+// }) => {
+//   const stageLabel = {
+//     proposal: "Stage 1 — Proposal",
+//     abstract: "Stage 2 — Abstract",
+//     final_paper: "Stage 3 — Final Paper",
+//   }[stage] || stage;
  
-  const html = shell(`
-    <h2 style="color: #ff9800; margin-top: 0;">Revision Requested</h2>
-    <p style="color: #555; line-height: 1.6;">
-      Dear <strong>${name}</strong>,<br/>
-      Your submission has been reviewed. The reviewer has requested some revisions
-      before it can be approved.
-    </p>
-    <div style="background-color: #fff3e0; padding: 20px; border-radius: 8px;
-         margin: 20px 0; border-left: 4px solid #ff9800;">
-      <h3 style="color: #e65100; margin-top: 0; font-size: 16px;">Details</h3>
-      <table style="width: 100%; border-collapse: collapse;">
-        <tr>
-          <td style="padding: 8px 0; color: #666; font-weight: bold;">Title:</td>
-          <td style="padding: 8px 0; color: #333;">${proposalTitle}</td>
-        </tr>
-        <tr>
-          <td style="padding: 8px 0; color: #666; font-weight: bold;">Stage:</td>
-          <td style="padding: 8px 0; color: #333;">${stageLabel}</td>
-        </tr>
-        <tr>
-          <td style="padding: 8px 0; color: #666; font-weight: bold;">Status:</td>
-          <td style="padding: 8px 0; color: #ff9800; font-weight: bold;">Needs Revision</td>
-        </tr>
-      </table>
-    </div>
-    <div style="background-color: #ffebee; padding: 15px; border-radius: 8px;
-         margin: 20px 0; border-left: 4px solid #f44336;">
-      <p style="color: #c62828; font-size: 13px; margin: 0 0 5px 0;"><strong>Reviewer Feedback:</strong></p>
-      <p style="color: #333; margin: 0; line-height: 1.6;">${reviewerComment}</p>
-    </div>
-    <p style="color: #555; line-height: 1.6;">
-      Please address the reviewer's comments and resubmit.
-      <strong style="color: #4CAF50;">Resubmission is completely free</strong> — no additional payment required.
-    </p>
-  `);
+//   const html = shell(`
+//     <h2 style="color: #ff9800; margin-top: 0;">Revision Requested</h2>
+//     <p style="color: #555; line-height: 1.6;">
+//       Dear <strong>${name}</strong>,<br/>
+//       Your submission has been reviewed. The reviewer has requested some revisions
+//       before it can be approved.
+//     </p>
+//     <div style="background-color: #fff3e0; padding: 20px; ;
+//          margin: 20px 0; border-left: 4px solid #ff9800;">
+//       <h3 style="color: #e65100; margin-top: 0; font-size: 16px;">Details</h3>
+//       <table style="width: 100%; border-collapse: collapse;">
+//         <tr>
+//           <td style="padding: 8px 0; color: #666; font-weight: bold;">Title:</td>
+//           <td style="padding: 8px 0; color: #333;">${proposalTitle}</td>
+//         </tr>
+//         <tr>
+//           <td style="padding: 8px 0; color: #666; font-weight: bold;">Stage:</td>
+//           <td style="padding: 8px 0; color: #333;">${stageLabel}</td>
+//         </tr>
+//         <tr>
+//           <td style="padding: 8px 0; color: #666; font-weight: bold;">Status:</td>
+//           <td style="padding: 8px 0; color: #ff9800; font-weight: bold;">Needs Revision</td>
+//         </tr>
+//       </table>
+//     </div>
+//     <div style="background-color: #ffebee; padding: 15px; ;
+//          margin: 20px 0; border-left: 4px solid #f44336;">
+//       <p style="color: #c62828; font-size: 13px; margin: 0 0 5px 0;"><strong>Reviewer Feedback:</strong></p>
+//       <p style="color: #333; margin: 0; line-height: 1.6;">${reviewerComment}</p>
+//     </div>
+
+//   `);
  
-  return sendMail(email, `Revision Requested — ${proposalTitle}`, html);
-};
+//   return sendMail(email, `Revision Requested — ${proposalTitle}`, html);
+// };
  
 //Send download receipt
 
@@ -986,19 +983,19 @@ exports.sendReviewerPromoted = async ({
 
 exports.sendNewProposalToReview = async ({
   email,
-  reviewerName,
+  name,
   proposalTitle,
   researcherName,
-  discipline,
+  stage,
   reviewLink,
 }) => {
   const html = shell(`
     <h2 style="color: #2196F3; margin-top: 0;">New Proposal for Review</h2>
     <p style="color: #555; line-height: 1.6;">
-      Dear <strong>${reviewerName}</strong>,<br/>
+      Dear <strong>${name}</strong>,<br/>
       A new research proposal has been assigned to you for review.
     </p>
-    <div style="background-color: #e3f2fd; padding: 20px; border-radius: 8px;
+    <div style="background-color: #e3f2fd; padding: 20px;
          margin: 20px 0; border-left: 4px solid #2196F3;">
       <h3 style="color: #1565c0; margin-top: 0; font-size: 16px;">Proposal Details</h3>
       <table style="width: 100%; border-collapse: collapse;">

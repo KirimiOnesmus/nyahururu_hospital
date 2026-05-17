@@ -336,12 +336,12 @@ router.get(
   reviewerController.listReviewers
 );
 
-router.get(
-  "/reviewers/all",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  reviewerController.listAllResearchers
-);
+// router.get(
+//   "/reviewers/all",
+//   verifyToken,
+//   authorizeRoles("admin", "superadmin"),
+//   reviewerController.listAllResearchers
+// );
 
 router.patch(
   "/reviewers/:id/revoke",

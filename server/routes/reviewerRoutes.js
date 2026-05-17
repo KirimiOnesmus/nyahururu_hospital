@@ -53,11 +53,11 @@ router.get(
   reviewerController.listReviewers
 );
 
-router.get( 
-  "/all",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  reviewerController.listAllResearchers
-);
+// router.get( 
+//   "/all",
+//   verifyToken,
+//   authorizeRoles("admin", "superadmin"),
+//   reviewerController.listAllResearchers
+// );
 
 module.exports = router; 

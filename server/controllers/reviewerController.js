@@ -116,7 +116,7 @@ exports.inviteReviewer = async (req, res) => {
       specialisations: specialisations || [],
       role: "reviewer",
       status: "invited",
-      password: crypto.randomBytes(16).toString("hex"), 
+      password: crypto.randomBytes(16).toString("hex"), // Temporary password
       emailVerified: false,
       emailVerificationToken: hashedToken,
       emailVerificationExpire: expiry,
@@ -141,7 +141,9 @@ exports.inviteReviewer = async (req, res) => {
         console.error("[Email] sendReviewerInvite:", err.message)
       );
 
- 
+    console.log(
+      `[DEV] Reviewer invite link for ${email}: ${inviteLink}`
+    );
 
     res.status(201).json({
       message: `Invite sent to ${email}. They have 72 hours to set their password.`,
