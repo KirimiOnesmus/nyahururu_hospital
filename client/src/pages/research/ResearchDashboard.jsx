@@ -394,37 +394,58 @@ const ResearcherDashboard = ({
   );
 };
 
-//admin / reviewer dashboard
+//REVIEWER
 const AdminDashboard = ({ user }) => {
   const [queue, setQueue] = useState([]);
   const [reviewing, setReviewing] = useState(null);
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
   const [loadingQueue, setLoadingQueue] = useState(true);
+  const [activeTab, setActiveTab] = useState("assigned"); // "assigned" or "pending"
+
+  const isAdmin = ["admin", "superadmin"].includes(
+    localStorage.getItem("role") || "",
+  );
 
   useEffect(() => {
     const fetchQueue = async () => {
       try {
         setLoadingQueue(true);
-        const response = await research.getPendingReviews({
-          stage: stageFilter === "all" ? undefined : stageFilter,
-          search: search || undefined,
-          page: 1,
-          limit: 50,
-        });
+
+        let response;
+        if (activeTab === "assigned") {
+          response = await research.getAssignedResearch({
+            stage: stageFilter === "all" ? undefined : stageFilter,
+            search: search || undefined,
+            page: 1,
+            limit: 50,
+          });
+        } else {
+          if (!isAdmin) {
+            toast.error("Only admins can view pending reviews");
+            return;
+          }
+          response = await research.getPendingReviews({
+            stage: stageFilter === "all" ? undefined : stageFilter,
+            search: search || undefined,
+            page: 1,
+            limit: 50,
+          });
+        }
+
         setQueue(response.queue || []);
       } catch (err) {
         console.error("Failed to fetch reviews:", err);
-        toast.error("Failed to load review queue");
+        toast.error(err.message || "Failed to load review queue");
       } finally {
         setLoadingQueue(false);
       }
     };
 
-    fetchQueue();
-  }, [stageFilter, search]);
+    const debounceTimer = setTimeout(fetchQueue, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [stageFilter, search, activeTab, isAdmin]);
 
-  // Calculate stats from real data
   const stats = {
     total: queue.length,
     pending: queue.filter((q) => q.status === "pending").length,
@@ -432,23 +453,25 @@ const AdminDashboard = ({ user }) => {
     researchers: 0,
   };
 
-  const handleDecision = (id) => {
-    setQueue((prev) => prev.filter((q) => q.id !== id));
+  const handleDecision = (researchId, decision, comment) => {
+    setQueue((prev) => prev.filter((q) => q.id !== researchId));
     setReviewing(null);
-    toast.success("Decision recorded successfully");
+    toast.success(
+      `Proposal ${decision === "approved" ? "approved" : "sent for revision"} successfully`,
+    );
   };
 
   return (
     <div className="space-y-6">
       {/* Welcome banner */}
-      <div className="relative bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-700 rounded-2xl p-6 text-white overflow-hidden">
+      <div className="relative bg-indigo-700 rounded-2xl p-6 text-white overflow-hidden">
         <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full translate-x-16 -translate-y-16 pointer-events-none" />
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <FaShieldAlt className="text-yellow-300 text-sm" />
               <p className="text-indigo-200 text-sm font-medium">
-                Reviewer Panel
+                {isAdmin ? "Admin Panel" : "Reviewer Panel"}
               </p>
             </div>
             <h2 className="text-2xl font-extrabold">
@@ -460,7 +483,9 @@ const AdminDashboard = ({ user }) => {
             <div className="flex items-center gap-2 bg-red-500/30 border border-red-400/40 rounded-xl px-4 py-2 self-start sm:self-auto">
               <FaBell className="text-red-300 animate-pulse" />
               <span className="text-white text-sm font-bold">
-                {queue.length} pending review{queue.length !== 1 ? "s" : ""}
+                {queue.length}{" "}
+                {activeTab === "assigned" ? "assigned" : "pending"}{" "}
+                {queue.length !== 1 ? "items" : "item"}
               </span>
             </div>
           )}
@@ -471,7 +496,9 @@ const AdminDashboard = ({ user }) => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={FaInbox}
-          label="Total Submissions"
+          label={
+            activeTab === "assigned" ? "Assigned to You" : "Total Submissions"
+          }
           value={stats.total}
           color="bg-indigo-500"
         />
@@ -484,7 +511,7 @@ const AdminDashboard = ({ user }) => {
         />
         <StatCard
           icon={FaCheckCircle}
-          label="Approved"
+          label="Reviewed"
           value={stats.approved}
           color="bg-green-500"
         />
@@ -499,16 +526,44 @@ const AdminDashboard = ({ user }) => {
       {/* Review Queue */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <h3 className="font-bold text-gray-900 text-base flex items-center gap-2">
-              <FaInbox className="text-indigo-500" /> Review Queue
+              <FaInbox className="text-indigo-500" />
+              {activeTab === "assigned" ? "My Review Queue" : "Pending Reviews"}
               {queue.length > 0 && (
                 <span className="bg-red-100 text-red-600 text-xs font-bold px-2 py-0.5 rounded-full">
                   {queue.length}
                 </span>
               )}
             </h3>
+
+            {/* Tabs */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setActiveTab("assigned")}
+                className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                  activeTab === "assigned"
+                    ? "bg-indigo-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                My Queue
+              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setActiveTab("pending")}
+                  className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                    activeTab === "pending"
+                      ? "bg-indigo-600 text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  All Pending
+                </button>
+              )}
+            </div>
           </div>
+
           <div className="flex flex-wrap gap-3 items-center">
             <div className="relative flex-1 min-w-48">
               <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
@@ -578,7 +633,9 @@ const AdminDashboard = ({ user }) => {
             <FaCheckCircle className="text-green-300 text-4xl mx-auto mb-3" />
             <p className="text-gray-500 font-semibold">All caught up!</p>
             <p className="text-gray-400 text-sm mt-1">
-              No submissions pending review.
+              {activeTab === "assigned"
+                ? "No submissions assigned to you awaiting review."
+                : "No pending submissions to review."}
             </p>
           </div>
         ) : (
@@ -601,10 +658,11 @@ const AdminDashboard = ({ user }) => {
                     </h4>
                     <div className="flex items-center gap-3 text-xs text-gray-400 mb-2 flex-wrap">
                       <span className="flex items-center gap-1">
-                        <FaUserCircle /> {item.author}
+                        <FaUserCircle /> {item.author || item.researcher?.name}
                       </span>
                       <span className="flex items-center gap-1">
-                        <FaUniversity /> {item.institution}
+                        <FaUniversity />{" "}
+                        {item.institution || item.researcher?.institution}
                       </span>
                       <span className="flex items-center gap-1">
                         <FaCalendarAlt /> {fmt(item.submittedAt)}
@@ -854,7 +912,6 @@ const ResearchDashboard = () => {
                 goTo("submit-full-paper");
               }}
               onViewProposal={(item) => {
-                // ← ADD THIS
                 setSelectedResearch(item);
                 goTo("view-proposal");
               }}

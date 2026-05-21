@@ -22,11 +22,12 @@ exports.getResearchById = async (req, res) => {
   try {
     const item = await Research.findById(req.params.id)
       .populate("researcher", "name institution bio socialLinks")
+      .populate("assignedReviewer", "name firstName lastName email institution")
       .populate("reviewedBy", "name");
 
     if (!item) return res.status(404).json({ message: "Research not found" });
 
-    res.json(item);
+    res.json(item); 
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -386,6 +387,7 @@ exports.getAllResearchAdmin = async (req, res) => {
             "downloadPrice downloads reviewComment createdAt updatedAt",
         )
         .populate("researcher", "name institution email")
+        .populate("assignedReviewer", "name firstName lastName email institution")
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(Number(limit)),

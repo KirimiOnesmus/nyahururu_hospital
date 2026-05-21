@@ -1,9 +1,7 @@
-
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   FaPlus,
   FaSearch,
-  FaFilter,
   FaFileAlt,
   FaFilePdf,
   FaFileExcel,
@@ -24,602 +22,684 @@ import {
   FaUpload,
 } from "react-icons/fa";
 import api from "../../api/axios";
-import {toast} from 'react-toastify';
+import { toast } from "react-toastify";
+
+const CATEGORIES = [
+  { id: "operations", name: "Hospital Operations" },
+  { id: "financial", name: "Financial Reports" },
+  { id: "inventory", name: "Inventory Reports" },
+  { id: "logistics", name: "Logistics Reports" },
+  { id: "hr", name: "HR Reports" },
+  { id: "procurement", name: "Tender & Procurement" },
+];
+
+const PERIODS = ["Monthly", "Quarterly", "Yearly", "Custom"];
+
+const TYPE_META = {
+  pdf: { icon: FaFilePdf, color: "text-red-500", bg: "bg-red-50" },
+  excel: { icon: FaFileExcel, color: "text-emerald-600", bg: "bg-emerald-50" },
+  word: { icon: FaFileWord, color: "text-blue-500", bg: "bg-blue-50" },
+  zip: { icon: FaFileArchive, color: "text-gray-500", bg: "bg-gray-100" },
+  image: { icon: FaImage, color: "text-violet-500", bg: "bg-violet-50" },
+};
+
+const typeMeta = (t) =>
+  TYPE_META[t] || {
+    icon: FaFileAlt,
+    color: "text-gray-500",
+    bg: "bg-gray-100",
+  };
+
+const EMPTY_FORM = {
+  title: "",
+  category: "",
+  type: "",
+  period: "",
+  customStartDate: "",
+  customEndDate: "",
+  description: "",
+  file: null,
+  status: "published",
+};
+
+const fmtDate = (d) =>
+  d
+    ? new Date(d).toLocaleDateString("en-KE", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "—";
+
+const StatCard = ({ label, value, accent, icon: Icon }) => (
+  <div className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
+    <div
+      className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${accent.bg}`}
+    >
+      <Icon className={`text-xl ${accent.icon}`} />
+    </div>
+    <div>
+      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+        {label}
+      </p>
+      <p className={`text-2xl font-black ${accent.num}`}>{value ?? 0}</p>
+    </div>
+  </div>
+);
+
+const StatusBadge = ({ status }) =>
+  status === "published" ? (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
+      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+      <FaCheckCircle className="text-[10px]" />
+      Published
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">
+      <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+      <FaClock className="text-[10px]" />
+      Draft
+    </span>
+  );
+
+const Spinner = () => (
+  <div className="flex flex-col items-center justify-center py-20 gap-3">
+    <div className="w-10 h-10 border-2 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
+    <p className="text-sm text-gray-400">Loading reports…</p>
+  </div>
+);
+
+const Modal = ({
+  open,
+  onClose,
+  title,
+  subtitle,
+  children,
+  maxW = "max-w-3xl",
+}) => {
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className={`bg-white rounded-2xl shadow-2xl w-full ${maxW} max-h-[90vh] overflow-y-auto`}
+        style={{ animation: "modalPop .22s cubic-bezier(.34,1.56,.64,1) both" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
+          <div>
+            <h2 className="text-lg font-black text-gray-900">{title}</h2>
+            {subtitle && (
+              <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl hover:bg-gray-100 cursor-pointer transition-colors shrink-0"
+          >
+            <FaTimes className="text-gray-400" />
+          </button>
+        </div>
+        <div className="p-6">{children}</div>
+      </div>
+    </div>
+  );
+};
+
+const Field = ({ label, required, children }) => (
+  <div>
+    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+      {label}
+      {required && <span className="text-red-400 ml-0.5">*</span>}
+    </label>
+    {children}
+  </div>
+);
+
+const inputCls =
+  "w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white";
 
 const ReportsPage = () => {
- const [reports, setReports] = useState([]);
+  const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterPeriod, setFilterPeriod] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all");
-  const [filterCategory, setFilterCategory] = useState("all");
-  const [createModal, setCreateModal] = useState(false);
-  const [viewModal, setViewModal] = useState(false);
-  const [selectedReport, setSelectedReport] = useState(null);
-  const [expandedCategories, setExpandedCategories] = useState({});
+  const [submitting, setSubmitting] = useState(false);
   const [stats, setStats] = useState({
     total: 0,
     published: 0,
     draft: 0,
     thisMonth: 0,
   });
-  const [formData, setFormData] = useState({
-    title: "",
-    category: "",
-    type: "",
-    period: "",
-    customStartDate: "",
-    customEndDate: "",
-    description: "",
-    file: null,
-    status: "published",
-  });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterPeriod, setFilterPeriod] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterCategory, setFilterCategory] = useState("all");
 
-  const categories = [
-    { id: "operations", name: "Hospital Operations" },
-    { id: "financial", name: "Financial Reports" },
-    { id: "inventory", name: "Inventory Reports" },
-    { id: "logistics", name: "Logistics Reports" },
-    { id: "hr", name: "HR Reports" },
-    { id: "procurement", name: "Tender & Procurement" },
-  ];
+  const [expandedCats, setExpandedCats] = useState(() =>
+    Object.fromEntries(CATEGORIES.map((c) => [c.id, true])),
+  );
 
-  const reportTypes = [
-    { value: "pdf", label: "PDF", color: "text-red-600" },
-    { value: "excel", label: "Excel", color: "text-green-600" },
-    { value: "word", label: "Word", color: "text-blue-600" },
-    { value: "zip", label: "ZIP", color: "text-gray-600" },
-    { value: "image", label: "Image", color: "text-purple-600" },
-  ];
+  const [createModal, setCreateModal] = useState(false);
+  const [viewModal, setViewModal] = useState(false);
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [formData, setFormData] = useState(EMPTY_FORM);
 
-  const periods = ["Monthly", "Quarterly", "Yearly", "Custom"];
-
-  useEffect(() => {
-    fetchReports();
-    initializeExpandedCategories();
-  }, [searchTerm, filterPeriod, filterStatus, filterCategory]);
-
-  const initializeExpandedCategories = () => {
-    const expanded = {};
-    categories.forEach(cat => expanded[cat.id] = true);
-    setExpandedCategories(expanded);
-  };
-
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     try {
       setLoading(true);
-      setError("");
-
       const params = {
         search: searchTerm || undefined,
         category: filterCategory !== "all" ? filterCategory : undefined,
         status: filterStatus !== "all" ? filterStatus : undefined,
         period: filterPeriod !== "all" ? filterPeriod : undefined,
       };
-
       const res = await api.get("/reports", { params });
-
       if (res.data.success) {
-        setReports(res.data.data);
-        setStats(res.data.stats);
+        setReports(res.data.data || []);
+        setStats(
+          res.data.stats || { total: 0, published: 0, draft: 0, thisMonth: 0 },
+        );
+      } else {
+        setReports(Array.isArray(res.data) ? res.data : []);
       }
     } catch (err) {
-      const errorMsg = err.response?.data?.message || "Error fetching reports";
-      setError(errorMsg);
-      console.error("Error fetching reports:", err);
+      toast.error(err.response?.data?.message || "Error fetching reports");
+      setReports([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm, filterCategory, filterStatus, filterPeriod]);
+
+  useEffect(() => {
+    fetchReports();
+  }, [fetchReports]);
+
+  const categoryMap = useMemo(() => {
+    const q = searchTerm.toLowerCase();
+    const filtered = reports.filter((r) => {
+      const matchSearch =
+        r.title?.toLowerCase().includes(q) ||
+        r.description?.toLowerCase().includes(q);
+      const matchPeriod = filterPeriod === "all" || r.period === filterPeriod;
+      const matchStatus = filterStatus === "all" || r.status === filterStatus;
+      return matchSearch && matchPeriod && matchStatus;
+    });
+    const map = {};
+    CATEGORIES.forEach((c) => {
+      map[c.id] = [];
+    });
+    filtered.forEach((r) => {
+      if (map[r.category]) map[r.category].push(r);
+    });
+    return map;
+  }, [reports, searchTerm, filterPeriod, filterStatus]);
+
+  const setField = (key, val) => setFormData((p) => ({ ...p, [key]: val }));
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      setFormData({ ...formData, file });
-      // Auto-detect file type
-      const ext = file.name.split(".").pop().toLowerCase();
-      if (ext === "pdf") setFormData((prev) => ({ ...prev, type: "pdf" }));
-      else if (["xlsx", "xls", "csv"].includes(ext)) setFormData((prev) => ({ ...prev, type: "excel" }));
-      else if (["doc", "docx"].includes(ext)) setFormData((prev) => ({ ...prev, type: "word" }));
-      else if (ext === "zip") setFormData((prev) => ({ ...prev, type: "zip" }));
-      else if (["jpg", "jpeg", "png"].includes(ext)) setFormData((prev) => ({ ...prev, type: "image" }));
+    if (!file) return;
+
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("File must be under 50 MB");
+      return;
     }
+    const ext = file.name.split(".").pop().toLowerCase();
+    const typeMap = {
+      pdf: "pdf",
+      xlsx: "excel",
+      xls: "excel",
+      csv: "excel",
+      doc: "word",
+      docx: "word",
+      zip: "zip",
+      jpg: "image",
+      jpeg: "image",
+      png: "image",
+    };
+    setFormData((p) => ({ ...p, file, type: typeMap[ext] || p.type }));
+  };
+
+  const openCreate = (report = null) => {
+    setFormData(
+      report
+        ? {
+            _id: report._id,
+            title: report.title,
+            category: report.category,
+            type: report.type,
+            period: report.period,
+            customStartDate: report.customStartDate || "",
+            customEndDate: report.customEndDate || "",
+            description: report.description || "",
+            file: null,
+            status: report.status,
+          }
+        : EMPTY_FORM,
+    );
+    setCreateModal(true);
   };
 
   const handleCreateReport = async () => {
+    if (!formData.title.trim()) {
+      toast.error("Title is required");
+      return;
+    }
+    if (!formData.category) {
+      toast.error("Category is required");
+      return;
+    }
+    if (!formData.period) {
+      toast.error("Period is required");
+      return;
+    }
+    if (!formData._id && !formData.file) {
+      toast.error("Please upload a file");
+      return;
+    }
+    if (
+      formData.period === "Custom" &&
+      (!formData.customStartDate || !formData.customEndDate)
+    ) {
+      toast.error("Provide start and end dates for custom period");
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      setLoading(true);
-      setError("");
-
-      if (!formData.title || !formData.category || !formData.period || !formData.file) {
-        setError("Please fill in all required fields and upload a file");
-        setLoading(false);
-        return;
-      }
-
-      if (formData.period === "Custom" && (!formData.customStartDate || !formData.customEndDate)) {
-        setError("Please provide both start and end dates for custom period");
-        setLoading(false);
-        return;
-      }
-
       const fd = new FormData();
-      fd.append("title", formData.title);
-      fd.append("category", formData.category);
-      fd.append("type", formData.type);
-      fd.append("period", formData.period);
-      fd.append("customStartDate", formData.customStartDate);
-      fd.append("customEndDate", formData.customEndDate);
-      fd.append("description", formData.description);
-      fd.append("status", formData.status);
-      fd.append("file", formData.file);
+      [
+        "title",
+        "category",
+        "type",
+        "period",
+        "customStartDate",
+        "customEndDate",
+        "description",
+        "status",
+      ].forEach((k) => fd.append(k, formData[k] || ""));
+      if (formData.file) fd.append("file", formData.file);
 
-      let res;
-      if (formData._id) {
-        res = await api.put(`/reports/${formData._id}`, fd, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-      } else {
-        res = await api.post("/reports", fd, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-      }
+      const cfg = { headers: { "Content-Type": "multipart/form-data" } };
+      const res = formData._id
+        ? await api.put(`/reports/${formData._id}`, fd, cfg)
+        : await api.post("/reports", fd, cfg);
 
-      if (res.data.success) {
+      if (res.data.success || res.status === 200 || res.status === 201) {
+        toast.success(
+          `Report ${formData._id ? "updated" : "created"} successfully`,
+        );
         setCreateModal(false);
-        resetForm();
+        setFormData(EMPTY_FORM);
         fetchReports();
-        setError("");
-        toast.success("Report saved successfully");
       }
     } catch (err) {
-      const errorMsg = err.response?.data?.message || "Error saving report";
-      setError(errorMsg);
-      console.error("Error saving report:", err);
-      toast.error("Failed to save report");
+      toast.error(err.response?.data?.message || "Error saving report");
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   const handleDeleteReport = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this report?")) {
-      return;
-    }
-
+    if (!window.confirm("Delete this report?")) return;
     try {
-      setLoading(true);
-      const res = await api.delete(`/reports/${id}`);
-
-      if (res.data.success) {
-        fetchReports();
-        setError("");
-        toast.success("Report deleted successfully");
-      }
+      await api.delete(`/reports/${id}`);
+      setReports((prev) => prev.filter((r) => r._id !== id));
+      toast.success("Report deleted");
     } catch (err) {
-      const errorMsg = err.response?.data?.message || "Error deleting report";
-      setError(errorMsg);
-      console.error(err);
-      toast.error("Failed to delete report");
-    } finally {
-      setLoading(false);
+      toast.error(err.response?.data?.message || "Error deleting report");
     }
   };
 
   const handleDownloadReport = async (id, fileName) => {
     try {
-      setLoading(true);
       const res = await api.get(`/reports/${id}/download`, {
         responseType: "blob",
       });
-
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", fileName);
+      link.setAttribute("download", fileName || "report");
       document.body.appendChild(link);
       link.click();
       link.parentElement.removeChild(link);
-      toast.success("Report downloaded successfully");
+      window.URL.revokeObjectURL(url);
+      toast.success("Download started");
     } catch (err) {
-      setError("Error downloading report");
-      console.error(err);
       toast.error("Failed to download report");
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleViewReport = async (report) => {
     try {
       const res = await api.get(`/reports/${report._id}`);
-      if (res.data.success) {
-        setSelectedReport(res.data.data);
-        setViewModal(true);
-      }
+      setSelectedReport(res.data.success ? res.data.data : res.data);
+      setViewModal(true);
     } catch (err) {
-      setError("Error fetching report details");
-      console.error(err);
       toast.error("Failed to fetch report details");
     }
   };
 
-  const handleEditReport = (report) => {
-    setFormData({
-      _id: report._id,
-      title: report.title,
-      category: report.category,
-      type: report.type,
-      period: report.period,
-      customStartDate: report.customStartDate || "",
-      customEndDate: report.customEndDate || "",
-      description: report.description || "",
-      file: null,
-      status: report.status,
-    });
-    setCreateModal(true);
-  };
+  const toggleCat = (id) => setExpandedCats((p) => ({ ...p, [id]: !p[id] }));
 
-  const resetForm = () => {
-    setFormData({
-      title: "",
-      category: "",
-      type: "",
-      period: "",
-      customStartDate: "",
-      customEndDate: "",
-      description: "",
-      file: null,
-      status: "published",
-    });
-  };
-
-  const filteredReports = reports.filter((report) => {
-    const matchesSearch =
-      report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesPeriod = filterPeriod === "all" || report.period === filterPeriod;
-    const matchesStatus = filterStatus === "all" || report.status === filterStatus;
-    return matchesSearch && matchesPeriod && matchesStatus;
-  });
-
-  const getReportsByCategory = (categoryId) => {
-    return filteredReports.filter((report) => report.category === categoryId);
-  };
-
-  const toggleCategory = (categoryId) => {
-    setExpandedCategories((prev) => ({
-      ...prev,
-      [categoryId]: !prev[categoryId],
-    }));
-  };
-
-  const getTypeIcon = (type) => {
-    const typeMap = {
-      pdf: FaFilePdf,
-      excel: FaFileExcel,
-      word: FaFileWord,
-      zip: FaFileArchive,
-      image: FaImage,
-    };
-    return typeMap[type] || FaFileAlt;
-  };
-
-  const getTypeColor = (type) => {
-    const colorMap = {
-      pdf: "text-red-600",
-      excel: "text-green-600",
-      word: "text-blue-600",
-      zip: "text-gray-600",
-      image: "text-purple-600",
-    };
-    return colorMap[type] || "text-gray-600";
-  };
-
-  const getStatusBadge = (status) => {
-    if (status === "published") {
-      return (
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-200">
-          <FaCheckCircle className="mr-1" />
-          Published
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
-        <FaClock className="mr-1" />
-        Draft
-      </span>
-    );
-  };
+  const totalFiltered = useMemo(
+    () => Object.values(categoryMap).reduce((s, arr) => s + arr.length, 0),
+    [categoryMap],
+  );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto">
-        {/* Error Alert */}
-        {/* {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
-            <span className="text-red-700">{error}</span>
-            <button onClick={() => setError("")} className="text-red-600 hover:text-red-800">
-              <FaTimes />
-            </button>
-          </div>
-        )} */}
+    <div className="min-h-screen bg-[#f8f7f5]">
+      <style>{`
+        @keyframes modalPop {
+          from { opacity:0; transform:scale(0.94) translateY(10px); }
+          to   { opacity:1; transform:scale(1)    translateY(0);    }
+        }
+        .fade-up { animation: fadeUp .3s ease both; }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+      `}</style>
 
-        {/* Header */}
-        <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center">
-              <FaFileAlt className="mr-3 text-blue-600" />
-              Reports Manager
-            </h1>
-            <p className="text-gray-600">Manage and organize all hospital reports and documents</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 fade-up">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center ">
+              <FaFileAlt className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+                Reports Manager
+              </h1>
+              <p className="text-xs text-gray-400">
+                Manage and organise all hospital reports and documents
+              </p>
+            </div>
           </div>
           <button
-            onClick={() => {
-              resetForm();
-              setCreateModal(true);
-            }}
-            className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            onClick={() => openCreate()}
+            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200 cursor-pointer"
           >
-            <FaPlus className="mr-2" />
-            Add New Report
+            <FaPlus className="text-xs" /> Add New Report
           </button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Total Reports</p>
-                <h3 className="text-2xl font-bold text-gray-900">{stats.total}</h3>
-              </div>
-              <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-                <FaFileAlt className="text-xl text-blue-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Published</p>
-                <h3 className="text-2xl font-bold text-green-600">{stats.published}</h3>
-              </div>
-              <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
-                <FaCheckCircle className="text-xl text-green-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Drafts</p>
-                <h3 className="text-2xl font-bold text-gray-600">{stats.draft}</h3>
-              </div>
-              <div className="w-12 h-12 bg-gray-50 rounded-lg flex items-center justify-center">
-                <FaClock className="text-xl text-gray-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">This Month</p>
-                <h3 className="text-2xl font-bold text-purple-600">{stats.thisMonth}</h3>
-              </div>
-              <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
-                <FaCalendarAlt className="text-xl text-purple-600" />
-              </div>
-            </div>
-          </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <StatCard
+            label="Total"
+            value={stats.total}
+            icon={FaFileAlt}
+            accent={{
+              bg: "bg-blue-50",
+              icon: "text-blue-500",
+              num: "text-blue-600",
+            }}
+          />
+          <StatCard
+            label="Published"
+            value={stats.published}
+            icon={FaCheckCircle}
+            accent={{
+              bg: "bg-emerald-50",
+              icon: "text-emerald-500",
+              num: "text-emerald-600",
+            }}
+          />
+          <StatCard
+            label="Drafts"
+            value={stats.draft}
+            icon={FaClock}
+            accent={{
+              bg: "bg-gray-100",
+              icon: "text-gray-400",
+              num: "text-gray-600",
+            }}
+          />
+          <StatCard
+            label="This Month"
+            value={stats.thisMonth}
+            icon={FaCalendarAlt}
+            accent={{
+              bg: "bg-violet-50",
+              icon: "text-violet-500",
+              num: "text-violet-600",
+            }}
+          />
         </div>
 
-        {/* Filters & Search */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm mb-6">
-          <div className="p-4">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1 relative">
-                <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search reports by title or description..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              <div className="flex items-center gap-3">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6">
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="relative flex-1">
+              <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm" />
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search reports by title or description…"
+                className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+              />
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {[
+                {
+                  val: filterCategory,
+                  set: setFilterCategory,
+                  opts: [
+                    ["all", "All Categories"],
+                    ...CATEGORIES.map((c) => [c.id, c.name]),
+                  ],
+                },
+                {
+                  val: filterPeriod,
+                  set: setFilterPeriod,
+                  opts: [["all", "All Periods"], ...PERIODS.map((p) => [p, p])],
+                },
+                {
+                  val: filterStatus,
+                  set: setFilterStatus,
+                  opts: [
+                    ["all", "All Status"],
+                    ["published", "Published"],
+                    ["draft", "Draft"],
+                  ],
+                },
+              ].map(({ val, set, opts }, i) => (
                 <select
-                  value={filterCategory}
-                  onChange={(e) => setFilterCategory(e.target.value)}
-                  className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  key={i}
+                  value={val}
+                  onChange={(e) => set(e.target.value)}
+                  className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm cursor-pointer outline-none focus:ring-2 focus:ring-blue-400 bg-white text-gray-600"
                 >
-                  <option value="all">All Categories</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
+                  {opts.map(([v, l]) => (
+                    <option key={v} value={v}>
+                      {l}
                     </option>
                   ))}
                 </select>
-
-                <select
-                  value={filterPeriod}
-                  onChange={(e) => setFilterPeriod(e.target.value)}
-                  className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">All Periods</option>
-                  {periods.map((period) => (
-                    <option key={period} value={period}>
-                      {period}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">All Status</option>
-                  <option value="published">Published</option>
-                  <option value="draft">Draft</option>
-                </select>
-              </div>
+              ))}
             </div>
           </div>
+          {(searchTerm ||
+            filterCategory !== "all" ||
+            filterPeriod !== "all" ||
+            filterStatus !== "all") && (
+            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+              <span className="text-xs text-gray-400">
+                Showing{" "}
+                <span className="font-semibold text-gray-700">
+                  {totalFiltered}
+                </span>{" "}
+                of {reports.length} reports
+              </span>
+              <button
+                onClick={() => {
+                  setSearchTerm("");
+                  setFilterCategory("all");
+                  setFilterPeriod("all");
+                  setFilterStatus("all");
+                }}
+                className="text-xs text-gray-400 hover:text-rose-500 cursor-pointer underline"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Reports by Category */}
         {loading ? (
-          <div className="p-12 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="text-gray-500 mt-4">Loading reports...</p>
-          </div>
+          <Spinner />
         ) : (
           <div className="space-y-4">
-            {categories.map((category) => {
-              const categoryReports = getReportsByCategory(category.id);
-
+            {CATEGORIES.map((cat) => {
+              const catReports = categoryMap[cat.id] || [];
+              const isOpen = expandedCats[cat.id];
               return (
                 <div
-                  key={category.id}
-                  className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden"
+                  key={cat.id}
+                  className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
                 >
-                  {/* Category Header */}
+                  {/* Category header */}
                   <button
-                    onClick={() => toggleCategory(category.id)}
-                    className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                    onClick={() => toggleCat(cat.id)}
+                    className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50/80 transition-colors cursor-pointer"
                   >
-                    <div className="flex items-center">
-                      <FaFileAlt className="text-xl text-blue-600 mr-3" />
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {category.name}
-                      </h3>
-                      <span className="ml-3 px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
-                        {categoryReports.length}
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                        <FaFileAlt className="text-blue-500 text-sm" />
+                      </div>
+                      <span className="font-bold text-gray-900 text-sm">
+                        {cat.name}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-black ${catReports.length > 0 ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-500"}`}
+                      >
+                        {catReports.length}
                       </span>
                     </div>
-                    {expandedCategories[category.id] ? (
-                      <FaChevronUp className="text-gray-400" />
+                    {isOpen ? (
+                      <FaChevronUp className="text-gray-300 text-xs" />
                     ) : (
-                      <FaChevronDown className="text-gray-400" />
+                      <FaChevronDown className="text-gray-300 text-xs" />
                     )}
                   </button>
 
-                  {/* Category Content */}
-                  {expandedCategories[category.id] && (
+                  {isOpen && (
                     <div className="border-t border-gray-100">
-                      {categoryReports.length === 0 ? (
-                        <div className="p-8 text-center text-gray-500">
-                          <FaFileAlt className="text-4xl text-gray-300 mx-auto mb-2" />
-                          <p>No reports in this category</p>
+                      {catReports.length === 0 ? (
+                        <div className="py-10 text-center">
+                          <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-2">
+                            <FaFileAlt className="text-gray-300 text-lg" />
+                          </div>
+                          <p className="text-xs text-gray-400">
+                            No reports in this category
+                          </p>
                         </div>
                       ) : (
                         <div className="overflow-x-auto">
-                          <table className="w-full">
-                            <thead className="bg-gray-50">
-                              <tr>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                                  Title
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                                  Type
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                                  Period
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                                  Uploaded On
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                                  Status
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                                  Views
-                                </th>
-                                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">
-                                  Actions
-                                </th>
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="bg-gray-50/80 border-b border-gray-100">
+                                {[
+                                  "Title",
+                                  "Type",
+                                  "Period",
+                                  "Uploaded",
+                                  "Status",
+                                  "Views",
+                                  "",
+                                ].map((h, i) => (
+                                  <th
+                                    key={i}
+                                    className={`px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider ${i === 6 ? "text-right" : "text-left"}`}
+                                  >
+                                    {h || "Actions"}
+                                  </th>
+                                ))}
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100">
-                              {categoryReports.map((report) => {
-                                const TypeIcon = getTypeIcon(report.type);
-                                const typeColor = getTypeColor(report.type);
-
+                            <tbody className="divide-y divide-gray-50">
+                              {catReports.map((report) => {
+                                const {
+                                  icon: TypeIcon,
+                                  color,
+                                  bg,
+                                } = typeMeta(report.type);
                                 return (
-                                  <tr key={report._id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4">
-                                      <div>
-                                        <p className="font-semibold text-gray-900">
-                                          {report.title}
+                                  <tr
+                                    key={report._id}
+                                    className="hover:bg-gray-50/80 transition-colors group"
+                                  >
+                                    <td className="px-5 py-4 max-w-xs">
+                                      <p className="font-semibold text-gray-900 truncate">
+                                        {report.title}
+                                      </p>
+                                      {report.description && (
+                                        <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">
+                                          {report.description}
                                         </p>
-                                        {report.description && (
-                                          <p className="text-sm text-gray-500 mt-1">
-                                            {report.description}
-                                          </p>
-                                        )}
-                                      </div>
+                                      )}
                                     </td>
-                                    <td className="px-6 py-4">
-                                      <div className="flex items-center">
-                                        <TypeIcon className={`mr-2 ${typeColor}`} />
-                                        <span className="text-sm font-medium text-gray-700">
-                                          {report.type.toUpperCase()}
-                                        </span>
-                                      </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                      <span className="text-sm text-gray-700">
-                                        {report.period}
+
+                                    <td className="px-5 py-4">
+                                      <span
+                                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold ${bg} ${color}`}
+                                      >
+                                        <TypeIcon className="text-[10px]" />
+                                        {report.type?.toUpperCase()}
                                       </span>
                                     </td>
-                                    <td className="px-6 py-4">
-                                      <span className="text-sm text-gray-700">
-                                        {new Date(report.createdAt).toLocaleDateString()}
-                                      </span>
+
+                                    <td className="px-5 py-4 text-xs text-gray-600">
+                                      {report.period}
                                     </td>
-                                    <td className="px-6 py-4">
-                                      {getStatusBadge(report.status)}
+
+                                    <td className="px-5 py-4 text-xs text-gray-500">
+                                      {fmtDate(report.createdAt)}
                                     </td>
-                                    <td className="px-6 py-4">
-                                      <span className="text-sm text-gray-700">{report.views}</span>
+
+                                    <td className="px-5 py-4">
+                                      <StatusBadge status={report.status} />
                                     </td>
-                                    <td className="px-6 py-4">
-                                      <div className="flex items-center justify-end gap-2">
+
+                                    <td className="px-5 py-4 text-xs text-gray-600">
+                                      {report.views ?? 0}
+                                    </td>
+
+                                    <td className="px-5 py-4">
+                                      <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                                         <button
-                                          onClick={() => handleViewReport(report)}
-                                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                          onClick={() =>
+                                            handleViewReport(report)
+                                          }
+                                          className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 cursor-pointer transition-colors"
                                           title="View"
                                         >
-                                          <FaEye />
+                                          <FaEye className="text-sm" />
                                         </button>
                                         <button
-                                          onClick={() => handleDownloadReport(report._id, report.fileName)}
-                                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                          onClick={() =>
+                                            handleDownloadReport(
+                                              report._id,
+                                              report.fileName,
+                                            )
+                                          }
+                                          className="p-2 rounded-xl text-emerald-500 hover:bg-emerald-50 cursor-pointer transition-colors"
                                           title="Download"
                                         >
-                                          <FaDownload />
+                                          <FaDownload className="text-sm" />
                                         </button>
                                         <button
-                                          onClick={() => handleEditReport(report)}
-                                          className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                          onClick={() => openCreate(report)}
+                                          className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 cursor-pointer transition-colors"
                                           title="Edit"
                                         >
-                                          <FaEdit />
+                                          <FaEdit className="text-sm" />
                                         </button>
                                         <button
-                                          onClick={() => handleDeleteReport(report._id)}
-                                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                          onClick={() =>
+                                            handleDeleteReport(report._id)
+                                          }
+                                          className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer transition-colors"
                                           title="Delete"
                                         >
-                                          <FaTrash />
+                                          <FaTrash className="text-sm" />
                                         </button>
                                       </div>
                                     </td>
@@ -637,209 +717,294 @@ const ReportsPage = () => {
             })}
           </div>
         )}
+      </div>
 
-        {/* Create Report Modal */}
-        {createModal && (
-          <div className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900">Add New Report</h2>
-                <button
-                  onClick={() => setCreateModal(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                >
-                  <FaTimes className="text-gray-500" />
-                </button>
-              </div>
-
-              <div className="p-6 space-y-6">
-                {/* Title */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Report Title *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="e.g., Quarterly Revenue 2025 Q2"
-                  />
-                </div>
-
-                {/* Category & Type */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Category *
-                    </label>
-                    <select
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Category</option>
-                      {categories.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Report Type
-                    </label>
-                    <select
-                      value={formData.type}
-                      onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Auto-detect</option>
-                      {reportTypes.map((type) => (
-                        <option key={type.value} value={type.value}>
-                          {type.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Period */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Reporting Period *
-                  </label>
-                  <select
-                    value={formData.period}
-                    onChange={(e) => setFormData({ ...formData, period: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select Period</option>
-                    {periods.map((period) => (
-                      <option key={period} value={period}>
-                        {period}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Custom Date Range */}
-                {formData.period === "Custom" && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Start Date
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.customStartDate}
-                        onChange={(e) => setFormData({ ...formData, customStartDate: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      />
+      <Modal
+        open={viewModal}
+        onClose={() => setViewModal(false)}
+        title={selectedReport?.title || "Report Details"}
+        maxW="max-w-2xl"
+      >
+        {selectedReport &&
+          (() => {
+            const { icon: TypeIcon, color, bg } = typeMeta(selectedReport.type);
+            return (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    {
+                      label: "Category",
+                      value:
+                        CATEGORIES.find((c) => c.id === selectedReport.category)
+                          ?.name || selectedReport.category,
+                    },
+                    { label: "Period", value: selectedReport.period },
+                    {
+                      label: "Status",
+                      value: <StatusBadge status={selectedReport.status} />,
+                    },
+                    { label: "Views", value: selectedReport.views ?? 0 },
+                    {
+                      label: "Uploaded",
+                      value: fmtDate(selectedReport.createdAt),
+                    },
+                    {
+                      label: "File Type",
+                      value: (
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold ${bg} ${color}`}
+                        >
+                          <TypeIcon className="text-[10px]" />
+                          {selectedReport.type?.toUpperCase()}
+                        </span>
+                      ),
+                    },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="bg-gray-50 rounded-xl p-4">
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                        {label}
+                      </p>
+                      <div className="text-sm font-semibold text-gray-800">
+                        {value}
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        End Date
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.customEndDate}
-                        onChange={(e) => setFormData({ ...formData, customEndDate: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
+                  ))}
+                </div>
+
+                {selectedReport.description && (
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                      Description
+                    </p>
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      {selectedReport.description}
+                    </p>
                   </div>
                 )}
 
-                {/* Description */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description (Optional)
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    rows="3"
-                    placeholder="Brief description of the report..."
-                  />
-                </div>
-
-                {/* File Upload */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Upload File *
-                  </label>
-                  <label className="flex flex-col items-center justify-center px-4 py-8 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 cursor-pointer transition-colors">
-                    <FaUpload className="text-4xl text-gray-400 mb-3" />
-                    <span className="text-gray-600 mb-1">Click to upload or drag and drop</span>
-                    <span className="text-sm text-gray-500">PDF, Excel, Word, ZIP, Images</span>
-                    <input
-                      type="file"
-                      accept=".pdf,.xlsx,.xls,.docx,.doc,.zip,.csv,.jpeg,.jpg,.png"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                  </label>
-                  {formData.file && (
-                    <p className="text-sm text-green-600 mt-2 flex items-center">
-                      <FaCheckCircle className="mr-2" />
-                      {formData.file.name}
-                    </p>
+                {selectedReport.period === "Custom" &&
+                  selectedReport.customStartDate && (
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                        Custom Period
+                      </p>
+                      <p className="text-sm text-gray-800">
+                        {fmtDate(selectedReport.customStartDate)} →{" "}
+                        {fmtDate(selectedReport.customEndDate)}
+                      </p>
+                    </div>
                   )}
-                </div>
 
-                {/* Publish Status */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Publish Status
-                  </label>
-                  <div className="flex items-center gap-4">
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        value="published"
-                        checked={formData.status === "published"}
-                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                        className="w-4 h-4 text-blue-600"
-                      />
-                      <span className="ml-2 text-sm text-gray-700">Published</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        value="draft"
-                        checked={formData.status === "draft"}
-                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                        className="w-4 h-4 text-blue-600"
-                      />
-                      <span className="ml-2 text-sm text-gray-700">Draft</span>
-                    </label>
-                  </div>
+                <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+                  <button
+                    onClick={() => setViewModal(false)}
+                    className="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() =>
+                      handleDownloadReport(
+                        selectedReport._id,
+                        selectedReport.fileName,
+                      )
+                    }
+                    className="flex items-center gap-2 px-5 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 cursor-pointer transition-colors"
+                  >
+                    <FaDownload className="text-xs" /> Download
+                  </button>
                 </div>
               </div>
+            );
+          })()}
+      </Modal>
 
-              <div className="p-6 border-t border-gray-100 flex items-center justify-end gap-3">
-                <button
-                  onClick={() => setCreateModal(false)}
-                  className="px-6 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreateReport}
-                  className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  <FaSave className="mr-2" />
-                  Save Report
-                </button>
-              </div>
-            </div>
+      <Modal
+        open={createModal}
+        onClose={() => {
+          setCreateModal(false);
+          setFormData(EMPTY_FORM);
+        }}
+        title={formData._id ? "Edit Report" : "Add New Report"}
+        subtitle={
+          formData._id
+            ? "Update report details"
+            : "Upload a new report document"
+        }
+      >
+        <div className="space-y-5">
+          <Field label="Report Title" required>
+            <input
+              value={formData.title}
+              onChange={(e) => setField("title", e.target.value)}
+              placeholder="e.g., Quarterly Revenue 2025 Q2"
+              className={inputCls}
+            />
+          </Field>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Category" required>
+              <select
+                value={formData.category}
+                onChange={(e) => setField("category", e.target.value)}
+                className={inputCls}
+              >
+                <option value="">Select Category</option>
+                {CATEGORIES.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="File Type">
+              <select
+                value={formData.type}
+                onChange={(e) => setField("type", e.target.value)}
+                className={inputCls}
+              >
+                <option value="">Auto-detect</option>
+                {Object.keys(TYPE_META).map((t) => (
+                  <option key={t} value={t}>
+                    {t.toUpperCase()}
+                  </option>
+                ))}
+              </select>
+            </Field>
           </div>
-        )}
-      </div>
+
+          <Field label="Reporting Period" required>
+            <select
+              value={formData.period}
+              onChange={(e) => setField("period", e.target.value)}
+              className={inputCls}
+            >
+              <option value="">Select Period</option>
+              {PERIODS.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          {formData.period === "Custom" && (
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Start Date" required>
+                <input
+                  type="date"
+                  value={formData.customStartDate}
+                  onChange={(e) => setField("customStartDate", e.target.value)}
+                  className={inputCls}
+                />
+              </Field>
+              <Field label="End Date" required>
+                <input
+                  type="date"
+                  value={formData.customEndDate}
+                  onChange={(e) => setField("customEndDate", e.target.value)}
+                  className={inputCls}
+                />
+              </Field>
+            </div>
+          )}
+
+          <Field label="Description">
+            <textarea
+              value={formData.description}
+              onChange={(e) => setField("description", e.target.value)}
+              placeholder="Brief description of the report…"
+              rows={3}
+              className={`${inputCls} resize-none`}
+            />
+          </Field>
+
+          <Field
+            label={formData._id ? "Replace File (optional)" : "Upload File"}
+            required={!formData._id}
+          >
+            <label
+              className={`flex flex-col items-center gap-2 px-6 py-7 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${
+                formData.file
+                  ? "border-blue-400 bg-blue-50/40"
+                  : "border-gray-200 hover:border-blue-400 bg-gray-50/50"
+              }`}
+            >
+              <FaUpload
+                className={`text-2xl ${formData.file ? "text-blue-500" : "text-gray-300"}`}
+              />
+              <div className="text-center">
+                <p className="text-sm font-semibold text-gray-600">
+                  {formData.file ? formData.file.name : "Click to browse files"}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  PDF, Excel, Word, ZIP, Images · max 50 MB
+                </p>
+              </div>
+              <input
+                type="file"
+                accept=".pdf,.xlsx,.xls,.docx,.doc,.zip,.csv,.jpeg,.jpg,.png"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+            </label>
+          </Field>
+
+          <Field label="Publish Status">
+            <div className="flex items-center gap-6">
+              {["published", "draft"].map((s) => (
+                <label
+                  key={s}
+                  className="flex items-center gap-2 cursor-pointer select-none"
+                >
+                  <div
+                    onClick={() => setField("status", s)}
+                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center cursor-pointer transition-colors ${
+                      formData.status === s
+                        ? "border-blue-600 bg-blue-600"
+                        : "border-gray-300"
+                    }`}
+                  >
+                    {formData.status === s && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                    )}
+                  </div>
+                  <span className="text-sm text-gray-700 capitalize">{s}</span>
+                </label>
+              ))}
+            </div>
+          </Field>
+
+          <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+            <button
+              onClick={() => {
+                setCreateModal(false);
+                setFormData(EMPTY_FORM);
+              }}
+              className="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCreateReport}
+              disabled={submitting}
+              className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 cursor-pointer transition-colors shadow-sm shadow-blue-200"
+            >
+              {submitting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                <>
+                  <FaSave className="text-xs" />
+                  {formData._id ? "Update Report" : "Save Report"}
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

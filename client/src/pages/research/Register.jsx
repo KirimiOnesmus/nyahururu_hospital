@@ -27,7 +27,7 @@ const DISCIPLINES = [
   "Social Sciences",
   "Information Technology",
   "Other",
-];
+]; 
 
 
 const Field = ({ label, error, children }) => (

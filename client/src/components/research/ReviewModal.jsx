@@ -6,8 +6,7 @@ import {
   FaCheck,
   FaSpinner,
 } from "react-icons/fa";
-  import { submitReview } from "../../api/research";
-
+import { submitReview } from "../../api/research";
 
 const STAGE_LABELS = {
   proposal:    "Proposal",
@@ -20,23 +19,31 @@ const ReviewModal = ({ item, onClose, onDecision }) => {
   const [comment, setComment]   = useState("");
   const [loading, setLoading]   = useState(false);
 
-    const handleSubmit = async () => {
+  const handleSubmit = async () => {
     if (!decision) {
       toast.error("Please select a decision");
       return;
     }
+
+    if (!comment.trim() || comment.trim().length < 10) {
+      toast.error("Comment must be at least 10 characters");
+      return;
+    }
+
     setLoading(true);
     try {
-      const result = await submitReview(item.id, {
+      await submitReview(item.id, {
         decision,
         comment,
       });
       
+    
       onDecision(item.id, decision, comment);
-      toast.success("Review submitted!");
+      toast.success("Review submitted successfully!");
       onClose();
     } catch (err) {
-      toast.error(err.message);
+      console.error("Review submission error:", err);
+      toast.error(err.message || "Failed to submit review");
     } finally {
       setLoading(false);
     }
@@ -49,13 +56,10 @@ const ReviewModal = ({ item, onClose, onDecision }) => {
       onClick={(e) => e.target === e.currentTarget && !loading && onClose()}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl relative overflow-hidden"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl relative overflow-hidden"
         style={{ animation: "slideUp .25s ease" }}
       >
-
-
         <div className="p-8">
-      
           {!loading && (
             <button
               onClick={onClose}
@@ -65,7 +69,6 @@ const ReviewModal = ({ item, onClose, onDecision }) => {
             </button>
           )}
 
-         
           <div className="flex items-center gap-3 mb-5">
             <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
               <FaShieldAlt className="text-blue-600" />
@@ -80,8 +83,8 @@ const ReviewModal = ({ item, onClose, onDecision }) => {
             </div>
           </div>
 
-      
-          <h3 className="font-bold text-gray-900 text-base  mb-1">
+       
+          <h3 className="font-bold text-gray-900 text-base mb-1">
             {item.title}
           </h3>
           <p className="text-xs text-gray-600 mb-4">
@@ -92,7 +95,7 @@ const ReviewModal = ({ item, onClose, onDecision }) => {
             {item.abstract}
           </div>
 
-        
+
           <p className="text-sm font-semibold text-gray-700 mb-2">
             Decision <span className="text-red-500">*</span>
           </p>
@@ -134,7 +137,6 @@ const ReviewModal = ({ item, onClose, onDecision }) => {
             </button>
           </div>
 
-          
           <label className="block mb-6">
             <span className="text-sm font-semibold text-gray-700 mb-1.5 block">
               Review Comment <span className="text-red-500">*</span>
@@ -143,11 +145,11 @@ const ReviewModal = ({ item, onClose, onDecision }) => {
               rows={4}
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              required
+              disabled={loading}
               placeholder="Provide clear feedback for the researcher — what was done well and what specifically needs improvement…"
               className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm outline-none text-gray-800
                placeholder-gray-400 focus:outline-none focus:ring focus:ring-blue-500 transition-all 
-               resize-none bg-gray-50 hover:border-gray-300"
+               resize-none bg-gray-50 hover:border-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed"
             />
             <div className="flex justify-between mt-1">
               <span className="text-xs text-gray-400">
@@ -166,7 +168,7 @@ const ReviewModal = ({ item, onClose, onDecision }) => {
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={loading || !decision || !comment.trim()}
+            disabled={loading || !decision || !comment.trim() || comment.trim().length < 10}
             className={`w-full font-bold py-3.5 rounded-xl transition-all flex items-center
                justify-center gap-2 text-sm shadow-md cursor-pointer
               ${
@@ -177,7 +179,7 @@ const ReviewModal = ({ item, onClose, onDecision }) => {
                   : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
               }
               disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
-              hover:-translate-y-0.5 hover:shadow-lg
+              hover:not-disabled:-translate-y-0.5 hover:not-disabled:shadow-lg
             `}
           >
             {loading ? (
@@ -197,7 +199,7 @@ const ReviewModal = ({ item, onClose, onDecision }) => {
             )}
           </button>
 
-         
+     
           {!loading && (
             <button
               type="button"
@@ -206,7 +208,7 @@ const ReviewModal = ({ item, onClose, onDecision }) => {
                hover:text-white hover:bg-red-500 cursor-pointer rounded-lg
                border border-red-500 py-3.5 transition-colors"
             >
-              Cancel 
+              Cancel
             </button>
           )}
         </div>

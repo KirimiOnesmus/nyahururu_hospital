@@ -116,7 +116,7 @@ exports.inviteReviewer = async (req, res) => {
       specialisations: specialisations || [],
       role: "reviewer",
       status: "invited",
-      password: crypto.randomBytes(16).toString("hex"), // Temporary password
+      password: crypto.randomBytes(16).toString("hex"), 
       emailVerified: false,
       emailVerificationToken: hashedToken,
       emailVerificationExpire: expiry,
@@ -388,37 +388,37 @@ exports.listReviewers = async (req, res) => {
 
 //LIST ALL RESEARCHERS (WITH FILTERS)
 
-// exports.listAllResearchers = async (req, res) => {
-//   if (!canManageReviewers(req)) {
-//     return res.status(403).json({ message: "Access denied" });
-//   }
+exports.listAllReviewers = async (req, res) => {
+  if (!canManageReviewers(req)) {
+    return res.status(403).json({ message: "Access denied" });
+  }
 
-//   try {
-//     const { role, page = 1, limit = 20 } = req.query;
-//     const filter = role ? { role } : {};
+  try {
+    const { role, page = 1, limit = 20 } = req.query;
+    const filter = role ? { role } : {};
 
-//     const [researchers, total] = await Promise.all([
-//       Researcher.find(filter)
-//         .select(
-//           "name email role institution discipline emailVerified createdAt invitedAt status"
-//         )
-//         .sort({ createdAt: -1 })
-//         .skip((page - 1) * limit)
-//         .limit(Number(limit)),
-//       Researcher.countDocuments(filter),
-//     ]);
+    const [researchers, total] = await Promise.all([
+      Researcher.find(filter)
+        .select(
+          "name email role institution discipline emailVerified createdAt invitedAt status"
+        )
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(Number(limit)),
+      Researcher.countDocuments(filter),
+    ]);
 
-//     res.json({
-//       total,
-//       page: Number(page),
-//       limit: Number(limit),
-//       researchers,
-//     });
-//   } catch (err) {
-//     console.error("listAllResearchers error:", err);
-//     res.status(500).json({ message: err.message });
-//   }
-// };
+    res.json({
+      total,
+      page: Number(page),
+      limit: Number(limit),
+      researchers,
+    });
+  } catch (err) {
+    console.error("listAllResearchers error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
 
 //UPDATE REVIEWER DETAILS
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Header, Footer } from "../../components/layouts";
 import {
   FaSearch,
@@ -14,97 +14,9 @@ import {
   FaTimes,
   FaCheckCircle,
   FaSpinner,
-  FaFilter,
-  FaSortAmountDown,
+  FaExclamationCircle,
 } from "react-icons/fa";
-
-const MOCK_RESEARCH = [
-  {
-    id: "1",
-    title:
-      "Impact of Climate Change on Agricultural Productivity in the Rift Valley",
-    author: "Dr. Amina Wanjiku",
-    institution: "Egerton University",
-    category: "Agriculture",
-    year: 2024,
-    abstract:
-      "This study examines the long-term effects of shifting rainfall patterns and rising temperatures on smallholder farming communities across the Rift Valley region. Using satellite data and field surveys conducted between 2019 and 2023, the research identifies critical vulnerability zones and proposes adaptive strategies for sustainable food production.",
-    // downloadPrice: 150,
-    downloadPrice: 1, // Set to 1 KES for testing. Change to 150 for production.
-    downloads: 342,
-    pages: 48,
-  },
-  {
-    id: "2",
-    title:
-      "Mobile Money Adoption and Financial Inclusion Among Rural Youth in Kenya",
-    author: "Prof. James Kariuki",
-    institution: "University of Nairobi",
-    category: "Economics",
-    year: 2024,
-    abstract:
-      "An analysis of M-Pesa usage patterns among 18–30 year-olds in rural Kenya, this paper explores barriers to formal banking and how mobile payment platforms bridge the financial inclusion gap. Survey data from 1,200 respondents across five counties informs policy recommendations for expanding digital financial services.",
-    downloadPrice: 200,
-    downloads: 218,
-    pages: 62,
-  },
-  {
-    id: "3",
-    title:
-      "Traditional Medicinal Plants and Their Pharmacological Properties in Central Kenya",
-    author: "Dr. Grace Muthoni",
-    institution: "Kenyatta University",
-    category: "Health",
-    year: 2023,
-    abstract:
-      "Documenting over 80 plant species used by traditional healers in Nyeri, Murang'a and Kirinyaga counties, this ethnobotanical study cross-references folk medicinal use with laboratory-confirmed pharmacological activity. Findings suggest several candidates for further clinical investigation in wound healing and antimicrobial applications.",
-    downloadPrice: 150,
-    downloads: 487,
-    pages: 55,
-  },
-  {
-    id: "4",
-    title:
-      "Urban Planning Challenges and Housing Affordability in Secondary Kenyan Towns",
-    author: "Eng. Peter Njoroge",
-    institution: "Technical University of Kenya",
-    category: "Urban Planning",
-    year: 2023,
-    abstract:
-      "Secondary towns like Nyahururu, Nyeri and Nakuru face rapid population growth without corresponding infrastructure expansion. This paper models housing demand over a 20-year horizon, assesses current zoning frameworks, and proposes evidence-based interventions to prevent informal settlement proliferation.",
-    downloadPrice: 100,
-    downloads: 156,
-    pages: 39,
-  },
-  {
-    id: "5",
-    title:
-      "Water Resource Management and Community Governance in Semi-Arid Laikipia",
-    author: "Dr. Sarah Njoki",
-    institution: "Mount Kenya University",
-    category: "Environment",
-    year: 2024,
-    abstract:
-      "Drawing on three years of participatory action research with pastoralist communities, this study evaluates the effectiveness of water user associations in managing scarce water resources during prolonged dry seasons. The paper develops a governance scorecard applicable to similar semi-arid contexts across East Africa.",
-    downloadPrice: 150,
-    downloads: 93,
-    pages: 44,
-  },
-  {
-    id: "6",
-    title:
-      "Digital Literacy and Secondary School Performance in Rural Laikipia County",
-    author: "Ms. Ruth Wambui",
-    institution: "Laikipia University",
-    category: "Education",
-    year: 2024,
-    abstract:
-      "This quantitative study measures the correlation between computer lab access, teacher ICT proficiency, and national examination results across 60 secondary schools in Laikipia County. The findings reveal significant disparities between urban-proximate and remote schools and recommend a targeted digital literacy intervention framework.",
-    downloadPrice: 100,
-    downloads: 204,
-    pages: 36,
-  },
-];
+import { getAllPublishedResearch } from "../../api/research";
 
 const CATEGORIES = [
   "All",
@@ -132,9 +44,31 @@ const formatPhone = (v) => {
   return d.slice(0, 10);
 };
 
+
+const normalizeResearch = (item) => ({
+  id: item._id || item.id,
+  title: item.title,
+  author:
+    item.researcher?.name ||
+    (item.researcher?.firstName
+      ? `${item.researcher.firstName} ${item.researcher.lastName || ""}`.trim()
+      : "Unknown Author"),
+  institution: item.researcher?.institution || "Unknown Institution",
+  category: item.category || item.discipline || "General",
+  year: item.publishedAt
+    ? new Date(item.publishedAt).getFullYear()
+    : item.createdAt
+    ? new Date(item.createdAt).getFullYear()
+    : new Date().getFullYear(),
+  abstract: item.abstract || item.finalAbstract || "",
+  downloadPrice: item.downloadPrice ?? 150,
+  downloads: item.downloads ?? 0,
+  pages: item.pages ?? null,
+});
+
 const PaymentModal = ({ research, onClose, onSuccess }) => {
   const [phone, setPhone] = useState("");
-  const [step, setStep] = useState("form"); // form | processing | success
+  const [step, setStep] = useState("form"); 
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -238,7 +172,7 @@ const PaymentModal = ({ research, onClose, onSuccess }) => {
               </span>
             </div>
 
-            <h3 className="text-md font-bold text-gray-900  mb-5 line-clamp-2">
+            <h3 className="text-md font-bold text-gray-900 mb-5 line-clamp-2">
               {research.title}
             </h3>
 
@@ -299,7 +233,6 @@ const PaymentModal = ({ research, onClose, onSuccess }) => {
   );
 };
 
-//resesarch card component
 const ResearchCard = ({ item, onDownload }) => {
   const [expanded, setExpanded] = useState(false);
   const cat = CATEGORY_STYLES[item.category] || {
@@ -330,7 +263,6 @@ const ResearchCard = ({ item, onDownload }) => {
           {item.title}
         </h3>
 
-        {/* Author + Institution */}
         <div className="space-y-1">
           <p className="flex items-center gap-2 text-sm text-gray-700">
             <FaUserAlt className="text-blue-400 text-[11px] flex-shrink-0" />
@@ -368,9 +300,11 @@ const ResearchCard = ({ item, onDownload }) => {
 
       <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between gap-3 flex-wrap bg-gray-50 rounded-b-xl">
         <div className="flex items-center gap-4 text-xs text-gray-400">
-          <span className="flex items-center gap-1.5">
-            <FaFileAlt className="text-gray-300" /> {item.pages} pages
-          </span>
+          {item.pages && (
+            <span className="flex items-center gap-1.5">
+              <FaFileAlt className="text-gray-300" /> {item.pages} pages
+            </span>
+          )}
           <span className="flex items-center gap-1.5">
             <FaDownload className="text-gray-300" />{" "}
             {item.downloads.toLocaleString()}
@@ -412,22 +346,59 @@ const SkeletonCard = () => (
   </div>
 );
 
+const ErrorState = ({ message, onRetry }) => (
+  <div className="col-span-full text-center py-20">
+    <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+      <FaExclamationCircle className="text-red-400 text-2xl" />
+    </div>
+    <h3 className="text-xl font-bold text-gray-700 mb-2">
+      Failed to load papers
+    </h3>
+    <p className="text-gray-400 text-sm mb-4">{message}</p>
+    <button
+      onClick={onRetry}
+      className="text-blue-600 text-sm font-semibold hover:underline"
+    >
+      Try again
+    </button>
+  </div>
+);
+
 const PublicResearch = () => {
   const [research, setResearch] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [sortBy, setSortBy] = useState("newest");
   const [selectedItem, setSelectedItem] = useState(null);
   const [unlockedIds, setUnlockedIds] = useState([]);
 
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setResearch(MOCK_RESEARCH);
+  const fetchResearch = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+    
+      const data = await getAllPublishedResearch({ limit: 6 });
+
+
+      const raw = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.research)
+        ? data.research
+        : [];
+
+      setResearch(raw.map(normalizeResearch));
+    } catch (err) {
+      setError(err?.message || "Unable to load research papers. Please try again.");
+    } finally {
       setIsLoading(false);
-    }, 700);
-    return () => clearTimeout(t);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchResearch();
+  }, [fetchResearch]);
 
   const filtered = research
     .filter((r) => {
@@ -444,7 +415,8 @@ const PublicResearch = () => {
       if (sortBy === "downloads") return b.downloads - a.downloads;
       if (sortBy === "price-asc") return a.downloadPrice - b.downloadPrice;
       return 0;
-    });
+    })
+    .slice(0, 6);
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
@@ -530,9 +502,8 @@ const PublicResearch = () => {
           </div>
         </section>
 
-       
         <section className="max-w-6xl mx-auto px-6 py-8">
-          {!isLoading && (
+          {!isLoading && !error && (
             <p className="text-sm text-gray-400 mb-5">
               Showing{" "}
               <span className="font-semibold text-gray-600">
@@ -557,6 +528,8 @@ const PublicResearch = () => {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {isLoading ? (
               Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
+            ) : error ? (
+              <ErrorState message={error} onRetry={fetchResearch} />
             ) : filtered.length === 0 ? (
               <div className="col-span-full text-center py-20">
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -603,29 +576,15 @@ const PublicResearch = () => {
 
       <style jsx>{`
         @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
         @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        .animate-fadeIn {
-          animation: fadeIn 0.2s ease;
-        }
-        .animate-slideUp {
-          animation: slideUp 0.25s ease;
-        }
+        .animate-fadeIn { animation: fadeIn 0.2s ease; }
+        .animate-slideUp { animation: slideUp 0.25s ease; }
         .line-clamp-2 {
           display: -webkit-box;
           -webkit-line-clamp: 2;

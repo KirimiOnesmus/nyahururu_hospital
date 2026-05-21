@@ -264,7 +264,7 @@ exports.sendAppointmentConfirmationEmail = async (appointmentData) => {
               <tr>
                 <td style="padding: 8px 0; color: #666; font-weight: bold;">Date:</td>
                 <td style="padding: 8px 0; color: #333;">${new Date(
-                  appointmentDate
+                  appointmentDate,
                 ).toLocaleDateString("en-US", {
                   weekday: "long",
                   year: "numeric",
@@ -312,7 +312,7 @@ exports.sendAppointmentConfirmationEmail = async (appointmentData) => {
 exports.sendAppointmentStatusUpdateEmail = async (
   email,
   appointmentData,
-  status
+  status,
 ) => {
   const { patientName, service, appointmentDate, time } = appointmentData;
 
@@ -365,7 +365,7 @@ exports.sendAppointmentStatusUpdateEmail = async (
               <tr>
                 <td style="padding: 8px 0; color: #666; font-weight: bold;">Date:</td>
                 <td style="padding: 8px 0; color: #333;">${new Date(
-                  appointmentDate
+                  appointmentDate,
                 ).toLocaleDateString("en-US", {
                   weekday: "long",
                   year: "numeric",
@@ -411,7 +411,7 @@ exports.sendFeedbackReplyEmail = async (
   email,
   userName,
   originalMessage,
-  replyMessage
+  replyMessage,
 ) => {
   const mailOptions = {
     from: process.env.EMAIL_USER,
@@ -497,7 +497,7 @@ exports.sendDonorRegistrationEmail = async (donorData) => {
       <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #ffcdd2;">
         <p style="color: #666; font-size: 13px; margin: 0 0 5px 0;"><strong>📅 Scheduled Date:</strong></p>
         <p style="color: #333; margin: 0; font-size: 15px;">${new Date(
-          donationDate
+          donationDate,
         ).toLocaleDateString("en-US", {
           weekday: "long",
           year: "numeric",
@@ -587,7 +587,7 @@ exports.sendDonorRegistrationEmail = async (donorData) => {
     const result = await transporter.sendMail(mailOptions);
     console.log(
       `Donor registration confirmation sent to ${email}:`,
-      result.messageId
+      result.messageId,
     );
     return result;
   } catch (error) {
@@ -595,9 +595,6 @@ exports.sendDonorRegistrationEmail = async (donorData) => {
     throw error;
   }
 };
-
-
-
 
 // RESEARCHER EMAILS
 const shell = (content, title = "Nyahururu Research Portal") => `
@@ -611,9 +608,9 @@ const shell = (content, title = "Nyahururu Research Portal") => `
     </p>
   </div>
 </div>`;
- 
+
 //Helper to create button
- 
+
 const btn = (url, label, color = "#2196F3") => `
 <div style="margin: 30px 0; text-align: center;">
   <a href="${url}"
@@ -622,7 +619,7 @@ const btn = (url, label, color = "#2196F3") => `
     ${label}
   </a>
 </div>`;
- 
+
 // Helper to send email
 
 const sendMail = async (to, subject, html) => {
@@ -630,14 +627,14 @@ const sendMail = async (to, subject, html) => {
     if (!transporter) {
       throw new Error("Email transporter not initialized");
     }
- 
+
     const result = await transporter.sendMail({
       from: `"Nyahururu Research Portal" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       html,
     });
- 
+
     console.log(`[Email] ${subject} → ${to} (${result.messageId})`);
     return result;
   } catch (error) {
@@ -645,8 +642,7 @@ const sendMail = async (to, subject, html) => {
     throw error;
   }
 };
-  
- 
+
 exports.sendResearcherVerificationEmail = async ({
   email,
   name,
@@ -668,17 +664,13 @@ exports.sendResearcherVerificationEmail = async ({
       This link expires in 24 hours. If you didn't create this account, please ignore this email.
     </p>
   `);
- 
+
   return sendMail(email, "Verify Your Email — Nyahururu Research Portal", html);
 };
- 
+
 // Send password reset email
 
-exports.sendPasswordResetEmail = async ({
-  email,
-  name,
-  resetLink,
-}) => {
+exports.sendPasswordResetEmail = async ({ email, name, resetLink }) => {
   const html = shell(`
     <h2 style="color: #f44336; margin-top: 0;">Password Reset Request</h2>
     <p style="color: #555; line-height: 1.6;">
@@ -694,10 +686,14 @@ exports.sendPasswordResetEmail = async ({
       This link expires in 24 hours. If you didn't request this, please ignore this email.
     </p>
   `);
- 
-  return sendMail(email, "Password Reset Request — Nyahururu Research Portal", html);
+
+  return sendMail(
+    email,
+    "Password Reset Request — Nyahururu Research Portal",
+    html,
+  );
 };
- 
+
 // Send proposal submission confirmation
 
 exports.sendProposalSubmitted = async ({
@@ -740,12 +736,16 @@ exports.sendProposalSubmitted = async ({
       Resubmissions after a revision request are <strong>completely free</strong>.
     </p>
   `);
- 
-  return sendMail(email, "Proposal Submitted — Nyahururu Research Portal", html);
+
+  return sendMail(
+    email,
+    "Proposal Submitted — Nyahururu Research Portal",
+    html,
+  );
 };
- 
+
 //Send proposal approved notification
- 
+
 exports.sendProposalApproved = async ({
   email,
   name,
@@ -753,19 +753,20 @@ exports.sendProposalApproved = async ({
   stage,
   reviewerComment,
 }) => {
-  const stageLabel = {
-    proposal: "Stage 1 — Proposal",
-    abstract: "Stage 2 — Abstract",
-    final_paper: "Stage 3 — Final Paper",
-  }[stage] || stage;
- 
+  const stageLabel =
+    {
+      proposal: "Stage 1 — Proposal",
+      abstract: "Stage 2 — Abstract",
+      final_paper: "Stage 3 — Final Paper",
+    }[stage] || stage;
+
   const nextStep =
     stage === "proposal"
       ? "You may now proceed to submit your <strong>Abstract (Stage 2)</strong>."
       : stage === "abstract"
-      ? "You may now proceed to submit your <strong>Final Paper (Stage 3)</strong>."
-      : "Your research is now published on the public research portal!";
- 
+        ? "You may now proceed to submit your <strong>Final Paper (Stage 3)</strong>."
+        : "Your research is now published on the public research portal!";
+
   const html = shell(`
     <h2 style="color: #4CAF50; margin-top: 0;">${stageLabel} Approved</h2>
     <p style="color: #555; line-height: 1.6;">
@@ -804,10 +805,14 @@ exports.sendProposalApproved = async ({
       ${nextStep}
     </p>
   `);
- 
-  return sendMail(email, `${stageLabel} Approved — Nyahururu Research Portal`, html);
+
+  return sendMail(
+    email,
+    `${stageLabel} Approved — Nyahururu Research Portal`,
+    html,
+  );
 };
- 
+
 // Send revision requested notification
 
 // exports.sendRevisionRequested = async ({
@@ -822,7 +827,7 @@ exports.sendProposalApproved = async ({
 //     abstract: "Stage 2 — Abstract",
 //     final_paper: "Stage 3 — Final Paper",
 //   }[stage] || stage;
- 
+
 //   const html = shell(`
 //     <h2 style="color: #ff9800; margin-top: 0;">Revision Requested</h2>
 //     <p style="color: #555; line-height: 1.6;">
@@ -855,10 +860,10 @@ exports.sendProposalApproved = async ({
 //     </div>
 
 //   `);
- 
+
 //   return sendMail(email, `Revision Requested — ${proposalTitle}`, html);
 // };
- 
+
 //Send download receipt
 
 exports.sendDownloadReceipt = async ({
@@ -903,20 +908,72 @@ exports.sendDownloadReceipt = async ({
       please contact support.
     </p>
   `);
- 
+
   return sendMail(email, `Download Receipt — ${proposalTitle}`, html);
 };
+
+//Admin added researcher notification (when admin creates account for researcher and sends them a password setup link)
+
+exports.sendAdminAddedResearcher = async ({ email, name, password }) => {
+  const loginUrl = `${process.env.FRONTEND_URL}/research/login`;
+
+  const html = shell(`
+    <h2 style="color: #4CAF50; margin-top: 0;">Welcome to Nyahururu Research Portal!</h2>
+    <p style="color: #555; line-height: 1.6;">
+      Dear <strong>${name}</strong>,<br/>
+      An administrator has created a researcher account for you on the Nyahururu Research Portal.
+      You can log in immediately using the credentials below.
+    </p>
+
+    <div style="background-color: #e8f5e9; padding: 20px; border-radius: 8px;
+         margin: 20px 0; border-left: 4px solid #4CAF50;">
+      <h3 style="color: #2e7d32; margin-top: 0; font-size: 16px;">Your Login Credentials</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold; width: 35%;">Email:</td>
+          <td style="padding: 8px 0; color: #333;">${email}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-weight: bold;">Password:</td>
+          <td style="padding: 8px 0; color: #333;">
+            <span style="font-family: monospace; font-size: 16px; font-weight: bold;
+                         background: #f5f5f5; padding: 4px 8px; border-radius: 4px;
+                         letter-spacing: 2px;">
+              ${password}
+            </span>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <p style="color: #d32f2f; font-weight: bold; background-color: #ffebee;
+       padding: 12px 15px; border-radius: 4px; line-height: 1.6;">
+      Please change your password immediately after your first login.
+    </p>
+
+    ${btn(loginUrl, "Log In Now", "#4CAF50")}
+
+    <p style="color: #999; font-size: 12px; margin-top: 15px; line-height: 1.6;">
+      If you were not expecting this email or believe this was sent in error,
+      please contact support immediately at
+      <a href="mailto:${process.env.EMAIL_USER}" style="color: #2196F3;">
+        ${process.env.EMAIL_USER}
+      </a>.
+    </p>
+  `);
+
+  return sendMail(
+    email,
+    "Your Research Portal Account — Nyahururu Research Portal",
+    html,
+  );
+};
+
 //REVIEWER EMAILS
 
- 
 //Send reviewer invitation (when new reviewer is invited)
 
-exports.sendReviewerInvite = async ({
-  email,
-  name,
-  inviteLink,
-  invitedBy,
-}) => {
+exports.sendReviewerInvite = async ({ email, name, inviteLink, invitedBy }) => {
   const html = shell(`
     <h2 style="color: #2196F3; margin-top: 0;">You've Been Invited as a Reviewer</h2>
     <p style="color: #555; line-height: 1.6;">
@@ -942,17 +999,17 @@ exports.sendReviewerInvite = async ({
       <a href="${inviteLink}" style="color: #2196F3; word-break: break-all; font-size: 11px;">${inviteLink}</a>
     </p>
   `);
- 
-  return sendMail(email, "You're Invited as a Reviewer — Nyahururu Research Portal", html);
+
+  return sendMail(
+    email,
+    "You're Invited as a Reviewer — Nyahururu Research Portal",
+    html,
+  );
 };
- 
+
 //Send reviewer promotion notification (when existing researcher becomes reviewer)
 
-exports.sendReviewerPromoted = async ({
-  email,
-  name,
-  promotedBy,
-}) => {
+exports.sendReviewerPromoted = async ({ email, name, promotedBy }) => {
   const html = shell(`
     <h2 style="color: #4CAF50; margin-top: 0;">✨ You're Now a Reviewer</h2>
     <p style="color: #555; line-height: 1.6;">
@@ -975,10 +1032,14 @@ exports.sendReviewerPromoted = async ({
       Thank you for joining our review team. Your expertise is invaluable!
     </p>
   `);
- 
-  return sendMail(email, "You're Now a Reviewer — Nyahururu Research Portal", html);
+
+  return sendMail(
+    email,
+    "You're Now a Reviewer — Nyahururu Research Portal",
+    html,
+  );
 };
- 
+
 //Send new proposal assignment notification
 
 exports.sendNewProposalToReview = async ({
@@ -1019,12 +1080,12 @@ exports.sendNewProposalToReview = async ({
     </p>
     ${btn(reviewLink, "Review Proposal", "#2196F3")}
   `);
- 
+
   return sendMail(email, `New Proposal for Review — ${proposalTitle}`, html);
 };
- 
+
 //Send resubmission notice (researcher resubmitted after revision request)
- 
+
 exports.sendResubmissionNotice = async ({
   email,
   reviewerName,
@@ -1058,30 +1119,32 @@ exports.sendResubmissionNotice = async ({
     </p>
     ${btn(reviewLink, "Review Resubmission", "#ff9800")}
   `);
- 
+
   return sendMail(email, `Resubmission Received — ${proposalTitle}`, html);
 };
- 
+
 //Send review submission confirmation
- 
+
 exports.sendReviewCompletedConfirmation = async ({
   email,
   reviewerName,
   proposalTitle,
   decision,
 }) => {
-  const decisionLabel = {
-    approved: "Approved",
-    revision: "Revision Requested",
-    rejected: "Rejected",
-  }[decision] || decision;
- 
-  const decisionColor = {
-    approved: "#4CAF50",
-    revision: "#ff9800",
-    rejected: "#f44336",
-  }[decision] || "#2196F3";
- 
+  const decisionLabel =
+    {
+      approved: "Approved",
+      revision: "Revision Requested",
+      rejected: "Rejected",
+    }[decision] || decision;
+
+  const decisionColor =
+    {
+      approved: "#4CAF50",
+      revision: "#ff9800",
+      rejected: "#f44336",
+    }[decision] || "#2196F3";
+
   const html = shell(`
     <h2 style="color: ${decisionColor}; margin-top: 0;">Review Submitted</h2>
     <p style="color: #555; line-height: 1.6;">
@@ -1111,10 +1174,10 @@ exports.sendReviewCompletedConfirmation = async ({
       Thank you for your valuable contribution to the research community!
     </p>
   `);
- 
+
   return sendMail(email, `Review Submitted — ${proposalTitle}`, html);
 };
- 
+
 // Send monthly reviewer statistics
 
 exports.sendMonthlySummary = async ({
@@ -1158,10 +1221,14 @@ exports.sendMonthlySummary = async ({
       Your diligent review work helps maintain the quality of our research portal.
     </p>
   `);
- 
-  return sendMail(email, `Your Monthly Review Summary — Nyahururu Research Portal`, html);
+
+  return sendMail(
+    email,
+    `Your Monthly Review Summary — Nyahururu Research Portal`,
+    html,
+  );
 };
- 
+
 //PAYMENT EMAILS
 
 exports.sendPaymentConfirmation = async ({
@@ -1203,6 +1270,6 @@ exports.sendPaymentConfirmation = async ({
       Please keep this receipt for your records.
     </p>
   `);
- 
+
   return sendMail(email, `Payment Confirmed — Nyahururu Research Portal`, html);
 };

@@ -1,448 +1,420 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import api from "../../api/axios";
 import {
-  FaSearch,
-  FaCalendarAlt,
-  FaCheckCircle,
-  FaTimesCircle,
-  FaEye,
-  FaClock,
-  FaFilter,
-  FaUserMd,
-  FaUser,
+  FaSearch, FaCalendarAlt, FaCheckCircle, FaTimesCircle,
+  FaEye, FaClock, FaFilter, FaUserMd, FaUser, FaTimes,
+  FaPhone, FaEnvelope, FaStethoscope,
 } from "react-icons/fa";
-import{toast} from 'react-toastify';
+import { toast } from "react-toastify";
+
+const STATUS_CONFIG = {
+  confirmed: { bg: "bg-emerald-100", text: "text-emerald-700", dot: "bg-emerald-500", icon: FaCheckCircle  },
+  completed: { bg: "bg-sky-100",     text: "text-sky-700",     dot: "bg-sky-500",     icon: FaCheckCircle  },
+  pending:   { bg: "bg-amber-100",   text: "text-amber-700",   dot: "bg-amber-400",   icon: FaClock        },
+  cancelled: { bg: "bg-rose-100",    text: "text-rose-700",    dot: "bg-rose-400",    icon: FaTimesCircle  },
+};
+
+const scfg = (status) => STATUS_CONFIG[status?.toLowerCase()] || STATUS_CONFIG.pending;
+
+const StatusBadge = ({ status }) => {
+  const c = scfg(status);
+  const Icon = c.icon;
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${c.bg} ${c.text}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+      <Icon className="text-[10px]" />
+      {status?.charAt(0).toUpperCase() + status?.slice(1)}
+    </span>
+  );
+};
+
+const StatCard = ({ label, value, accent, icon: Icon }) => (
+  <div className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
+    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${accent.bg}`}>
+      <Icon className={`text-xl ${accent.icon}`} />
+    </div>
+    <div>
+      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{label}</p>
+      <p className={`text-2xl font-black ${accent.num}`}>{value}</p>
+    </div>
+  </div>
+);
+
+const Spinner = () => (
+  <div className="flex flex-col items-center justify-center py-20 gap-3">
+    <div className="w-10 h-10 border-2 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
+    <p className="text-sm text-gray-400">Loading appointments…</p>
+  </div>
+);
+
+const Empty = ({ text }) => (
+  <div className="flex flex-col items-center justify-center py-20 gap-3">
+    <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center">
+      <FaCalendarAlt className="text-2xl text-gray-300" />
+    </div>
+    <p className="text-sm text-gray-400">{text}</p>
+  </div>
+);
+
+const Modal = ({ open, onClose, children }) => {
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        style={{ animation: "modalPop .22s cubic-bezier(.34,1.56,.64,1) both" }}
+        onClick={e => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>
+  );
+};
+
+const DetailItem = ({ icon: Icon, color, label, value }) => (
+  <div className="bg-gray-50 rounded-xl p-4">
+    <p className={`text-[10px] font-semibold uppercase tracking-wider mb-1 flex items-center gap-1.5 ${color}`}>
+      <Icon className="text-[10px]" />{label}
+    </p>
+    <p className="text-sm font-semibold text-gray-800">{value || "—"}</p>
+  </div>
+);
+
+const fmtDate = (d, opts = { day: "2-digit", month: "short", year: "numeric" }) =>
+  d ? new Date(d).toLocaleDateString("en-KE", opts) : "—";
+
 
 const AppointmentPage = () => {
-  const [appointments, setAppointments] = useState([]);
-  const [filtered, setFiltered] = useState([]);
-  const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
-  const [loading, setLoading] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] = useState(null);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [appointments,       setAppointments]       = useState([]);
+  const [loading,            setLoading]            = useState(false);
+  const [search,             setSearch]             = useState("");
+  const [filterStatus,       setFilterStatus]       = useState("all");
+  const [selectedAppointment,setSelectedAppointment]= useState(null);
+  const [showModal,          setShowModal]          = useState(false);
 
-  const fetchAppointments = async () => {
+  const fetchAppointments = useCallback(async () => {
     try {
       setLoading(true);
       const res = await api.get("/appointments");
-      setAppointments(res.data);
-      setFiltered(res.data);
+      setAppointments(Array.isArray(res.data) ? res.data : res.data.data || []);
     } catch (err) {
-      console.error(err.response?.data?.message || err.message);
+      toast.error(err.response?.data?.message || "Error fetching appointments");
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchAppointments();
   }, []);
 
-  // Filter appointments based on search and status
-  useEffect(() => {
-    let filteredData = appointments.filter(
-      (appt) =>
-        appt.patientName?.toLowerCase().includes(search.toLowerCase()) ||
-        appt.doctorId?.specialty?.toLowerCase().includes(search.toLowerCase()) ||
-        appt.service?.toLowerCase().includes(search.toLowerCase())
-    );
+  useEffect(() => { fetchAppointments(); }, [fetchAppointments]);
 
-    if (filterStatus !== "all") {
-      filteredData = filteredData.filter(
-        (appt) => appt.status.toLowerCase() === filterStatus.toLowerCase()
-      );
-    }
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return appointments.filter(a => {
+      const matchSearch =
+        a.patientName?.toLowerCase().includes(q) ||
+        a.doctorId?.specialty?.toLowerCase().includes(q) ||
+        a.service?.toLowerCase().includes(q) ||
+        a.email?.toLowerCase().includes(q);
+      const matchStatus = filterStatus === "all" || a.status?.toLowerCase() === filterStatus;
+      return matchSearch && matchStatus;
+    });
+  }, [appointments, search, filterStatus]);
 
-    setFiltered(filteredData);
-  }, [search, filterStatus, appointments]);
+  const stats = useMemo(() => ({
+    total:     appointments.length,
+    confirmed: appointments.filter(a => a.status?.toLowerCase() === "confirmed").length,
+    pending:   appointments.filter(a => a.status?.toLowerCase() === "pending").length,
+    cancelled: appointments.filter(a => a.status?.toLowerCase() === "cancelled").length,
+  }), [appointments]);
 
   const updateStatus = async (id, status) => {
     try {
-      await api.put(`/appointments/${id}`, { status });
-      fetchAppointments();
-      toast.success("Appointment status updated");
+      await api.put(`/appointments/${id}`, { status: status.toLowerCase() });
+
+      setAppointments(prev =>
+        prev.map(a => a._id === id ? { ...a, status: status.toLowerCase() } : a)
+      );
+   
+      if (selectedAppointment?._id === id) {
+        setSelectedAppointment(p => ({ ...p, status: status.toLowerCase() }));
+      }
+      toast.success(`Appointment ${status.toLowerCase()}`);
     } catch (err) {
-      console.log(err.response?.data?.message || "Error updating status");
-      toast.error("Failed to update appointment status");
+      toast.error(err.response?.data?.message || "Failed to update status");
     }
   };
 
-  const getStatusBadge = (status) => {
-    const statusMap = {
-      confirmed: {
-        bg: "bg-green-100",
-        text: "text-green-700",
-        border: "border-green-200",
-        icon: FaCheckCircle,
-      },
-      cancelled: {
-        bg: "bg-red-100",
-        text: "text-red-700",
-        border: "border-red-200",
-        icon: FaTimesCircle,
-      },
-      completed: {
-        bg: "bg-blue-100",
-        text: "text-blue-700",
-        border: "border-blue-200",
-        icon: FaCheckCircle,
-      },
-      pending: {
-        bg: "bg-yellow-100",
-        text: "text-yellow-700",
-        border: "border-yellow-200",
-        icon: FaClock,
-      },
-    };
+  const openModal   = (appt) => { setSelectedAppointment(appt); setShowModal(true); };
+  const closeModal  = () => setShowModal(false);
 
-    const statusLower = status.toLowerCase();
-    const statusConfig = statusMap[statusLower] || statusMap.pending;
-    const Icon = statusConfig.icon;
+  const ActionButtons = ({ appt, compact = false }) => {
+    const status = appt.status?.toLowerCase();
+    const btnCls = compact
+      ? "p-2 rounded-xl transition-colors cursor-pointer"
+      : "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer";
 
     return (
-      <span
-        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}
-      >
-        <Icon className="mr-1" />
-        {status}
-      </span>
+      <>
+        {status !== "confirmed" && (
+          <button
+            onClick={() => updateStatus(appt._id, "confirmed")}
+            className={`${btnCls} text-emerald-600 hover:bg-emerald-50`}
+            title="Confirm"
+          >
+            <FaCheckCircle className={compact ? "text-sm" : ""} />
+            {!compact && "Confirm"}
+          </button>
+        )}
+        {status !== "completed" && status !== "cancelled" && (
+          <button
+            onClick={() => updateStatus(appt._id, "completed")}
+            className={`${btnCls} text-sky-600 hover:bg-sky-50`}
+            title="Mark completed"
+          >
+            <FaCalendarAlt className={compact ? "text-sm" : ""} />
+            {!compact && "Complete"}
+          </button>
+        )}
+        {status !== "cancelled" && (
+          <button
+            onClick={() => { if (window.confirm("Cancel this appointment?")) updateStatus(appt._id, "cancelled"); }}
+            className={`${btnCls} text-rose-500 hover:bg-rose-50`}
+            title="Cancel"
+          >
+            <FaTimesCircle className={compact ? "text-sm" : ""} />
+            {!compact && "Cancel"}
+          </button>
+        )}
+      </>
     );
   };
 
-  const handleViewDetails = (appointment) => {
-    setSelectedAppointment(appointment);
-    setShowDetailsModal(true);
-  };
-
-  // Calculate statistics
-  const stats = {
-    total: appointments.length,
-    confirmed: appointments.filter((a) => a.status.toLowerCase() === "confirmed").length,
-    pending: appointments.filter((a) => a.status.toLowerCase() === "pending").length,
-    cancelled: appointments.filter((a) => a.status.toLowerCase() === "cancelled").length,
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Appointment Management
-          </h1>
-          <p className="text-gray-600">
-            View and manage all patient appointments
-          </p>
-        </div>
+    <div className="min-h-screen bg-[#f8f7f5]">
+      <style>{`
+        @keyframes modalPop {
+          from { opacity:0; transform:scale(0.94) translateY(10px); }
+          to   { opacity:1; transform:scale(1)    translateY(0);    }
+        }
+        @keyframes fadeUp {
+          from { opacity:0; transform:translateY(8px); }
+          to   { opacity:1; transform:translateY(0);   }
+        }
+        .fade-up { animation: fadeUp .3s ease both; }
+      `}</style>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Total Appointments</p>
-                <h3 className="text-2xl font-bold text-gray-900">{stats.total}</h3>
-              </div>
-              <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-                <FaCalendarAlt className="text-xl text-blue-600" />
-              </div>
-            </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
+
+        {/* ── Header ── */}
+        <div className="flex items-center gap-3 mb-8 fade-up">
+          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center ">
+            <FaCalendarAlt className="text-white" />
           </div>
-
-          <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Confirmed</p>
-                <h3 className="text-2xl font-bold text-green-600">{stats.confirmed}</h3>
-              </div>
-              <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
-                <FaCheckCircle className="text-xl text-green-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Pending</p>
-                <h3 className="text-2xl font-bold text-yellow-600">{stats.pending}</h3>
-              </div>
-              <div className="w-12 h-12 bg-yellow-50 rounded-lg flex items-center justify-center">
-                <FaClock className="text-xl text-yellow-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Cancelled</p>
-                <h3 className="text-2xl font-bold text-red-600">{stats.cancelled}</h3>
-              </div>
-              <div className="w-12 h-12 bg-red-50 rounded-lg flex items-center justify-center">
-                <FaTimesCircle className="text-xl text-red-600" />
-              </div>
-            </div>
+          <div>
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Appointment Management</h1>
+            <p className="text-xs text-gray-400">View and manage all patient appointments</p>
           </div>
         </div>
 
-        {/* Search and Filter Bar */}
-        <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm mb-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by patient name or service..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <FaFilter className="text-gray-400" />
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        {/* ── Stats ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <StatCard label="Total"     value={stats.total}     icon={FaCalendarAlt}  accent={{ bg:"bg-blue-50",    icon:"text-blue-500",    num:"text-blue-700"    }} />
+          <StatCard label="Confirmed" value={stats.confirmed} icon={FaCheckCircle}  accent={{ bg:"bg-emerald-50", icon:"text-emerald-500", num:"text-emerald-700" }} />
+          <StatCard label="Pending"   value={stats.pending}   icon={FaClock}        accent={{ bg:"bg-amber-50",   icon:"text-amber-500",   num:"text-amber-700"   }} />
+          <StatCard label="Cancelled" value={stats.cancelled} icon={FaTimesCircle}  accent={{ bg:"bg-rose-50",    icon:"text-rose-500",    num:"text-rose-700"    }} />
+        </div>
+
+        {/* ── Search & filter ── */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-5 flex flex-col md:flex-row gap-3">
+          <div className="relative flex-1">
+            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by patient name, email, or service…"
+              className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <FaFilter className="text-gray-300 text-sm" />
+            <select
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value)}
+              className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm cursor-pointer outline-none focus:ring-2 focus:ring-blue-400 bg-white text-gray-600"
+            >
+              <option value="all">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+          {(search || filterStatus !== "all") && (
+            <div className="flex items-center gap-1.5 text-xs text-gray-400 self-center">
+              <span className="font-semibold text-gray-700">{filtered.length}</span> of {appointments.length}
+              <button
+                onClick={() => { setSearch(""); setFilterStatus("all"); }}
+                className="ml-1 text-gray-300 hover:text-rose-400 cursor-pointer transition-colors"
               >
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
+                <FaTimes />
+              </button>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Appointments Table */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          {loading ? (
-            <div className="p-12 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="text-gray-500 mt-4">Loading appointments...</p>
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="p-12 text-center">
-              <FaCalendarAlt className="text-5xl text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">No appointments found</p>
-            </div>
+        {/* ── Status filter pills ── */}
+        <div className="flex flex-wrap gap-2 mb-5">
+          {["all", "pending", "confirmed", "completed", "cancelled"].map(s => {
+            const c = s === "all" ? null : scfg(s);
+            const count = s === "all" ? appointments.length : appointments.filter(a => a.status?.toLowerCase() === s).length;
+            return (
+              <button
+                key={s}
+                onClick={() => setFilterStatus(s)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                  filterStatus === s
+                    ? s === "all"
+                      ? "bg-gray-800 text-white border-gray-800"
+                      : `${c.bg} ${c.text} border-transparent ring-2 ring-offset-1 ring-blue-400`
+                    : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${filterStatus === s ? "bg-white/30" : "bg-gray-100 text-gray-500"}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── Table ── */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          {loading ? <Spinner /> : filtered.length === 0 ? (
+            <Empty text={search || filterStatus !== "all" ? "No appointments match your filters" : "No appointments yet"} />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-100">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Patient
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Service/Doctor
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Date & Time
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Actions
-                    </th>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    {["Patient", "Service / Doctor", "Date & Time", "Status", "Actions"].map((h, i) => (
+                      <th key={h} className={`px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider ${i === 4 ? "text-right" : "text-left"}`}>
+                        {h}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filtered.map((appt) => (
-                    <tr key={appt._id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                            <FaUser className="text-blue-600" />
+                <tbody className="divide-y divide-gray-50">
+                  {filtered.map(appt => (
+                    <tr key={appt._id} className="hover:bg-gray-50/80 transition-colors group">
+
+                      {/* Patient */}
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-black text-sm shrink-0">
+                            {appt.patientName?.charAt(0)?.toUpperCase() || "?"}
                           </div>
-                          <div>
-                            <p className="font-semibold text-gray-900">
-                              {appt.patientName || "—"}
-                            </p>
-                            <p className="text-sm text-gray-500">{appt.email || "—"}</p>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-gray-900 truncate">{appt.patientName || "—"}</p>
+                            <p className="text-[10px] text-gray-400 truncate">{appt.email || "—"}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <FaUserMd className="text-gray-400 mr-2" />
-                          <span className="text-gray-900">
-                            {appt.doctorId?.specialty || appt.service || "—"}
-                          </span>
-                        </div>
+
+                      {/* Service */}
+                      <td className="px-5 py-4">
+                        <span className="flex items-center gap-1.5 text-xs text-gray-600">
+                          <FaUserMd className="text-gray-300 shrink-0" />
+                          {appt.doctorId?.specialty || appt.service || "—"}
+                        </span>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="text-gray-900 font-medium">
-                            {appt.appointmentDate || appt.date
-                              ? new Date(appt.appointmentDate || appt.date).toLocaleDateString(
-                                  "en-US",
-                                  {
-                                    day: "2-digit",
-                                    month: "short",
-                                    year: "numeric",
-                                  }
-                                )
-                              : "—"}
-                          </span>
-                          <span className="text-sm text-gray-500">
-                            {appt.time || "—"}
-                          </span>
-                        </div>
+
+                      {/* Date & time */}
+                      <td className="px-5 py-4">
+                        <p className="text-sm font-semibold text-gray-800">
+                          {fmtDate(appt.appointmentDate || appt.date)}
+                        </p>
+                        <p className="text-[10px] text-gray-400">{appt.time || "—"}</p>
                       </td>
-                      <td className="px-6 py-4">
-                        {getStatusBadge(appt.status)}
+
+                      {/* Status */}
+                      <td className="px-5 py-4">
+                        <StatusBadge status={appt.status} />
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-2">
+
+                      {/* Actions */}
+                      <td className="px-5 py-4">
+                        <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                           <button
-                            onClick={() => handleViewDetails(appt)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            onClick={() => openModal(appt)}
+                            className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 transition-colors cursor-pointer"
                             title="View Details"
                           >
-                            <FaEye />
+                            <FaEye className="text-sm" />
                           </button>
-                          {appt.status.toLowerCase() !== "confirmed" && (
-                            <button
-                              onClick={() => updateStatus(appt._id, "Confirmed")}
-                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                              title="Confirm Appointment"
-                            >
-                              <FaCheckCircle />
-                            </button>
-                          )}
-                          {appt.status.toLowerCase() !== "cancelled" && (
-                            <button
-                              onClick={() => {
-                                if (window.confirm("Cancel this appointment?")) {
-                                  updateStatus(appt._id, "Cancelled");
-                                }
-                              }}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Cancel Appointment"
-                            >
-                              <FaTimesCircle />
-                            </button>
-                          )}
+                          <ActionButtons appt={appt} compact />
                         </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+
+              <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/60">
+                <p className="text-xs text-gray-400">
+                  Showing <span className="font-semibold text-gray-600">{filtered.length}</span> of <span className="font-semibold text-gray-600">{appointments.length}</span> appointments
+                </p>
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Details Modal */}
-      {showDetailsModal && selectedAppointment && (
-        <div className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-100">
-              <div className="flex items-center justify-between">
-                <h3 className="text-2xl font-bold text-gray-900">
-                  Appointment Details
-                </h3>
-                <button
-                  onClick={() => setShowDetailsModal(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <FaTimesCircle className="text-gray-500 text-xl" />
+      {/* ── Details Modal ── */}
+      <Modal open={showModal} onClose={closeModal}>
+        {selectedAppointment && (
+          <>
+            {/* Modal header with status colour accent */}
+            <div className={`px-6 py-5 rounded-t-2xl ${scfg(selectedAppointment.status).bg}`}>
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Appointment Details</p>
+                  <h3 className="text-xl font-black text-gray-900">{selectedAppointment.patientName || "Unknown Patient"}</h3>
+                  <div className="mt-2"><StatusBadge status={selectedAppointment.status} /></div>
+                </div>
+                <button onClick={closeModal} className="p-2 rounded-xl hover:bg-white/60 transition-colors cursor-pointer">
+                  <FaTimes className="text-gray-500" />
                 </button>
               </div>
             </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Patient Name</p>
-                    <p className="font-semibold text-gray-900">
-                      {selectedAppointment.patientName || selectedAppointment.name || "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Email</p>
-                    <p className="text-gray-900">{selectedAppointment.email || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Phone</p>
-                    <p className="text-gray-900">{selectedAppointment.phone || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Service/Doctor</p>
-                    <p className="text-gray-900">
-                      {selectedAppointment.doctorId?.specialty ||
-                        selectedAppointment.service ||
-                        "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Date</p>
-                    <p className="text-gray-900">
-                      {selectedAppointment.appointmentDate || selectedAppointment.date
-                        ? new Date(
-                            selectedAppointment.appointmentDate || selectedAppointment.date
-                          ).toLocaleDateString("en-US", {
-                            day: "2-digit",
-                            month: "long",
-                            year: "numeric",
-                          })
-                        : "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Time</p>
-                    <p className="text-gray-900">{selectedAppointment.time || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Status</p>
-                    <div>{getStatusBadge(selectedAppointment.status)}</div>
-                  </div>
-                </div>
+
+            <div className="p-6 space-y-4">
+              {/* Detail grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <DetailItem icon={FaUser}        color="text-blue-400"    label="Patient Name"    value={selectedAppointment.patientName || selectedAppointment.name} />
+                <DetailItem icon={FaEnvelope}    color="text-indigo-400"  label="Email"           value={selectedAppointment.email} />
+                <DetailItem icon={FaPhone}       color="text-emerald-400" label="Phone"           value={selectedAppointment.phone} />
+                <DetailItem icon={FaStethoscope} color="text-violet-400"  label="Service / Doctor"value={selectedAppointment.doctorId?.specialty || selectedAppointment.service} />
+                <DetailItem icon={FaCalendarAlt} color="text-amber-400"   label="Date"            value={fmtDate(selectedAppointment.appointmentDate || selectedAppointment.date, { day:"2-digit", month:"long", year:"numeric" })} />
+                <DetailItem icon={FaClock}       color="text-sky-400"     label="Time"            value={selectedAppointment.time} />
               </div>
-              <div className="flex items-center justify-end gap-3 mt-6 pt-6 border-t border-gray-100">
-                {selectedAppointment.status.toLowerCase() !== "confirmed" && (
-                  <button
-                    onClick={() => {
-                      updateStatus(selectedAppointment._id, "Confirmed");
-                      setShowDetailsModal(false);
-                    }}
-                    className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    <FaCheckCircle className="mr-2" />
-                    Confirm
-                  </button>
-                )}
-                {selectedAppointment.status.toLowerCase() !== "cancelled" && (
-                  <button
-                    onClick={() => {
-                      if (window.confirm("Cancel this appointment?")) {
-                        updateStatus(selectedAppointment._id, "Cancelled");
-                        setShowDetailsModal(false);
-                      }
-                    }}
-                    className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                  >
-                    <FaTimesCircle className="mr-2" />
-                    Cancel
-                  </button>
-                )}
+
+              {/* Action buttons */}
+              <div className="flex flex-wrap justify-end gap-2 pt-4 border-t border-gray-100">
+                <ActionButtons appt={selectedAppointment} compact={false} />
                 <button
-                  onClick={() => setShowDetailsModal(false)}
-                  className="px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  onClick={closeModal}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors"
                 >
                   Close
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 };

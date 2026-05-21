@@ -1,756 +1,571 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   FaPlus, FaSearch, FaFilter, FaGavel, FaCalendarAlt, FaClock,
-  FaEdit, FaTrash, FaEye, FaTimes, FaSave, FaCopy, FaFileDownload,
+  FaEdit, FaTrash, FaEye, FaTimes, FaSave, FaFileDownload,
   FaCheckCircle, FaClipboardList, FaFileAlt, FaPaperclip, FaAward,
   FaExclamationTriangle, FaBan, FaHourglass, FaUsers, FaDollarSign,
   FaChartLine, FaFileContract, FaBullhorn,
 } from "react-icons/fa";
 import api from "../../api/axios";
-import{toast} from "react-toastify";
+import { toast } from "react-toastify";
 
-// Helper function to generate a unique tender number
+
+const CATEGORIES = [
+  "Medical Equipment","Drugs & Pharmaceuticals","ICT Services",
+  "Construction","Maintenance","Consultancy","Laboratory Supplies",
+  "Food Services","Others",
+];
+
+const STATUS_CONFIG = {
+  draft:            { bg:"bg-gray-100",    text:"text-gray-600",    dot:"bg-gray-400",    icon: FaFileAlt,    label:"Draft"            },
+  active:           { bg:"bg-emerald-100", text:"text-emerald-700", dot:"bg-emerald-500", icon: FaCheckCircle,label:"Active"            },
+  closed:           { bg:"bg-rose-100",    text:"text-rose-700",    dot:"bg-rose-400",    icon: FaBan,        label:"Closed"           },
+  under_evaluation: { bg:"bg-amber-100",   text:"text-amber-700",   dot:"bg-amber-400",   icon: FaHourglass,  label:"Under Evaluation" },
+  awarded:          { bg:"bg-sky-100",     text:"text-sky-700",     dot:"bg-sky-500",     icon: FaAward,      label:"Awarded"          },
+  cancelled:        { bg:"bg-rose-100",    text:"text-rose-700",    dot:"bg-rose-400",    icon: FaTimes,      label:"Cancelled"        },
+};
+
+const CAT_COLORS = {
+  "Medical Equipment":       "bg-blue-50 text-blue-600",
+  "Drugs & Pharmaceuticals": "bg-violet-50 text-violet-600",
+  "ICT Services":            "bg-cyan-50 text-cyan-600",
+  Construction:              "bg-orange-50 text-orange-600",
+  Maintenance:               "bg-emerald-50 text-emerald-600",
+  Consultancy:               "bg-indigo-50 text-indigo-600",
+  "Laboratory Supplies":     "bg-pink-50 text-pink-600",
+  "Food Services":           "bg-amber-50 text-amber-600",
+};
+
+const scfg  = (s) => STATUS_CONFIG[s] || STATUS_CONFIG.draft;
+const catCls = (c) => CAT_COLORS[c] || "bg-gray-50 text-gray-600";
+
 const generateTenderNumber = () => {
-  const year = new Date().getFullYear();
-  // Using a more robust random identifier
-  const random = Math.floor(Math.random() * 90000 + 10000).toString(); 
+  const year   = new Date().getFullYear();
+  const random = Math.floor(Math.random() * 90000 + 10000);
   return `TND-${year}-${random}`;
 };
 
+const fmtDate = (d) =>
+  d ? new Date(d).toLocaleDateString("en-KE", { day:"2-digit", month:"short", year:"numeric" }) : "—";
+
+const fmtCurrency = (amount) =>
+  amount ? new Intl.NumberFormat("en-KE", { style:"currency", currency:"KES" }).format(amount) : "—";
+
+const toInputDate = (d) => d ? new Date(d).toISOString().split("T")[0] : "";
+
+const EMPTY_FORM = () => ({
+  title:"", tenderNumber: generateTenderNumber(), category:"", description:"",
+  scopeOfWork:"", eligibilityCriteria:"", requiredDocuments:"", deliverables:"",
+  budgetMin:"", budgetMax:"",
+  publicationDate: new Date().toISOString().split("T")[0],
+  submissionDeadline:"", evaluationDate:"",
+  visibility:"public", status:"draft", attachments: null,
+});
+
+const StatusBadge = ({ status }) => {
+  const c = scfg(status);
+  const Icon = c.icon;
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${c.bg} ${c.text}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+      <Icon className="text-[10px]" />
+      {c.label}
+    </span>
+  );
+};
+
+const StatCard = ({ label, value, accent, icon: Icon, onClick }) => (
+  <div
+    onClick={onClick}
+    className={`bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow ${onClick ? "cursor-pointer" : ""}`}
+  >
+    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${accent.bg}`}>
+      <Icon className={`text-xl ${accent.icon}`} />
+    </div>
+    <div>
+      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{label}</p>
+      <p className={`text-2xl font-black ${accent.num}`}>{value ?? 0}</p>
+    </div>
+  </div>
+);
+
+const Spinner = ({ text = "Loading…" }) => (
+  <div className="flex flex-col items-center justify-center py-20 gap-3">
+    <div className="w-10 h-10 border-2 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
+    <p className="text-sm text-gray-400">{text}</p>
+  </div>
+);
+
+const Empty = ({ text }) => (
+  <div className="flex flex-col items-center justify-center py-20 gap-3">
+    <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center">
+      <FaGavel className="text-2xl text-gray-300" />
+    </div>
+    <p className="text-sm text-gray-400">{text}</p>
+  </div>
+);
+
+// ── Modal shell ────────────────────────────────────────────────────────────────
+const Modal = ({ open, onClose, title, children, maxW = "max-w-3xl" }) => {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div
+        className={`bg-white rounded-2xl shadow-2xl w-full ${maxW} max-h-[90vh] overflow-y-auto`}
+        style={{ animation: "modalPop .22s cubic-bezier(.34,1.56,.64,1) both" }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
+          <h2 className="text-lg font-black text-gray-900">{title}</h2>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100 cursor-pointer transition-colors shrink-0">
+            <FaTimes className="text-gray-400" />
+          </button>
+        </div>
+        <div className="p-6">{children}</div>
+      </div>
+    </div>
+  );
+};
+
+const Field = ({ label, required, children }) => (
+  <div>
+    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+      {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+    </label>
+    {children}
+  </div>
+);
+
+const inputCls = "w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white";
+
+const DetailItem = ({ icon: Icon, label, value, full = false }) => (
+  <div className={`bg-gray-50 rounded-xl p-4 ${full ? "col-span-2" : ""}`}>
+    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+      <Icon className="text-[10px]" />{label}
+    </p>
+    <p className="text-sm text-gray-800 leading-relaxed">{value || "—"}</p>
+  </div>
+);
+
+
+const SectionHead = ({ icon: Icon, label }) => (
+  <h3 className="text-sm font-black text-gray-700 uppercase tracking-wider flex items-center gap-2 mb-4 pt-5 border-t border-gray-100 first:pt-0 first:border-0">
+    <Icon className="text-blue-500" />{label}
+  </h3>
+);
+
+
 const TenderPage = () => {
-  const [tenders, setTenders] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterCategory, setFilterCategory] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all");
-  const [sortBy, setSortBy] = useState("newest");
-  
-  // Modal States
-  const [createModal, setCreateModal] = useState(false);
-  const [detailsModal, setDetailsModal] = useState(false);
-  const [bidsModal, setBidsModal] = useState(false);
-  
-  const [selectedTender, setSelectedTender] = useState(null);
+  const [tenders,         setTenders]         = useState([]);
+  const [loading,         setLoading]         = useState(false);
+  const [submitting,      setSubmitting]       = useState(false);
+  const [stats,           setStats]           = useState({ total:0, active:0, closed:0, underEvaluation:0, awarded:0 });
+  const [searchTerm,      setSearchTerm]      = useState("");
+  const [filterCategory,  setFilterCategory]  = useState("all");
+  const [filterStatus,    setFilterStatus]    = useState("all");
+  const [sortBy,          setSortBy]          = useState("newest");
   const [selectedTenders, setSelectedTenders] = useState([]);
-  const [bids, setBids] = useState([]);
-  const [modalError, setModalError] = useState(""); // Error specific to the active modal
 
-  const [stats, setStats] = useState({
-    total: 0,
-    active: 0,
-    closed: 0,
-    underEvaluation: 0,
-    awarded: 0,
-  });
+  const [createModal,    setCreateModal]    = useState(false);
+  const [detailsModal,   setDetailsModal]   = useState(false);
+  const [bidsModal,      setBidsModal]      = useState(false);
+  const [selectedTender, setSelectedTender] = useState(null);
+  const [bids,           setBids]           = useState([]);
+  const [bidsLoading,    setBidsLoading]    = useState(false);
 
-  const initialFormData = {
-    title: "",
-    tenderNumber: generateTenderNumber(), // Initialize with a number
-    category: "",
-    description: "",
-    scopeOfWork: "",
-    eligibilityCriteria: "",
-    requiredDocuments: "",
-    deliverables: "",
-    budgetMin: "",
-    budgetMax: "",
-    publicationDate: new Date().toISOString().split("T")[0], // Set default to today
-    submissionDeadline: "",
-    evaluationDate: "",
-    visibility: "public",
-    status: "draft",
-    attachments: null,
-  };
+  const [formData, setFormData] = useState(EMPTY_FORM());
 
-  const [formData, setFormData] = useState(initialFormData);
 
-  const categories = [
-    "Medical Equipment", "Drugs & Pharmaceuticals", "ICT Services",
-    "Construction", "Maintenance", "Consultancy", "Laboratory Supplies",
-    "Food Services", "Others"
-  ];
-
-  // --- API Handlers (Refined) ---
-
-  useEffect(() => {
-    fetchTenders();
-  }, [searchTerm, filterCategory, filterStatus, sortBy]); // Dependencies trigger fetch
-
-  const fetchTenders = async () => {
+  const fetchTenders = useCallback(async () => {
     try {
       setLoading(true);
-      setError("");
-      
       const params = {
-        search: searchTerm || undefined,
+        search:   searchTerm    || undefined,
         category: filterCategory !== "all" ? filterCategory : undefined,
-        status: filterStatus !== "all" ? filterStatus : undefined,
+        status:   filterStatus  !== "all" ? filterStatus   : undefined,
         sortBy,
       };
-      
       const res = await api.get("/tenders", { params });
+     
       if (res.data.success) {
-        // Assume the backend handles filtering/sorting based on params
-        setTenders(res.data.data); 
-        setStats(res.data.stats);
+        setTenders(res.data.data || []);
+        setStats(res.data.stats || {});
+      } else {
+        setTenders(Array.isArray(res.data) ? res.data : []);
       }
     } catch (err) {
-      const errorMsg = err.response?.data?.message || "Error fetching tenders";
-      setError(errorMsg);
-      console.error("Error fetching tenders:", err);
-      toast.error("Error fetching tenders");
+      toast.error(err.response?.data?.message || "Error fetching tenders");
+      setTenders([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm, filterCategory, filterStatus, sortBy]);
 
-  const fetchBidsByTender = async (tenderId) => {
+  useEffect(() => { fetchTenders(); }, [fetchTenders]);
+
+  const fetchBids = async (tenderId) => {
+    setBidsLoading(true);
     setBids([]);
     try {
-      setLoading(true);
       const res = await api.get(`/bids/tender/${tenderId}`);
-      if (res.data.success) {
-        setBids(res.data.data);
-      }
+      setBids(res.data.success ? res.data.data : Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.error("Error fetching bids:", err);
-      setModalError("Error fetching bids for this tender.");
-      toast.error("Error fetching bids for this tender.");
+      toast.error("Error fetching bids");
     } finally {
-      setLoading(false);
+      setBidsLoading(false);
     }
   };
 
-  const handleCreateTender = async (e) => {
+
+  const setField = (key, val) => setFormData(p => ({ ...p, [key]: val }));
+
+  const resetForm = () => setFormData(EMPTY_FORM());
+
+  const openCreate = (tender = null) => {
+    if (tender) {
+
+      setFormData({
+        _id:                tender._id,
+        title:              tender.title              || "",
+        tenderNumber:       tender.tenderNumber       || "",
+        category:           tender.category           || "",
+        description:        tender.description        || "",
+        scopeOfWork:        tender.scopeOfWork        || "",
+        eligibilityCriteria:tender.eligibilityCriteria|| "",
+        requiredDocuments:  tender.requiredDocuments  || "",
+        deliverables:       tender.deliverables       || "",
+        budgetMin:          tender.budgetMin          || "",
+        budgetMax:          tender.budgetMax          || "",
+        publicationDate:    toInputDate(tender.publicationDate),
+        submissionDeadline: toInputDate(tender.submissionDeadline),
+        evaluationDate:     toInputDate(tender.evaluationDate),
+        visibility:         tender.visibility         || "public",
+        status:             tender.status             || "draft",
+        attachments:        null,
+      });
+    } else {
+      resetForm();
+    }
+    setCreateModal(true);
+  };
+
+  const handleSaveTender = async (e) => {
     e.preventDefault();
-    setModalError("");
-    setLoading(true);
+    if (!formData.title.trim())   { toast.error("Title is required"); return; }
+    if (!formData.category)       { toast.error("Category is required"); return; }
+    if (!formData.description.trim()) { toast.error("Description is required"); return; }
 
+    setSubmitting(true);
     try {
-      if (!formData.title || !formData.category || !formData.description) {
-        setModalError("Please fill in all required fields (Title, Category, Description).");
-        toast.error("Please fill in all required fields (Title, Category, Description).");
-        setLoading(false);
-        return;
-      }
-      
       const fd = new FormData();
-      for (const key in formData) {
-        if (key !== "attachments" && formData[key] !== null) {
-          fd.append(key, formData[key]);
-        }
-      }
-      
+
+      const skip = new Set(["_id", "attachments"]);
+      Object.entries(formData).forEach(([k, v]) => {
+        if (!skip.has(k) && v !== null && v !== undefined) fd.append(k, v);
+      });
       if (formData.attachments) {
-        for (let i = 0; i < formData.attachments.length; i++) {
-          fd.append("attachments", formData.attachments[i]);
-        }
+        Array.from(formData.attachments).forEach(f => fd.append("attachments", f));
       }
 
-      let res;
-      // Use _id for consistency
-      if (formData._id) { 
-        res = await api.put(`/tenders/${formData._id}`, fd, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-      } else {
-        res = await api.post("/tenders", fd, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-      }
-      
-      if (res.data.success) {
+      const cfg = { headers: { "Content-Type": "multipart/form-data" } };
+      const res = formData._id
+        ? await api.put(`/tenders/${formData._id}`, fd, cfg)
+        : await api.post("/tenders", fd, cfg);
+
+      if (res.data.success || res.status === 200 || res.status === 201) {
+        toast.success(`Tender ${formData._id ? "updated" : "created"} successfully`);
         setCreateModal(false);
         resetForm();
         fetchTenders();
       }
     } catch (err) {
-      const errorMsg = err.response?.data?.message || "Error saving tender";
-      setModalError(errorMsg); // Use modal-specific error
-      console.error("Error saving tender:", err);
-      toast.error("Error saving tender");
+      toast.error(err.response?.data?.message || "Error saving tender");
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   const handleDeleteTender = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this tender?")) return;
+    if (!window.confirm("Delete this tender?")) return;
     try {
-      setLoading(true);
-      const res = await api.delete(`/tenders/${id}`);
-      if (res.data.success) {
-        fetchTenders();
-        // Clear global error if set
-        setError(""); 
-      }
+      await api.delete(`/tenders/${id}`);
+  
+      setTenders(prev => prev.filter(t => t._id !== id));
+      setSelectedTenders(prev => prev.filter(i => i !== id));
+      toast.success("Tender deleted");
     } catch (err) {
-      const errorMsg = err.response?.data?.message || "Error deleting tender";
-      setError(errorMsg);
-      console.error(err);
-      toast.error("Error deleting tender");
-    } finally {
-      setLoading(false);
+      toast.error(err.response?.data?.message || "Error deleting tender");
     }
   };
 
   const handleBulkDelete = async () => {
-    if (selectedTenders.length === 0) {
-      setError("Please select tenders to delete");
-      return;
-    }
-    if (!window.confirm(`Delete ${selectedTenders.length} tenders?`)) return;
-    
+    if (!selectedTenders.length || !window.confirm(`Delete ${selectedTenders.length} tender(s)?`)) return;
     try {
-      setLoading(true);
-      const res = await api.post("/tenders/bulk-delete", {
-        ids: selectedTenders,
-      });
-      if (res.data.success) {
-        setSelectedTenders([]);
-        fetchTenders();
-        setError("");
-      }
-      toast.success("Selected tenders deleted successfully");
+      await api.post("/tenders/bulk-delete", { ids: selectedTenders });
+      toast.success(`${selectedTenders.length} tender(s) deleted`);
+      setSelectedTenders([]);
+      fetchTenders();
     } catch (err) {
-      const errorMsg = err.response?.data?.message || "Error deleting tenders";
-      setError(errorMsg);
-      console.error(err);
-      toast.error("Error deleting tenders");
-    } finally {
-      setLoading(false);
+      toast.error(err.response?.data?.message || "Error deleting tenders");
     }
   };
 
   const handleCloseTender = async (tender) => {
-    if (!window.confirm(`Are you sure you want to close tender: ${tender.title}?`)) return;
+    if (!window.confirm(`Close tender: "${tender.title}"?`)) return;
     try {
-      setLoading(true);
-      const res = await api.patch(`/tenders/${tender._id}/close`);
-      if (res.data.success) {
-        fetchTenders();
-        setDetailsModal(false);
-      }
-      toast.success("Tender closed successfully");
+      await api.patch(`/tenders/${tender._id}/close`);
+      toast.success("Tender closed");
+      setDetailsModal(false);
+  
+      setTenders(prev => prev.map(t => t._id === tender._id ? { ...t, status:"closed" } : t));
     } catch (err) {
-      setError("Error closing tender");
-      console.error(err);
       toast.error("Error closing tender");
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleExtendDeadline = async (tender) => {
-    const defaultDate = new Date(tender.submissionDeadline).toISOString().split("T")[0];
+    const defaultDate = toInputDate(tender.submissionDeadline);
     const newDeadline = prompt("Enter new deadline (YYYY-MM-DD):", defaultDate);
-    
     if (!newDeadline) return;
-
-    // Simple date validation
-    if (isNaN(Date.parse(newDeadline))) {
-        alert("Invalid date format. Please use YYYY-MM-DD.");
-        return;
-    }
-
+    if (isNaN(Date.parse(newDeadline))) { toast.error("Invalid date format. Use YYYY-MM-DD."); return; }
     try {
-      setLoading(true);
-      const res = await api.patch(`/tenders/${tender._id}/extend-deadline`, {
-        newDeadline,
-      });
-      if (res.data.success) {
-        fetchTenders();
-        setSelectedTender(prev => ({...prev, submissionDeadline: newDeadline}));
-      }
-      toast.success("Deadline extended successfully");
+      await api.patch(`/tenders/${tender._id}/extend-deadline`, { newDeadline });
+      toast.success("Deadline extended");
+      setTenders(prev => prev.map(t => t._id === tender._id ? { ...t, submissionDeadline: newDeadline } : t));
+      if (selectedTender?._id === tender._id) setSelectedTender(p => ({ ...p, submissionDeadline: newDeadline }));
     } catch (err) {
-      setError("Error extending deadline");
-      console.error(err);
       toast.error("Error extending deadline");
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleAwardTender = async (tender, vendorId) => {
-    if (!window.confirm("Confirm awarding this tender to the selected vendor?")) return;
-
+    if (!window.confirm("Award this tender to the selected vendor?")) return;
     try {
-      setLoading(true);
-      const res = await api.patch(`/tenders/${tender._id}/award`, {
-        awardedTo: vendorId,
-      });
-      if (res.data.success) {
-        fetchTenders();
-        setBidsModal(false);
-      }
-      toast.success("Tender awarded successfully");
+      await api.patch(`/tenders/${tender._id}/award`, { awardedTo: vendorId });
+      toast.success("Tender awarded");
+      setBidsModal(false);
+      setTenders(prev => prev.map(t => t._id === tender._id ? { ...t, status:"awarded" } : t));
     } catch (err) {
-      setError("Error awarding tender");
-      console.error(err);
       toast.error("Error awarding tender");
-    } finally {
-      setLoading(false);
     }
   };
 
-  const handleScoreBid = async (bidId, technical, financial, notes) => {
-    // In a real app, this would be handled within a Bid scoring form component
-    console.log(`Scoring bid ${bidId}: Tech=${technical}, Fin=${financial}`);
-    try {
-      setLoading(true);
-      const res = await api.patch(`/bids/${bidId}/score`, {
-        technical,
-        financial,
-        evaluationNotes: notes,
-      });
-      if (res.data.success) {
-        fetchBidsByTender(selectedTender._id);
-      }
-    } catch (err) {
-      setError("Error scoring bid");
-      console.error(err);
-      toast.error("Error scoring bid");
-    } finally {
-      setLoading(false);
-    }
+
+  const handleExport = () => {
+    const csv = [
+      ["Tender Number","Title","Category","Status","Publication Date","Deadline","Budget Min","Budget Max"],
+      ...tenders.map(t => [
+        t.tenderNumber, t.title, t.category, t.status,
+        fmtDate(t.publicationDate), fmtDate(t.submissionDeadline),
+        t.budgetMin || "", t.budgetMax || "",
+      ]),
+    ].map(row => row.map(c => `"${String(c || "").replace(/"/g, '""')}"`).join(",")).join("\n");
+
+    const blob = new Blob([csv], { type:"text/csv;charset=utf-8;" });
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "tenders.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    URL.revokeObjectURL(url);
+    toast.success("Exported successfully");
   };
 
-  // --- Utility Functions ---
-
-  const resetForm = () => {
-    setFormData(initialFormData);
-    setFormData(prev => ({...prev, tenderNumber: generateTenderNumber()})); // Ensure new number for next creation
-    setModalError("");
-  };
-
-  const handleAttachmentChange = (e) => {
-    setFormData({ ...formData, attachments: e.target.files });
-  };
-  
-  const handleEditClick = (tender) => {
-    // Ensure dates are formatted correctly for input type="date"
-    const formattedTender = {
-        ...tender,
-        publicationDate: tender.publicationDate ? new Date(tender.publicationDate).toISOString().split("T")[0] : '',
-        submissionDeadline: tender.submissionDeadline ? new Date(tender.submissionDeadline).toISOString().split("T")[0] : '',
-        evaluationDate: tender.evaluationDate ? new Date(tender.evaluationDate).toISOString().split("T")[0] : '',
-    };
-
-    setFormData(formattedTender);
-    setCreateModal(true);
-    setModalError("");
-  };
-
-  const toggleSelection = (id) => {
-    setSelectedTenders((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
-  };
-  
-  // Note: Client-side filtering/sorting removed to rely fully on server-side implementation
-  // as defined in fetchTenders and useEffect.
-  const displayedTenders = tenders; 
-
-  const getStatusBadge = (status) => {
-    const config = {
-      draft: { bg: "bg-gray-100", text: "text-gray-700", border: "border-gray-200", icon: FaFileAlt },
-      active: { bg: "bg-green-100", text: "text-green-700", border: "border-green-200", icon: FaCheckCircle },
-      closed: { bg: "bg-red-100", text: "text-red-700", border: "border-red-200", icon: FaBan },
-      under_evaluation: { bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-200", icon: FaHourglass },
-      awarded: { bg: "bg-blue-100", text: "text-blue-700", border: "border-blue-200", icon: FaAward },
-      cancelled: { bg: "bg-red-100", text: "text-red-700", border: "border-red-200", icon: FaTimes },
-    };
-    const statusConfig = config[status] || config.draft;
-    const Icon = statusConfig.icon;
-    const displayText = status.replace(/_/g, " ");
-    return (
-      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}>
-        <Icon className="mr-1" />
-        {displayText.charAt(0).toUpperCase() + displayText.slice(1)}
-      </span>
-    );
-  };
-
-  const getCategoryColor = (category) => {
-    const colors = {
-      "Medical Equipment": "text-blue-600 bg-blue-50",
-      "Drugs & Pharmaceuticals": "text-purple-600 bg-purple-50",
-      "ICT Services": "text-cyan-600 bg-cyan-50",
-      Construction: "text-orange-600 bg-orange-50",
-      Maintenance: "text-green-600 bg-green-50",
-      Consultancy: "text-indigo-600 bg-indigo-50",
-      "Laboratory Supplies": "text-pink-600 bg-pink-50",
-      "Food Services": "text-yellow-600 bg-yellow-50",
-    };
-    return colors[category] || "text-gray-600 bg-gray-50";
-  };
-  
-  const formatDate = (dateString) => {
-      if (!dateString) return "N/A";
-      // Ensure the string is in a standard format before parsing
-      const date = new Date(dateString); 
-      // Add one day to account for potential timezone shift during creation
-      // date.setDate(date.getDate() + 1); 
-      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-  };
-  
-  const formatCurrency = (amount) => {
-      if (!amount) return "N/A";
-      return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-  };
-
-  // --- JSX Rendering ---
+  const toggleSelection  = (id) => setSelectedTenders(prev => prev.includes(id) ? prev.filter(i=>i!==id) : [...prev, id]);
+  const selectAll        = ()   => setSelectedTenders(selectedTenders.length === tenders.length ? [] : tenders.map(t=>t._id));
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto">
-        
-        {/* Error Alert */}
-        {/* {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between shadow-sm">
-            <div className="flex items-center">
-                <FaExclamationTriangle className="text-red-600 mr-3" />
-                <span className="text-red-700 font-medium">{error}</span>
-            </div>
-            <button onClick={() => setError("")} className="text-red-600 hover:text-red-800 p-1 rounded-full">
-              <FaTimes />
-            </button>
-          </div>
-        )} */}
-        
-        {/* Header */}
-        <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center">
-              <FaGavel className="mr-3 text-blue-600" />
-              Tender Management
-            </h1>
-            <p className="text-gray-600">Manage procurement tenders and bids</p>
-          </div>
+    <div className="min-h-screen bg-[#f8f7f5]">
+      <style>{`
+        @keyframes modalPop {
+          from { opacity:0; transform:scale(0.94) translateY(10px); }
+          to   { opacity:1; transform:scale(1) translateY(0); }
+        }
+        .fade-up { animation: fadeUp .3s ease both; }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+      `}</style>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
+
+  
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 fade-up">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => alert("Export functionality coming soon")}
-              className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              <FaFileDownload className="mr-2" />
-              Export
+            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center ">
+              <FaGavel className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black text-gray-900 tracking-tight">Tender Management</h1>
+              <p className="text-xs text-gray-400">Manage procurement tenders and bids</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={handleExport}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl hover:bg-gray-50 cursor-pointer shadow-sm transition-colors">
+              <FaFileDownload className="text-xs" /> Export CSV
             </button>
-            <button
-              onClick={() => {
-                resetForm();
-                setCreateModal(true);
-              }}
-              className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md"
-            >
-              <FaPlus className="mr-2" />
-              Create New Tender
+            <button onClick={() => openCreate()}
+              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 cursor-pointer shadow-sm shadow-blue-200 transition-colors">
+              <FaPlus className="text-xs" /> Create Tender
             </button>
           </div>
         </div>
-        
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-          {/* ... Stats Card JSX remains the same ... */}
-          <div
-            onClick={() => setFilterStatus("all")}
-            className="bg-white rounded-xl p-4 sm:p-6 border border-gray-100 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Total Tenders</p>
-                <h3 className="text-xl sm:text-2xl font-bold text-gray-900">{stats.total}</h3>
-              </div>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-                <FaGavel className="text-lg sm:text-xl text-blue-600" />
-              </div>
-            </div>
-          </div>
-          <div
-            onClick={() => setFilterStatus("active")}
-            className="bg-white rounded-xl p-4 sm:p-6 border border-gray-100 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Active</p>
-                <h3 className="text-xl sm:text-2xl font-bold text-green-600">{stats.active}</h3>
-              </div>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-50 rounded-lg flex items-center justify-center">
-                <FaCheckCircle className="text-lg sm:text-xl text-green-600" />
-              </div>
-            </div>
-          </div>
-          <div
-            onClick={() => setFilterStatus("closed")}
-            className="bg-white rounded-xl p-4 sm:p-6 border border-gray-100 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Closed</p>
-                <h3 className="text-xl sm:text-2xl font-bold text-red-600">{stats.closed}</h3>
-              </div>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-50 rounded-lg flex items-center justify-center">
-                <FaBan className="text-lg sm:text-xl text-red-600" />
-              </div>
-            </div>
-          </div>
-          <div
-            onClick={() => setFilterStatus("under_evaluation")}
-            className="bg-white rounded-xl p-4 sm:p-6 border border-gray-100 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Evaluating</p>
-                <h3 className="text-xl sm:text-2xl font-bold text-yellow-600">{stats.underEvaluation}</h3>
-              </div>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-yellow-50 rounded-lg flex items-center justify-center">
-                <FaHourglass className="text-lg sm:text-xl text-yellow-600" />
-              </div>
-            </div>
-          </div>
-          <div
-            onClick={() => setFilterStatus("awarded")}
-            className="bg-white rounded-xl p-4 sm:p-6 border border-gray-100 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Awarded</p>
-                <h3 className="text-xl sm:text-2xl font-bold text-blue-600">{stats.awarded}</h3>
-              </div>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-                <FaAward className="text-lg sm:text-xl text-blue-600" />
-              </div>
-            </div>
-          </div>
+
+        {/* ── Stats — clickable to filter ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          <StatCard label="Total"      value={stats.total}           icon={FaGavel}       onClick={() => setFilterStatus("all")}              accent={{ bg:"bg-blue-50",    icon:"text-blue-500",    num:"text-blue-600"    }} />
+          <StatCard label="Active"     value={stats.active}          icon={FaCheckCircle} onClick={() => setFilterStatus("active")}            accent={{ bg:"bg-emerald-50", icon:"text-emerald-500", num:"text-emerald-600" }} />
+          <StatCard label="Closed"     value={stats.closed}          icon={FaBan}         onClick={() => setFilterStatus("closed")}            accent={{ bg:"bg-rose-50",    icon:"text-rose-500",    num:"text-rose-600"    }} />
+          <StatCard label="Evaluating" value={stats.underEvaluation} icon={FaHourglass}   onClick={() => setFilterStatus("under_evaluation")} accent={{ bg:"bg-amber-50",   icon:"text-amber-500",   num:"text-amber-600"   }} />
+          <StatCard label="Awarded"    value={stats.awarded}         icon={FaAward}       onClick={() => setFilterStatus("awarded")}          accent={{ bg:"bg-sky-50",     icon:"text-sky-500",     num:"text-sky-600"     }} />
         </div>
-        
-        {/* Filters & Search */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm mb-6">
-          <div className="p-4">
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="flex-1 relative">
-                <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search by title, tender number, or description..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="relative flex items-center">
-                    <FaFilter className="absolute left-3 text-gray-400 pointer-events-none" />
-                    <select
-                      value={filterCategory}
-                      onChange={(e) => setFilterCategory(e.target.value)}
-                      className="pl-8 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 appearance-none"
-                    >
-                      <option value="all">All Categories</option>
-                      {categories.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-                    </select>
-                </div>
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">All Status</option>
-                  <option value="draft">Draft</option>
-                  <option value="active">Active</option>
-                  <option value="closed">Closed</option>
-                  <option value="under_evaluation">Under Evaluation</option>
-                  <option value="awarded">Awarded</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="newest">Latest First</option>
-                  <option value="oldest">Oldest First</option>
-                  <option value="alphabetical">Alphabetical</option>
-                  <option value="deadline">Deadline Soonest</option>
-                </select>
-              </div>
+
+   
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-5">
+          <div className="flex flex-col lg:flex-row gap-3">
+            <div className="relative flex-1">
+              <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm" />
+              <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                placeholder="Search by title, tender number, or description…"
+                className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent" />
             </div>
-            {selectedTenders.length > 0 && (
-              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
-                <span className="text-sm font-medium text-blue-900">
-                  {selectedTenders.length} tender(s) selected
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleBulkDelete()}
-                    disabled={loading}
-                    className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 disabled:opacity-50 transition-colors"
-                  >
-                    <FaTrash className="inline mr-1" />
-                    Delete ({selectedTenders.length})
-                  </button>
-                  <button
-                    onClick={() => setSelectedTenders([])}
-                    className="p-1 text-gray-600 hover:text-gray-900"
-                  >
-                    <FaTimes />
-                  </button>
-                </div>
-              </div>
-            )}
+            <div className="flex items-center gap-2 flex-wrap">
+              {[
+                { val: filterCategory, set: setFilterCategory, opts: [["all","All Categories"], ...CATEGORIES.map(c=>[c,c])] },
+                { val: filterStatus,   set: setFilterStatus,   opts: [["all","All Status"],["draft","Draft"],["active","Active"],["closed","Closed"],["under_evaluation","Under Evaluation"],["awarded","Awarded"],["cancelled","Cancelled"]] },
+                { val: sortBy,         set: setSortBy,         opts: [["newest","Latest"],["oldest","Oldest"],["alphabetical","A→Z"],["deadline","Deadline Soon"]] },
+              ].map(({ val, set, opts }, i) => (
+                <select key={i} value={val} onChange={e => set(e.target.value)}
+                  className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm cursor-pointer outline-none focus:ring-2 focus:ring-blue-400 bg-white text-gray-600">
+                  {opts.map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              ))}
+            </div>
           </div>
+
+     
+          {selectedTenders.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold text-blue-700 bg-blue-50 px-3 py-1 rounded-full">{selectedTenders.length} selected</span>
+                <button onClick={selectAll} className="text-xs text-gray-400 hover:text-gray-700 cursor-pointer underline">
+                  {selectedTenders.length === tenders.length ? "Deselect all" : "Select all"}
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={handleBulkDelete}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 text-white text-xs font-semibold rounded-xl hover:bg-rose-700 cursor-pointer transition-colors">
+                  <FaTrash className="text-[10px]" /> Delete
+                </button>
+                <button onClick={() => setSelectedTenders([])}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 cursor-pointer rounded-xl hover:bg-gray-100 transition-colors">
+                  <FaTimes className="text-sm" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-        
-        {/* Tenders Table */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          {loading && !tenders.length ? ( // Show full spinner only on initial load
-            <div className="p-12 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="text-gray-500 mt-4">Loading tenders...</p>
-            </div>
-          ) : displayedTenders.length === 0 ? (
-            <div className="p-12 text-center">
-              <FaGavel className="text-5xl text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">No tenders found matching your criteria.</p>
-            </div>
+
+    
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          {loading ? <Spinner text="Loading tenders…" /> : tenders.length === 0 ? (
+            <Empty text="No tenders found matching your criteria" />
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50 border-b border-gray-100">
-                  <tr>
-                    <th className="px-6 py-4 text-left">
-                      <input
-                        type="checkbox"
-                        checked={selectedTenders.length === displayedTenders.length && displayedTenders.length > 0}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedTenders(displayedTenders.map((t) => t._id));
-                          } else {
-                            setSelectedTenders([]);
-                          }
-                        }}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="px-5 py-4 text-left">
+                      <input type="checkbox"
+                        checked={selectedTenders.length === tenders.length && tenders.length > 0}
+                        onChange={selectAll}
+                        className="w-4 h-4 rounded cursor-pointer" />
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Tender ID / Title
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Category
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Publication Date
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Deadline
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Bids
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Actions
-                    </th>
+                    {["Tender", "Category", "Published", "Deadline", "Bids", "Status", ""].map((h, i) => (
+                      <th key={i} className={`px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider ${i === 6 ? "text-right" : "text-left"}`}>
+                        {h || "Actions"}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {displayedTenders.map((tender) => (
-                    <tr key={tender._id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <input
-                          type="checkbox"
+                <tbody className="divide-y divide-gray-50">
+                  {tenders.map(tender => (
+                    <tr key={tender._id} className={`hover:bg-gray-50/80 transition-colors group ${selectedTenders.includes(tender._id) ? "bg-blue-50/30" : ""}`}>
+
+                      <td className="px-5 py-4">
+                        <input type="checkbox"
                           checked={selectedTenders.includes(tender._id)}
                           onChange={() => toggleSelection(tender._id)}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        />
+                          className="w-4 h-4 rounded cursor-pointer" />
                       </td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="font-semibold text-gray-900">{tender.title}</p>
-                          <p className="text-sm text-gray-500">{tender.tenderNumber}</p>
-                        </div>
+
+               
+                      <td className="px-5 py-4 max-w-xs">
+                        <p className="font-semibold text-gray-900 truncate">{tender.title}</p>
+                        <p className="text-[10px] text-gray-400 font-mono mt-0.5">{tender.tenderNumber}</p>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${getCategoryColor(tender.category)}`}>
+
+                    
+                      <td className="px-5 py-4">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${catCls(tender.category)}`}>
                           {tender.category}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
-                        {formatDate(tender.publicationDate)}
+
+                     
+                      <td className="px-5 py-4 text-xs text-gray-600">{fmtDate(tender.publicationDate)}</td>
+
+                
+                      <td className="px-5 py-4">
+                        <span className="flex items-center gap-1.5 text-xs text-gray-600">
+                          <FaClock className="text-gray-300 shrink-0" />{fmtDate(tender.submissionDeadline)}
+                        </span>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center text-sm text-gray-700">
-                          <FaClock className="mr-2 text-gray-400" />
-                          {formatDate(tender.submissionDeadline)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
+
+                  
+                      <td className="px-5 py-4">
                         <button
-                          onClick={() => {
-                            setSelectedTender(tender);
-                            fetchBidsByTender(tender._id);
-                            setBidsModal(true);
-                          }}
-                          className="flex items-center text-blue-600 hover:text-blue-700 font-medium text-sm disabled:opacity-50"
+                          onClick={() => { setSelectedTender(tender); fetchBids(tender._id); setBidsModal(true); }}
                           disabled={tender.status === "draft"}
+                          className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 disabled:text-gray-400 disabled:cursor-not-allowed cursor-pointer"
                         >
-                          <FaClipboardList className="mr-1" />
-                          {tender.bidsCount || 0} Bids
+                          <FaClipboardList className="text-[10px]" />{tender.bidsCount ?? 0} Bids
                         </button>
                       </td>
-                      <td className="px-6 py-4">{getStatusBadge(tender.status)}</td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => {
-                              setSelectedTender(tender);
-                              setDetailsModal(true);
-                            }}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="View Details"
-                          >
-                            <FaEye />
+
+                   
+                      <td className="px-5 py-4"><StatusBadge status={tender.status} /></td>
+
+                    
+                      <td className="px-5 py-4">
+                        <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => { setSelectedTender(tender); setDetailsModal(true); }}
+                            className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 cursor-pointer transition-colors" title="View">
+                            <FaEye className="text-sm" />
                           </button>
                           {(tender.status === "draft" || tender.status === "active") && (
-                            <button
-                              onClick={() => handleEditClick(tender)}
-                              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                              title="Edit"
-                            >
-                              <FaEdit />
+                            <button onClick={() => openCreate(tender)}
+                              className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 cursor-pointer transition-colors" title="Edit">
+                              <FaEdit className="text-sm" />
                             </button>
                           )}
                           {tender.status === "active" && (
                             <>
-                              <button
-                                onClick={() => handleExtendDeadline(tender)}
-                                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                title="Extend Deadline"
-                              >
-                                <FaClock />
+                              <button onClick={() => handleExtendDeadline(tender)}
+                                className="p-2 rounded-xl text-emerald-500 hover:bg-emerald-50 cursor-pointer transition-colors" title="Extend Deadline">
+                                <FaClock className="text-sm" />
                               </button>
-                              <button
-                                onClick={() => handleCloseTender(tender)}
-                                className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                                title="Close Tender"
-                              >
-                                <FaBan />
+                              <button onClick={() => handleCloseTender(tender)}
+                                className="p-2 rounded-xl text-orange-500 hover:bg-orange-50 cursor-pointer transition-colors" title="Close Tender">
+                                <FaBan className="text-sm" />
                               </button>
                             </>
                           )}
-                          <button
-                            onClick={() => handleDeleteTender(tender._id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Delete"
-                          >
-                            <FaTrash />
+                          <button onClick={() => handleDeleteTender(tender._id)}
+                            className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer transition-colors" title="Delete">
+                            <FaTrash className="text-sm" />
                           </button>
                         </div>
                       </td>
@@ -758,498 +573,239 @@ const TenderPage = () => {
                   ))}
                 </tbody>
               </table>
+              <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/60">
+                <p className="text-xs text-gray-400">
+                  <span className="font-semibold text-gray-600">{tenders.length}</span> tenders
+                </p>
+              </div>
             </div>
           )}
         </div>
-        
-        {/* --- MODALS --- */}
-
-        {/* Create/Edit Modal */}
-        {createModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <form onSubmit={handleCreateTender} className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-              <div className="sticky top-0 bg-white p-6 border-b border-gray-100 flex items-center justify-between z-10">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  {formData._id ? "Edit Tender" : "Create New Tender"}
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCreateModal(false);
-                    resetForm();
-                  }}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                >
-                  <FaTimes className="text-gray-500" />
-                </button>
-              </div>
-              
-              <div className="p-6 space-y-6">
-                 {/* Modal Error Alert */}
-                {/* {modalError && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm font-medium">
-                        <FaExclamationTriangle className="inline mr-2" />
-                        {modalError}
-                    </div>
-                )} */}
-                
-                {/* Basic Info Section */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <FaFileContract className="mr-2 text-blue-600" />
-                    Basic Information
-                  </h3>
-                  
-                  <div className="space-y-4">
-                    {/* Tender Title */}
-                    <div>
-                      <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
-                        Tender Title *
-                      </label>
-                      <input
-                        id="title"
-                        type="text"
-                        value={formData.title}
-                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder="e.g., Supply of Medical Equipment"
-                        required
-                      />
-                    </div>
-                    {/* Tender Number & Category */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label htmlFor="tenderNumber" className="block text-sm font-medium text-gray-700 mb-2">
-                          Tender Number
-                        </label>
-                        <input
-                          id="tenderNumber"
-                          type="text"
-                          value={formData.tenderNumber}
-                          // Allow manual input only if it's new (though auto-gen is better)
-                          onChange={(e) => setFormData({ ...formData, tenderNumber: e.target.value })} 
-                          disabled={!!formData._id} // Disable editing once created
-                          className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-600"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
-                          Category *
-                        </label>
-                        <select
-                          id="category"
-                          value={formData.category}
-                          onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                          className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                          required
-                        >
-                          <option value="">Select Category</option>
-                          {categories.map((cat) => (
-                            <option key={cat} value={cat}>
-                              {cat}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    {/* Description */}
-                    <div>
-                      <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-                        Description *
-                      </label>
-                      <textarea
-                        id="description"
-                        value={formData.description}
-                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        rows="4"
-                        placeholder="Provide a brief description of the tender..."
-                        required
-                      />
-                    </div>
-                     {/* Scope of Work */}
-                    <div>
-                      <label htmlFor="scopeOfWork" className="block text-sm font-medium text-gray-700 mb-2">
-                        Scope of Work / Requirements
-                      </label>
-                      <textarea
-                        id="scopeOfWork"
-                        value={formData.scopeOfWork}
-                        onChange={(e) => setFormData({ ...formData, scopeOfWork: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        rows="3"
-                        placeholder="Detailed requirements and expected outcomes..."
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Timeline and Budget Section */}
-                <div className="border-t border-gray-100 pt-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <FaCalendarAlt className="mr-2 text-blue-600" />
-                    Timeline & Budget
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="publicationDate" className="block text-sm font-medium text-gray-700 mb-2">
-                        Publication Date
-                      </label>
-                      <input
-                        id="publicationDate"
-                        type="date"
-                        value={formData.publicationDate}
-                        onChange={(e) => setFormData({ ...formData, publicationDate: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="submissionDeadline" className="block text-sm font-medium text-gray-700 mb-2">
-                        Submission Deadline
-                      </label>
-                      <input
-                        id="submissionDeadline"
-                        type="date"
-                        value={formData.submissionDeadline}
-                        onChange={(e) => setFormData({ ...formData, submissionDeadline: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="evaluationDate" className="block text-sm font-medium text-gray-700 mb-2">
-                        Planned Evaluation Date
-                      </label>
-                      <input
-                        id="evaluationDate"
-                        type="date"
-                        value={formData.evaluationDate}
-                        onChange={(e) => setFormData({ ...formData, evaluationDate: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                     <div>
-                      <label htmlFor="budgetMin" className="block text-sm font-medium text-gray-700 mb-2">
-                        Budget Range (Min)
-                      </label>
-                      <input
-                        id="budgetMin"
-                        type="number"
-                        value={formData.budgetMin}
-                        onChange={(e) => setFormData({ ...formData, budgetMin: e.target.value })}
-                        placeholder="Kshs"
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="budgetMax" className="block text-sm font-medium text-gray-700 mb-2">
-                        Budget Range (Max)
-                      </label>
-                      <input
-                        id="budgetMax"
-                        type="number"
-                        value={formData.budgetMax}
-                        onChange={(e) => setFormData({ ...formData, budgetMax: e.target.value })}
-                        placeholder="Kshs"
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-2">
-                        Status
-                      </label>
-                      <select
-                        id="status"
-                        value={formData.status}
-                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="draft">Draft</option>
-                        <option value="active">Active (Published)</option>
-                        <option value="closed">Closed</option>
-                        <option value="under_evaluation">Under Evaluation</option>
-                        <option value="awarded">Awarded</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-                
-                 {/* Documents and Attachments Section */}
-                <div className="border-t border-gray-100 pt-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                        <FaPaperclip className="mr-2 text-blue-600" />
-                        Documents & Attachments
-                    </h3>
-                    
-                    <div className="space-y-4">
-                        <div>
-                            <label htmlFor="requiredDocuments" className="block text-sm font-medium text-gray-700 mb-2">
-                                Required Documents from Vendors
-                            </label>
-                            <textarea
-                                id="requiredDocuments"
-                                value={formData.requiredDocuments}
-                                onChange={(e) => setFormData({ ...formData, requiredDocuments: e.target.value })}
-                                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                rows="2"
-                                placeholder="e.g., Company Registration, Tax Certificate, Technical Proposal..."
-                            />
-                        </div>
-                        
-                        <div>
-                            <label htmlFor="attachments" className="block text-sm font-medium text-gray-700 mb-2">
-                                Upload Tender Documents
-                            </label>
-                            <input
-                                id="attachments"
-                                type="file"
-                                onChange={handleAttachmentChange}
-                                multiple
-                                className="w-full p-2 border border-gray-200 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                            />
-                            <p className="mt-2 text-xs text-gray-500">
-                                {formData._id && "Current documents will be replaced or appended (server-dependent)."}
-                                {!formData._id && "Upload relevant documents (e.g., RFP, Scope, Drawings)."}
-                            </p>
-                            {/* Display existing attachments if editing */}
-                            {formData._id && tender.attachments && tender.attachments.length > 0 && (
-                                <div className="mt-2 space-y-1">
-                                    <p className="text-xs font-semibold text-gray-600">Existing Attachments:</p>
-                                    {/* Map through existing attachments (assuming structure: [{filename, url}]) */}
-                                    {tender.attachments.map((file, index) => (
-                                        <a 
-                                            key={index}
-                                            href={file.url} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
-                                            className="text-xs text-blue-500 hover:text-blue-700 flex items-center"
-                                        >
-                                            <FaPaperclip className="mr-1" /> {file.filename}
-                                        </a>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-              </div>
-              
-              <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCreateModal(false);
-                    resetForm();
-                  }}
-                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md disabled:opacity-50 flex items-center"
-                >
-                  {loading ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                  ) : (
-                    <FaSave className="mr-2" />
-                  )}
-                  {formData._id ? "Save Changes" : "Create Tender"}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* Tender Details Modal */}
-        {detailsModal && selectedTender && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-              <div className="sticky top-0 bg-white p-6 border-b border-gray-100 flex items-center justify-between z-10">
-                <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-                  <FaEye className="mr-2 text-blue-600" />
-                  Tender Details: {selectedTender.tenderNumber}
-                </h2>
-                <button
-                  onClick={() => setDetailsModal(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                >
-                  <FaTimes className="text-gray-500" />
-                </button>
-              </div>
-              
-              <div className="p-6 space-y-6">
-                <h3 className="text-xl font-semibold text-gray-900">{selectedTender.title}</h3>
-                <div className="flex flex-wrap items-center gap-4">
-                    {getStatusBadge(selectedTender.status)}
-                    <span className={`px-3 py-1 rounded text-sm font-medium ${getCategoryColor(selectedTender.category)}`}>
-                      {selectedTender.category}
-                    </span>
-                    <span className="text-sm text-gray-600 flex items-center">
-                        <FaUsers className="mr-1" /> {selectedTender.visibility.toUpperCase()}
-                    </span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
-                    <DetailItem icon={FaFileAlt} label="Description" value={selectedTender.description} full />
-                    <DetailItem icon={FaBullhorn} label="Scope of Work" value={selectedTender.scopeOfWork} full />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4 border-t pt-4">
-                    <DetailItem icon={FaCalendarAlt} label="Publication Date" value={formatDate(selectedTender.publicationDate)} />
-                    <DetailItem icon={FaClock} label="Submission Deadline" value={formatDate(selectedTender.submissionDeadline)} />
-                    <DetailItem icon={FaCalendarAlt} label="Evaluation Date" value={formatDate(selectedTender.evaluationDate)} />
-                    <DetailItem icon={FaDollarSign} label="Budget Range" value={`${formatCurrency(selectedTender.budgetMin)} - ${formatCurrency(selectedTender.budgetMax)}`} />
-                    <DetailItem icon={FaClipboardList} label="Required Documents" value={selectedTender.requiredDocuments || "None specified"} />
-                    <DetailItem icon={FaAward} label="Awarded To" value={selectedTender.awardedTo?.name || (selectedTender.status === "awarded" ? "Vendor ID needed" : "N/A")} />
-                </div>
-
-                <div className="border-t pt-4">
-                    <h4 className="font-semibold text-gray-700 mb-2 flex items-center"><FaPaperclip className="mr-2" /> Attachments ({selectedTender.attachments?.length || 0})</h4>
-                    {selectedTender.attachments && selectedTender.attachments.length > 0 ? (
-                        <div className="space-y-1">
-                            {selectedTender.attachments.map((file, index) => (
-                                <a 
-                                    key={index}
-                                    href={file.url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="block text-blue-600 hover:text-blue-700 text-sm"
-                                >
-                                    <FaFileDownload className="inline mr-1" /> {file.filename}
-                                </a>
-                            ))}
-                        </div>
-                    ) : (
-                        <p className="text-sm text-gray-500">No documents attached.</p>
-                    )}
-                </div>
-              </div>
-              
-              <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
-                <button
-                  onClick={() => {
-                    setDetailsModal(false);
-                    setSelectedTender(null);
-                  }}
-                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Bids Modal */}
-        {bidsModal && selectedTender && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-              <div className="sticky top-0 bg-white p-6 border-b border-gray-100 flex items-center justify-between z-10">
-                <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-                  <FaClipboardList className="mr-2 text-blue-600" />
-                  Bids for: {selectedTender.title}
-                </h2>
-                <button
-                  onClick={() => setBidsModal(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                >
-                  <FaTimes className="text-gray-500" />
-                </button>
-              </div>
-              
-              <div className="p-6">
-                {loading ? (
-                    <div className="p-8 text-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                        <p className="text-gray-500 mt-2">Loading bids...</p>
-                    </div>
-                ) : bids.length === 0 ? (
-                    <div className="p-8 text-center">
-                        <FaExclamationTriangle className="text-4xl text-yellow-500 mx-auto mb-3" />
-                        <p className="text-gray-500">No bids received yet.</p>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        <p className="text-sm text-gray-600">Total Bids: <span className="font-semibold">{bids.length}</span></p>
-                        <div className="overflow-x-auto border border-gray-100 rounded-lg">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bid Amount</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted On</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Technical Score</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Financial Score</th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {bids.map((bid) => (
-                                        <tr key={bid._id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{bid.vendorName || "Anonymous Vendor"}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-semibold">{formatCurrency(bid.bidAmount)}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(bid.createdAt)}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{bid.technicalScore || 'N/A'}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{bid.financialScore || 'N/A'}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end gap-2">
-                                                <button
-                                                    onClick={() => alert(`View details for Bid ID: ${bid._id}`)}
-                                                    className="text-blue-600 hover:text-blue-900 p-1"
-                                                    title="View Bid Documents"
-                                                >
-                                                    <FaEye />
-                                                </button>
-                                                <button
-                                                    onClick={() => alert(`Score Bid functionality for Bid ID: ${bid._id}`)}
-                                                    className="text-yellow-600 hover:text-yellow-900 p-1"
-                                                    title="Score Bid (Placeholder)"
-                                                >
-                                                    <FaChartLine />
-                                                </button>
-                                                {selectedTender.status !== 'awarded' && (
-                                                    <button
-                                                        onClick={() => handleAwardTender(selectedTender, bid.vendorId)}
-                                                        className="text-green-600 hover:text-green-900 p-1"
-                                                        title="Award Tender to this Bid"
-                                                    >
-                                                        <FaAward />
-                                                    </button>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-              </div>
-              
-              <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
-                <button
-                  onClick={() => setBidsModal(false)}
-                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
+
+      
+      <Modal
+        open={createModal}
+        onClose={() => { setCreateModal(false); resetForm(); }}
+        title={formData._id ? "Edit Tender" : "Create New Tender"}
+        maxW="max-w-4xl"
+      >
+        <form onSubmit={handleSaveTender} className="space-y-4">
+          <SectionHead icon={FaFileContract} label="Basic Information" />
+
+          <Field label="Tender Title" required>
+            <input value={formData.title} onChange={e => setField("title", e.target.value)}
+              placeholder="e.g., Supply of Medical Equipment" className={inputCls} required />
+          </Field>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Tender Number">
+              <input value={formData.tenderNumber} onChange={e => setField("tenderNumber", e.target.value)}
+                disabled={!!formData._id}
+                className={`${inputCls} ${formData._id ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""}`} />
+            </Field>
+            <Field label="Category" required>
+              <select value={formData.category} onChange={e => setField("category", e.target.value)} className={inputCls} required>
+                <option value="">Select Category</option>
+                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </Field>
+          </div>
+
+          <Field label="Description" required>
+            <textarea value={formData.description} onChange={e => setField("description", e.target.value)}
+              placeholder="Brief description of the tender…" rows={4} className={`${inputCls} resize-none`} required />
+          </Field>
+
+          <Field label="Scope of Work">
+            <textarea value={formData.scopeOfWork} onChange={e => setField("scopeOfWork", e.target.value)}
+              placeholder="Detailed requirements and outcomes…" rows={3} className={`${inputCls} resize-none`} />
+          </Field>
+
+          <SectionHead icon={FaCalendarAlt} label="Timeline & Budget" />
+
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Publication Date">
+              <input type="date" value={formData.publicationDate} onChange={e => setField("publicationDate", e.target.value)} className={inputCls} />
+            </Field>
+            <Field label="Submission Deadline">
+              <input type="date" value={formData.submissionDeadline} onChange={e => setField("submissionDeadline", e.target.value)} className={inputCls} />
+            </Field>
+            <Field label="Evaluation Date">
+              <input type="date" value={formData.evaluationDate} onChange={e => setField("evaluationDate", e.target.value)} className={inputCls} />
+            </Field>
+            <Field label="Status">
+              <select value={formData.status} onChange={e => setField("status", e.target.value)} className={inputCls}>
+                <option value="draft">Draft</option>
+                <option value="active">Active (Published)</option>
+                <option value="closed">Closed</option>
+                <option value="under_evaluation">Under Evaluation</option>
+                <option value="awarded">Awarded</option>
+              </select>
+            </Field>
+            <Field label="Budget Min (KES)">
+              <input type="number" value={formData.budgetMin} onChange={e => setField("budgetMin", e.target.value)}
+                placeholder="0" className={inputCls} />
+            </Field>
+            <Field label="Budget Max (KES)">
+              <input type="number" value={formData.budgetMax} onChange={e => setField("budgetMax", e.target.value)}
+                placeholder="0" className={inputCls} />
+            </Field>
+          </div>
+
+          <SectionHead icon={FaPaperclip} label="Documents & Attachments" />
+
+          <Field label="Required Documents from Vendors">
+            <textarea value={formData.requiredDocuments} onChange={e => setField("requiredDocuments", e.target.value)}
+              placeholder="e.g., Company Registration, Tax Certificate, Technical Proposal…"
+              rows={2} className={`${inputCls} resize-none`} />
+          </Field>
+
+          <Field label="Upload Tender Documents">
+            <label className="flex items-center gap-3 px-4 py-3 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-blue-400 transition-colors">
+              <FaPaperclip className="text-gray-300 text-lg shrink-0" />
+              <span className="text-sm text-gray-400">
+                {formData.attachments ? `${formData.attachments.length} file(s) selected` : "Click to upload (PDF, DOCX, ZIP)"}
+              </span>
+              <input type="file" multiple accept=".pdf,.doc,.docx,.zip,.xlsx"
+                onChange={e => setField("attachments", e.target.files)} className="hidden" />
+            </label>
+          </Field>
+
+          <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+            <button type="button" onClick={() => { setCreateModal(false); resetForm(); }}
+              className="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={submitting}
+              className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 cursor-pointer shadow-sm shadow-blue-200 transition-colors">
+              {submitting
+                ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Saving…</>
+                : <><FaSave className="text-xs" />{formData._id ? "Save Changes" : "Create Tender"}</>
+              }
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      
+      <Modal
+        open={detailsModal}
+        onClose={() => setDetailsModal(false)}
+        title={`Tender: ${selectedTender?.tenderNumber || ""}`}
+        maxW="max-w-4xl"
+      >
+        {selectedTender && (
+          <>
+            <h3 className="text-xl font-black text-gray-900 mb-4">{selectedTender.title}</h3>
+            <div className="flex flex-wrap gap-2 mb-5">
+              <StatusBadge status={selectedTender.status} />
+              <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${catCls(selectedTender.category)}`}>{selectedTender.category}</span>
+              <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full flex items-center gap-1">
+                <FaUsers className="text-[9px]" />{selectedTender.visibility?.toUpperCase()}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <DetailItem icon={FaCalendarAlt}  label="Publication Date"   value={fmtDate(selectedTender.publicationDate)} />
+              <DetailItem icon={FaClock}        label="Deadline"           value={fmtDate(selectedTender.submissionDeadline)} />
+              <DetailItem icon={FaCalendarAlt}  label="Evaluation Date"    value={fmtDate(selectedTender.evaluationDate)} />
+              <DetailItem icon={FaDollarSign}   label="Budget Range"       value={`${fmtCurrency(selectedTender.budgetMin)} – ${fmtCurrency(selectedTender.budgetMax)}`} />
+              <DetailItem icon={FaAward}        label="Awarded To"         value={selectedTender.awardedTo?.name || (selectedTender.status === "awarded" ? "See bids" : "N/A")} />
+              <DetailItem icon={FaClipboardList}label="Required Documents" value={selectedTender.requiredDocuments} />
+              <DetailItem icon={FaFileAlt}      label="Description"        value={selectedTender.description}  full />
+              <DetailItem icon={FaBullhorn}     label="Scope of Work"      value={selectedTender.scopeOfWork}  full />
+            </div>
+
+            {/* Attachments */}
+            <div className="bg-gray-50 rounded-xl p-4 mb-4">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <FaPaperclip className="text-[10px]" />Attachments ({selectedTender.attachments?.length || 0})
+              </p>
+              {selectedTender.attachments?.length > 0 ? (
+                <div className="space-y-1.5">
+                  {selectedTender.attachments.map((f, i) => (
+                    <a key={i} href={f.url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline">
+                      <FaFileDownload className="text-[10px]" />{f.filename}
+                    </a>
+                  ))}
+                </div>
+              ) : <p className="text-xs text-gray-400">No documents attached.</p>}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-gray-100">
+              <button onClick={() => setDetailsModal(false)}
+                className="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
+                Close
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
+
+     
+      <Modal
+        open={bidsModal}
+        onClose={() => setBidsModal(false)}
+        title={`Bids — ${selectedTender?.title || ""}`}
+        maxW="max-w-5xl"
+      >
+        {bidsLoading ? <Spinner text="Loading bids…" /> : bids.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 py-12">
+            <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center">
+              <FaExclamationTriangle className="text-amber-400 text-xl" />
+            </div>
+            <p className="text-sm text-gray-400">No bids received yet</p>
+          </div>
+        ) : (
+          <>
+            <p className="text-xs text-gray-400 mb-4"><span className="font-semibold text-gray-700">{bids.length}</span> bid(s) received</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    {["Vendor","Bid Amount","Submitted","Tech Score","Fin Score","Actions"].map((h, i) => (
+                      <th key={h} className={`px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider ${i === 5 ? "text-right" : "text-left"}`}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {bids.map(bid => (
+                    <tr key={bid._id} className="hover:bg-gray-50/80 transition-colors group">
+                      <td className="px-5 py-4 font-semibold text-gray-900">{bid.vendorName || "Anonymous"}</td>
+                      <td className="px-5 py-4 font-bold text-gray-800">{fmtCurrency(bid.bidAmount)}</td>
+                      <td className="px-5 py-4 text-xs text-gray-500">{fmtDate(bid.createdAt)}</td>
+                      <td className="px-5 py-4 text-xs text-gray-600">{bid.technicalScore ?? "—"}</td>
+                      <td className="px-5 py-4 text-xs text-gray-600">{bid.financialScore ?? "—"}</td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                          <button className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 cursor-pointer" title="View bid docs"><FaEye className="text-sm" /></button>
+                          <button className="p-2 rounded-xl text-amber-500 hover:bg-amber-50 cursor-pointer" title="Score bid"><FaChartLine className="text-sm" /></button>
+                          {selectedTender?.status !== "awarded" && (
+                            <button onClick={() => handleAwardTender(selectedTender, bid.vendorId)}
+                              className="p-2 rounded-xl text-emerald-500 hover:bg-emerald-50 cursor-pointer" title="Award to this vendor">
+                              <FaAward className="text-sm" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+        <div className="flex justify-end pt-4 mt-4 border-t border-gray-100">
+          <button onClick={() => setBidsModal(false)}
+            className="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
+            Close
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 };
-
-// Helper component for Details Modal
-const DetailItem = ({ icon: Icon, label, value, full = false }) => (
-    <div className={full ? "col-span-2" : ""}>
-        <p className="text-xs font-semibold text-gray-500 uppercase flex items-center">
-            <Icon className="mr-1" /> {label}
-        </p>
-        <p className="text-base text-gray-800 mt-1">{value || "N/A"}</p>
-    </div>
-);
 
 export default TenderPage;

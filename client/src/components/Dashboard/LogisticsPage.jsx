@@ -1,1095 +1,663 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import api from "../../api/axios";
 import {
-  FaAmbulance,
-  FaPlus,
-  FaSearch,
-  FaEdit,
-  FaTrash,
-  FaCheckCircle,
-  FaClock,
-  FaTruck,
-  FaExclamationTriangle,
-  FaTools,
-  FaUserMd,
-  FaMapMarkerAlt,
-  FaPhone,
-  FaSave,
-  FaCalendarAlt,
-  FaChevronDown,
-  FaTimes,
+  FaAmbulance, FaPlus, FaSearch, FaEdit, FaTrash, FaCheckCircle,
+  FaClock, FaTruck, FaExclamationTriangle, FaTools, FaUserMd,
+  FaMapMarkerAlt, FaPhone, FaSave, FaCalendarAlt, FaChevronDown,
+  FaTimes, FaFilter,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 
+
+const VEHICLE_STATUS_CONFIG = {
+  Available:   { bg:"bg-emerald-100", text:"text-emerald-700", dot:"bg-emerald-500", icon: FaCheckCircle },
+  "In Service":{ bg:"bg-sky-100",     text:"text-sky-700",     dot:"bg-sky-500",     icon: FaTruck       },
+  "In Use":    { bg:"bg-sky-100",     text:"text-sky-700",     dot:"bg-sky-500",     icon: FaTruck       },
+  Maintenance: { bg:"bg-amber-100",   text:"text-amber-700",   dot:"bg-amber-400",   icon: FaTools       },
+};
+
+const BOOKING_STATUS_CONFIG = {
+  Pending:    { bg:"bg-amber-100",   text:"text-amber-700"   },
+  Waiting:    { bg:"bg-orange-100",  text:"text-orange-700"  },
+  Assigned:   { bg:"bg-sky-100",     text:"text-sky-700"     },
+  "In Transit":{ bg:"bg-violet-100", text:"text-violet-700"  },
+  Arrived:    { bg:"bg-indigo-100",  text:"text-indigo-700"  },
+  Completed:  { bg:"bg-emerald-100", text:"text-emerald-700" },
+  Cancelled:  { bg:"bg-rose-100",    text:"text-rose-700"    },
+};
+
+const EMERGENCY_CONFIG = {
+  critical:{ bg:"bg-rose-100",   text:"text-rose-700",   dot:"bg-rose-500",   label:"Critical" },
+  urgent:  { bg:"bg-orange-100", text:"text-orange-700", dot:"bg-orange-400", label:"Urgent"   },
+  standard:{ bg:"bg-emerald-100",text:"text-emerald-700",dot:"bg-emerald-400",label:"Standard" },
+};
+
+const EMPTY_VEHICLE = {
+  plate:"", type:"", status:"Available", driver:"",
+  lastService:"", nextService:"", mileage:"", color:"", make:"", model:"", year:"",
+};
+
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString("en-KE", { day:"2-digit", month:"short", year:"numeric" }) : "—";
+const fmtDT   = (d) => d ? new Date(d).toLocaleString("en-KE") : "—";
+const toID    = (d) => d ? d.split("T")[0] : "";
+
+
+const StatCard = ({ label, value, accent, icon: Icon }) => (
+  <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm hover:shadow-md transition-shadow">
+    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${accent.bg}`}>
+      <Icon className={`text-base ${accent.icon}`} />
+    </div>
+    <div>
+      <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">{label}</p>
+      <p className={`text-xl font-black ${accent.num}`}>{value ?? 0}</p>
+    </div>
+  </div>
+);
+
+const VehicleBadge = ({ status }) => {
+  const c = VEHICLE_STATUS_CONFIG[status] || VEHICLE_STATUS_CONFIG.Available;
+  const Icon = c.icon;
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${c.bg} ${c.text}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+      <Icon className="text-[10px]" />{status}
+    </span>
+  );
+};
+
+const BookingBadge = ({ status }) => {
+  const c = BOOKING_STATUS_CONFIG[status] || BOOKING_STATUS_CONFIG.Pending;
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${c.bg} ${c.text}`}>
+      <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60" />{status}
+    </span>
+  );
+};
+
+const EmergencyBadge = ({ level }) => {
+  const c = EMERGENCY_CONFIG[level] || EMERGENCY_CONFIG.standard;
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${c.bg} ${c.text}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />{c.label}
+    </span>
+  );
+};
+
+const Spinner = ({ text }) => (
+  <div className="flex flex-col items-center justify-center py-16 gap-3">
+    <div className="w-10 h-10 border-2 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
+    <p className="text-sm text-gray-400">{text}</p>
+  </div>
+);
+
+const Empty = ({ icon: Icon, text }) => (
+  <div className="flex flex-col items-center justify-center py-16 gap-3">
+    <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center">
+      <Icon className="text-2xl text-gray-300" />
+    </div>
+    <p className="text-sm text-gray-400">{text}</p>
+  </div>
+);
+
+
+const Modal = ({ open, onClose, title, subtitle, children, maxW = "max-w-xl" }) => {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div
+        className={`bg-white rounded-2xl shadow-2xl w-full ${maxW} max-h-[90vh] overflow-y-auto`}
+        style={{ animation: "modalPop .22s cubic-bezier(.34,1.56,.64,1) both" }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
+          <div>
+            <h2 className="text-lg font-black text-gray-900">{title}</h2>
+            {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
+          </div>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100 cursor-pointer transition-colors shrink-0">
+            <FaTimes className="text-gray-400" />
+          </button>
+        </div>
+        <div className="p-6">{children}</div>
+      </div>
+    </div>
+  );
+};
+
+const Field = ({ label, required, children }) => (
+  <div>
+    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+      {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+    </label>
+    {children}
+  </div>
+);
+
+const inputCls = "w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white";
+
+
 const LogisticsPage = () => {
-  const [vehicles, setVehicles] = useState([]);
-  const [bookings, setBookings] = useState([]);
-  const [searchVehicle, setSearchVehicle] = useState("");
-  const [searchBooking, setSearchBooking] = useState("");
+  const [vehicles,        setVehicles]        = useState([]);
+  const [bookings,        setBookings]        = useState([]);
   const [loadingVehicles, setLoadingVehicles] = useState(false);
   const [loadingBookings, setLoadingBookings] = useState(false);
-  const [vehicleModalOpen, setVehicleModalOpen] = useState(false);
-  const [bookingModalOpen, setBookingModalOpen] = useState(false);
-  const [editingVehicle, setEditingVehicle] = useState(null);
-  const [editingBooking, setEditingBooking] = useState(null);
-  const [activeTab, setActiveTab] = useState("vehicles");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
+  const [submitting,      setSubmitting]      = useState(false);
+  const [activeTab,       setActiveTab]       = useState("vehicles");
+  const [searchVehicle,   setSearchVehicle]   = useState("");
+  const [searchBooking,   setSearchBooking]   = useState("");
+  const [filterVStatus,   setFilterVStatus]   = useState("all");
+  const [filterEmergency, setFilterEmergency] = useState("all");
   const [expandedBooking, setExpandedBooking] = useState(null);
+  const [vehicleModal,   setVehicleModal]   = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState(null);
+  const [vehicleForm,    setVehicleForm]    = useState(EMPTY_VEHICLE);
+  const [bookingModal,   setBookingModal]   = useState(false);
+  const [editingBooking, setEditingBooking] = useState(null);
+  const [bookingStatus,  setBookingStatus]  = useState("Pending");
 
-  const [vehicleForm, setVehicleForm] = useState({
-    plate: "",
-    type: "",
-    status: "Available",
-    driver: "",
-    lastService: "",
-    nextService: "",
-    mileage: "",
-    color: "",
-    make: "",
-    model: "",
-    year: "",
-  });
 
-  const [bookingForm, setBookingForm] = useState({
-    status: "Pending",
-  });
-
-  // Fetch vehicles
-  const fetchVehicles = async () => {
+  const fetchVehicles = useCallback(async () => {
     try {
       setLoadingVehicles(true);
-      setError(null);
       const res = await api.get("/vehicles");
-      setVehicles(res.data);
+      setVehicles(Array.isArray(res.data) ? res.data : res.data.data || []);
     } catch (err) {
-      const errorMsg =
-        err.response?.data?.message || err.message || "Error fetching vehicles";
-      console.error("Fetch vehicles error:", errorMsg);
-      setError(errorMsg);
+      toast.error(err.response?.data?.message || "Error fetching vehicles");
       setVehicles([]);
-      toast.error("Error fetching vehicles");
     } finally {
       setLoadingVehicles(false);
     }
-  };
+  }, []);
 
-  // Fetch ambulance bookings
-  const fetchBookings = async () => {
+  const fetchBookings = useCallback(async () => {
     try {
       setLoadingBookings(true);
-      setError(null);
       const res = await api.get("/ambulance-bookings");
-      setBookings(res.data);
+      setBookings(Array.isArray(res.data) ? res.data : res.data.data || []);
     } catch (err) {
-      const errorMsg =
-        err.response?.data?.message || err.message || "Error fetching bookings";
-      console.error("Fetch bookings error:", errorMsg);
-      setError(errorMsg);
+      toast.error(err.response?.data?.message || "Error fetching bookings");
       setBookings([]);
-      toast.error("Error fetching bookings");
     } finally {
       setLoadingBookings(false);
     }
-  };
-
-  // Initial load
-  useEffect(() => {
-    fetchVehicles();
-    fetchBookings();
   }, []);
 
-  // Filter vehicles
-  const filteredVehicles = vehicles.filter(
-    (v) =>
-      v.plate?.toLowerCase().includes(searchVehicle.toLowerCase()) ||
-      v.type?.toLowerCase().includes(searchVehicle.toLowerCase()) ||
-      v.driver?.toLowerCase().includes(searchVehicle.toLowerCase())
-  );
+  useEffect(() => { fetchVehicles(); fetchBookings(); }, [fetchVehicles, fetchBookings]);
 
-  // Filter bookings
-  const filteredBookings = bookings.filter(
-    (b) =>
-      b.patientName?.toLowerCase().includes(searchBooking.toLowerCase()) ||
-      b.status?.toLowerCase().includes(searchBooking.toLowerCase()) ||
-      b.emergencyLevel?.toLowerCase().includes(searchBooking.toLowerCase()) ||
-      b.phone?.includes(searchBooking)
-  );
-  // Calculate stats
-  const stats = {
-    totalVehicles: vehicles.length,
-    available: vehicles.filter((v) => v.status === "Available").length,
-    inService: vehicles.filter((v) => v.status === "In Service").length,
-    maintenanceDue: vehicles.filter(
-      (v) => v.nextService && new Date(v.nextService) <= new Date()
-    ).length,
-    totalBookings: bookings.length,
-    pendingBookings: bookings.filter(
-      (b) => b.status === "Pending" || b.status === "Waiting"
-    ).length,
-    assignedBookings: bookings.filter((b) => b.status === "Assigned").length,
-    criticalBookings: bookings.filter((b) => b.emergencyLevel === "critical")
-      .length,
-  };
 
-  // Vehicle status badge
-  const getVehicleStatusBadge = (status) => {
-    const config = {
-      Available: {
-        bg: "bg-green-100",
-        text: "text-green-700",
-        border: "border-green-200",
-        icon: FaCheckCircle,
-      },
-      "In Service": {
-        bg: "bg-blue-100",
-        text: "text-blue-700",
-        border: "border-blue-200",
-        icon: FaTruck,
-      },
-      Maintenance: {
-        bg: "bg-yellow-100",
-        text: "text-yellow-700",
-        border: "border-yellow-200",
-        icon: FaTools,
-      },
-    };
-    const statusConfig = config[status] || config.Available;
-    const Icon = statusConfig.icon;
+  const stats = useMemo(() => ({
+    totalVehicles:   vehicles.length,
+    available:       vehicles.filter(v => v.status === "Available").length,
+    inService:       vehicles.filter(v => v.status === "In Service" || v.status === "In Use").length,
+    maintenanceDue:  vehicles.filter(v => v.nextService && new Date(v.nextService) <= new Date()).length,
+    totalBookings:   bookings.length,
+    pendingBookings: bookings.filter(b => b.status === "Pending" || b.status === "Waiting").length,
+    assignedBookings:bookings.filter(b => b.status === "Assigned").length,
+    criticalBookings:bookings.filter(b => b.emergencyLevel === "critical").length,
+  }), [vehicles, bookings]);
 
-    return (
-      <span
-        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}
-      >
-        <Icon className="mr-1" />
-        {status}
-      </span>
-    );
-  };
+ 
+  const filteredVehicles = useMemo(() => {
+    const q = searchVehicle.toLowerCase();
+    return vehicles.filter(v => {
+      const matchSearch =
+        v.plate?.toLowerCase().includes(q) ||
+        v.type?.toLowerCase().includes(q) ||
+        v.driver?.toLowerCase().includes(q);
+      const matchStatus = filterVStatus === "all" || v.status === filterVStatus;
+      return matchSearch && matchStatus;
+    });
+  }, [vehicles, searchVehicle, filterVStatus]);
 
-  // Booking status badge
-  const getBookingStatusBadge = (status) => {
-    const config = {
-      Pending: {
-        bg: "bg-yellow-100",
-        text: "text-yellow-700",
-        border: "border-yellow-200",
-      },
-      Waiting: {
-        bg: "bg-orange-100",
-        text: "text-orange-700",
-        border: "border-orange-200",
-      },
-      Assigned: {
-        bg: "bg-blue-100",
-        text: "text-blue-700",
-        border: "border-blue-200",
-      },
-      "In Transit": {
-        bg: "bg-purple-100",
-        text: "text-purple-700",
-        border: "border-purple-200",
-      },
-      Arrived: {
-        bg: "bg-indigo-100",
-        text: "text-indigo-700",
-        border: "border-indigo-200",
-      },
-      Completed: {
-        bg: "bg-green-100",
-        text: "text-green-700",
-        border: "border-green-200",
-      },
-      Cancelled: {
-        bg: "bg-red-100",
-        text: "text-red-700",
-        border: "border-red-200",
-      },
-    };
-    const statusConfig = config[status] || config.Pending;
+  const filteredBookings = useMemo(() => {
+    const q = searchBooking.toLowerCase();
+    return bookings.filter(b => {
+      const matchSearch =
+        b.patientName?.toLowerCase().includes(q) ||
+        b.status?.toLowerCase().includes(q) ||
+        b.emergencyLevel?.toLowerCase().includes(q) ||
+        b.phone?.includes(q);
+      const matchEmergency = filterEmergency === "all" || b.emergencyLevel === filterEmergency;
+      return matchSearch && matchEmergency;
+    });
+  }, [bookings, searchBooking, filterEmergency]);
 
-    return (
-      <span
-        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}
-      >
-        {status}
-      </span>
-    );
-  };
 
-  // Emergency level badge
-  const getEmergencyBadge = (level) => {
-    const config = {
-      critical: {
-        bg: "bg-red-100",
-        text: "text-red-700",
-        border: "border-red-200",
-        label: "Critical",
-      },
-      urgent: {
-        bg: "bg-orange-100",
-        text: "text-orange-700",
-        border: "border-orange-200",
-        label: "Urgent",
-      },
-      standard: {
-        bg: "bg-green-100",
-        text: "text-green-700",
-        border: "border-green-200",
-        label: "Standard",
-      },
-    };
-    const config_item = config[level] || config.standard;
-
-    return (
-      <span
-        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${config_item.bg} ${config_item.text} ${config_item.border}`}
-      >
-        {config_item.label}
-      </span>
-    );
-  };
-
-  // Open vehicle modal
   const openVehicleModal = (v = null) => {
     setEditingVehicle(v);
-    setError(null);
-    setSuccess(null);
-    if (v) {
-      setVehicleForm({
-        plate: v.plate || "",
-        type: v.type || "",
-        status: v.status || "Available",
-        driver: v.driver || "",
-        lastService: v.lastService ? v.lastService.split("T")[0] : "",
-        nextService: v.nextService ? v.nextService.split("T")[0] : "",
-        mileage: v.mileage || "",
-        color: v.color || "",
-        make: v.make || "",
-        model: v.model || "",
-        year: v.year || "",
-      });
-    } else {
-      setVehicleForm({
-        plate: "",
-        type: "",
-        status: "Available",
-        driver: "",
-        lastService: "",
-        nextService: "",
-        mileage: "",
-        color: "",
-        make: "",
-        model: "",
-        year: "",
-      });
-    }
-    setVehicleModalOpen(true);
+    setVehicleForm(v
+      ? { plate: v.plate||"", type: v.type||"", status: v.status||"Available",
+          driver: v.driver||"", lastService: toID(v.lastService), nextService: toID(v.nextService),
+          mileage: v.mileage||"", color: v.color||"", make: v.make||"", model: v.model||"", year: v.year||"" }
+      : EMPTY_VEHICLE
+    );
+    setVehicleModal(true);
   };
 
-  // Open booking modal
-  const openBookingModal = (b = null) => {
-    setEditingBooking(b);
-    setError(null);
-    setSuccess(null);
-    if (b) {
-      setBookingForm({
-        status: b.status || "Pending",
-      });
-    } else {
-      setBookingForm({
-        status: "Pending",
-      });
-    }
-    setBookingModalOpen(true);
-  };
+  const setVField = (key, val) => setVehicleForm(p => ({ ...p, [key]: val }));
 
-  // Handle vehicle form submit
   const handleVehicleSubmit = async (e) => {
     e.preventDefault();
-    setError(null);
-    setSuccess(null);
+    if (!vehicleForm.plate.trim()) { toast.error("Plate number is required"); return; }
+    if (!vehicleForm.type)         { toast.error("Vehicle type is required"); return; }
 
-    if (!vehicleForm.plate || !vehicleForm.type) {
-      setError("Plate number and vehicle type are required");
-      return;
-    }
-
+    setSubmitting(true);
     try {
-      setSubmitting(true);
       if (editingVehicle) {
         await api.put(`/vehicles/${editingVehicle._id}`, vehicleForm);
-        setSuccess("Vehicle updated successfully!");
-        toast.success("Vehicle updated successfully!");
+
+        setVehicles(prev => prev.map(v => v._id === editingVehicle._id ? { ...v, ...vehicleForm } : v));
+        toast.success("Vehicle updated");
       } else {
-        await api.post("/vehicles", vehicleForm);
-        setSuccess("Vehicle added successfully!");
-        toast.success("Vehicle added successfully!");
+        const res = await api.post("/vehicles", vehicleForm);
+        const newV = res.data.data || res.data;
+        setVehicles(prev => [newV, ...prev]);
+        toast.success("Vehicle added");
       }
-      await fetchVehicles();
-      setVehicleModalOpen(false);
+      setVehicleModal(false);
     } catch (err) {
-      const errorMsg =
-        err.response?.data?.message || err.message || "Error saving vehicle";
-      console.error("Vehicle submit error:", errorMsg);
-      setError(errorMsg);
-      toast.error("Error saving vehicle");
+      toast.error(err.response?.data?.message || "Error saving vehicle");
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Handle booking status update
+  const handleDeleteVehicle = async (id) => {
+    if (!window.confirm("Delete this vehicle?")) return;
+    try {
+      await api.delete(`/vehicles/${id}`);
+
+      setVehicles(prev => prev.filter(v => v._id !== id));
+      toast.success("Vehicle deleted");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Error deleting vehicle");
+    }
+  };
+
+
+  const openBookingModal = (b) => {
+    setEditingBooking(b);
+    setBookingStatus(b.status || "Pending");
+    setBookingModal(true);
+  };
+
   const handleBookingStatusUpdate = async (e) => {
     e.preventDefault();
-    setError(null);
-    setSuccess(null);
-
     if (!editingBooking) return;
-
+    setSubmitting(true);
     try {
-      setSubmitting(true);
-      await api.put(`/ambulance-bookings/${editingBooking._id}/status`, {
-        status: bookingForm.status,
-      });
-      setSuccess("Booking status updated successfully!");
-      toast.success("Booking status updated successfully!");
-      await fetchBookings();
-      setBookingModalOpen(false);
+      await api.put(`/ambulance-bookings/${editingBooking._id}/status`, { status: bookingStatus });
+   
+      setBookings(prev => prev.map(b => b._id === editingBooking._id ? { ...b, status: bookingStatus } : b));
+      toast.success("Booking status updated");
+      setBookingModal(false);
     } catch (err) {
-      const errorMsg =
-        err.response?.data?.message || err.message || "Error updating booking";
-      console.error("Booking update error:", errorMsg);
-      setError(errorMsg);
-      toast.error("Error updating booking");
+      toast.error(err.response?.data?.message || "Error updating booking");
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Delete vehicle
-  const handleDeleteVehicle = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this vehicle?"))
-      return;
+  const handleCancelBooking = async (id) => {
+    if (!window.confirm("Cancel this booking?")) return;
     try {
-      setError(null);
-      setSuccess(null);
-      await api.delete(`/vehicles/${id}`);
-      setSuccess("Vehicle deleted successfully!");
-      toast.success("Vehicle deleted successfully!");
-      await fetchVehicles();
+      await api.put(`/ambulance-bookings/${id}/cancel`, { reason: "Cancelled by admin" });
+      setBookings(prev => prev.map(b => b._id === id ? { ...b, status: "Cancelled" } : b));
+      toast.success("Booking cancelled");
     } catch (err) {
-      const errorMsg =
-        err.response?.data?.message || err.message || "Error deleting vehicle";
-      console.error("Delete vehicle error:", errorMsg);
-      setError(errorMsg);
-      toast.error("Error deleting vehicle");
+      toast.error(err.response?.data?.message || "Error cancelling booking");
     }
   };
 
-  // Cancel booking
-  const handleCancelBooking = async (id) => {
-    if (!window.confirm("Are you sure you want to cancel this booking?"))
-      return;
-    try {
-      setError(null);
-      setSuccess(null);
-      await api.put(`/ambulance-bookings/${id}/cancel`, {
-        reason: "Cancelled by admin",
-      });
-      setSuccess("Booking cancelled successfully!");
-      toast.success("Booking cancelled successfully!");
-      await fetchBookings();
-    } catch (err) {
-      const errorMsg =
-        err.response?.data?.message ||
-        err.message ||
-        "Error cancelling booking";
-      console.error("Cancel booking error:", errorMsg);
-      setError(errorMsg);
-      toast.error("Error cancelling booking");
-    }
-  };
+  const TABS = [
+    { key:"vehicles", label:"Vehicles Fleet",       icon: FaAmbulance   },
+    { key:"bookings", label:"Ambulance Bookings",   icon: FaCalendarAlt },
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto p-6">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Logistics & Fleet Management
-          </h1>
-          <p className="text-gray-600">
-            Manage vehicles, ambulances, and transport bookings
-          </p>
+    <div className="min-h-screen bg-[#f8f7f5]">
+      <style>{`
+        @keyframes modalPop {
+          from { opacity:0; transform:scale(0.94) translateY(10px); }
+          to   { opacity:1; transform:scale(1) translateY(0); }
+        }
+        .fade-up { animation: fadeUp .3s ease both; }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+      `}</style>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
+
+        <div className="flex items-center gap-3 mb-8 fade-up">
+          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shrink-0">
+            <FaAmbulance className="text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Logistics & Fleet</h1>
+            <p className="text-xs text-gray-400">Manage vehicles, ambulances, and transport bookings</p>
+          </div>
         </div>
 
-        {/* Stats Cards */}
+       
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
-          <div className="bg-white rounded-lg p-3 border border-gray-100 shadow-sm">
-            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center mb-2">
-              <FaAmbulance className="text-blue-600" />
-            </div>
-            <p className="text-xs text-gray-500 mb-1">Total Vehicles</p>
-            <h3 className="text-2xl font-bold text-gray-900">
-              {stats.totalVehicles}
-            </h3>
-          </div>
-
-          <div className="bg-white rounded-lg p-3 border border-gray-100 shadow-sm">
-            <div className="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center mb-2">
-              <FaCheckCircle className="text-green-600" />
-            </div>
-            <p className="text-xs text-gray-500 mb-1">Available</p>
-            <h3 className="text-2xl font-bold text-green-600">
-              {stats.available}
-            </h3>
-          </div>
-
-          <div className="bg-white rounded-lg p-3 border border-gray-100 shadow-sm">
-            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center mb-2">
-              <FaTruck className="text-blue-600" />
-            </div>
-            <p className="text-xs text-gray-500 mb-1">In Service</p>
-            <h3 className="text-2xl font-bold text-blue-600">
-              {stats.inService}
-            </h3>
-          </div>
-
-          <div className="bg-white rounded-lg p-3 border border-gray-100 shadow-sm">
-            <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center mb-2">
-              <FaTools className="text-orange-600" />
-            </div>
-            <p className="text-xs text-gray-500 mb-1">Maintenance</p>
-            <h3 className="text-2xl font-bold text-orange-600">
-              {stats.maintenanceDue}
-            </h3>
-          </div>
-
-          <div className="bg-white rounded-lg p-3 border border-gray-100 shadow-sm">
-            <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center mb-2">
-              <FaCalendarAlt className="text-purple-600" />
-            </div>
-            <p className="text-xs text-gray-500 mb-1">Total Bookings</p>
-            <h3 className="text-2xl font-bold text-purple-600">
-              {stats.totalBookings}
-            </h3>
-          </div>
-
-          <div className="bg-white rounded-lg p-3 border border-gray-100 shadow-sm">
-            <div className="w-8 h-8 bg-yellow-50 rounded-lg flex items-center justify-center mb-2">
-              <FaClock className="text-yellow-600" />
-            </div>
-            <p className="text-xs text-gray-500 mb-1">Pending</p>
-            <h3 className="text-2xl font-bold text-yellow-600">
-              {stats.pendingBookings}
-            </h3>
-          </div>
-
-          <div className="bg-white rounded-lg p-3 border border-gray-100 shadow-sm">
-            <div className="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center mb-2">
-              <FaCheckCircle className="text-indigo-600" />
-            </div>
-            <p className="text-xs text-gray-500 mb-1">Assigned</p>
-            <h3 className="text-2xl font-bold text-indigo-600">
-              {stats.assignedBookings}
-            </h3>
-          </div>
-
-          <div className="bg-white rounded-lg p-3 border border-gray-100 shadow-sm">
-            <div className="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center mb-2">
-              <FaExclamationTriangle className="text-red-600" />
-            </div>
-            <p className="text-xs text-gray-500 mb-1">Critical</p>
-            <h3 className="text-2xl font-bold text-red-600">
-              {stats.criticalBookings}
-            </h3>
-          </div>
+          <StatCard label="Vehicles"    value={stats.totalVehicles}   icon={FaAmbulance}         accent={{ bg:"bg-blue-50",    icon:"text-blue-500",    num:"text-blue-600"    }} />
+          <StatCard label="Available"   value={stats.available}       icon={FaCheckCircle}       accent={{ bg:"bg-emerald-50", icon:"text-emerald-500", num:"text-emerald-600" }} />
+          <StatCard label="In Service"  value={stats.inService}       icon={FaTruck}             accent={{ bg:"bg-sky-50",     icon:"text-sky-500",     num:"text-sky-600"     }} />
+          <StatCard label="Maintenance" value={stats.maintenanceDue}  icon={FaTools}             accent={{ bg:"bg-amber-50",   icon:"text-amber-500",   num:"text-amber-600"   }} />
+          <StatCard label="Bookings"    value={stats.totalBookings}   icon={FaCalendarAlt}       accent={{ bg:"bg-violet-50",  icon:"text-violet-500",  num:"text-violet-600"  }} />
+          <StatCard label="Pending"     value={stats.pendingBookings} icon={FaClock}             accent={{ bg:"bg-amber-50",   icon:"text-amber-500",   num:"text-amber-600"   }} />
+          <StatCard label="Assigned"    value={stats.assignedBookings}icon={FaCheckCircle}       accent={{ bg:"bg-indigo-50",  icon:"text-indigo-500",  num:"text-indigo-600"  }} />
+          <StatCard label="Critical"    value={stats.criticalBookings}icon={FaExclamationTriangle}accent={{ bg:"bg-rose-50",   icon:"text-rose-500",    num:"text-rose-600"    }} />
         </div>
 
-        {/* Tabs */}
-        <div className="bg-white rounded-lg border border-gray-100 shadow-sm mb-6">
-          <div className="border-b border-gray-100">
-            <div className="flex">
-              <button
-                onClick={() => setActiveTab("vehicles")}
-                className={`px-6 py-4 font-medium transition-colors ${
-                  activeTab === "vehicles"
-                    ? "text-blue-600 border-b-2 border-blue-600"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                <FaAmbulance className="inline mr-2" />
-                Vehicles Fleet
+      
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+
+     
+          <div className="flex border-b border-gray-100 px-2 pt-2">
+            {TABS.map(({ key, label, icon: Icon }) => (
+              <button key={key} onClick={() => setActiveTab(key)}
+                className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold rounded-t-xl transition-all cursor-pointer ${
+                  activeTab === key ? "bg-blue-600 text-white shadow-sm" : "text-gray-400 hover:text-gray-700 hover:bg-gray-50"
+                }`}>
+                <Icon className="text-xs" />{label}
               </button>
-              <button
-                onClick={() => setActiveTab("bookings")}
-                className={`px-6 py-4 font-medium transition-colors ${
-                  activeTab === "bookings"
-                    ? "text-blue-600 border-b-2 border-blue-600"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                <FaCalendarAlt className="inline mr-2" />
-                Ambulance Bookings
-              </button>
-            </div>
+            ))}
           </div>
 
-          {/* Vehicles Tab */}
+      
           {activeTab === "vehicles" && (
             <div className="p-6">
-              <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-4">
-                <div className="flex-1 relative">
-                  <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search vehicles by plate, type, or driver..."
-                    value={searchVehicle}
-                    onChange={(e) => setSearchVehicle(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+              <div className="flex flex-col md:flex-row gap-3 mb-5">
+                <div className="relative flex-1">
+                  <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm" />
+                  <input value={searchVehicle} onChange={e => setSearchVehicle(e.target.value)}
+                    placeholder="Search by plate, type, or driver…"
+                    className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent" />
                 </div>
-                <button
-                  onClick={() => openVehicleModal()}
-                  className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-                >
-                  <FaPlus className="mr-2" /> Add Vehicle
+                <div className="flex items-center gap-2">
+                  <FaFilter className="text-gray-300 text-sm" />
+                  <select value={filterVStatus} onChange={e => setFilterVStatus(e.target.value)}
+                    className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm cursor-pointer outline-none focus:ring-2 focus:ring-blue-400 bg-white text-gray-600">
+                    <option value="all">All Status</option>
+                    <option value="Available">Available</option>
+                    <option value="In Service">In Service</option>
+                    <option value="In Use">In Use</option>
+                    <option value="Maintenance">Maintenance</option>
+                  </select>
+                </div>
+                <button onClick={() => openVehicleModal()}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 cursor-pointer shadow-sm shadow-blue-200 transition-colors shrink-0">
+                  <FaPlus className="text-xs" /> Add Vehicle
                 </button>
               </div>
 
-              <div className="overflow-x-auto">
-                {loadingVehicles ? (
-                  <div className="p-12 text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="text-gray-500 mt-4">Loading vehicles...</p>
-                  </div>
-                ) : filteredVehicles.length === 0 ? (
-                  <div className="p-12 text-center">
-                    <FaAmbulance className="text-5xl text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">No vehicles found</p>
-                  </div>
-                ) : (
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-100">
-                      <tr>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
-                          Plate Number
-                        </th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
-                          Type
-                        </th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
-                          Status
-                        </th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
-                          Driver
-                        </th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
-                          Next Service
-                        </th>
-                        <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase">
-                          Actions
-                        </th>
+              {loadingVehicles ? <Spinner text="Loading vehicles…" /> : filteredVehicles.length === 0 ? (
+                <Empty icon={FaAmbulance} text="No vehicles found" />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-100">
+                        {["Plate","Type","Status","Driver","Next Service",""].map((h,i) => (
+                          <th key={i} className={`px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider ${i === 5 ? "text-right" : "text-left"}`}>
+                            {h || "Actions"}
+                          </th>
+                        ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {filteredVehicles.map((v) => (
-                        <tr
-                          key={v._id}
-                          className="hover:bg-gray-50 transition-colors"
-                        >
-                          <td className="px-6 py-4 font-semibold text-gray-900">
-                            {v.plate}
-                          </td>
-                          <td className="px-6 py-4 text-gray-700">{v.type}</td>
-                          <td className="px-6 py-4">
-                            {getVehicleStatusBadge(v.status)}
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center text-gray-700">
-                              <FaUserMd className="text-gray-400 mr-2" />
-                              {v.driver || "—"}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            {v.nextService &&
-                            new Date(v.nextService) <= new Date() ? (
-                              <span className="text-red-600 font-semibold">
-                                {new Date(v.nextService).toLocaleDateString()}
+                    <tbody className="divide-y divide-gray-50">
+                      {filteredVehicles.map(v => {
+                        const serviceDue = v.nextService && new Date(v.nextService) <= new Date();
+                        return (
+                          <tr key={v._id} className="hover:bg-gray-50/80 transition-colors group">
+                            <td className="px-5 py-4">
+                              <p className="font-black text-gray-900 font-mono">{v.plate}</p>
+                              {v.make && <p className="text-[10px] text-gray-400">{v.make} {v.model} {v.year}</p>}
+                            </td>
+                            <td className="px-5 py-4 text-xs text-gray-600">{v.type}</td>
+                            <td className="px-5 py-4"><VehicleBadge status={v.status} /></td>
+                            <td className="px-5 py-4">
+                              <span className="flex items-center gap-1.5 text-xs text-gray-600">
+                                <FaUserMd className="text-gray-300 shrink-0" />{v.driver || "—"}
                               </span>
-                            ) : v.nextService ? (
-                              <span className="text-gray-700">
-                                {new Date(v.nextService).toLocaleDateString()}
+                            </td>
+                            <td className="px-5 py-4">
+                              <span className={`text-xs font-semibold ${serviceDue ? "text-rose-600" : "text-gray-500"}`}>
+                                {fmtDate(v.nextService)}
+                                {serviceDue && <span className="ml-1 text-[9px] bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded-full">Due!</span>}
                               </span>
-                            ) : (
-                              "—"
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => openVehicleModal(v)}
-                                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                                title="Edit Vehicle"
-                              >
-                                <FaEdit />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteVehicle(v._id)}
-                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                title="Delete Vehicle"
-                              >
-                                <FaTrash />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td className="px-5 py-4">
+                              <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => openVehicleModal(v)}
+                                  className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 cursor-pointer transition-colors" title="Edit">
+                                  <FaEdit className="text-sm" />
+                                </button>
+                                <button onClick={() => handleDeleteVehicle(v._id)}
+                                  className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer transition-colors" title="Delete">
+                                  <FaTrash className="text-sm" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
-                )}
-              </div>
+                  <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/60">
+                    <p className="text-xs text-gray-400">
+                      <span className="font-semibold text-gray-600">{filteredVehicles.length}</span> of {vehicles.length} vehicles
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
-          {/* Bookings Tab */}
+
           {activeTab === "bookings" && (
             <div className="p-6">
-              <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-4">
-                <div className="flex-1 relative">
-                  <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search bookings by patient, status, or emergency level..."
-                    value={searchBooking}
-                    onChange={(e) => setSearchBooking(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+              <div className="flex flex-col md:flex-row gap-3 mb-5">
+                <div className="relative flex-1">
+                  <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm" />
+                  <input value={searchBooking} onChange={e => setSearchBooking(e.target.value)}
+                    placeholder="Search by patient, status, or emergency level…"
+                    className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent" />
                 </div>
+                <select value={filterEmergency} onChange={e => setFilterEmergency(e.target.value)}
+                  className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm cursor-pointer outline-none focus:ring-2 focus:ring-blue-400 bg-white text-gray-600">
+                  <option value="all">All Levels</option>
+                  <option value="critical">Critical</option>
+                  <option value="urgent">Urgent</option>
+                  <option value="standard">Standard</option>
+                </select>
               </div>
 
-              <div className="overflow-x-auto">
-                {loadingBookings ? (
-                  <div className="p-12 text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="text-gray-500 mt-4">Loading bookings...</p>
-                  </div>
-                ) : filteredBookings.length === 0 ? (
-                  <div className="p-12 text-center">
-                    <FaCalendarAlt className="text-5xl text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">No bookings found</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredBookings.map((b) => (
-                      <div
-                        key={b._id}
-                        className="bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow "
+              {loadingBookings ? <Spinner text="Loading bookings…" /> : filteredBookings.length === 0 ? (
+                <Empty icon={FaCalendarAlt} text="No bookings found" />
+              ) : (
+                <div className="space-y-3">
+                  {filteredBookings.map(b => (
+                    <div key={b._id} className="bg-gray-50 border border-gray-100 rounded-2xl overflow-hidden">
+                
+                      <button
+                        className="w-full text-left p-4 grid grid-cols-2 md:grid-cols-5 gap-4 items-center hover:bg-gray-100/60 transition-colors cursor-pointer"
+                        onClick={() => setExpandedBooking(expandedBooking === b._id ? null : b._id)}
                       >
-                        {/* Main Row */}
-                        <div
-                          className="p-4 flex items-center justify-between  cursor-pointer hover:bg-gray-50"
-                          onClick={() =>
-                            setExpandedBooking(
-                              expandedBooking === b._id ? null : b._id
-                            )
-                          }
-                        >
-                          <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-8 items-center">
-                            {/* Patient Info */}
-                            <div>
-                              <p className="font-semibold text-gray-900">
-                                {b.patientName}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                ID: {b._id?.slice(-6)}
-                              </p>
-                            </div>
-
-                            <div>{getEmergencyBadge(b.emergencyLevel)}</div>
-
-                            {/* Vehicle/Driver */}
-                            <div className="text-sm">
-                              {b.vehicleId ? (
-                                <>
-                                  <p className="text-gray-900 font-medium">
-                                    {b.vehicleId?.plate || "Not set"}
-                                  </p>
-                                  <p className="text-gray-500 text-xs">
-                                    {b.vehicleId?.driver || "—"}
-                                  </p>
-                                </>
-                              ) : (
-                                <span className="text-gray-500 text-xs">
-                                  Not assigned
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Status */}
-                            <div>{getBookingStatusBadge(b.status)}</div>
-
-                            {/* Contact */}
-                            <div className="flex items-center text-gray-700 text-sm">
-                              <FaPhone className="text-gray-400 mr-2" />
-                              <span className="text-xs">{b.phone}</span>
-                            </div>
-                          </div>
-
-                          {/* Expand Button */}
-                          <button className="ml-4 p-2 text-gray-400 hover:text-gray-600">
-                            <FaChevronDown
-                              className={`transition-transform ${
-                                expandedBooking === b._id ? "rotate-180" : ""
-                              }`}
-                            />
-                          </button>
+                
+                        <div>
+                          <p className="font-semibold text-gray-900 text-sm">{b.patientName}</p>
+                          <p className="text-[10px] text-gray-400 font-mono">#{b._id?.slice(-6)}</p>
                         </div>
 
-                        {/* Expanded Details */}
-                        {expandedBooking === b._id && (
-                          <div className="border-t border-gray-100 bg-gray-50 p-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                              <div className="flex items-start flex-col text-sm">
-                                <h4 className="font-semibold text-gray-900 mb-2">
-                                  Location Information
-                                </h4>
-                                <div className="flex items-center text-gray-700 mb-1">
-                                  <FaMapMarkerAlt className="text-blue-600 mr-1 text-xs" />
-                                  <p>
-                                    From:{" "}
-                                    <span className="text-xs truncate">
-                                      {b.currentLocation || "—"}
-                                    </span>
-                                  </p>
-                                </div>
-                                <div className="flex items-center text-gray-700">
-                                  <FaMapMarkerAlt className="text-green-600 mr-1 text-xs" />
-                                  <p>
-                                    To:{" "}
-                                    <span className="text-xs truncate">
-                                      {b.destinationHospital || "—"}
-                                    </span>{" "}
-                                  </p>
-                                </div>
-                              </div>
-                              {/* Medical Information */}
-                              <div>
-                                <h4 className="font-semibold text-gray-900 mb-2">
-                                  Medical Information
-                                </h4>
-                                <div className="space-y-2 text-sm">
-                                  <div>
-                                    <p className="text-gray-600">
-                                      Medical Condition:
-                                    </p>
-                                    <p className="text-gray-900">
-                                      {b.medicalCondition}
-                                    </p>
-                                  </div>
-                                  {b.additionalNotes && (
-                                    <div>
-                                      <p className="text-gray-600">
-                                        Additional Notes:
-                                      </p>
-                                      <p className="text-gray-900">
-                                        {b.additionalNotes}
-                                      </p>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
+                        <EmergencyBadge level={b.emergencyLevel} />
 
-                              {/* Booking Information */}
-                              <div>
-                                <h4 className="font-semibold text-gray-900 mb-2">
-                                  Booking Information
-                                </h4>
-                                <div className="space-y-2 text-sm">
-                                  <div>
-                                    <p className="text-gray-600">Booking ID:</p>
-                                    <p className="text-gray-900 font-mono">
-                                      {b._id}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <p className="text-gray-600">Booked On:</p>
-                                    <p className="text-gray-900">
-                                      {new Date(b.bookingDate).toLocaleString()}
-                                    </p>
-                                  </div>
-                                  {b.assignedAt && (
-                                    <div>
-                                      <p className="text-gray-600">
-                                        Assigned On:
-                                      </p>
-                                      <p className="text-gray-900">
-                                        {new Date(
-                                          b.assignedAt
-                                        ).toLocaleString()}
-                                      </p>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
+                        <div className="hidden md:block text-xs">
+                          {b.vehicleId
+                            ? <><p className="font-semibold text-gray-800 font-mono">{b.vehicleId?.plate || "—"}</p><p className="text-gray-400">{b.vehicleId?.driver || "—"}</p></>
+                            : <span className="text-gray-400 italic">Unassigned</span>
+                          }
+                        </div>
+
+                        <BookingBadge status={b.status} />
+
+                        <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                          <FaPhone className="text-gray-300 shrink-0" />{b.phone}
+                          <FaChevronDown className={`ml-auto text-gray-300 text-xs transition-transform ${expandedBooking === b._id ? "rotate-180" : ""}`} />
+                        </div>
+                      </button>
+
+          
+                      {expandedBooking === b._id && (
+                        <div className="border-t border-gray-200 bg-white p-5">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                   
+                            <div>
+                              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Locations</p>
+                              <p className="flex items-center gap-1.5 text-xs text-gray-700 mb-1">
+                                <FaMapMarkerAlt className="text-blue-500 shrink-0" /><span className="truncate">{b.currentLocation || "—"}</span>
+                              </p>
+                              <p className="flex items-center gap-1.5 text-xs text-gray-700">
+                                <FaMapMarkerAlt className="text-emerald-500 shrink-0" /><span className="truncate">{b.destinationHospital || "—"}</span>
+                              </p>
+                            </div>
+   
+                            <div>
+                              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Medical</p>
+                              <p className="text-xs text-gray-700">{b.medicalCondition || "—"}</p>
+                              {b.additionalNotes && <p className="text-xs text-gray-400 mt-1">{b.additionalNotes}</p>}
                             </div>
 
-                            {/* Action Buttons */}
-                            <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-200">
-                              <button
-                                onClick={() => openBookingModal(b)}
-                                className="flex items-center px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                title="Update Status"
-                              >
-                                <FaEdit className="mr-2" />
-                                Update Status
-                              </button>
-
-                              {b.status !== "Completed" &&
-                                b.status !== "Cancelled" && (
-                                  <button
-                                    onClick={() => handleCancelBooking(b._id)}
-                                    className="flex items-center px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                    title="Cancel Booking"
-                                  >
-                                    <FaTimes className="mr-2" />
-                                    Cancel Booking
-                                  </button>
-                                )}
+                    
+                            <div>
+                              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Timeline</p>
+                              <p className="text-xs text-gray-500">Booked: <span className="text-gray-700">{fmtDT(b.bookingDate)}</span></p>
+                              {b.assignedAt && <p className="text-xs text-gray-500 mt-1">Assigned: <span className="text-gray-700">{fmtDT(b.assignedAt)}</span></p>}
                             </div>
                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+
+                          <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+                            <button onClick={() => openBookingModal(b)}
+                              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl cursor-pointer transition-colors">
+                              <FaEdit className="text-xs" /> Update Status
+                            </button>
+                            {b.status !== "Completed" && b.status !== "Cancelled" && (
+                              <button onClick={() => handleCancelBooking(b._id)}
+                                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl cursor-pointer transition-colors">
+                                <FaTimes className="text-xs" /> Cancel
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  <p className="text-xs text-gray-400 px-1">
+                    Showing <span className="font-semibold text-gray-600">{filteredBookings.length}</span> of {bookings.length} bookings
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* Vehicle Modal */}
-      {vehicleModalOpen && (
-        <div className="fixed inset-0 bg-black/75 bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-100">
-              <h2 className="text-2xl font-bold text-gray-900">
-                {editingVehicle ? "Edit Vehicle" : "Add New Vehicle"}
-              </h2>
-              <p className="text-gray-600 mt-1">
-                {editingVehicle
-                  ? "Update vehicle information"
-                  : "Register a new vehicle to the fleet"}
-              </p>
-            </div>
-
-            <div className="p-6">
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Plate Number *
-                    </label>
-                    <input
-                      type="text"
-                      value={vehicleForm.plate}
-                      onChange={(e) =>
-                        setVehicleForm((prev) => ({
-                          ...prev,
-                          plate: e.target.value,
-                        }))
-                      }
-                      placeholder="e.g., KAA 123X"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Vehicle Type *
-                    </label>
-                    <select
-                      value={vehicleForm.type}
-                      onChange={(e) =>
-                        setVehicleForm((prev) => ({
-                          ...prev,
-                          type: e.target.value,
-                        }))
-                      }
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    >
-                      <option value="">Select Type</option>
-                      <option value="Ambulance">Ambulance</option>
-                      <option value="Service Van">Service Van</option>
-                      <option value="Delivery Truck">Delivery Truck</option>
-                      <option value="Staff Transport">Staff Transport</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Driver Name
-                    </label>
-                    <input
-                      type="text"
-                      value={vehicleForm.driver}
-                      onChange={(e) =>
-                        setVehicleForm((prev) => ({
-                          ...prev,
-                          driver: e.target.value,
-                        }))
-                      }
-                      placeholder="e.g., John Kamau"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Status
-                    </label>
-                    <select
-                      value={vehicleForm.status}
-                      onChange={(e) =>
-                        setVehicleForm((prev) => ({
-                          ...prev,
-                          status: e.target.value,
-                        }))
-                      }
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="Available">Available</option>
-                      <option value="In Use">In Use</option>
-                      <option value="Maintenance">Maintenance</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Last Service Date
-                    </label>
-                    <input
-                      type="date"
-                      value={vehicleForm.lastService}
-                      onChange={(e) =>
-                        setVehicleForm((prev) => ({
-                          ...prev,
-                          lastService: e.target.value,
-                        }))
-                      }
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Next Service Due
-                    </label>
-                    <input
-                      type="date"
-                      value={vehicleForm.nextService}
-                      onChange={(e) =>
-                        setVehicleForm((prev) => ({
-                          ...prev,
-                          nextService: e.target.value,
-                        }))
-                      }
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 mt-8 pt-6 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setVehicleModalOpen(false)}
-                  className="px-6 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleVehicleSubmit}
-                  className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <FaSave className="mr-2" />
-                  {editingVehicle ? "Update Vehicle" : "Add Vehicle"}
-                </button>
-              </div>
-            </div>
+      {/* ── Vehicle Modal ── */}
+      <Modal open={vehicleModal} onClose={() => setVehicleModal(false)}
+        title={editingVehicle ? "Edit Vehicle" : "Add New Vehicle"}
+        subtitle={editingVehicle ? "Update vehicle information" : "Register a new vehicle to the fleet"}
+        maxW="max-w-2xl">
+        <form onSubmit={handleVehicleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Plate Number" required>
+              <input value={vehicleForm.plate} onChange={e => setVField("plate", e.target.value)}
+                placeholder="e.g., KAA 123X" className={inputCls} required />
+            </Field>
+            <Field label="Vehicle Type" required>
+              <select value={vehicleForm.type} onChange={e => setVField("type", e.target.value)} className={inputCls} required>
+                <option value="">Select Type</option>
+                {["Ambulance","Service Van","Delivery Truck","Staff Transport"].map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </Field>
+            <Field label="Driver Name">
+              <input value={vehicleForm.driver} onChange={e => setVField("driver", e.target.value)}
+                placeholder="e.g., John Kamau" className={inputCls} />
+            </Field>
+            <Field label="Status">
+              <select value={vehicleForm.status} onChange={e => setVField("status", e.target.value)} className={inputCls}>
+                <option value="Available">Available</option>
+                <option value="In Use">In Use</option>
+                <option value="Maintenance">Maintenance</option>
+              </select>
+            </Field>
+            <Field label="Last Service Date">
+              <input type="date" value={vehicleForm.lastService} onChange={e => setVField("lastService", e.target.value)} className={inputCls} />
+            </Field>
+            <Field label="Next Service Due">
+              <input type="date" value={vehicleForm.nextService} onChange={e => setVField("nextService", e.target.value)} className={inputCls} />
+            </Field>
+            <Field label="Make">
+              <input value={vehicleForm.make} onChange={e => setVField("make", e.target.value)} placeholder="e.g., Toyota" className={inputCls} />
+            </Field>
+            <Field label="Model">
+              <input value={vehicleForm.model} onChange={e => setVField("model", e.target.value)} placeholder="e.g., HiAce" className={inputCls} />
+            </Field>
+            <Field label="Year">
+              <input type="number" value={vehicleForm.year} onChange={e => setVField("year", e.target.value)} placeholder="e.g., 2020" className={inputCls} />
+            </Field>
+            <Field label="Mileage (km)">
+              <input type="number" value={vehicleForm.mileage} onChange={e => setVField("mileage", e.target.value)} placeholder="0" className={inputCls} />
+            </Field>
           </div>
-        </div>
-      )}
 
-      {/* Booking Modal */}
-      {bookingModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full">
-            <div className="p-6 border-b border-gray-100">
-              <h2 className="text-2xl font-bold text-gray-900">
-                Update Booking Status
-              </h2>
-              <p className="text-gray-600 mt-1">
-                Change the status of this ambulance booking
-              </p>
-            </div>
-
-            <div className="p-6">
-              <form onSubmit={handleBookingStatusUpdate}>
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Booking Status *
-                  </label>
-                  <select
-                    value={bookingForm.status}
-                    onChange={(e) =>
-                      setBookingForm((prev) => ({
-                        ...prev,
-                        status: e.target.value,
-                      }))
-                    }
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="Pending">Pending</option>
-                    <option value="Assigned">Assigned</option>
-                    <option value="In Transit">In Transit</option>
-                    <option value="Arrived">Arrived</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Cancelled">Cancelled</option>
-                    <option value="Waiting">Waiting</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
-                  <button
-                    type="button"
-                    onClick={() => setBookingModalOpen(false)}
-                    className="px-6 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400"
-                  >
-                    <FaSave className="mr-2" />
-                    {submitting ? "Updating..." : "Update Status"}
-                  </button>
-                </div>
-              </form>
-            </div>
+          <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+            <button type="button" onClick={() => setVehicleModal(false)}
+              className="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={submitting}
+              className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 cursor-pointer shadow-sm shadow-blue-200 transition-colors">
+              {submitting
+                ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Saving…</>
+                : <><FaSave className="text-xs" />{editingVehicle ? "Update Vehicle" : "Add Vehicle"}</>
+              }
+            </button>
           </div>
-        </div>
-      )}
+        </form>
+      </Modal>
+
+      <Modal open={bookingModal} onClose={() => setBookingModal(false)}
+        title="Update Booking Status"
+        subtitle={editingBooking?.patientName}
+        maxW="max-w-md">
+        <form onSubmit={handleBookingStatusUpdate} className="space-y-5">
+          <Field label="New Status" required>
+            <select value={bookingStatus} onChange={e => setBookingStatus(e.target.value)} className={inputCls}>
+              {["Pending","Waiting","Assigned","In Transit","Arrived","Completed","Cancelled"].map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </Field>
+
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            Will change to: <BookingBadge status={bookingStatus} />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+            <button type="button" onClick={() => setBookingModal(false)}
+              className="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={submitting}
+              className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 cursor-pointer transition-colors">
+              {submitting
+                ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Updating…</>
+                : <><FaSave className="text-xs" />Update Status</>
+              }
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

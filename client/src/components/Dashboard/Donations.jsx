@@ -1,13 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import api from "../../api/axios";
 import {
   FaTint,
   FaUsers,
   FaCalendarCheck,
-  FaHeart,
-  FaSearch,
-  FaEdit,
-  FaTrash,
   FaCheckCircle,
   FaClock,
   FaExclamationTriangle,
@@ -15,40 +11,342 @@ import {
   FaEnvelope,
   FaIdCard,
   FaChevronDown,
-  FaFilter,
-  FaDownload,
-  FaTimes,
+  FaEdit,
+  FaTrash,
   FaSave,
-  FaUserPlus,
   FaMale,
   FaFemale,
   FaWeight,
   FaBirthdayCake,
+  FaSearch,
+  FaTimes,
+  FaPlus,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 
+const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+
+const STATUS_CONFIG = {
+  registered: {
+    label: "Registered",
+    bg: "bg-sky-100",
+    text: "text-sky-700",
+    dot: "bg-sky-400",
+  },
+  confirmed: {
+    label: "Confirmed",
+    bg: "bg-violet-100",
+    text: "text-violet-700",
+    dot: "bg-violet-500",
+  },
+  completed: {
+    label: "Completed",
+    bg: "bg-emerald-100",
+    text: "text-emerald-700",
+    dot: "bg-emerald-500",
+  },
+  cancelled: {
+    label: "Cancelled",
+    bg: "bg-rose-100",
+    text: "text-rose-700",
+    dot: "bg-rose-400",
+  },
+  deferred: {
+    label: "Deferred",
+    bg: "bg-amber-100",
+    text: "text-amber-700",
+    dot: "bg-amber-400",
+  },
+};
+
+const StatusBadge = ({ status }) => {
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.registered;
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${cfg.bg} ${cfg.text}`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+      {cfg.label}
+    </span>
+  );
+};
+
+const BloodBadge = ({ group }) =>
+  group ? (
+    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-600 text-white rounded-full text-xs font-black tracking-wide">
+      <FaTint className="text-[9px]" />
+      {group}
+    </span>
+  ) : (
+    <span className="text-gray-400 text-xs italic">Unknown</span>
+  );
+
+const Spinner = () => (
+  <div className="flex flex-col items-center justify-center py-20 gap-4">
+    <div className="w-10 h-10 border-2 border-red-200 border-t-red-600 rounded-full animate-spin" />
+    <p className="text-sm text-gray-400 font-medium">Loading…</p>
+  </div>
+);
+
+const Empty = ({ icon: Icon, text }) => (
+  <div className="flex flex-col items-center justify-center py-20 gap-3">
+    <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center">
+      <Icon className="text-2xl text-gray-300" />
+    </div>
+    <p className="text-sm text-gray-400">{text}</p>
+  </div>
+);
+
+// ── Stat card ──────────────────────────────────────────────────────────────────
+const StatCard = ({ label, value, sub, accent, icon: Icon }) => (
+  <div className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
+    <div
+      className={`w-12 h-12 rounded-xl flex items-center justify-center ${accent.bg}`}
+    >
+      <Icon className={`text-xl ${accent.icon}`} />
+    </div>
+    <div>
+      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+        {label}
+      </p>
+      <p className={`text-2xl font-black ${accent.num}`}>{value ?? 0}</p>
+      {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
+    </div>
+  </div>
+);
+
+// ── Blood group distribution bar ───────────────────────────────────────────────
+const BloodDistribution = ({ stats }) => {
+  const max = Math.max(
+    ...BLOOD_GROUPS.map((bg) => stats.find((s) => s._id === bg)?.count || 0),
+    1,
+  );
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+      <div className="flex items-center gap-2 mb-5">
+        <FaTint className="text-red-500" />
+        <h3 className="font-bold text-gray-800 text-sm uppercase tracking-wider">
+          Blood Group Distribution
+        </h3>
+      </div>
+      <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
+        {BLOOD_GROUPS.map((bg) => {
+          const count = stats.find((s) => s._id === bg)?.count || 0;
+
+          return (
+            <div
+              key={bg}
+              className="text-center p-3 bg-gray-50 rounded-lg border border-gray-200"
+            >
+              <div className="w-full  h-24 flex flex-col justify-end overflow-hidden">
+                <span className="text-2xl font-bold text-red-600">{bg}</span>
+                <span className="text-sm text-gray-600 mt-1">{count}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const DonorRow = ({ donor, expanded, onToggle, onEdit, onDelete }) => (
+  <div className="bg-white rounded-2xl overflow-hidden  transition-all">
+    <button
+      className="w-full text-left p-4 grid grid-cols-2 md:grid-cols-6 gap-4 items-center hover:bg-gray-50/80 transition-colors cursor-pointer"
+      onClick={onToggle}
+    >
+      <div className="col-span-2 md:col-span-1 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center text-white font-black text-sm shrink-0">
+          {donor.fullName?.charAt(0)}
+        </div>
+        <div className="min-w-0">
+          <p className="font-semibold text-gray-900 text-sm truncate">
+            {donor.fullName}
+          </p>
+          <p className="text-[10px] text-gray-400 font-mono">{donor.donorId}</p>
+        </div>
+      </div>
+
+      <div className="hidden md:block">
+        <BloodBadge group={donor.bloodGroup} />
+      </div>
+
+      <div className="hidden md:flex flex-col gap-1">
+        <span className="flex items-center gap-1.5 text-xs text-gray-600">
+          <FaPhone className="text-gray-300 text-[10px]" />
+          {donor.phone}
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-gray-400 truncate">
+          <FaEnvelope className="text-gray-300 text-[10px] shrink-0" />
+          {donor.email}
+        </span>
+      </div>
+
+      {/* Demographics */}
+      <div className="hidden md:flex flex-col gap-1">
+        <span className="flex items-center gap-1.5 text-xs text-gray-600 capitalize">
+          {donor.gender === "male" ? (
+            <FaMale className="text-blue-400" />
+          ) : (
+            <FaFemale className="text-pink-400" />
+          )}
+          {donor.gender}
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-gray-400">
+          <FaBirthdayCake className="text-gray-300 text-[10px]" />
+          {donor.age} yrs
+        </span>
+      </div>
+
+      {/* Date */}
+      <div className="hidden md:block">
+        <p className="text-xs font-semibold text-gray-800">
+          {new Date(donor.donationDate).toLocaleDateString("en-KE", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })}
+        </p>
+        <p className="text-[10px] text-gray-400">{donor.donationTime}</p>
+      </div>
+
+      <div className="flex items-center justify-between md:justify-start gap-3">
+        <StatusBadge status={donor.status} />
+        <FaChevronDown
+          className={`text-gray-300 text-xs transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+        />
+      </div>
+    </button>
+
+    {expanded && (
+      <div className="border-t border-gray-100 bg-gray-50/60 p-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-5">
+          <div>
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+              Personal
+            </p>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center gap-2 text-gray-700">
+                <FaIdCard className="text-gray-300 shrink-0" />
+                <span className="text-gray-400 text-xs">National ID:</span>
+                <span className="font-medium text-xs">
+                  {donor.nationalId || "—"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-700">
+                <FaWeight className="text-gray-300 shrink-0" />
+                <span className="text-gray-400 text-xs">Weight:</span>
+                <span className="font-medium text-xs">
+                  {donor.weight ? `${donor.weight} kg` : "—"}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="md:col-span-2">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+              Medical
+            </p>
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div>
+                <p className="text-gray-400 mb-1">Health Conditions</p>
+                <p className="text-gray-800">
+                  {donor.healthConditions || "None reported"}
+                </p>
+              </div>
+              <div>
+                <p className="text-gray-400 mb-1">Medications</p>
+                <p className="text-gray-800">
+                  {donor.medications || "None reported"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
+          <button
+            onClick={() => onEdit(donor)}
+            className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors"
+          >
+            <FaEdit /> Update Status
+          </button>
+          <button
+            onClick={() => onDelete(donor.donorId)}
+            className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors"
+          >
+            <FaTrash /> Delete
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+);
+
+// ── Modal shell ────────────────────────────────────────────────────────────────
+const Modal = ({
+  open,
+  onClose,
+  title,
+  subtitle,
+  children,
+  maxW = "max-w-lg",
+}) => {
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className={`bg-white rounded-2xl shadow-2xl w-full ${maxW} max-h-[90vh] overflow-y-auto`}
+        style={{ animation: "modalPop .22s cubic-bezier(.34,1.56,.64,1) both" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between p-6 border-b border-gray-100">
+          <div>
+            <h2 className="text-lg font-black text-gray-900">{title}</h2>
+            {subtitle && (
+              <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
+          >
+            <FaTimes className="text-gray-400" />
+          </button>
+        </div>
+        <div className="p-6">{children}</div>
+      </div>
+    </div>
+  );
+};
+
+// ── Main component ─────────────────────────────────────────────────────────────
 const Donations = () => {
   const [donors, setDonors] = useState([]);
-  const [upcomingDonations, setUpcomingDonations] = useState([]);
+  const [upcoming, setUpcoming] = useState([]);
   const [stats, setStats] = useState(null);
   const [urgentRequests, setUrgentRequests] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("donors");
   const [expandedDonor, setExpandedDonor] = useState(null);
-  const [statusModalOpen, setStatusModalOpen] = useState(false);
-  const [urgentModalOpen, setUrgentModalOpen] = useState(false);
-  const [editingDonor, setEditingDonor] = useState(null);
-  const [editingUrgent, setEditingUrgent] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [filterBloodGroup, setFilterBloodGroup] = useState("");
+  const [filterBG, setFilterBG] = useState("");
   const [filterGender, setFilterGender] = useState("");
 
+  // Status modal
+  const [statusModal, setStatusModal] = useState(false);
+  const [editingDonor, setEditingDonor] = useState(null);
   const [statusForm, setStatusForm] = useState({
     status: "",
     registrationStatus: "",
   });
 
+  // Urgent modal
+  const [urgentModal, setUrgentModal] = useState(false);
+  const [editingUrgent, setEditingUrgent] = useState(null);
   const [urgentForm, setUrgentForm] = useState({
     bloodGroups: [],
     message: "",
@@ -56,658 +354,403 @@ const Donations = () => {
     isActive: true,
   });
 
-  
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [donorsRes, upcomingRes, statsRes, urgentRes] = await Promise.all([
         api.get("/blood-donation", {
           params: {
             status: filterStatus || undefined,
-            bloodGroup: filterBloodGroup || undefined,
+            bloodGroup: filterBG || undefined,
             gender: filterGender || undefined,
           },
         }),
         api.get("/blood-donation/schedule/upcoming"),
         api.get("/blood-donation/reports/statistics"),
-  
-        api.get("/urgent-request", {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }),
+        api.get("/urgent-request"),
       ]);
-
       setDonors(donorsRes.data.data || []);
-      setUpcomingDonations(upcomingRes.data.data || []);
+      setUpcoming(upcomingRes.data.data || []);
       setStats(statsRes.data.data || {});
       setUrgentRequests(urgentRes.data.data || []);
-    } catch (error) {
-      console.error("Error fetching data:", error);
+    } catch {
       toast.error("Failed to load donation data");
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterStatus, filterBG, filterGender]);
 
   useEffect(() => {
     fetchData();
-  }, [filterStatus, filterBloodGroup, filterGender]);
+  }, [fetchData]);
 
-  const filteredDonors = donors.filter(
-    (d) =>
-      d.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.phone?.includes(searchTerm) ||
-      d.donorId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.bloodGroup?.toLowerCase().includes(searchTerm.toLowerCase())
+  const calculatedStats = useMemo(
+    () => ({
+      total: stats?.totalDonors || 0,
+      byBloodGroup: stats?.bloodGroupStats || [],
+      byStatus: stats?.statusStats || [],
+    }),
+    [stats],
   );
 
-
-  const getStatusBadge = (status) => {
-    const config = {
-      registered: {
-        bg: "bg-blue-100",
-        text: "text-blue-700",
-        border: "border-blue-200",
-        label: "Registered",
-      },
-      confirmed: {
-        bg: "bg-purple-100",
-        text: "text-purple-700",
-        border: "border-purple-200",
-        label: "Confirmed",
-      },
-      completed: {
-        bg: "bg-green-100",
-        text: "text-green-700",
-        border: "border-green-200",
-        label: "Completed",
-      },
-      cancelled: {
-        bg: "bg-red-100",
-        text: "text-red-700",
-        border: "border-red-200",
-        label: "Cancelled",
-      },
-      deferred: {
-        bg: "bg-yellow-100",
-        text: "text-yellow-700",
-        border: "border-yellow-200",
-        label: "Deferred",
-      },
-    };
-    const statusConfig = config[status] || config.registered;
-
-    return (
-      <span
-        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}
-      >
-        {statusConfig.label}
-      </span>
+  const filteredDonors = useMemo(() => {
+    const q = searchTerm.toLowerCase();
+    return donors.filter(
+      (d) =>
+        d.fullName?.toLowerCase().includes(q) ||
+        d.email?.toLowerCase().includes(q) ||
+        d.phone?.includes(q) ||
+        d.donorId?.toLowerCase().includes(q) ||
+        d.bloodGroup?.toLowerCase().includes(q),
     );
-  };
+  }, [donors, searchTerm]);
 
-
-  const getBloodGroupBadge = (bloodGroup) => {
-    if (!bloodGroup) return <span className="text-gray-400 text-sm">Not specified</span>;
-    
-    return (
-      <span className="inline-flex items-center px-3 py-1 bg-red-50 text-red-700 rounded-full text-sm font-bold border border-red-200">
-        <FaTint className="mr-1" />
-        {bloodGroup}
-      </span>
-    );
-  };
-
-  // Open status modal
   const openStatusModal = (donor) => {
     setEditingDonor(donor);
     setStatusForm({
-      status: donor.status || "",
-      registrationStatus: donor.registrationStatus || "",
+      status: donor.status || "registered",
+      registrationStatus: donor.registrationStatus || "pending",
     });
-    setStatusModalOpen(true);
+    setStatusModal(true);
   };
-
 
   const handleStatusUpdate = async (e) => {
     e.preventDefault();
     if (!editingDonor) return;
-
     try {
-      await api.patch(`/blood-donation/${editingDonor.donorId}/status`, statusForm);
-      toast.success("Status updated successfully");
-      setStatusModalOpen(false);
+      await api.patch(
+        `/blood-donation/${editingDonor.donorId}/status`,
+        statusForm,
+      );
+      toast.success("Status updated");
+      setStatusModal(false);
       fetchData();
-    } catch (error) {
-      console.error("Error updating status:", error);
-      toast.error(error.response?.data?.message || "Failed to update status");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to update status");
     }
   };
 
-  // Delete donor
   const handleDeleteDonor = async (donorId) => {
-    if (!window.confirm("Are you sure you want to delete this donor?")) return;
-
+    if (!window.confirm("Delete this donor?")) return;
     try {
       await api.delete(`/blood-donation/${donorId}`);
-      toast.success("Donor deleted successfully");
+      toast.success("Donor deleted");
       fetchData();
-    } catch (error) {
-      console.error("Error deleting donor:", error);
-      toast.error(error.response?.data?.message || "Failed to delete donor");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to delete donor");
     }
   };
 
-
-  const openUrgentModal = (request = null) => {
-    setEditingUrgent(request);
-    if (request) {
-      setUrgentForm({
-        bloodGroups: request.bloodGroups || [],
-        message: request.message || "",
-        contactNumber: request.contactNumber || "",
-        isActive: request.isActive !== undefined ? request.isActive : true,
-      });
-    } else {
-      setUrgentForm({
-        bloodGroups: [],
-        message: "",
-        contactNumber: "+254 700 123 456",
-        isActive: true,
-      });
-    }
-    setUrgentModalOpen(true);
+  const openUrgentModal = (req = null) => {
+    setEditingUrgent(req);
+    setUrgentForm(
+      req
+        ? {
+            bloodGroups: req.bloodGroups || [],
+            message: req.message || "",
+            contactNumber: req.contactNumber || "",
+            isActive: req.isActive ?? true,
+          }
+        : {
+            bloodGroups: [],
+            message: "",
+            contactNumber: "+254 700 123 456",
+            isActive: true,
+          },
+    );
+    setUrgentModal(true);
   };
 
+  const toggleBloodGroup = (bg) =>
+    setUrgentForm((prev) => ({
+      ...prev,
+      bloodGroups: prev.bloodGroups.includes(bg)
+        ? prev.bloodGroups.filter((b) => b !== bg)
+        : [...prev.bloodGroups, bg],
+    }));
 
-  const toggleBloodGroup = (bloodGroup) => {
-    setUrgentForm((prev) => {
-      const bloodGroups = prev.bloodGroups.includes(bloodGroup)
-        ? prev.bloodGroups.filter((bg) => bg !== bloodGroup)
-        : [...prev.bloodGroups, bloodGroup];
-      return { ...prev, bloodGroups };
-    });
-  };
-
-  const handleUrgentSubmit = async (e) => {
-    e.preventDefault();
-
-
-    if (urgentForm.bloodGroups.length === 0) {
-      toast.error("Please select at least one blood group");
+  const handleUrgentSubmit = async () => {
+    if (!urgentForm.bloodGroups.length) {
+      toast.error("Select at least one blood group");
       return;
     }
-
     if (!urgentForm.message.trim()) {
-      toast.error("Please enter a message");
+      toast.error("Message is required");
       return;
     }
-
     if (!urgentForm.contactNumber.trim()) {
-      toast.error("Please enter a contact number");
+      toast.error("Contact number is required");
       return;
     }
-
     try {
       if (editingUrgent) {
-        
         await api.put(`/urgent-request/${editingUrgent._id}`, urgentForm);
-        toast.success("Urgent request updated successfully");
+        toast.success("Urgent request updated");
       } else {
-    
         await api.post("/urgent-request", urgentForm);
-        toast.success("Urgent request created successfully");
+        toast.success("Urgent request created");
       }
-      setUrgentModalOpen(false);
+      setUrgentModal(false);
       fetchData();
-    } catch (error) {
-      console.error("Error saving urgent request:", error);
-      toast.error(error.response?.data?.message || "Failed to save urgent request");
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || "Failed to save urgent request",
+      );
     }
   };
 
-  // Delete urgent request - FIXED ENDPOINT
   const handleDeleteUrgent = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this urgent request?")) return;
-
+    if (!window.confirm("Delete this urgent request?")) return;
     try {
-   
       await api.delete(`/urgent-request/${id}`);
-      toast.success("Urgent request deleted successfully");
+      toast.success("Deleted");
       fetchData();
-    } catch (error) {
-      console.error("Error deleting urgent request:", error);
-      toast.error(error.response?.data?.message || "Failed to delete urgent request");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to delete");
     }
   };
 
-
-  const toggleUrgentStatus = async (id, currentStatus) => {
+  const toggleUrgentStatus = async (id, current) => {
     try {
-   
-      await api.patch(`/urgent-request/${id}/toggle`, {
-        isActive: !currentStatus,
-      });
-      toast.success(`Urgent request ${!currentStatus ? 'activated' : 'deactivated'}`);
+      await api.patch(`/urgent-request/${id}/toggle`, { isActive: !current });
+      toast.success(`Request ${!current ? "activated" : "deactivated"}`);
       fetchData();
-    } catch (error) {
-      console.error("Error toggling urgent status:", error);
-      toast.error(error.response?.data?.message || "Failed to update status");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to toggle");
     }
   };
 
-  const calculateStats = () => {
-    if (!stats) return { total: 0, byBloodGroup: [], byStatus: [], byGender: [] };
+  const TABS = [
+    { key: "donors", label: "All Donors", icon: FaUsers },
+    { key: "upcoming", label: "Upcoming", icon: FaCalendarCheck },
+    { key: "urgent", label: "Urgent Requests", icon: FaExclamationTriangle },
+  ];
 
-    return {
-      total: stats.totalDonors || 0,
-      byBloodGroup: stats.bloodGroupStats || [],
-      byStatus: stats.statusStats || [],
-      byGender: stats.genderStats || [],
-    };
-  };
-
-  const calculatedStats = calculateStats();
+  const completedCount =
+    calculatedStats.byStatus.find((s) => s._id === "completed")?.count || 0;
+  const registeredCount =
+    calculatedStats.byStatus.find((s) => s._id === "registered")?.count || 0;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto p-6">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center">
-            <FaTint className="text-red-600 mr-3" />
-            Blood Donation Management
-          </h1>
-          <p className="text-gray-600">
-            Manage blood donors, track donations, and monitor blood inventory
+    <div className="min-h-screen bg-[#f8f7f5]">
+      <style>{`
+        @keyframes modalPop {
+          from { opacity:0; transform:scale(0.94) translateY(10px); }
+          to   { opacity:1; transform:scale(1)    translateY(0);    }
+        }
+        @keyframes fadeUp {
+          from { opacity:0; transform:translateY(8px); }
+          to   { opacity:1; transform:translateY(0);   }
+        }
+        .fade-up { animation: fadeUp .3s ease both; }
+      `}</style>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
+        <div className="mb-8 fade-up">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center shadow-lg shadow-red-200">
+              <FaTint className="text-white text-lg" />
+            </div>
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+              Blood Donation
+            </h1>
+          </div>
+          <p className="text-sm text-gray-400 ml-13 pl-0.5">
+            Manage donors, track donations, monitor urgent requests
           </p>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Total Donors</p>
-                <h3 className="text-3xl font-bold text-gray-900">
-                  {calculatedStats.total}
-                </h3>
-              </div>
-              <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center">
-                <FaUsers className="text-2xl text-red-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Upcoming Donations</p>
-                <h3 className="text-3xl font-bold text-blue-600">
-                  {upcomingDonations.length}
-                </h3>
-              </div>
-              <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center">
-                <FaCalendarCheck className="text-2xl text-blue-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Completed</p>
-                <h3 className="text-3xl font-bold text-green-600">
-                  {calculatedStats.byStatus.find(s => s._id === "completed")?.count || 0}
-                </h3>
-              </div>
-              <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center">
-                <FaCheckCircle className="text-2xl text-green-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Registered</p>
-                <h3 className="text-3xl font-bold text-purple-600">
-                  {calculatedStats.byStatus.find(s => s._id === "registered")?.count || 0}
-                </h3>
-              </div>
-              <div className="w-12 h-12 bg-purple-50 rounded-full flex items-center justify-center">
-                <FaClock className="text-2xl text-purple-600" />
-              </div>
-            </div>
-          </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <StatCard
+            label="Total Donors"
+            value={calculatedStats.total}
+            icon={FaUsers}
+            accent={{
+              bg: "bg-red-50",
+              icon: "text-red-500",
+              num: "text-red-600",
+            }}
+          />
+          <StatCard
+            label="Upcoming"
+            value={upcoming.length}
+            icon={FaCalendarCheck}
+            accent={{
+              bg: "bg-sky-50",
+              icon: "text-sky-500",
+              num: "text-sky-600",
+            }}
+          />
+          <StatCard
+            label="Completed"
+            value={completedCount}
+            icon={FaCheckCircle}
+            accent={{
+              bg: "bg-emerald-50",
+              icon: "text-emerald-500",
+              num: "text-emerald-600",
+            }}
+          />
+          <StatCard
+            label="Registered"
+            value={registeredCount}
+            icon={FaClock}
+            accent={{
+              bg: "bg-violet-50",
+              icon: "text-violet-500",
+              num: "text-violet-600",
+            }}
+          />
         </div>
 
-        {/* Blood Group Distribution */}
-        <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-6 mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <FaTint className="text-red-600 mr-2" />
-            Blood Group Distribution
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-            {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bg) => {
-              const count = calculatedStats.byBloodGroup.find(b => b._id === bg)?.count || 0;
-              return (
-                <div key={bg} className="text-center p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="text-2xl font-bold text-red-600">{bg}</div>
-                  <div className="text-sm text-gray-600 mt-1">{count} donors</div>
-                </div>
-              );
-            })}
-          </div>
+        <div className="mb-6">
+          <BloodDistribution stats={calculatedStats.byBloodGroup} />
         </div>
 
-        {/* Tabs */}
-        <div className="bg-white rounded-lg border border-gray-100 shadow-sm mb-6">
-          <div className="border-b border-gray-100">
-            <div className="flex">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="flex border-b border-gray-100 px-2 pt-2">
+            {TABS.map(({ key, label, icon: Icon }) => (
               <button
-                onClick={() => setActiveTab("donors")}
-                className={`px-6 py-4 font-medium transition-colors ${
-                  activeTab === "donors"
-                    ? "text-red-600 border-b-2 border-red-600"
-                    : "text-gray-600 hover:text-gray-900"
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold rounded-t-xl transition-all cursor-pointer ${
+                  activeTab === key
+                    ? "bg-red-600 text-white shadow-sm"
+                    : "text-gray-400 hover:text-gray-700 hover:bg-gray-50"
                 }`}
               >
-                <FaUsers className="inline mr-2" />
-                All Donors
+                <Icon className="text-xs" />
+                {label}
+                {key === "urgent" &&
+                  urgentRequests.filter((r) => r.isActive).length > 0 && (
+                    <span className="ml-1 w-4 h-4 bg-white/30 text-white text-[9px] font-black rounded-full flex items-center justify-center">
+                      {urgentRequests.filter((r) => r.isActive).length}
+                    </span>
+                  )}
               </button>
-              <button
-                onClick={() => setActiveTab("upcoming")}
-                className={`px-6 py-4 font-medium transition-colors ${
-                  activeTab === "upcoming"
-                    ? "text-red-600 border-b-2 border-red-600"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                <FaCalendarCheck className="inline mr-2" />
-                Upcoming Donations
-              </button>
-              <button
-                onClick={() => setActiveTab("urgent")}
-                className={`px-6 py-4 font-medium transition-colors ${
-                  activeTab === "urgent"
-                    ? "text-red-600 border-b-2 border-red-600"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                <FaExclamationTriangle className="inline mr-2" />
-                Urgent Requests
-              </button>
-            </div>
+            ))}
           </div>
 
-          {/* All Donors Tab */}
           {activeTab === "donors" && (
             <div className="p-6">
-              <div className="flex flex-col lg:flex-row gap-4 mb-4">
-                <div className="flex-1 relative">
-                  <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <div className="flex flex-col lg:flex-row gap-3 mb-5">
+                <div className="relative flex-1">
+                  <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm" />
                   <input
-                    type="text"
-                    placeholder="Search by name, email, phone, donor ID, or blood group..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    placeholder="Search name, email, phone, ID, blood group…"
+                    className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent"
                   />
                 </div>
-
-                <div className="flex gap-2">
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500"
-                  >
-                    <option value="">All Status</option>
-                    <option value="registered">Registered</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                    <option value="deferred">Deferred</option>
-                  </select>
-
-                  <select
-                    value={filterBloodGroup}
-                    onChange={(e) => setFilterBloodGroup(e.target.value)}
-                    className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500"
-                  >
-                    <option value="">All Blood Groups</option>
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                    <option value="O+">O+</option>
-                    <option value="O-">O-</option>
-                  </select>
-
-                  <select
-                    value={filterGender}
-                    onChange={(e) => setFilterGender(e.target.value)}
-                    className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500"
-                  >
-                    <option value="">All Genders</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                  </select>
+                <div className="flex gap-2 flex-wrap">
+                  {[
+                    {
+                      val: filterStatus,
+                      set: setFilterStatus,
+                      opts: [
+                        ["", "All Status"],
+                        ["registered", "Registered"],
+                        ["confirmed", "Confirmed"],
+                        ["completed", "Completed"],
+                        ["cancelled", "Cancelled"],
+                        ["deferred", "Deferred"],
+                      ],
+                    },
+                    {
+                      val: filterBG,
+                      set: setFilterBG,
+                      opts: [
+                        ["", "All Blood Groups"],
+                        ...BLOOD_GROUPS.map((b) => [b, b]),
+                      ],
+                    },
+                    // { val: filterGender, set: setFilterGender, opts: [["","All Genders"],["male","Male"],["female","Female"],["other","Other"]] },
+                  ].map(({ val, set, opts }, i) => (
+                    <select
+                      key={i}
+                      value={val}
+                      onChange={(e) => set(e.target.value)}
+                      className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm cursor-pointer outline-none focus:ring-2 focus:ring-red-400 bg-white text-gray-600"
+                    >
+                      {opts.map(([v, l]) => (
+                        <option key={v} value={v}>
+                          {l}
+                        </option>
+                      ))}
+                    </select>
+                  ))}
                 </div>
               </div>
 
-              <div className="space-y-3">
-                {loading ? (
-                  <div className="p-12 text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto"></div>
-                    <p className="text-gray-500 mt-4">Loading donors...</p>
-                  </div>
-                ) : filteredDonors.length === 0 ? (
-                  <div className="p-12 text-center">
-                    <FaUsers className="text-5xl text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">No donors found</p>
-                  </div>
-                ) : (
-                  filteredDonors.map((donor) => (
-                    <div
+              {loading ? (
+                <Spinner />
+              ) : filteredDonors.length === 0 ? (
+                <Empty icon={FaUsers} text="No donors found" />
+              ) : (
+                <div className="space-y-3">
+                  {filteredDonors.map((donor) => (
+                    <DonorRow
                       key={donor._id}
-                      className="bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
-                    >
-                      {/* Main Row */}
-                      <div
-                        className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50"
-                        onClick={() =>
-                          setExpandedDonor(
-                            expandedDonor === donor._id ? null : donor._id
-                          )
-                        }
-                      >
-                        <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
-                          {/* Donor Info */}
-                          <div>
-                            <p className="font-semibold text-gray-900">
-                              {donor.fullName}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              ID: {donor.donorId}
-                            </p>
-                          </div>
-
-                          {/* Blood Group */}
-                          <div>{getBloodGroupBadge(donor.bloodGroup)}</div>
-
-                          {/* Contact */}
-                          <div className="text-sm">
-                            <div className="flex items-center text-gray-700 mb-1">
-                              <FaPhone className="text-gray-400 mr-2 text-xs" />
-                              <span className="text-xs">{donor.phone}</span>
-                            </div>
-                            <div className="flex items-center text-gray-700">
-                              <FaEnvelope className="text-gray-400 mr-2 text-xs" />
-                              <span className="text-xs truncate">{donor.email}</span>
-                            </div>
-                          </div>
-
-                          {/* Demographics */}
-                          <div className="text-sm">
-                            <div className="flex items-center text-gray-700 mb-1">
-                              {donor.gender === 'male' ? (
-                                <FaMale className="text-blue-500 mr-2" />
-                              ) : donor.gender === 'female' ? (
-                                <FaFemale className="text-pink-500 mr-2" />
-                              ) : null}
-                              <span className="text-xs capitalize">{donor.gender}</span>
-                            </div>
-                            <div className="flex items-center text-gray-700">
-                              <FaBirthdayCake className="text-gray-400 mr-2 text-xs" />
-                              <span className="text-xs">{donor.age} years</span>
-                            </div>
-                          </div>
-
-                          {/* Donation Date */}
-                          <div className="text-sm">
-                            <p className="text-gray-600 text-xs">Scheduled:</p>
-                            <p className="text-gray-900 font-medium text-xs">
-                              {new Date(donor.donationDate).toLocaleDateString()}
-                            </p>
-                            <p className="text-gray-600 text-xs">{donor.donationTime}</p>
-                          </div>
-
-                          {/* Status */}
-                          <div>{getStatusBadge(donor.status)}</div>
-                        </div>
-
-                        <button className="ml-4 p-2 text-gray-400 hover:text-gray-600">
-                          <FaChevronDown
-                            className={`transition-transform ${
-                              expandedDonor === donor._id ? "rotate-180" : ""
-                            }`}
-                          />
-                        </button>
-                      </div>
-
-                      {/* Expanded Details */}
-                      {expandedDonor === donor._id && (
-                        <div className="border-t border-gray-100 bg-gray-50 p-4">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                            {/* Personal Details */}
-                            <div>
-                              <h4 className="font-semibold text-gray-900 mb-3">
-                                Personal Details
-                              </h4>
-                              <div className="space-y-2 text-sm">
-                                <div className="flex items-center">
-                                  <FaIdCard className="text-gray-400 mr-2" />
-                                  <span className="text-gray-600 mr-2">National ID:</span>
-                                  <span className="text-gray-900 font-medium">
-                                    {donor.nationalId}
-                                  </span>
-                                </div>
-                                <div className="flex items-center">
-                                  <FaWeight className="text-gray-400 mr-2" />
-                                  <span className="text-gray-600 mr-2">Weight:</span>
-                                  <span className="text-gray-900">{donor.weight} kg</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Medical Information */}
-                            <div>
-                              <h4 className="font-semibold text-gray-900 mb-3">
-                                Medical Information
-                              </h4>
-                              <div className="space-y-2 text-sm">
-                                <div>
-                                  <p className="text-gray-600">Health Conditions:</p>
-                                  <p className="text-gray-900">
-                                    {donor.healthConditions || "None reported"}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-gray-600">Medications:</p>
-                                  <p className="text-gray-900">
-                                    {donor.medications || "None reported"}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-200">
-                            <button
-                              onClick={() => openStatusModal(donor)}
-                              className="flex items-center px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            >
-                              <FaEdit className="mr-2" />
-                              Update Status
-                            </button>
-                            <button
-                              onClick={() => handleDeleteDonor(donor.donorId)}
-                              className="flex items-center px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            >
-                              <FaTrash className="mr-2" />
-                              Delete
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
+                      donor={donor}
+                      expanded={expandedDonor === donor._id}
+                      onToggle={() =>
+                        setExpandedDonor(
+                          expandedDonor === donor._id ? null : donor._id,
+                        )
+                      }
+                      onEdit={openStatusModal}
+                      onDelete={handleDeleteDonor}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-          {/* Upcoming Donations Tab */}
+          {/* ── UPCOMING TAB ── */}
           {activeTab === "upcoming" && (
             <div className="p-6">
               {loading ? (
-                <div className="p-12 text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto"></div>
-                  <p className="text-gray-500 mt-4">Loading upcoming donations...</p>
-                </div>
-              ) : upcomingDonations.length === 0 ? (
-                <div className="p-12 text-center">
-                  <FaCalendarCheck className="text-5xl text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">No upcoming donations scheduled</p>
-                </div>
+                <Spinner />
+              ) : upcoming.length === 0 ? (
+                <Empty
+                  icon={FaCalendarCheck}
+                  text="No upcoming donations scheduled"
+                />
               ) : (
                 <div className="space-y-3">
-                  {upcomingDonations.map((donation) => (
+                  {upcoming.map((d) => (
                     <div
-                      key={donation._id}
-                      className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                      key={d._id}
+                      className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center">
-                            <FaTint className="text-2xl text-red-600" />
-                          </div>
-                          <div>
-                            <h4 className="font-semibold text-gray-900">
-                              {donation.fullName}
-                            </h4>
-                            <div className="flex items-center space-x-4 mt-1">
-                              {getBloodGroupBadge(donation.bloodGroup)}
-                              <span className="text-sm text-gray-600">
-                                {donation.phone}
-                              </span>
-                            </div>
-                          </div>
+                      <div className="w-11 h-11 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+                        <FaTint className="text-red-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 text-sm">
+                          {d.fullName}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <BloodBadge group={d.bloodGroup} />
+                          <span className="text-xs text-gray-400 flex items-center gap-1">
+                            <FaPhone className="text-[10px]" />
+                            {d.phone}
+                          </span>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm text-gray-600">Scheduled</p>
-                          <p className="text-lg font-semibold text-gray-900">
-                            {new Date(donation.donationDate).toLocaleDateString()}
-                          </p>
-                          <p className="text-sm text-gray-600">{donation.donationTime}</p>
-                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs text-gray-400">Scheduled</p>
+                        <p className="text-sm font-bold text-gray-800">
+                          {new Date(d.donationDate).toLocaleDateString(
+                            "en-KE",
+                            { day: "numeric", month: "short" },
+                          )}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {d.donationTime}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -716,114 +759,86 @@ const Donations = () => {
             </div>
           )}
 
-          {/* Urgent Requests Tab */}
+          {/* ── URGENT TAB ── */}
           {activeTab === "urgent" && (
             <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center justify-between mb-5">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
+                  <h3 className="font-black text-gray-900 text-sm uppercase tracking-wider">
                     Urgent Blood Requests
                   </h3>
-                  <p className="text-sm text-gray-600">
-                    Manage urgent blood donation requests displayed on the website
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Displayed live on the public donation page
                   </p>
                 </div>
                 <button
                   onClick={() => openUrgentModal()}
-                  className="flex items-center px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition-colors shadow-sm shadow-red-200 cursor-pointer"
                 >
-                  <FaExclamationTriangle className="mr-2" />
-                  Create Urgent Request
+                  <FaPlus className="text-xs" /> New Request
                 </button>
               </div>
 
-              <div className="space-y-4">
-                {loading ? (
-                  <div className="p-12 text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto"></div>
-                    <p className="text-gray-500 mt-4">Loading urgent requests...</p>
-                  </div>
-                ) : urgentRequests.length === 0 ? (
-                  <div className="p-12 text-center">
-                    <FaExclamationTriangle className="text-5xl text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">No urgent requests</p>
-                  </div>
-                ) : (
-                  urgentRequests.map((request) => (
+              {loading ? (
+                <Spinner />
+              ) : urgentRequests.length === 0 ? (
+                <Empty icon={FaExclamationTriangle} text="No urgent requests" />
+              ) : (
+                <div className="space-y-4">
+                  {urgentRequests.map((req) => (
                     <div
-                      key={request._id}
-                      className={`border rounded-lg p-6 ${
-                        request.isActive
-                          ? "border-red-300 bg-red-50"
-                          : "border-gray-200 bg-gray-50"
-                      }`}
+                      key={req._id}
+                      className={`rounded-2xl border p-5 transition-all ${req.isActive ? "border-red-200 bg-red-50/60" : "border-gray-200 bg-gray-50"}`}
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-3">
-                            {request.isActive ? (
-                              <span className="inline-flex items-center px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium border border-red-200 animate-pulse">
-                                <FaExclamationTriangle className="mr-1" />
+                      <div className="flex items-start gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-3 flex-wrap">
+                            {req.isActive ? (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-600 text-white text-xs font-black rounded-full animate-pulse">
+                                <FaExclamationTriangle className="text-[10px]" />
                                 ACTIVE
                               </span>
                             ) : (
-                              <span className="inline-flex items-center px-3 py-1 bg-gray-200 text-gray-600 rounded-full text-xs font-medium">
+                              <span className="inline-flex items-center px-3 py-1 bg-gray-200 text-gray-500 text-xs font-semibold rounded-full">
                                 INACTIVE
                               </span>
                             )}
+                            <span className="text-[10px] text-gray-400">
+                              {new Date(req.createdAt).toLocaleString("en-KE")}
+                            </span>
                           </div>
-
-                          <div className="mb-4">
-                            <p className="text-sm text-gray-600 mb-2">Blood Groups Needed:</p>
-                            <div className="flex flex-wrap gap-2">
-                              {request.bloodGroups.map((bg) => (
-                                <span
-                                  key={bg}
-                                  className="inline-flex items-center px-3 py-1 bg-red-600 text-white rounded-full text-sm font-bold"
-                                >
-                                  <FaTint className="mr-1" />
-                                  {bg}
-                                </span>
-                              ))}
-                            </div>
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {req.bloodGroups.map((bg) => (
+                              <BloodBadge key={bg} group={bg} />
+                            ))}
                           </div>
-
-                          <div className="mb-3">
-                            <p className="text-sm text-gray-600">Message:</p>
-                            <p className="text-gray-900 mt-1">{request.message}</p>
-                          </div>
-
-                          <div className="flex items-center text-sm text-gray-700">
-                            <FaPhone className="text-gray-400 mr-2" />
-                            <span className="font-medium">{request.contactNumber}</span>
-                          </div>
-
-                          <div className="mt-3 text-xs text-gray-500">
-                            Created: {new Date(request.createdAt).toLocaleString()}
-                          </div>
+                          <p className="text-sm text-gray-800 mb-2">
+                            {req.message}
+                          </p>
+                          <span className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                            <FaPhone className="text-gray-400 text-xs" />
+                            {req.contactNumber}
+                          </span>
                         </div>
-
-                        <div className="flex flex-col gap-2 ml-4">
+                        <div className="flex flex-col gap-2 shrink-0">
                           <button
-                            onClick={() => toggleUrgentStatus(request._id, request.isActive)}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                              request.isActive
-                                ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                                : "bg-green-500 text-white hover:bg-green-600"
-                            }`}
+                            onClick={() =>
+                              toggleUrgentStatus(req._id, req.isActive)
+                            }
+                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${req.isActive ? "bg-gray-200 text-gray-700 hover:bg-gray-300" : "bg-emerald-500 text-white hover:bg-emerald-600"}`}
                           >
-                            {request.isActive ? "Deactivate" : "Activate"}
+                            {req.isActive ? "Deactivate" : "Activate"}
                           </button>
                           <button
-                            onClick={() => openUrgentModal(request)}
-                            className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600"
+                            onClick={() => openUrgentModal(req)}
+                            className="px-3 py-1.5 bg-blue-500 text-white rounded-xl text-xs font-semibold hover:bg-blue-600 transition-colors cursor-pointer"
                           >
                             <FaEdit className="inline mr-1" />
                             Edit
                           </button>
                           <button
-                            onClick={() => handleDeleteUrgent(request._id)}
-                            className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600"
+                            onClick={() => handleDeleteUrgent(req._id)}
+                            className="px-3 py-1.5 bg-red-500 text-white rounded-xl text-xs font-semibold hover:bg-red-600 transition-colors cursor-pointer"
                           >
                             <FaTrash className="inline mr-1" />
                             Delete
@@ -831,197 +846,185 @@ const Donations = () => {
                         </div>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* Urgent Request Modal */}
-      {urgentModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-100">
-              <h2 className="text-2xl font-bold text-gray-900">
-                {editingUrgent ? "Edit Urgent Request" : "Create Urgent Request"}
-              </h2>
-              <p className="text-gray-600 mt-1">
-                This will be displayed on the blood donation page
-              </p>
+      {/* ── Status Modal ── */}
+      <Modal
+        open={statusModal}
+        onClose={() => setStatusModal(false)}
+        title="Update Donor Status"
+        subtitle={editingDonor?.fullName}
+      >
+        <form onSubmit={handleStatusUpdate} className="space-y-4">
+          {[
+            {
+              label: "Donation Status",
+              key: "status",
+              opts: [
+                ["registered", "Registered"],
+                ["confirmed", "Confirmed"],
+                ["completed", "Completed"],
+                ["cancelled", "Cancelled"],
+                ["deferred", "Deferred"],
+              ],
+            },
+            {
+              label: "Registration Status",
+              key: "registrationStatus",
+              opts: [
+                ["pending", "Pending Review"],
+                ["approved", "Approved"],
+                ["rejected", "Rejected"],
+              ],
+            },
+          ].map(({ label, key, opts }) => (
+            <div key={key}>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider">
+                {label}
+              </label>
+              <select
+                value={statusForm[key]}
+                onChange={(e) =>
+                  setStatusForm((p) => ({ ...p, [key]: e.target.value }))
+                }
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-red-400 cursor-pointer bg-white"
+              >
+                {opts.map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))}
+              </select>
             </div>
+          ))}
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setStatusModal(false)}
+              className="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex items-center gap-2 px-5 py-2 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition-colors cursor-pointer"
+            >
+              <FaSave /> Save Changes
+            </button>
+          </div>
+        </form>
+      </Modal>
 
-            <div className="p-6">
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Select Blood Groups Needed *
-                  </label>
-                  <div className="grid grid-cols-4 gap-3">
-                    {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bg) => (
-                      <button
-                        key={bg}
-                        type="button"
-                        onClick={() => toggleBloodGroup(bg)}
-                        className={`py-3 px-4 rounded-lg font-bold text-sm transition-all ${
-                          urgentForm.bloodGroups.includes(bg)
-                            ? "bg-red-600 text-white border-2 border-red-600"
-                            : "bg-white text-gray-700 border-2 border-gray-300 hover:border-red-300"
-                        }`}
-                      >
-                        <FaTint className="inline mr-1" />
-                        {bg}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Urgent Message *
-                  </label>
-                  <textarea
-                    value={urgentForm.message}
-                    onChange={(e) =>
-                      setUrgentForm((prev) => ({ ...prev, message: e.target.value }))
-                    }
-                    rows="3"
-                    placeholder="e.g., Blood Needed Immediately!"
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 resize-none"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Contact Number *
-                  </label>
-                  <input
-                    type="text"
-                    value={urgentForm.contactNumber}
-                    onChange={(e) =>
-                      setUrgentForm((prev) => ({ ...prev, contactNumber: e.target.value }))
-                    }
-                    placeholder="+254 700 123 456"
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500"
-                    required
-                  />
-                </div>
-
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="isActive"
-                    checked={urgentForm.isActive}
-                    onChange={(e) =>
-                      setUrgentForm((prev) => ({ ...prev, isActive: e.target.checked }))
-                    }
-                    className="w-4 h-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
-                  />
-                  <label htmlFor="isActive" className="ml-2 text-sm text-gray-700">
-                    Display this request on the website (Active)
-                  </label>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 mt-8 pt-6 border-t border-gray-100">
+      {/* ── Urgent Modal ── */}
+      <Modal
+        open={urgentModal}
+        onClose={() => setUrgentModal(false)}
+        title={editingUrgent ? "Edit Urgent Request" : "Create Urgent Request"}
+        subtitle="Displayed live on the public donation page"
+        maxW="max-w-2xl"
+      >
+        <div className="space-y-5">
+          {/* Blood group picker */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wider">
+              Blood Groups Needed *
+            </label>
+            <div className="grid grid-cols-4 gap-2">
+              {BLOOD_GROUPS.map((bg) => (
                 <button
-                  onClick={() => setUrgentModalOpen(false)}
-                  className="px-6 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50"
+                  key={bg}
+                  type="button"
+                  onClick={() => toggleBloodGroup(bg)}
+                  className={`py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer border-2 flex items-center justify-center gap-1 ${
+                    urgentForm.bloodGroups.includes(bg)
+                      ? "bg-red-600 border-red-600 text-white shadow-md shadow-red-200"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-red-300"
+                  }`}
                 >
-                  Cancel
+                  <FaTint className="text-[10px]" />
+                  {bg}
                 </button>
-                <button
-                  onClick={handleUrgentSubmit}
-                  className="flex items-center px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                >
-                  <FaSave className="mr-2" />
-                  {editingUrgent ? "Update Request" : "Create Request"}
-                </button>
-              </div>
+              ))}
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Status Update Modal */}
-      {statusModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full">
-            <div className="p-6 border-b border-gray-100">
-              <h2 className="text-2xl font-bold text-gray-900">
-                Update Donor Status
-              </h2>
-              <p className="text-gray-600 mt-1">
-                Update the status for {editingDonor?.fullName}
-              </p>
-            </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider">
+              Urgent Message *
+            </label>
+            <textarea
+              value={urgentForm.message}
+              onChange={(e) =>
+                setUrgentForm((p) => ({ ...p, message: e.target.value }))
+              }
+              rows={3}
+              placeholder="e.g., Blood Needed Immediately at Nyahururu Hospital!"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-red-400 resize-none"
+            />
+          </div>
 
-            <div className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Donation Status
-                  </label>
-                  <select
-                    value={statusForm.status}
-                    onChange={(e) =>
-                      setStatusForm((prev) => ({
-                        ...prev,
-                        status: e.target.value,
-                      }))
-                    }
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500"
-                  >
-                    <option value="registered">Registered</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                    <option value="deferred">Deferred</option>
-                  </select>
-                </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider">
+              Contact Number *
+            </label>
+            <input
+              value={urgentForm.contactNumber}
+              onChange={(e) =>
+                setUrgentForm((p) => ({ ...p, contactNumber: e.target.value }))
+              }
+              placeholder="+254 700 123 456"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-red-400"
+            />
+          </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Registration Status
-                  </label>
-                  <select
-                    value={statusForm.registrationStatus}
-                    onChange={(e) =>
-                      setStatusForm((prev) => ({
-                        ...prev,
-                        registrationStatus: e.target.value,
-                      }))
-                    }
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500"
-                  >
-                    <option value="pending">Pending Review</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 mt-6 pt-6 border-t border-gray-100">
-                <button
-                  onClick={() => setStatusModalOpen(false)}
-                  className="px-6 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleStatusUpdate}
-                  className="flex items-center px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                >
-                  <FaSave className="mr-2" />
-                  Update Status
-                </button>
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={urgentForm.isActive}
+                onChange={(e) =>
+                  setUrgentForm((p) => ({ ...p, isActive: e.target.checked }))
+                }
+                className="sr-only"
+              />
+              <div
+                className={`w-10 h-6 rounded-full transition-colors ${urgentForm.isActive ? "bg-red-500" : "bg-gray-200"}`}
+              >
+                <div
+                  className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${urgentForm.isActive ? "translate-x-5" : "translate-x-1"}`}
+                />
               </div>
             </div>
+            <span className="text-sm text-gray-700">
+              Display on public website (Active)
+            </span>
+          </label>
+
+          <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={() => setUrgentModal(false)}
+              className="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleUrgentSubmit}
+              className="flex items-center gap-2 px-5 py-2 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition-colors cursor-pointer shadow-sm shadow-red-200"
+            >
+              <FaSave />
+              {editingUrgent ? "Update Request" : "Create Request"}
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 };

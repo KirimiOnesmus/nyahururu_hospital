@@ -4,11 +4,9 @@ const Researcher = require("../models/ResearcherModel");
 const researchEmail = require("../utils/emailServices");
 
 const signToken = (id, role) =>
-  jwt.sign(
-    { id, role, collection: "researchers" },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
-  );
+  jwt.sign({ id, role, collection: "researchers" }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+  });
 
 /**
  * Sanitize researcher object (remove sensitive fields)
@@ -90,17 +88,17 @@ exports.register = async (req, res) => {
     const jwtToken = signToken(researcher._id, researcher.role);
 
     // Send verification email
-   const verifyLink = `${process.env.FRONTEND_URL}/hmis?verify=true&token=${rawToken}&email=${encodeURIComponent(
-  email
-)}`;
-    await researchEmail 
+    const verifyLink = `${process.env.FRONTEND_URL}/hmis?verify=true&token=${rawToken}&email=${encodeURIComponent(
+      email,
+    )}`;
+    await researchEmail
       .sendResearcherVerificationEmail({
         email: researcher.email,
         name: researcher.firstName,
         verifyLink,
-      }) 
+      })
       .catch((err) =>
-        console.error("[Email] sendResearcherVerificationEmail:", err.message)
+        console.error("[Email] sendResearcherVerificationEmail:", err.message),
       );
 
     res.status(201).json({
@@ -108,14 +106,14 @@ exports.register = async (req, res) => {
         "Account created successfully. Please check your email to verify.",
       token: jwtToken,
       researcher: sanitize(researcher),
-      _devVerifyLink: process.env.NODE_ENV !== "production" ? verifyLink : undefined,
+      _devVerifyLink:
+        process.env.NODE_ENV !== "production" ? verifyLink : undefined,
     });
   } catch (err) {
     console.error("Register error:", err);
     res.status(500).json({ message: err.message || "Registration failed" });
   }
 };
-
 
 exports.verifyEmail = async (req, res) => {
   try {
@@ -127,10 +125,7 @@ exports.verifyEmail = async (req, res) => {
       });
     }
 
-    const hashedToken = crypto
-      .createHash("sha256")
-      .update(token)
-      .digest("hex");
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
     const researcher = await Researcher.findOne({
       email: email.toLowerCase(),
@@ -159,7 +154,6 @@ exports.verifyEmail = async (req, res) => {
   }
 };
 
-
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -173,7 +167,7 @@ exports.login = async (req, res) => {
     // Find researcher and select password
     const researcher = await Researcher.findOne({
       email: email.toLowerCase(),
-      role: { $in: ["researcher", "reviewer", "admin"] },
+      role: { $in: ["researcher", "reviewer", "admin","superadmin"] },
     }).select("+password");
 
     if (!researcher) {
@@ -215,7 +209,6 @@ exports.login = async (req, res) => {
   }
 };
 
-
 exports.getMe = async (req, res) => {
   try {
     const researcher = await Researcher.findById(req.researcher.id);
@@ -229,7 +222,6 @@ exports.getMe = async (req, res) => {
     res.status(500).json({ message: err.message || "Failed to fetch profile" });
   }
 };
-
 
 exports.updateProfile = async (req, res) => {
   try {
@@ -261,7 +253,7 @@ exports.updateProfile = async (req, res) => {
     const researcher = await Researcher.findByIdAndUpdate(
       req.researcher.id,
       { $set: updates },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     if (!researcher) {
@@ -277,7 +269,6 @@ exports.updateProfile = async (req, res) => {
     res.status(500).json({ message: err.message || "Update failed" });
   }
 };
-
 
 exports.changePassword = async (req, res) => {
   try {
@@ -302,7 +293,7 @@ exports.changePassword = async (req, res) => {
     }
 
     const researcher = await Researcher.findById(req.researcher.id).select(
-      "+password"
+      "+password",
     );
 
     // Verify current password
@@ -356,7 +347,7 @@ exports.forgotPassword = async (req, res) => {
 
     // Send reset email
     const resetLink = `${process.env.FRONTEND_URL}/research/reset-password?token=${rawToken}&email=${encodeURIComponent(
-      email
+      email,
     )}`;
     await researchEmail
       .sendPasswordResetEmail({
@@ -365,7 +356,7 @@ exports.forgotPassword = async (req, res) => {
         resetLink,
       })
       .catch((err) =>
-        console.error("[Email] sendPasswordResetEmail:", err.message)
+        console.error("[Email] sendPasswordResetEmail:", err.message),
       );
 
     res.json({
@@ -378,7 +369,6 @@ exports.forgotPassword = async (req, res) => {
     res.status(500).json({ message: err.message || "Password reset failed" });
   }
 };
-
 
 exports.resetPassword = async (req, res) => {
   try {
@@ -402,10 +392,7 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    const hashedToken = crypto
-      .createHash("sha256")
-      .update(token)
-      .digest("hex");
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
     const researcher = await Researcher.findOne({
       email: email.toLowerCase(),
@@ -428,5 +415,65 @@ exports.resetPassword = async (req, res) => {
   } catch (err) {
     console.error("resetPassword error:", err);
     res.status(500).json({ message: err.message || "Password reset failed" });
+  }
+};
+
+// Admin functions (for managing researchers)
+const generatePassword = () => {
+  const chars =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$!";
+  return Array.from(
+    { length: 12 },
+    () => chars[Math.floor(Math.random() * chars.length)],
+  ).join("");
+};
+
+exports.adminCreateResearcher = async (req, res) => {
+  try {
+    const { firstName, lastName, email, phone } = req.body;
+
+    if (!firstName || !lastName || !email || !phone) {
+      return res.status(400).json({
+        message: "firstName, lastName, email, and phone are required",
+      });
+    }
+
+    const existing = await Researcher.findOne({ email: email.toLowerCase() });
+    if (existing) {
+      return res.status(409).json({ message: "Email already registered" });
+    }
+
+    const rawPassword = generatePassword();
+
+    const researcher = await Researcher.create({
+      firstName,
+      lastName,
+      email: email.toLowerCase(),
+      password: rawPassword,
+      phone: phone || "",
+      role: "researcher",
+      status: "active",
+      emailVerified: true, // admin-created accounts skip email verification
+    });
+
+    await researchEmail
+      .sendAdminAddedResearcher({
+        email: researcher.email,
+        name: researcher.firstName,
+        password: rawPassword,
+      })
+      .catch((err) =>
+        console.error("[Email] sendAdminAddedResearcher:", err.message),
+      );
+
+    res.status(201).json({
+      message: "Researcher account created. Credentials sent via email.",
+      researcher: sanitize(researcher),
+    });
+  } catch (err) {
+    console.error("adminCreateResearcher error:", err);
+    res
+      .status(500)
+      .json({ message: err.message || "Failed to create researcher" });
   }
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   FaUser,
   FaEnvelope,
@@ -11,112 +11,278 @@ import {
   FaCamera,
   FaLock,
   FaSpinner,
+  FaGraduationCap,
+  FaFileAlt,
+  FaShieldAlt,
+  FaCheckCircle,
 } from "react-icons/fa";
 import api from "../../api/axios";
 import { toast } from "react-toastify";
 
 const Spinner = ({ size = "md" }) => {
-  const sizes = { sm: "w-4 h-4", md: "w-6 h-6", lg: "w-8 h-8" };
+  const sizes = { sm: "w-4 h-4", md: "w-6 h-6", lg: "w-10 h-10" };
   return <FaSpinner className={`${sizes[size]} animate-spin`} />;
 };
 
-const ProfilePage = () => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
+const buildImageSrc = (url) => {
+  if (!url) return null;
+  if (url.startsWith("blob") || url.startsWith("http")) return url;
+  return `${process.env.REACT_APP_API_URL || "http://localhost:5000"}${url}`;
+};
 
-  const [profile, setProfile] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    address: "",
-    speciality: "",
-    bio: "",
-    education: "",
-    createdAt: "",
-    role: "",
-    profileImage: "",
-  });
+const initEmpty = {
+  name: "",
+  email: "",
+  phone: "",
+  address: "",
+  speciality: "",
+  bio: "",
+  education: "",
+  createdAt: "",
+  role: "",
+  profileImage: "",
+};
 
-  const [editedProfile, setEditedProfile] = useState(profile);
+const Field = ({
+  icon: Icon,
+  label,
+  name,
+  type = "text",
+  value,
+  editing,
+  onChange,
+  textarea,
+}) => (
+  <div className="flex flex-col gap-1.5">
+    <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-slate-500">
+      <Icon className="text-blue-500 text-xs" />
+      {label}
+    </label>
+    {editing ? (
+      textarea ? (
+        <textarea
+          name={name}
+          value={value}
+          onChange={onChange}
+          rows={4}
+          placeholder={`Enter ${label.toLowerCase()}…`}
+          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm
+                     outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all
+                     resize-none placeholder:text-slate-300"
+        />
+      ) : (
+        <input
+          type={type}
+          name={name}
+          value={value}
+          onChange={onChange}
+          placeholder={`Enter ${label.toLowerCase()}…`}
+          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm
+                     outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all
+                     placeholder:text-slate-300"
+        />
+      )
+    ) : (
+      <div className="px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-100 text-sm text-slate-800 min-h-[2.5rem]">
+        {value || <span className="text-slate-400 italic">Not provided</span>}
+      </div>
+    )}
+  </div>
+);
+
+const PasswordModal = ({ onClose }) => {
+  const [fields, setFields] = useState({ old: "", next: "", confirm: "" });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetchProfile();
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, []);
 
-  const fetchProfile = async () => {
+  const set = (key) => (e) =>
+    setFields((f) => ({ ...f, [key]: e.target.value }));
+  const lengthOk = fields.next.length >= 6;
+  const matchOk = fields.next === fields.confirm && fields.next.length > 0;
+
+  const handleSubmit = async () => {
+    if (!fields.old || !fields.next || !fields.confirm)
+      return toast.error("Please fill in all fields");
+    if (!matchOk) return toast.error("New passwords do not match");
+    if (!lengthOk) return toast.error("Password must be at least 6 characters");
+    setLoading(true);
     try {
-      setLoading(true);
-      const res = await api.get("/profile");
-      const { user, doctorDetails, profile: profileData } = res.data.data;
-
-      console.log("Profile Response:", res.data.data);
-
-      // Build profile object - handle null profile/doctorDetails
-      const fullProfile = {
-        // User fields (always present)
-        ...user,
-        // Profile fields (use from profileData if exists, fallback to user)
-        phone: profileData?.phone || user?.phone || "",
-        address: profileData?.address || user?.address || "",
-        profileImage: profileData?.imageUrl || user?.profileImage || "",
-        // Doctor fields (only if doctor role)
-        speciality: doctorDetails?.speciality || "",
-        bio: doctorDetails?.bio || "",
-        education: doctorDetails?.education || "",
-      };
-
-      console.log("Full Profile Object:", fullProfile);
-
-      setProfile(fullProfile);
-      setEditedProfile(fullProfile);
-    } catch (error) {
-      console.log("Error fetching profile", error);
-      toast.error("Error fetching profile");
+      await api.post("/profile/change-password", {
+        oldPassword: fields.old,
+        newPassword: fields.next,
+      });
+      toast.success("Password updated successfully!");
+      onClose();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Error updating password");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (e) => {
-    setEditedProfile({
-      ...editedProfile,
-      [e.target.name]: e.target.value,
-    });
-  };
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden">
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
+          <h2 className="flex items-center gap-2 text-lg font-bold text-slate-800">
+            <FaLock className="text-blue-500" /> Change Password
+          </h2>
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100 disabled:opacity-50"
+          >
+            <FaTimes />
+          </button>
+        </div>
 
-  const handleEdit = () => setIsEditing(true);
+        <div className="px-6 py-5 flex flex-col gap-4">
+          {[
+            {
+              label: "Current Password",
+              key: "old",
+              ph: "Your current password",
+            },
+            { label: "New Password", key: "next", ph: "At least 6 characters" },
+            {
+              label: "Confirm Password",
+              key: "confirm",
+              ph: "Repeat new password",
+            },
+          ].map(({ label, key, ph }) => (
+            <div key={key} className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+                {label}
+              </label>
+              <input
+                type="password"
+                placeholder={ph}
+                value={fields[key]}
+                onChange={set(key)}
+                disabled={loading}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm
+                           outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all
+                           disabled:bg-slate-50 placeholder:text-slate-300"
+              />
+            </div>
+          ))}
 
+          {/* Rules */}
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex flex-col gap-2">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
+              Requirements
+            </p>
+            <div
+              className={`flex items-center gap-2 text-sm transition-colors ${lengthOk ? "text-green-600" : "text-slate-400"}`}
+            >
+              <FaCheckCircle className="text-xs" /> At least 6 characters
+            </div>
+            <div
+              className={`flex items-center gap-2 text-sm transition-colors ${matchOk ? "text-green-600" : "text-slate-400"}`}
+            >
+              <FaCheckCircle className="text-xs" /> Passwords match
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-3 px-6 pb-6">
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm
+                       hover:bg-slate-50 transition-all disabled:opacity-60"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm
+                       flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-md
+                       disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <>
+                <Spinner size="sm" /> Updating…
+              </>
+            ) : (
+              "Update Password"
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ProfilePage = () => {
+  const [profile, setProfile] = useState(null);
+  const [editedProfile, setEditedProfile] = useState(initEmpty);
+  const [isEditing, setIsEditing] = useState(false);
+  const [showPwModal, setShowPwModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const buildProfile = useCallback((data) => {
+    const { user, doctorDetails, profile: pd } = data;
+    return {
+      ...user,
+      phone: pd?.phone || user?.phone || "",
+      address: pd?.address || user?.address || "",
+      profileImage: pd?.imageUrl || user?.profileImage || "",
+      speciality: doctorDetails?.speciality || "",
+      bio: doctorDetails?.bio || "",
+      education: doctorDetails?.education || "",
+    };
+  }, []);
+
+  const fetchProfile = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await api.get("/profile");
+      const full = buildProfile(res.data.data);
+      setProfile(full);
+      setEditedProfile(full);
+    } catch {
+      toast.error("Failed to load profile");
+    } finally {
+      setLoading(false);
+    }
+  }, [buildProfile]);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
+  const handleChange = (e) =>
+    setEditedProfile((p) => ({ ...p, [e.target.name]: e.target.value }));
   const handleCancel = () => {
     setIsEditing(false);
     setEditedProfile(profile);
   };
 
   const handleSave = async () => {
+    if (!editedProfile.name?.trim()) return toast.error("Name cannot be empty");
     try {
       setSaving(true);
       const res = await api.put("/profile/update", editedProfile);
-      const { user, doctorDetails, profile: profileData } = res.data.data;
-
-      const updatedProfile = {
-        ...user,
-        phone: profileData?.phone || user?.phone || "",
-        address: profileData?.address || user?.address || "",
-        profileImage: profileData?.imageUrl || user?.profileImage || "",
-        speciality: doctorDetails?.speciality || "",
-        bio: doctorDetails?.bio || "",
-        education: doctorDetails?.education || "",
-      };
-
-      setProfile(updatedProfile);
-      setEditedProfile(updatedProfile);
+      const full = buildProfile(res.data.data);
+      setProfile(full);
+      setEditedProfile(full);
       setIsEditing(false);
-      toast.success("Profile updated successfully!");
-    } catch (error) {
-      console.log("Update error", error);
-      toast.error(error?.response?.data?.message || "Failed to update profile");
+      toast.success("Profile saved!");
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to update profile");
     } finally {
       setSaving(false);
     }
@@ -125,526 +291,270 @@ const ProfilePage = () => {
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     const formData = new FormData();
     formData.append("image", file);
-
     try {
       setUploading(true);
       const res = await api.post("/profile/upload-photo", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+        headers: { "Content-Type": "multipart/form-data" },
       });
-
-      console.log("Upload response:", res.data);
-
       if (res.data.imageUrl) {
-        setProfile((prev) => ({
-          ...prev,
-          profileImage: res.data.imageUrl,
-        }));
-        setEditedProfile((prev) => ({
-          ...prev,
-          profileImage: res.data.imageUrl,
-        }));
-        toast.success("Profile image updated successfully!");
+        const url = res.data.imageUrl;
+        setProfile((p) => ({ ...p, profileImage: url }));
+        setEditedProfile((p) => ({ ...p, profileImage: url }));
+        toast.success("Photo updated!");
       }
-    } catch (err) {
-      console.error("Upload error:", err);
+    } catch {
       toast.error("Failed to upload image");
     } finally {
       setUploading(false);
+      e.target.value = "";
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-        <div className="flex flex-col items-center gap-4">
-          <Spinner size="lg" />
-          <p className="text-gray-600 text-lg">Loading your profile...</p>
-        </div>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-slate-50">
+        <Spinner size="lg" />
+        <p className="text-slate-500 text-base">Loading profile…</p>
       </div>
     );
   }
 
+  if (!profile) return null;
+
+  const avatarSrc = buildImageSrc(profile.profileImage);
+  const isDoctor = profile.role === "doctor";
+  const joined = profile.createdAt
+    ? new Date(profile.createdAt).toLocaleDateString("en-US", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "—";
+
   return (
-    <div className="min-h-screen  p-4 md:px-6 md:py-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="mb-4">
-          <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
-            My Profile
-          </h1>
-          <p className="text-gray-600 mt-2 text-md">
-            Manage your personal information and settings
-          </p>
+    <div className="min-h-screen bg-slate-50 p-4 md:px-8 md:py-6">
+      <div className="max-w-5xl mx-auto">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">
+              My Profile
+            </h1>
+            <p className="text-slate-500 text-sm mt-1">
+              Manage your personal information and settings
+            </p>
+          </div>
+          {!isEditing ? (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700
+                         text-white text-sm font-semibold shadow-sm hover:shadow-md transition-all"
+            >
+              <FaEdit /> Edit Profile
+            </button>
+          ) : (
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700
+                           text-white text-sm font-semibold shadow-sm hover:shadow-md transition-all
+                           disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {saving ? (
+                  <>
+                    <Spinner size="sm" /> Saving…
+                  </>
+                ) : (
+                  <>
+                    <FaSave /> Save Changes
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleCancel}
+                disabled={saving}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 bg-white
+                           text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-all disabled:opacity-60"
+              >
+                <FaTimes /> Cancel
+              </button>
+            </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-md p-8 sticky top-4 border border-gray-100">
-              <div className="flex flex-col items-center mb-6">
-                <div className="relative group">
-                  {profile.profileImage ? (
-                    <img
-                      src={
-                        profile.profileImage.startsWith("blob") ||
-                        profile.profileImage.startsWith("http")
-                          ? profile.profileImage
-                          : `${
-                              process.env.REACT_APP_API_URL ||
-                              "http://localhost:5000"
-                            }${profile.profileImage}`
-                      }
-                      className="w-40 h-40 rounded-full object-fit shadow-xl ring-2 ring-blue-100 transition-transform group-hover:scale-105"
-                      alt="Profile"
-                    />
-                  ) : (
-                    <div className="w-40 h-40 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex
-                     items-center justify-center text-white text-3xl font-bold shadow-2xl ring-4 ring-blue-100
-                     transition-transform group-hover:scale-105 cursor-pointer">
-                      {profile.name
-                        ? profile.name.charAt(0).toUpperCase()
-                        : "U"}
-                    </div>
-                  )}
-
-                  <label
-                    className={`absolute bottom-2 right-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white p-3 rounded-full hover:shadow-lg transition-all cursor-pointer shadow-md ${
-                      uploading ? "opacity-70 cursor-not-allowed" : ""
-                    }`}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col items-center gap-3 sticky top-4">
+              <div className="relative group">
+                {avatarSrc ? (
+                  <img
+                    src={avatarSrc}
+                    alt={profile.name}
+                    className="w-28 h-28 rounded-full object-cover ring-4 ring-slate-100 shadow-md"
+                  />
+                ) : (
+                  <div
+                    className="w-28 h-28 rounded-full bg-gradient-to-br from-blue-500 to-blue-700
+                                  flex items-center justify-center text-white text-3xl font-bold
+                                  ring-4 ring-slate-100 shadow-md select-none"
                   >
-                    {uploading ? <Spinner size="sm" /> : <FaCamera size={18} />}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      hidden
-                      disabled={uploading}
-                    />
-                  </label>
-                </div>
+                    {profile.name ? profile.name.charAt(0).toUpperCase() : "U"}
+                  </div>
+                )}
+                <label
+                  className={`absolute bottom-1 right-1 w-8 h-8 rounded-full bg-slate-800 hover:bg-blue-600
+                               text-white flex items-center justify-center cursor-pointer shadow-md
+                               border-2 border-white transition-colors text-xs
+                               ${uploading ? "opacity-60 cursor-not-allowed" : ""}`}
+                >
+                  {uploading ? <Spinner size="sm" /> : <FaCamera />}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    hidden
+                    disabled={uploading}
+                  />
+                </label>
+              </div>
 
-                <h2 className="mt-6 text-2xl font-bold text-gray-800 text-center">
+              <div className="text-center">
+                <h2 className="text-xl font-bold text-slate-800">
                   {profile.name}
                 </h2>
-                <p className="text-blue-600 capitalize font-semibold text-lg mt-1">
+                <span
+                  className="inline-block mt-1 px-3 py-0.5 rounded-full bg-blue-50 text-blue-600
+                                 text-xs font-semibold capitalize tracking-wide"
+                >
                   {profile.role}
-                </p>
-                {profile.speciality && (
-                  <p className="text-gray-600 text-sm mt-2 text-center">
+                </span>
+                {isDoctor && profile.speciality && (
+                  <p className="text-slate-500 text-sm mt-1.5 italic">
                     {profile.speciality}
                   </p>
                 )}
-
-                <div className="mt-4 w-full p-4">
-                  <div className="flex items-center justify-between text-gray-700">
-                    <span className="text-sm font-medium flex items-center gap-2">
-                      <FaBriefcase className="text-blue-600" />
-                      Joined
-                    </span>
-                    <span className="font-semibold">
-                      {new Date(profile.createdAt).toLocaleDateString("en-US", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </span>
-                  </div>
-                </div>
-
-                {!isEditing && (
-                  <button
-                    onClick={handleEdit}
-                    className="mt-4 w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-4 rounded-xl hover:shadow-lg 
-                    transition-all font-semibold flex items-center justify-center gap-2 hover:from-blue-700 hover:to-blue-800 cursor-pointer"
-                  >
-                    <FaEdit />
-                    Edit Profile
-                  </button>
-                )}
               </div>
+
+              <div
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-50
+                              border border-slate-100 text-sm mt-1"
+              >
+                <span className="flex items-center gap-1.5 text-slate-500">
+                  <FaBriefcase className="text-blue-400 text-xs" /> Joined
+                </span>
+                <span className="font-semibold text-slate-700 text-xs">
+                  {joined}
+                </span>
+              </div>
+
+              <div className="w-full h-px bg-slate-100 my-1" />
+
+              <button
+                onClick={() => setShowPwModal(true)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl
+                           border border-red-200 text-red-500 hover:bg-red-50 hover:border-red-300
+                           text-sm font-semibold transition-all"
+              >
+                <FaShieldAlt /> Change Password
+              </button>
             </div>
           </div>
 
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Profile Information Card */}
-            <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                  <FaUser className="text-blue-600" />
-                  Profile Information
-                </h3>
-
-                {isEditing && (
-                  <div className="flex gap-3">
-                    <button
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="bg-gradient-to-r from-green-600 to-green-700 text-white py-2 px-6 rounded-lg hover:shadow-lg transition-all font-semibold flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed hover:from-green-700 hover:to-green-800"
-                    >
-                      {saving ? (
-                        <>
-                          <Spinner size="sm" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <FaSave />
-                          Save
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={handleCancel}
-                      disabled={saving}
-                      className="bg-gray-500 text-white py-2 px-6 rounded-lg hover:bg-gray-600 transition-all font-semibold flex items-center gap-2 disabled:opacity-70"
-                    >
-                      <FaTimes />
-                      Cancel
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Personal Information Section */}
-              <div className="mb-8">
-                <h4 className="text-lg font-bold text-gray-800 mb-6 pb-3 border-b-2 border-blue-200">
+          <div className="lg:col-span-2 flex flex-col gap-5">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+              <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
+                <FaUser className="text-blue-500" />
+                <h3 className="text-base font-bold text-slate-800">
                   Personal Information
-                </h4>
+                </h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <Field
+                  icon={FaUser}
+                  label="Full Name"
+                  name="name"
+                  value={editedProfile.name}
+                  editing={isEditing}
+                  onChange={handleChange}
+                />
+                <Field
+                  icon={FaEnvelope}
+                  label="Email"
+                  name="email"
+                  value={editedProfile.email}
+                  editing={false}
+                  onChange={handleChange}
+                  type="email"
+                />
+                <Field
+                  icon={FaPhone}
+                  label="Phone"
+                  name="phone"
+                  value={editedProfile.phone}
+                  editing={isEditing}
+                  onChange={handleChange}
+                  type="tel"
+                />
+                <Field
+                  icon={FaMapMarkerAlt}
+                  label="Address"
+                  name="address"
+                  value={editedProfile.address}
+                  editing={isEditing}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Name */}
-                  <div className="group">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      <FaUser className="inline mr-2 text-blue-600" />
-                      Full Name
-                    </label>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        name="name"
-                        value={editedProfile.name}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all outline-none"
-                      />
-                    ) : (
-                      <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg text-gray-800 font-medium border border-gray-200">
-                        {profile.name}
-                      </div>
-                    )}
+            {isDoctor && (
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
+                  <FaBriefcase className="text-blue-500" />
+                  <h3 className="text-base font-bold text-slate-800">
+                    Professional Information
+                  </h3>
+                </div>
+                <div className="flex flex-col gap-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <Field
+                      icon={FaBriefcase}
+                      label="Speciality"
+                      name="speciality"
+                      value={editedProfile.speciality}
+                      editing={isEditing}
+                      onChange={handleChange}
+                    />
                   </div>
-
-                  {/* Email */}
-                  <div className="group">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      <FaEnvelope className="inline mr-2 text-blue-600" />
-                      Email
-                    </label>
-                    {isEditing ? (
-                      <input
-                        type="email"
-                        name="email"
-                        value={editedProfile.email}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all outline-none"
-                      />
-                    ) : (
-                      <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg text-gray-800 font-medium border border-gray-200">
-                        {profile.email}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Phone */}
-                  <div className="group">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      <FaPhone className="inline mr-2 text-blue-600" />
-                      Phone
-                    </label>
-                    {isEditing ? (
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={editedProfile.phone}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all outline-none"
-                      />
-                    ) : (
-                      <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg text-gray-800 font-medium border border-gray-200">
-                        {profile.phone || "Not provided"}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Address */}
-                  <div className="group">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      <FaMapMarkerAlt className="inline mr-2 text-blue-600" />
-                      Address
-                    </label>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        name="address"
-                        value={editedProfile.address}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all outline-none"
-                      />
-                    ) : (
-                      <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg text-gray-800 font-medium border border-gray-200">
-                        {profile.address || "Not provided"}
-                      </div>
-                    )}
-                  </div>
+                  <Field
+                    icon={FaFileAlt}
+                    label="Professional Bio"
+                    name="bio"
+                    value={editedProfile.bio}
+                    editing={isEditing}
+                    onChange={handleChange}
+                    textarea
+                  />
+                  <Field
+                    icon={FaGraduationCap}
+                    label="Education"
+                    name="education"
+                    value={editedProfile.education}
+                    editing={isEditing}
+                    onChange={handleChange}
+                    textarea
+                  />
                 </div>
               </div>
-
-              {/* Professional Information (Doctor Only) */}
-              {profile.role === "doctor" && (
-                <div className="space-y-8">
-                  {/* Speciality */}
-                  <div>
-                    <h4 className="text-lg font-bold text-gray-800 mb-6 pb-3 border-b-2 border-blue-200">
-                      Professional Information
-                    </h4>
-                    <div className="group">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        <FaBriefcase className="inline mr-2 text-blue-600" />
-                        Speciality
-                      </label>
-                      {isEditing ? (
-                        <input
-                          type="text"
-                          name="speciality"
-                          value={editedProfile.speciality}
-                          onChange={handleChange}
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all outline-none"
-                        />
-                      ) : (
-                        <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg text-gray-800 font-medium border border-gray-200">
-                          {profile.speciality || "Not provided"}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Bio */}
-                  <div>
-                    <h4 className="text-lg font-bold text-gray-800 mb-4 pb-3 border-b-2 border-blue-200">
-                      Professional Bio
-                    </h4>
-                    {isEditing ? (
-                      <textarea
-                        name="bio"
-                        value={editedProfile.bio}
-                        onChange={handleChange}
-                        rows="4"
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all outline-none resize-none"
-                      />
-                    ) : (
-                      <div className="px-4 py-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg text-gray-700 border border-gray-200 leading-relaxed">
-                        {profile.bio || "No bio provided"}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Education */}
-                  <div>
-                    <h4 className="text-lg font-bold text-gray-800 mb-4 pb-3 border-b-2 border-blue-200">
-                      Education
-                    </h4>
-                    {isEditing ? (
-                      <textarea
-                        name="education"
-                        value={editedProfile.education}
-                        onChange={handleChange}
-                        rows="4"
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all outline-none resize-none"
-                      />
-                    ) : (
-                      <div className="px-4 py-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg text-gray-700 border border-gray-200 leading-relaxed">
-                        {profile.education || "No education details provided"}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Security Card */}
-            <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
-              <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <FaLock className="text-blue-600" />
-                Security
-              </h3>
-              <button
-                onClick={() => setIsPasswordModalOpen(true)}
-                className="bg-gradient-to-r from-red-600 to-red-700 text-white py-3 px-6 rounded-xl hover:shadow-lg transition-all font-semibold flex items-center gap-2 hover:from-red-700 hover:to-red-800"
-              >
-                <FaLock />
-                Change Password
-              </button>
-            </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Password Modal */}
-      {isPasswordModalOpen && (
-        <PasswordChangeModal onClose={() => setIsPasswordModalOpen(false)} />
-      )}
+      {showPwModal && <PasswordModal onClose={() => setShowPwModal(false)} />}
     </div>
   );
 };
 
 export default ProfilePage;
-
-// Password Change Modal Component
-const PasswordChangeModal = ({ onClose }) => {
-  const [oldPass, setOldPass] = useState("");
-  const [newPass, setNewPass] = useState("");
-  const [confirmPass, setConfirmPass] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const handlePasswordUpdate = async () => {
-    if (!oldPass || !newPass || !confirmPass) {
-      toast.error("Please fill in all fields");
-      return;
-    }
-
-    if (newPass !== confirmPass) {
-      toast.error("New passwords do not match");
-      return;
-    }
-
-    if (newPass.length < 6) {
-      toast.error("Password must be at least 6 characters");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      await api.post("/profile/change-password", {
-        oldPassword: oldPass,
-        newPassword: newPass,
-      });
-
-      toast.success("Password updated successfully!");
-      onClose();
-    } catch (err) {
-      console.error("Password error:", err);
-      toast.error(err?.response?.data?.message || "Error updating password");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 border border-gray-100">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-          <FaLock className="text-blue-600" />
-          Change Password
-        </h2>
-
-        <div className="space-y-4">
-          {/* Current Password */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Current Password
-            </label>
-            <input
-              type="password"
-              placeholder="Enter current password"
-              value={oldPass}
-              onChange={(e) => setOldPass(e.target.value)}
-              disabled={loading}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all outline-none disabled:bg-gray-100"
-            />
-          </div>
-
-          {/* New Password */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              New Password
-            </label>
-            <input
-              type="password"
-              placeholder="Enter new password"
-              value={newPass}
-              onChange={(e) => setNewPass(e.target.value)}
-              disabled={loading}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all outline-none disabled:bg-gray-100"
-            />
-          </div>
-
-          {/* Confirm Password */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Confirm New Password
-            </label>
-            <input
-              type="password"
-              placeholder="Confirm new password"
-              value={confirmPass}
-              onChange={(e) => setConfirmPass(e.target.value)}
-              disabled={loading}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all outline-none disabled:bg-gray-100"
-            />
-          </div>
-
-          {/* Password Requirements */}
-          <div className="bg-blue-50 rounded-lg p-4 text-sm text-gray-700 border border-blue-200">
-            <p className="font-semibold mb-2">Password Requirements:</p>
-            <ul className="space-y-1">
-              <li className={newPass.length >= 6 ? "text-green-600" : ""}>
-                {newPass.length >= 6 ? "✓" : "•"} At least 6 characters
-              </li>
-              <li
-                className={
-                  newPass === confirmPass && newPass.length > 0
-                    ? "text-green-600"
-                    : ""
-                }
-              >
-                {newPass === confirmPass && newPass.length > 0 ? "✓" : "•"}{" "}
-                Passwords match
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        {/* Buttons */}
-        <div className="flex gap-3 mt-8">
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="flex-1 px-4 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-all font-semibold disabled:opacity-70"
-          >
-            Cancel
-          </button>
-
-          <button
-            onClick={handlePasswordUpdate}
-            disabled={loading}
-            className="flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:shadow-lg transition-all font-semibold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed hover:from-green-700 hover:to-green-800"
-          >
-            {loading ? (
-              <>
-                <Spinner size="sm" />
-                Updating...
-              </>
-            ) : (
-              <>Update Password</>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};

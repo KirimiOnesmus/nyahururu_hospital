@@ -1,6 +1,5 @@
 import api from './axios';
 
-// ─── PUBLIC ENDPOINTS (No auth required) ──────────────────────────────────────
 
 export const getAllPublishedResearch = async (filters = {}) => {
   try {
@@ -31,7 +30,7 @@ export const getResearchById = async (id) => {
 
 // ─── RESEARCHER ENDPOINTS (Auth required: researcher role) ────────────────────
 
-// Step 1: Initiate proposal submission (triggers M-Pesa STK push)
+
 export const initiateProposalSubmission = async (formData, phone) => {
   try {
     const response = await api.post('/research/proposals/initiate', {
@@ -54,7 +53,7 @@ export const initiateProposalSubmission = async (formData, phone) => {
   }
 };
 
-// Step 2: Confirm proposal submission after payment
+
 export const confirmProposalSubmission = async (formData, paymentId, proposalFile) => {
   try {
     const fd = new FormData();
@@ -81,7 +80,7 @@ export const confirmProposalSubmission = async (formData, paymentId, proposalFil
   }
 };
 
-// DEPRECATED: Use initiateProposalSubmission + confirmProposalSubmission instead
+
 export const submitProposal = async (formData) => {
   console.warn('submitProposal is deprecated. Use initiateProposalSubmission + confirmProposalSubmission');
   return confirmProposalSubmission(formData, formData.transactionCode, formData.proposalFile);
@@ -132,7 +131,7 @@ export const getResearcherRevenue = async (researchId) => {
   }
 };
 
-// ─── PAYMENT ENDPOINTS (M-Pesa STK Push & Verification) ──────────────────────
+
 
 export const initiateSTKPush = async (config) => {
   try {
@@ -155,6 +154,7 @@ export const verifyPaymentStatus = async (checkoutRequestId) => {
 
 // ─── REVIEWER ENDPOINTS (Auth required: reviewer/admin role) ──────────────────
 
+
 export const getPendingReviews = async (filters = {}) => {
   try {
     const { stage, search, page = 1, limit = 20 } = filters;
@@ -169,6 +169,23 @@ export const getPendingReviews = async (filters = {}) => {
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: 'Failed to fetch pending reviews' };
+  }
+};
+
+export const getAssignedResearch = async (filters = {}) => {
+  try {
+    const { stage, search, page = 1, limit = 20 } = filters;
+    const params = new URLSearchParams();
+
+    if (stage) params.append('stage', stage);
+    if (search) params.append('search', search);
+    params.append('page', page);
+    params.append('limit', limit);
+
+    const response = await api.get(`/research/reviewer/assigned?${params.toString()}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Failed to fetch your assigned research' };
   }
 };
 
@@ -276,13 +293,8 @@ export const updateReviewerDetails = async (reviewerId, updates) => {
   }
 };
 
-// ─── ADMIN ENDPOINTS — Publish & Assign Reviewer ─────────────────────────────
+//ADMIN ENDPOINTS — Publish & Assign Reviewer 
 
-/**
- * Publish a fully reviewed final paper (admin only).
- * Makes the paper publicly visible on the platform.
- * Endpoint: PATCH /research/:id/publish
- */
 export const publishResearch = async (researchId) => {
   try {
     const response = await api.patch(`/research/${researchId}/publish`);
@@ -292,12 +304,7 @@ export const publishResearch = async (researchId) => {
   }
 };
 
-/**
- * Assign a reviewer to a specific research paper (admin only).
- * Accepts the reviewer's registered email address.
- * Endpoint: POST /research/:id/assign-reviewer
- * Body: { email: string }
- */
+
 export const assignReviewer = async (researchId, email) => {
   try {
     const response = await api.post(`/research/${researchId}/assign-reviewer`, { email });
@@ -307,7 +314,7 @@ export const assignReviewer = async (researchId, email) => {
   }
 };
 
-// ─── ADMIN ENDPOINTS — Revenue & Analytics ───────────────────────────────────
+//  ADMIN ENDPOINTS — Revenue & Analytics
 
 export const getResearchRevenue = async (researchId) => {
   try {
@@ -353,7 +360,7 @@ export const updateDownloadPrice = async (researchId, downloadPrice) => {
   }
 };
 
-// ─── HELPER FUNCTIONS ─────────────────────────────────────────────────────────
+//  HELPER FUNCTIONS 
 
 export const pollPaymentStatus = async (checkoutRequestId, maxAttempts = 12) => {
   return new Promise((resolve, reject) => {
@@ -421,6 +428,7 @@ export default {
 
   // Reviewer
   getPendingReviews,
+  getAssignedResearch,
   submitReview,
   getReviewHistory,
 
@@ -444,7 +452,7 @@ export default {
   refundPayment,
   updateDownloadPrice,
 
-  // Helpers
+  // Helpers 
   formatPhoneNumber,
   validatePaymentAmount,
 };
