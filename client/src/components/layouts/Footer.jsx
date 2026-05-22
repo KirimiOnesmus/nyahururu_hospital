@@ -50,16 +50,17 @@ const Footer = () => {
             <p className="text-xs text-slate-500 leading-relaxed">
               Providing quality healthcare services to our community.
             </p>
-            {/* Social icons */}
+           
             <div className="flex gap-3 pt-1">
               {socialLinks.map(({ icon: Icon, label, url }) => (
                 <a
                   key={label}
                   href={url}
                   aria-label={label}
-                  className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-all duration-150"
+                  className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center 
+                  justify-center text-slate-500 hover:text-blue-700 hover:border-blue-200 hover:bg-blue-50 transition-all duration-150"
                 >
-                  <Icon className="text-sm" />
+                  <Icon className="text-md" />
                 </a>
               ))}
             </div>
@@ -89,7 +90,7 @@ const Footer = () => {
                 <li key={label}>
                   <button
                     onClick={() => navigate(path)}
-                    className="text-xs text-slate-600 hover:text-blue-600 transition-colors duration-150 font-medium"
+                    className="text-xs text-slate-600 hover:text-blue-600 transition-colors duration-150 font-medium cursor-pointer"
                   >
                     {label}
                   </button>
@@ -110,7 +111,7 @@ const Footer = () => {
                     href={path}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-slate-600 hover:text-blue-600 transition-colors duration-150 font-medium"
+                    className="text-xs text-slate-600 hover:text-blue-600 transition-colors duration-150 font-medium cursor-pointer"
                   >
                     {label}
                   </a>
