@@ -3,6 +3,7 @@ import { Header, TimeRibbon, Footer } from "../components/layouts";
 import DoctorCard from "../components/layouts/DoctorCard";
 import api from "../api/axios";
 import { useSearchParams } from "react-router-dom";
+import { FaTimes, FaUserMd } from "react-icons/fa";
 
 const Doctors = () => {
   const [loading, setLoading] = useState(true);
@@ -12,34 +13,35 @@ const Doctors = () => {
   const [allDepartments, setAllDepartments] = useState([]);
   const [searchParams] = useSearchParams();
 
+  const filterByDepartment = (list, department) => {
+    setFilteredDoctors(
+      department ? list.filter((d) => d.department === department) : list,
+    );
+  };
+
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
         setLoading(true);
-        const response = await api.get("/doctors/doctors");
-        // Ensure we always get an array
-        const doctorsData = Array.isArray(response.data.data)
-          ? response.data.data
-          : [];
-        setDoctors(doctorsData);
+        const res = await api.get("/doctors/doctors");
+        const data = Array.isArray(res.data.data) ? res.data.data : [];
+        setDoctors(data);
 
         const departments = [
-          ...new Set(doctorsData.map((d) => d.department).filter(Boolean)),
+          ...new Set(data.map((d) => d.department).filter(Boolean)),
         ].sort();
         setAllDepartments(departments);
 
-        const departmentParam = searchParams.get("department");
-        if (departmentParam) {
-          const decodedDepartment = decodeURIComponent(departmentParam);
-          setSelectedDepartment(decodedDepartment);
-          filterDoctorsByDepartment(doctorsData, decodedDepartment);
+        const deptParam = searchParams.get("department");
+        if (deptParam) {
+          const decoded = decodeURIComponent(deptParam);
+          setSelectedDepartment(decoded);
+          filterByDepartment(data, decoded);
         } else {
-          setFilteredDoctors(doctorsData);
-          setSelectedDepartment(null);
+          setFilteredDoctors(data);
         }
       } catch (error) {
         console.error("Error fetching doctors:", error);
-        // fallback to empty array
         setDoctors([]);
         setFilteredDoctors([]);
       } finally {
@@ -49,24 +51,13 @@ const Doctors = () => {
     fetchDoctors();
   }, [searchParams]);
 
-  const filterDoctorsByDepartment = (doctorsList, department) => {
-    if (!department) {
-      setFilteredDoctors(doctorsList);
-      return;
-    }
-    const filtered = doctorsList.filter(
-      (doctor) => doctor.department === department
-    );
-    setFilteredDoctors(filtered);
-  };
-
   const handleDepartmentChange = (department) => {
-    if (department === null || department === selectedDepartment) {
+    if (!department || department === selectedDepartment) {
       setSelectedDepartment(null);
       setFilteredDoctors(doctors);
     } else {
       setSelectedDepartment(department);
-      filterDoctorsByDepartment(doctors, department);
+      filterByDepartment(doctors, department);
     }
   };
 
@@ -76,102 +67,129 @@ const Doctors = () => {
   };
 
   return (
-    <div>
-      <div className="sticky top-0 z-50 bg-white/60 backdrop-blur-md shadow-sm">
+    <div className="min-h-screen flex flex-col bg-slate-50">
+      <div className="sticky top-0 z-50 bg-white border-b border-slate-200">
         <Header />
       </div>
-      <div className="body h-full">
-        <div className="px-6 md:px-16 py-8">
-          <div className="flex justify-between items-center">
-            <h2 className="text-3xl font-bold border-l-4 border-blue-500 px-2 mb-6">
-              Our Specialists
-            </h2>
-            <p className="text-gray-700">
-              Showing{" "}
-              <span className="font-bold text-blue-600">
-                {filteredDoctors.length}
-              </span>{" "}
-              of{" "}
-              <span className="font-bold text-blue-600">{doctors.length}</span>{" "}
-              specialists
-              {selectedDepartment && (
-                <span className="text-blue-700 ml-2">
-                  in <span className="font-bold">{selectedDepartment}</span>
-                </span>
-              )}
-            </p>
-          </div>
 
-          {/* Department Filter */}
-          {!loading && doctors.length > 0 && (
-            <div className="mb-8">
-              <div>
-                <p className="text-gray-700 mb-3 font-semibold text-lg">
-                  Filter by Department:
-                </p>
-                <div className="w-full md:w-auto md:ml-auto">
-                  <select
-                    id="department-select"
-                    value={selectedDepartment || ""}
-                    onChange={(e) =>
-                      handleDepartmentChange(e.target.value || null)
-                    }
-                    className="w-full md:w-64 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 font-semibold shadow-sm outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">All Departments</option>
-                    {allDepartments.map((department) => (
-                      <option key={department} value={department}>
-                        {department}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
+      <main className="flex-1 max-w-7xl mx-auto w-full px-6 md:px-10 py-10">
+        <div className="mb-8">
+          <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-1">
+            Medical Team
+          </p>
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-800">
+            Our Specialists
+          </h2>
+        </div>
 
-          {/* Loading State */}
-          {loading ? (
-            <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            </div>
-          ) : filteredDoctors.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-600 text-lg mb-4">
-                No specialists found in this department
-              </p>
-              {selectedDepartment && (
-                <button
-                  onClick={handleClearFilters}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        {/* ── Filter bar ── */}
+        {!loading && doctors.length > 0 && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-8">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div className="flex flex-col gap-1 min-w-[200px]">
+                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                  Department
+                </label>
+                <select
+                  value={selectedDepartment || ""}
+                  onChange={(e) =>
+                    handleDepartmentChange(e.target.value || null)
+                  }
+                  className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700
+                             text-sm font-medium outline-none focus:border-blue-400 focus:ring-2
+                             focus:ring-blue-100 transition-all"
                 >
-                  View All Specialists
-                </button>
-              )}
-            </div>
-          ) : (
-            <>
-              {/* Doctors Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 px-10">
-                {filteredDoctors.map((doctor) => (
-                  <DoctorCard
-                    key={doctor._id}
-                    id={doctor._id}
-                    doctor={doctor}
-                  />
-                ))}
+                  <option value="">All Departments</option>
+                  {allDepartments.map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+                </select>
               </div>
-            </>
-          )}
-        </div>
 
-        <div>
-          <TimeRibbon />
-        </div>
+              <div className="flex items-center gap-4 shrink-0">
+                <p className="text-sm text-slate-500">
+                  Showing{" "}
+                  <span className="font-bold text-slate-800">
+                    {filteredDoctors.length}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-bold text-slate-800">
+                    {doctors.length}
+                  </span>{" "}
+                  specialists
+                </p>
+                {selectedDepartment && (
+                  <button
+                    onClick={handleClearFilters}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-red-500
+                               hover:text-red-700 border border-red-200 hover:border-red-400
+                               px-3 py-1.5 rounded-lg transition-colors duration-150"
+                  >
+                    <FaTimes className="text-[10px]" /> Clear filter
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {selectedDepartment && (
+              <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-100">
+                <span
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50
+                                 border border-blue-200 text-blue-700 text-xs font-semibold"
+                >
+                  Department: {selectedDepartment}
+                  <button
+                    onClick={handleClearFilters}
+                    className="hover:text-blue-900"
+                  >
+                    <FaTimes className="text-[9px]" />
+                  </button>
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-24 gap-4">
+            <div className="w-10 h-10 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
+            <p className="text-slate-500 text-sm">Loading specialists…</p>
+          </div>
+        ) : filteredDoctors.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+            <div className="w-14 h-14 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center">
+              <FaUserMd className="text-2xl text-slate-400" />
+            </div>
+            <p className="font-semibold text-slate-600">
+              No specialists found
+              {selectedDepartment ? ` in ${selectedDepartment}` : ""}.
+            </p>
+            {selectedDepartment && (
+              <button
+                onClick={handleClearFilters}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm
+                           font-semibold rounded-xl transition-colors duration-150"
+              >
+                View All Specialists
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+            {filteredDoctors.map((doctor) => (
+              <DoctorCard key={doctor._id} id={doctor._id} doctor={doctor} />
+            ))}
+          </div>
+        )}
+      </main>
+
+      <div className="border-t border-slate-200">
+        <TimeRibbon />
       </div>
-      <div className="">
-        <Footer />
-      </div>
+
+      <Footer />
     </div>
   );
 };

@@ -2,18 +2,18 @@ import React from "react";
 import { Link } from "react-router-dom";
 
 const DoctorCard = ({ doctor }) => {
-  // Construct full name from firstName and lastName
-  const fullName = doctor.userId?.firstName && doctor.userId?.lastName
-    ? `${doctor.userId.firstName} ${doctor.userId.lastName}`
-    : doctor.userId?.firstName || doctor.userId?.lastName || "Unnamed Doctor";
+
+  const fullName =
+    doctor.userId?.firstName && doctor.userId?.lastName
+      ? `${doctor.userId.firstName} ${doctor.userId.lastName}`
+      : doctor.userId?.firstName || doctor.userId?.lastName || "Unnamed Doctor";
 
   return (
-    <Link to={`/doctors/${doctor._id}`}>
-      <div
-        className="bg-white shadow-md rounded-2xl overflow-hidden hover:shadow-lg transition-all 
-duration-300 w-full max-w-xs hover:cursor-pointer h-full flex flex-col"
-      >
-        <div className="w-full h-64 bg-blue-100 flex items-center justify-center overflow-hidden">
+    <Link to={`/doctors/${doctor._id}`} className="block h-full">
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden h-full flex flex-col hover:border-blue-300 hover:shadow-sm transition-all duration-150">
+
+
+        <div className="w-full h-52 bg-slate-100 overflow-hidden">
           {doctor.profile?.imageUrl ? (
             <img
               src={`http://localhost:5000${doctor.profile.imageUrl}`}
@@ -21,9 +21,9 @@ duration-300 w-full max-w-xs hover:cursor-pointer h-full flex flex-col"
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-100 to-blue-200">
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-blue-50">
               <svg
-                className="w-24 h-24 text-blue-400"
+                className="w-16 h-16 text-slate-300"
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -36,13 +36,15 @@ duration-300 w-full max-w-xs hover:cursor-pointer h-full flex flex-col"
             </div>
           )}
         </div>
-        <div className="p-4 text-center flex-1 flex flex-col justify-center">
-          <h3 className="text-lg font-semibold text-gray-800 mb-1">
-            {fullName}
-          </h3>
-          <p className="text-sm text-blue-600 font-medium mb-1">
+
+
+        <div className="px-4 py-4 flex-1 flex flex-col justify-center">
+          <p className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-1">
             {doctor.speciality || "General Practitioner"}
           </p>
+          <h3 className="text-sm font-bold text-slate-800 leading-snug">
+            {fullName}
+          </h3>
         </div>
       </div>
     </Link>

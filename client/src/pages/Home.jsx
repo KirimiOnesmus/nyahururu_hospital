@@ -15,96 +15,122 @@ import { toast } from "react-toastify";
 const Home = () => {
   const navigate = useNavigate();
   const [services, setServices] = useState([]);
-  const [loading,setLoading] = useState(true)
+  const [loading, setLoading] = useState(true);
 
-
-  const BACKEND_URL =
-    import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
   useEffect(() => {
     const fetchServices = async () => {
       try {
+        setLoading(true); 
         const res = await api.get("/services");
         setServices(res.data);
-        // console.log("Services Data:", res.data);
-        setLoading(false)
       } catch (error) {
         console.error("Failed to fetch services:", error);
         toast.error("Failed to fetch services.");
+      } finally {
+        setLoading(false); 
       }
     };
     fetchServices();
   }, []);
 
-  // Limit to first 5 services for home page
+
   const serviceLimit = services.slice(0, 5);
 
-
   return (
-    <div className="">
-      <div className="sticky top-0 z-50 bg-white/60 backdrop-blur-md shadow-sm">
+    <div className="min-h-screen flex flex-col bg-white">
+   
+      <div className="sticky top-0 z-50 bg-white border-b border-slate-200">
         <Header />
       </div>
-      <div className="sections space-y-2">
-        <div className="slider">
-          <Slider />
-        </div>
-        {loading ?(
-                  <div className="flex flex-col items-center gap-4">
-               <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600"></div>
-               <p className="text-gray-600 font-medium text-lg">
-                 Loading Services...
-               </p>
-             </div>
+
+      <main className="flex-1">
+    
+        <Slider />
+
+
+        <section className="max-w-6xl mx-auto px-6 py-12">
+          <div className="flex items-end justify-between mb-8">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-1">
+                What We Offer
+              </p>
+              <h2 className="text-2xl md:text-3xl font-bold text-slate-800">
+                Our Services
+              </h2>
+            </div>
+            {services.length >= 5 && (
+              <button
+                onClick={() => navigate("/services")}
+                className="text-sm font-semibold text-blue-600 hover:text-blue-800 underline underline-offset-2 transition-colors"
+              >
+                View All Services
+              </button>
+            )}
+          </div>
+
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
+              <div className="w-10 h-10 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
+              <p className="text-slate-500 text-sm">Loading services…</p>
+            </div>
+          ) : services.length === 0 ? (
+            <div className="text-center py-20 text-slate-400 text-sm">
+              No services available at this time.
+            </div>
           ) : (
-<div className="services my-4 mx-6 py-4 px-6">
-          <h2 className="text-3xl font-bold my-4 text-center">Our Services</h2>
-   
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mt-2">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
               {serviceLimit.map((service) => (
                 <Card
                   key={service._id}
                   id={service._id}
                   image={`${BACKEND_URL}${service.imageUrl}`}
                   title={service.name}
+                  description={service.description}
                   buttonText="Learn More"
                 />
               ))}
+
+        
               {services.length > 5 && (
-                <div className="h-full">
-                  <div className="rounded-2xl shadow-md flex items-center justify-center p-6 bg-gray-600 hover:bg-gray-400 text-white hover:shadow-xl transition-all duration-300 cursor-pointer h-full"
-                     onClick={() => navigate("/services")}
-                  >
-                    <button
-                      className="w-full text-xl font-bold hover:text-2xl transition-all duration-300"
-                   
-                    >
-                      Load More Services
-                    </button>
-                  </div>
-                </div>
+                <button
+                  onClick={() => navigate("/services")}
+                  className="rounded-2xl border-2 border-dashed border-slate-300 hover:border-blue-400
+                             text-slate-500 hover:text-blue-600 font-semibold text-base
+                             flex flex-col items-center justify-center gap-2 p-8 min-h-[200px]
+                             transition-colors duration-200"
+                >
+                  <span className="text-3xl font-light">+{services.length - 5}</span>
+                  <span>More Services</span>
+                </button>
               )}
             </div>
+          )}
+        </section>
 
-        </div>
-        )
-        
-        }
-
-        <div className="hours ribbon">
+        <div className="border-t border-slate-100">
           <TimeRibbon />
         </div>
-        <div className="news">
+
+  
+        <div className="border-t border-slate-100">
           <News />
         </div>
-        <div className="partners py-4">
-          <h3 className="text-3xl font-bold my-4 text-center">Our Partners</h3>
+
+
+        <section className="border-t border-slate-100 py-12 max-w-6xl mx-auto px-6">
+          <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-1 text-center">
+            Trusted By
+          </p>
+          <h3 className="text-2xl font-bold text-slate-800 text-center mb-8">
+            Our Partners
+          </h3>
           <Partners />
-        </div>
-      </div>
-      <div>
-        <Footer />
-      </div>
+        </section>
+      </main>
+
+      <Footer />
     </div>
   );
 };

@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   FaHeart,
   FaCheckCircle,
-  FaExclamationCircle,
   FaCalendarAlt,
   FaUser,
   FaEnvelope,
@@ -12,125 +11,124 @@ import {
   FaWeightHanging,
   FaNotesMedical,
   FaShieldAlt,
+  FaExclamationTriangle,
+  FaPaperPlane,
 } from "react-icons/fa";
 import { Header, Footer } from "../components/layouts";
 import api from "../api/axios";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 
-const BloodRegistration = () => {
-  const [formData, setFormData] = useState({
-    fullName: "",
-    email: "",
-    phone: "",
-    gender: "",
-    age: "",
-    weight: "",
-    nationalId: "",
-    bloodGroup: "",
-    healthConditions: "",
-    medications: "",
-    donationDate: "",
-    donationTime: "",
-    consentDonate: false,
-    consentTest: false,
-    consentTerms: false,
-  });
+const inputClass =
+  "w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm " +
+  "outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 transition-all placeholder:text-slate-300";
 
-  const [submittedStatus, setSubmittedStatus] = useState(null);
-  //   const [donorId, setDonorId] = useState(null);
+const selectClass =
+  "w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm " +
+  "outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 transition-all";
+
+const labelClass = "text-xs font-bold uppercase tracking-widest text-slate-500";
+
+const INIT = {
+  fullName: "",
+  email: "",
+  phone: "",
+  gender: "",
+  age: "",
+  weight: "",
+  nationalId: "",
+  bloodGroup: "",
+  healthConditions: "",
+  medications: "",
+  donationDate: "",
+  donationTime: "",
+  consentDonate: false,
+  consentTest: false,
+  consentTerms: false,
+};
+
+
+const Field = ({ label, required, children }) => (
+  <div className="flex flex-col gap-1.5">
+    <label className={labelClass}>
+      {label} {required && <span className="text-red-400">*</span>}
+    </label>
+    {children}
+  </div>
+);
+
+const SectionHeader = ({ icon: Icon, title }) => (
+  <div className="flex items-center gap-3 mb-5 pb-4 border-b border-slate-100">
+    <div className="w-9 h-9 rounded-lg bg-red-50 border border-red-100 flex items-center justify-center shrink-0">
+      <Icon className="text-red-500 text-sm" />
+    </div>
+    <h3 className="text-sm font-bold text-slate-800">{title}</h3>
+  </div>
+);
+
+const BloodRegistration = () => {
+  const [formData, setFormData] = useState(INIT);
   const [errors, setErrors] = useState([]);
   const [loading, setLoading] = useState(false);
-    const navigate = useNavigate();
+  const navigate = useNavigate();
 
   const validateDonor = () => {
-    const newErrors = [];
-
-    if (!formData.fullName.trim()) newErrors.push("Full Name is required");
-    if (!formData.email.trim()) newErrors.push("Email is required");
+    const e = [];
+    if (!formData.fullName.trim()) e.push("Full Name is required");
+    if (!formData.email.trim()) e.push("Email is required");
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
-      newErrors.push("Please enter a valid email address");
-    if (!formData.phone.trim()) newErrors.push("Phone Number is required");
-    if (!formData.gender) newErrors.push("Gender is required");
-    if (!formData.age) newErrors.push("Age is required");
-    if (!formData.weight) newErrors.push("Weight is required");
-    if (!formData.nationalId.trim()) newErrors.push("National ID is required");
-    if (!formData.donationDate) newErrors.push("Donation date is required");
-    if (!formData.donationTime) newErrors.push("Donation time is required");
-
+      e.push("Please enter a valid email address");
+    if (!formData.phone.trim()) e.push("Phone Number is required");
+    if (!formData.gender) e.push("Gender is required");
+    if (!formData.age) e.push("Age is required");
+    if (!formData.weight) e.push("Weight is required");
+    if (!formData.nationalId.trim()) e.push("National ID is required");
+    if (!formData.donationDate) e.push("Donation date is required");
+    if (!formData.donationTime) e.push("Donation time is required");
     const age = parseInt(formData.age);
-    if (age < 16 || age > 70)
-      newErrors.push("Age must be between 16 and 70 years");
-
-    const weight = parseInt(formData.weight);
-    if (weight < 50) newErrors.push("Weight must be at least 50 kg");
-
-    if (!formData.consentDonate)
-      newErrors.push("Blood donation consent is required");
+    if (age < 16 || age > 70) e.push("Age must be between 16 and 70 years");
+    if (parseInt(formData.weight) < 50) e.push("Weight must be at least 50 kg");
+    if (!formData.consentDonate) e.push("Blood donation consent is required");
     if (!formData.consentTest)
-      newErrors.push("Infectious Disease Test consent is required");
-    if (!formData.consentTerms)
-      newErrors.push("Hospital Terms consent is required");
-
-    return newErrors;
+      e.push("Infectious Disease Test consent is required");
+    if (!formData.consentTerms) e.push("Hospital Terms consent is required");
+    return e;
   };
 
-const handleRegistration = async () => {
-  const validationErrors = validateDonor();
-
-  if (validationErrors.length > 0) {
-    setErrors(validationErrors);
-    setSubmittedStatus(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    return;
-  }
-
-  setErrors([]);
-  setLoading(true);
-
-  try {
-    const response = await api.post("/blood-donation/register", {
-      ...formData,
-      age: parseInt(formData.age),
-      weight: parseInt(formData.weight),
-    });
-
-    // Axios automatically puts the JSON response here
-    if (response.data.success) {
-      setSubmittedStatus("success");
-      setFormData({
-        fullName: "",
-        email: "",
-        phone: "",
-        gender: "",
-        age: "",
-        weight: "",
-        nationalId: "",
-        bloodGroup: "",
-        healthConditions: "",
-        medications: "",
-        donationDate: "",
-        donationTime: "",
-        consentDonate: false,
-        consentTest: false,
-        consentTerms: false,
-      });
-      toast.success("Registration successful!");
-      navigate("/")
-    } else {
-      toast.error(response.data.message || "Registration failed.");
+  const handleRegistration = async () => {
+    const validationErrors = validateDonor();
+    if (validationErrors.length > 0) {
+      setErrors(validationErrors);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
     }
-
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    setTimeout(() => setSubmittedStatus(null), 5000);
-  } catch (error) {
-    console.error("Registration error:", error);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    toast.error("Registration failed. Please try again.");
-  } finally {
-    setLoading(false);
-  }
-};
+    setErrors([]);
+    setLoading(true);
+    try {
+      const response = await api.post("/blood-donation/register", {
+        ...formData,
+        age: parseInt(formData.age),
+        weight: parseInt(formData.weight),
+      });
+      if (response.data.success) {
+        toast.success("Registration successful!");
+        setFormData(INIT);
+        navigate("/");
+      } else {
+  
+        toast.error(response.data.message || "Registration failed.");
+      }
+    } catch (error) {
+      console.error("Registration error:", error);
+      
+      toast.error(
+        error?.response?.data?.message ||
+          "Registration failed. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -138,459 +136,330 @@ const handleRegistration = async () => {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
-    if (errors.length > 0) {
-      setErrors([]);
-    }
+    if (errors.length > 0) setErrors([]);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
-      <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg shadow-sm">
+    <div className="min-h-screen flex flex-col bg-slate-50">
+      <div className="sticky top-0 z-50 bg-white border-b border-slate-200">
         <Header />
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-12">
-       
-        {submittedStatus === "success" && (
-          <div className="mb-8 bg-green-50 border border-green-200 rounded-2xl p-6 animate-fadeIn shadow-lg">
-            <div className="flex items-start">
-              <div className="flex-shrink-0">
-                <FaCheckCircle className="text-green-600 text-2xl mt-1" />
-              </div>
-              <div className="ml-4">
-                <h3 className="font-bold text-green-900 text-lg mb-2">
-                  Registration Successful!
-                </h3>
-                <p className="text-green-700">
-                  Thank you for registering as a blood donor. A confirmation
-                  email has been sent to your inbox. Our team will contact you
-                  to confirm your donation appointment.
-                </p>
-              </div>
+      <main className="flex-1 max-w-4xl mx-auto w-full px-6 md:px-10 py-12">
+  
+        <div className="mb-8">
+          <p className="text-xs font-semibold uppercase tracking-widest text-red-500 mb-1">
+            Donation Programme
+          </p>
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-800">
+            Blood Donor Registration
+          </h2>
+        </div>
+
+        {errors.length > 0 && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-5 flex gap-4 mb-8">
+            <div className="shrink-0 w-9 h-9 rounded-lg bg-red-100 border border-red-200 flex items-center justify-center">
+              <FaExclamationTriangle className="text-red-500 text-sm" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-800 mb-2">
+                Please fix the following:
+              </p>
+              <ul className="space-y-1">
+                {errors.map((err, i) => (
+                  <li
+                    key={i}
+                    className="text-xs text-red-700 flex items-start gap-1.5"
+                  >
+                    <span className="mt-0.5">•</span> {err}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         )}
 
-        {/* Page Header */}
-        <div className="mb-8">
-          <div className="flex items-center mb-4">
-            <div className="w-1 h-12 bg-gradient-to-b from-red-600 to-rose-600 rounded-full mr-4"></div>
-            <div>
-              <h1 className="text-4xl font-bold text-gray-900">
-                Blood Donor Registration
-              </h1>
-              <p className="text-gray-600 mt-2">
-                Join our community of lifesavers and make a difference today
-              </p>
-            </div>
+
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex gap-4 mb-8">
+          <div className="shrink-0 w-9 h-9 rounded-lg bg-amber-100 border border-amber-200 flex items-center justify-center">
+            <FaHeart className="text-amber-600 text-sm" />
           </div>
+          <p className="text-slate-700 text-sm leading-relaxed">
+            Your donation can save up to <strong>3 lives</strong>. Blood is
+            essential for surgeries, trauma care, and treating blood disorders.
+            All equipment is sterile and single-use to ensure your complete
+            safety.
+          </p>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
-          {/* Card Header */}
-          <div className="bg-gradient-to-r from-red-600 to-rose-500 p-8">
-            <h2 className="text-2xl font-bold text-white flex items-center">
-              <FaHeart className="mr-3" />
-              Donor Registration Form
-            </h2>
-            <p className="text-red-100 mt-2">
-              Please complete all required fields marked with an asterisk (*)
-            </p>
-          </div>
+        {/* ── Assurance tiles ── */}
+        <div className="grid sm:grid-cols-3 gap-4 mb-8">
+          {[
+            {
+              icon: FaHeart,
+              title: "Save 3 Lives",
+              body: "One donation benefits multiple patients in critical need.",
+            },
+            {
+              icon: FaCheckCircle,
+              title: "45 Minutes",
+              body: "The entire process from screening to completion.",
+            },
+            {
+              icon: FaShieldAlt,
+              title: "Safe & Sterile",
+              body: "Single-use sterile equipment throughout.",
+            },
+          ].map(({ icon: Icon, title, body }) => (
+            <div
+              key={title}
+              className="bg-white border border-slate-200 rounded-2xl p-5 flex items-start gap-4"
+            >
+              <div className="w-9 h-9 rounded-lg bg-red-50 border border-red-100 flex items-center justify-center shrink-0">
+                <Icon className="text-red-500 text-sm" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-800 mb-0.5">
+                  {title}
+                </p>
+                <p className="text-xs text-slate-500 leading-relaxed">{body}</p>
+              </div>
+            </div>
+          ))}
+        </div>
 
-          {/* Form Content */}
-          <div className="p-8 md:p-12 space-y-8">
-            {/* Personal Information Section */}
-            <div>
-              <div className="flex items-center mb-6">
-                <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mr-3">
-                  <FaUser className="text-red-600" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900">
-                  Personal Information
-                </h3>
+       
+        <div className="bg-white border border-slate-200 rounded-2xl p-8 space-y-10">
+          {/* ── Personal Information ── */}
+          <section>
+            <SectionHeader icon={FaUser} title="Personal Information" />
+            <div className="space-y-5">
+              <Field label="Full Name" required>
+                <input
+                  type="text"
+                  name="fullName"
+                  placeholder="e.g. John Kariuki"
+                  value={formData.fullName}
+                  onChange={handleInputChange}
+                  className={inputClass}
+                />
+              </Field>
+
+              <div className="grid sm:grid-cols-2 gap-5">
+                <Field label="Email Address" required>
+                  <input
+                    type="email"
+                    name="email"
+                    placeholder="john@example.com"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Phone Number" required>
+                  <input
+                    type="tel"
+                    name="phone"
+                    placeholder="0712 345 678"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    className={inputClass}
+                  />
+                </Field>
               </div>
 
-              <div className="space-y-6 bg-gray-50 p-6 rounded-2xl">
-                <div>
-                  <label className="block mb-2 font-semibold text-gray-700">
-                    Full Name *
-                  </label>
+              <div className="grid sm:grid-cols-3 gap-5">
+                <Field label="Gender" required>
+                  <select
+                    name="gender"
+                    value={formData.gender}
+                    onChange={handleInputChange}
+                    className={selectClass}
+                  >
+                    <option value="">Select gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </Field>
+
+                <Field label="Blood Group">
+                  <select
+                    name="bloodGroup"
+                    value={formData.bloodGroup}
+                    onChange={handleInputChange}
+                    className={selectClass}
+                  >
+                    <option value="">Optional</option>
+                    {["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"].map(
+                      (g) => (
+                        <option key={g} value={g}>
+                          {g}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </Field>
+
+                <Field label="National ID" required>
                   <input
                     type="text"
-                    name="fullName"
-                    placeholder="e.g., John Kariuki"
-                    value={formData.fullName}
+                    name="nationalId"
+                    placeholder="ID Number"
+                    value={formData.nationalId}
                     onChange={handleInputChange}
-                    className="w-full p-4 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 hover:border-gray-400"
+                    className={inputClass}
                   />
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block mb-2 font-semibold text-gray-700 flex items-center">
-                      <FaEnvelope className="mr-2 text-red-600" />
-                      Email Address *
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      placeholder="john@example.com"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      className="w-full p-4 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 hover:border-gray-400"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block mb-2 font-semibold text-gray-700 flex items-center">
-                      <FaPhone className="mr-2 text-red-600" />
-                      Phone Number *
-                    </label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      placeholder="0712 345 678"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      className="w-full p-4 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 hover:border-gray-400"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid md:grid-cols-3 gap-6">
-                  <div>
-                    <label className="block mb-2 font-semibold text-gray-700">
-                      Gender *
-                    </label>
-                    <select
-                      name="gender"
-                      value={formData.gender}
-                      onChange={handleInputChange}
-                      className="w-full p-4 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 hover:border-gray-400 bg-white"
-                    >
-                      <option value="">Select Gender</option>
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block mb-2 font-semibold text-gray-700">
-                      Blood Group
-                    </label>
-                    <select
-                      name="bloodGroup"
-                      value={formData.bloodGroup}
-                      onChange={handleInputChange}
-                      className="w-full p-4 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 hover:border-gray-400 bg-white"
-                    >
-                      <option value="">Select (Optional)</option>
-                      <option value="O+">O+</option>
-                      <option value="O-">O-</option>
-                      <option value="A+">A+</option>
-                      <option value="A-">A-</option>
-                      <option value="B+">B+</option>
-                      <option value="B-">B-</option>
-                      <option value="AB+">AB+</option>
-                      <option value="AB-">AB-</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block mb-2 font-semibold text-gray-700 flex items-center">
-                      <FaIdCard className="mr-2 text-red-600" />
-                      National ID *
-                    </label>
-                    <input
-                      type="text"
-                      name="nationalId"
-                      placeholder="ID Number"
-                      value={formData.nationalId}
-                      onChange={handleInputChange}
-                      className="w-full p-4 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 hover:border-gray-400"
-                    />
-                  </div>
-                </div>
+                </Field>
               </div>
             </div>
+          </section>
 
-            {/* Health Information Section */}
-            <div>
-              <div className="flex items-center mb-6">
-                <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mr-3">
-                  <FaNotesMedical className="text-red-600" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900">
-                  Health Information
-                </h3>
-              </div>
-
-              <div className="space-y-6 bg-gray-50 p-6 rounded-2xl">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block mb-2 font-semibold text-gray-700">
-                      Age (16-70) *
-                    </label>
-                    <input
-                      type="number"
-                      name="age"
-                      placeholder="Years"
-                      value={formData.age}
-                      onChange={handleInputChange}
-                      min="16"
-                      max="70"
-                      className="w-full p-4 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 hover:border-gray-400"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block mb-2 font-semibold text-gray-700 flex items-center">
-                      <FaWeightHanging className="mr-2 text-red-600" />
-                      Weight (kg, min 50) *
-                    </label>
-                    <input
-                      type="number"
-                      name="weight"
-                      placeholder="kg"
-                      value={formData.weight}
-                      onChange={handleInputChange}
-                      min="50"
-                      className="w-full p-4 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 hover:border-gray-400"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block mb-2 font-semibold text-gray-700">
-                    Existing Health Conditions
-                  </label>
-                  <textarea
-                    name="healthConditions"
-                    placeholder="List any existing health conditions or write 'None'"
-                    value={formData.healthConditions}
+  
+          <section>
+            <SectionHeader icon={FaNotesMedical} title="Health Information" />
+            <div className="space-y-5">
+              <div className="grid sm:grid-cols-2 gap-5">
+                <Field label="Age (16 – 70)" required>
+                  <input
+                    type="number"
+                    name="age"
+                    placeholder="Years"
+                    value={formData.age}
                     onChange={handleInputChange}
-                    className="w-full p-4 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 hover:border-gray-400 resize-none"
-                    rows="3"
+                    min="16"
+                    max="70"
+                    className={inputClass}
                   />
-                </div>
-
-                <div>
-                  <label className="block mb-2 font-semibold text-gray-700">
-                    Current Medications
-                  </label>
-                  <textarea
-                    name="medications"
-                    placeholder="List any current medications or write 'None'"
-                    value={formData.medications}
+                </Field>
+                <Field label="Weight (kg, min 50)" required>
+                  <input
+                    type="number"
+                    name="weight"
+                    placeholder="kg"
+                    value={formData.weight}
                     onChange={handleInputChange}
-                    className="w-full p-4 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 hover:border-gray-400 resize-none"
-                    rows="3"
+                    min="50"
+                    className={inputClass}
                   />
-                </div>
+                </Field>
               </div>
+
+              <Field label="Existing Health Conditions">
+                <textarea
+                  name="healthConditions"
+                  placeholder="List any existing health conditions, or write 'None'"
+                  value={formData.healthConditions}
+                  onChange={handleInputChange}
+                  rows={3}
+                  className={`${inputClass} resize-none`}
+                />
+              </Field>
+
+              <Field label="Current Medications">
+                <textarea
+                  name="medications"
+                  placeholder="List any current medications, or write 'None'"
+                  value={formData.medications}
+                  onChange={handleInputChange}
+                  rows={3}
+                  className={`${inputClass} resize-none`}
+                />
+              </Field>
             </div>
+          </section>
 
-            {/* Donation Schedule Section */}
-            <div>
-              <div className="flex items-center mb-6">
-                <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mr-3">
-                  <FaCalendarAlt className="text-red-600" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900">
-                  Donation Schedule
-                </h3>
-              </div>
-
-              <div className="space-y-6 bg-gray-50 p-6 rounded-2xl">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block mb-2 font-semibold text-gray-700">
-                      Preferred Donation Date *
-                    </label>
-                    <input
-                      type="date"
-                      name="donationDate"
-                      value={formData.donationDate}
-                      onChange={handleInputChange}
-                      min={new Date().toISOString().split("T")[0]}
-                      className="w-full p-4 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 hover:border-gray-400"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block mb-2 font-semibold text-gray-700 flex items-center">
-                      <FaClock className="mr-2 text-red-600" />
-                      Preferred Time *
-                    </label>
-                    <input
-                      type="time"
-                      name="donationTime"
-                      value={formData.donationTime}
-                      onChange={handleInputChange}
-                      className="w-full p-4 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 hover:border-gray-400"
-                    />
-                  </div>
-                </div>
-              </div>
+          
+          <section>
+            <SectionHeader icon={FaCalendarAlt} title="Donation Schedule" />
+            <div className="grid sm:grid-cols-2 gap-5">
+              <Field label="Preferred Donation Date" required>
+                <input
+                  type="date"
+                  name="donationDate"
+                  value={formData.donationDate}
+                  onChange={handleInputChange}
+                  min={new Date().toISOString().split("T")[0]}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Preferred Time" required>
+                <input
+                  type="time"
+                  name="donationTime"
+                  value={formData.donationTime}
+                  onChange={handleInputChange}
+                  className={inputClass}
+                />
+              </Field>
             </div>
+          </section>
 
-            {/* Consents Section */}
-            <div>
-              <div className="flex items-center mb-6">
-                <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mr-3">
-                  <FaShieldAlt className="text-red-600" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900">
-                  Consents & Agreements
-                </h3>
-              </div>
 
-              <div className="space-y-4 bg-gray-50 p-6 rounded-2xl">
-                <label className="flex items-start p-4 border border-gray-200 rounded-xl cursor-pointer hover:bg-white transition-colors duration-200">
+          <section>
+            <SectionHeader icon={FaShieldAlt} title="Consents & Agreements" />
+            <div className="space-y-3">
+              {[
+                {
+                  name: "consentDonate",
+                  title: "I consent to donate blood",
+                  body: "I understand the donation process and agree to donate blood to help save lives.",
+                  required: true,
+                },
+                {
+                  name: "consentTest",
+                  title: "I consent to infectious disease testing",
+                  body: "I agree to be tested for infectious diseases including HIV, Hepatitis B, C, and Syphilis.",
+                  required: true,
+                },
+                {
+                  name: "consentTerms",
+                  title: "I agree to hospital terms and conditions",
+                  body: "I have read and agree to the hospital's privacy policy and terms of service.",
+                  required: true,
+                },
+              ].map(({ name, title, body, required }) => (
+                <label
+                  key={name}
+                  className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-xl p-4 cursor-pointer hover:border-red-200 hover:bg-red-50 transition-all"
+                >
                   <input
                     type="checkbox"
-                    name="consentDonate"
-                    checked={formData.consentDonate}
+                    name={name}
+                    checked={formData[name]}
                     onChange={handleInputChange}
-                    className="w-5 h-5 text-red-600 mt-1 flex-shrink-0"
+                    className="mt-0.5 w-4 h-4 accent-red-500 shrink-0"
                   />
-                  <span className="ml-3 text-gray-700">
-                    <span className="font-semibold text-gray-900">
-                      I consent to donate blood *
+                  <span>
+                    <span className="text-sm font-bold text-slate-800">
+                      {title}{" "}
+                      {required && <span className="text-red-400">*</span>}
                     </span>
-                    <p className="text-sm text-gray-600 mt-1">
-                      I understand the donation process and agree to donate
-                      blood to help save lives
+                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                      {body}
                     </p>
                   </span>
                 </label>
-
-                <label className="flex items-start p-4 border border-gray-200 rounded-xl cursor-pointer hover:bg-white transition-colors duration-200">
-                  <input
-                    type="checkbox"
-                    name="consentTest"
-                    checked={formData.consentTest}
-                    onChange={handleInputChange}
-                    className="w-5 h-5 text-red-600 mt-1 flex-shrink-0"
-                  />
-                  <span className="ml-3 text-gray-700">
-                    <span className="font-semibold text-gray-900">
-                      I consent to infectious disease testing *
-                    </span>
-                    <p className="text-sm text-gray-600 mt-1">
-                      I agree to be tested for infectious diseases including
-                      HIV, Hepatitis B, C, and Syphilis
-                    </p>
-                  </span>
-                </label>
-
-                <label className="flex items-start p-4 border border-gray-200 rounded-xl cursor-pointer hover:bg-white transition-colors duration-200">
-                  <input
-                    type="checkbox"
-                    name="consentTerms"
-                    checked={formData.consentTerms}
-                    onChange={handleInputChange}
-                    className="w-5 h-5 text-red-600 mt-1 flex-shrink-0"
-                  />
-                  <span className="ml-3 text-gray-700">
-                    <span className="font-semibold text-gray-900">
-                      I agree to hospital terms and conditions *
-                    </span>
-                    <p className="text-sm text-gray-600 mt-1">
-                      I have read and agree to the hospital's privacy policy and
-                      terms of service
-                    </p>
-                  </span>
-                </label>
-              </div>
+              ))}
             </div>
+          </section>
 
-            {/* Information Box */}
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
-              <div className="flex items-start">
-                <FaHeart className="text-red-600 text-xl mt-1 mr-3 flex-shrink-0" />
-                <div className="text-sm">
-                  <p className="font-semibold text-red-900 mb-1">
-                    Why donate blood?
-                  </p>
-                  <p className="text-red-700">
-                    Your donation can save up to 3 lives. Blood is essential for
-                    surgeries, trauma care, and treating blood disorders. Make a
-                    difference today!
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <div className="pt-4">
-              <button
-                onClick={handleRegistration}
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-red-600 to-rose-500 text-white py-4 px-6 rounded-xl font-semibold hover:from-red-700 hover:to-rose-600 transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95 flex items-center justify-center text-lg"
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                    Processing Registration...
-                  </>
-                ) : (
-                  <>
-                    <FaCheckCircle className="mr-2" />
-                    Complete Registration
-                  </>
-                )}
-              </button>
-            </div>
+          <div className="pt-1">
+            <button
+              onClick={handleRegistration}
+              disabled={loading}
+              className="flex items-center gap-2 px-6 py-2.5 bg-red-600 hover:bg-red-700
+                         text-white text-sm font-semibold rounded-xl transition-colors duration-150  cursor-pointer
+                         disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <FaPaperPlane className="text-xs" />
+              {loading ? "Submitting…" : "Complete Registration"}
+            </button>
           </div>
         </div>
+      </main>
 
-        {/* Benefits Section */}
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 text-center hover:shadow-xl transition-shadow duration-300">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FaHeart className="text-3xl text-red-600" />
-            </div>
-            <h3 className="font-bold text-gray-900 mb-2 text-lg">Save Lives</h3>
-            <p className="text-gray-600 text-sm">
-              One donation can save up to 3 lives and help patients in critical
-              need
-            </p>
-          </div>
-
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 text-center hover:shadow-xl transition-shadow duration-300">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FaCheckCircle className="text-3xl text-red-600" />
-            </div>
-            <h3 className="font-bold text-gray-900 mb-2 text-lg">
-              Quick Process
-            </h3>
-            <p className="text-gray-600 text-sm">
-              The entire donation process takes about 45 minutes from start to
-              finish
-            </p>
-          </div>
-
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 text-center hover:shadow-xl transition-shadow duration-300">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FaShieldAlt className="text-3xl text-red-600" />
-            </div>
-            <h3 className="font-bold text-gray-900 mb-2 text-lg">
-              Safe & Sterile
-            </h3>
-            <p className="text-gray-600 text-sm">
-              All equipment is sterile and single-use to ensure your safety
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div>
-        <Footer />
-      </div>
+      <Footer />
     </div>
   );
 };

@@ -2,17 +2,29 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 import { Header, Footer } from "../../components/layouts";
-import { 
-  FaUserMd, 
-  FaGraduationCap, 
-  FaHospital, 
-  FaClock, 
-  FaPhone, 
-  FaEnvelope, 
-  FaMapMarkerAlt,
+import {
+  FaUserMd,
+  FaGraduationCap,
+  FaClock,
   FaCalendarAlt,
-  FaArrowLeft
+  FaArrowLeft,
+  FaStethoscope,
 } from "react-icons/fa";
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000"; 
+
+
+const Shell = ({ children }) => (
+  <div className="min-h-screen flex flex-col bg-slate-100">
+    <div className="sticky top-0 z-50 bg-white border-b border-slate-200">
+      <Header />
+    </div>
+    <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-10">
+      {children}
+    </main>
+    <Footer />
+  </div>
+);
 
 const DoctorDetails = () => {
   const { id } = useParams();
@@ -26,10 +38,9 @@ const DoctorDetails = () => {
       try {
         const res = await api.get(`/doctors/doctors/${id}`);
         setDoctor(res.data.data);
-        // console.log("Doctor data:", res.data.data);
       } catch (err) {
         console.error(err);
-        setError("Doctor not found or error fetching data");
+        setError("Doctor not found or error fetching data.");
       } finally {
         setLoading(false);
       }
@@ -37,189 +48,182 @@ const DoctorDetails = () => {
     fetchDoctor();
   }, [id]);
 
- 
-  const formatAvailability = (availability) => {
-    if (!availability || availability.length === 0) {
-      return "Schedule not available";
-    }
-    
-    return availability.map((slot, index) => (
-      <div key={index} className="flex items-start gap-3 py-3 border-b border-gray-100 last:border-b-0">
-        <FaClock className="text-blue-600 mt-1 flex-shrink-0" />
-        <div className="flex-1">
-          <p className="font-semibold text-gray-800">{slot.day}</p>
-          <p className="text-sm text-gray-600">
-            {slot.startTime} - {slot.endTime}
-          </p>
-        </div>
-      </div>
-    ));
-  };
-
- 
-  const fullName = doctor?.userId?.firstName && doctor?.userId?.lastName
-    ? `Dr. ${doctor.userId.firstName} ${doctor.userId.lastName}`
-    : doctor?.userId?.firstName 
-    ? `Dr. ${doctor.userId.firstName}`
-    : "Doctor";
 
   if (loading) {
     return (
-      <div>
-        <div className="sticky top-0 z-50 bg-white/60 backdrop-blur-md shadow-sm">
-          <Header />
+      <Shell>
+        <div className="flex flex-col items-center justify-center py-32 gap-4">
+          <div className="w-10 h-10 border-4 border-slate-200  rounded-full animate-spin" />
+          <p className="text-slate-500 text-sm">Loading doctor details…</p>
         </div>
-        <div className="flex justify-center items-center min-h-screen">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading doctor details...</p>
-          </div>
-        </div>
-        <Footer />
-      </div>
+      </Shell>
     );
   }
+
 
   if (error || !doctor) {
     return (
-      <div>
-        <div className="sticky top-0 z-50 bg-white/60 backdrop-blur-md shadow-sm">
-          <Header />
-        </div>
-        <div className="flex justify-center items-center min-h-screen">
-          <div className="text-center">
-            <p className="text-red-500 text-lg mb-4">{error || "Doctor not found"}</p>
-            <button
-              onClick={() => navigate("/doctors")}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg cursor-pointer hover:bg-blue-700 transition-colors"
-            >
-              Back to Specialists
-            </button>
+      <Shell>
+        <div className="flex flex-col items-center justify-center py-32 gap-4 text-center">
+          <div className="w-14 h-14 rounded-full bg-red-50 border border-red-200 flex items-center justify-center">
+            <FaUserMd className="text-2xl text-red-400" />
           </div>
+          <p className="font-semibold text-slate-700">{error || "Doctor not found."}</p>
+          <button
+            onClick={() => navigate("/doctors")}
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm
+                       font-semibold rounded-xl transition-colors duration-150 cursor-pointer"
+          >
+            Back to Specialists
+          </button>
         </div>
-        <Footer />
-      </div>
+      </Shell>
     );
   }
 
+
+  const fullName =
+    doctor?.userId?.firstName && doctor?.userId?.lastName
+      ? `Dr. ${doctor.userId.firstName} ${doctor.userId.lastName}`
+      : doctor?.userId?.firstName
+      ? `Dr. ${doctor.userId.firstName}`
+      : "Doctor";
+
+  const education = doctor.education || doctor.profile?.educationalQualification;
+  const avatarSrc = doctor.profile?.imageUrl
+    ? `${BACKEND_URL}${doctor.profile.imageUrl}`
+    : null;
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <div className="sticky top-0 z-50 bg-white/60 backdrop-blur-md shadow-sm">
-        <Header />
-      </div>
+    <Shell>
+      
+      <button
+        onClick={() => navigate("/doctors")}
+        className="flex items-center gap-2 text-sm font-semibold text-slate-500
+                   hover:text-blue-600 transition-colors duration-150 mb-8 cursor-pointer"
+      >
+        <FaArrowLeft className="text-xs" /> Back to Specialists
+      </button>
 
-      <div className="flex-1 bg-gray-50">
-        <div className="px-6 py-8 max-w-7xl mx-auto">
-  
-          <button
-            onClick={() => navigate("/doctors")}
-            className="flex items-center gap-2 text-blue-600 cursor-pointer hover:text-blue-700 mb-6 font-semibold transition-colors"
-          >
-            <FaArrowLeft />
-            Back to Specialists
-          </button>
-
-
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-6">
-            <div className="bg-gradient-to-r from-blue-400 to-indigo-400 h-32"></div>
-            <div className="px-6 md:px-10 pb-8">
-              <div className="flex flex-col md:flex-row gap-6 -mt-16">
+      
+      <div className="bg-blue-50 border border-slate-200 rounded-2xl overflow-hidden mb-6">
        
-                <div className="flex-shrink-0">
-                  {doctor.profile?.imageUrl ? (
-                    <img
-                      src={`http://localhost:5000${doctor.profile.imageUrl}`}
-                      alt={fullName}
-                      className="w-40 h-40 object-cover rounded-2xl shadow-xl border-4 border-white"
-                    />
-                  ) : (
-                    <div className="w-40 h-40 bg-gradient-to-br from-blue-100 to-blue-200 rounded-2xl shadow-xl border-4 border-white flex items-center justify-center">
-                      <FaUserMd className="text-6xl text-blue-400" />
-                    </div>
-                  )}
-                </div>
+     
 
-   
-                <div className="flex-1 mt-6">
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">{fullName}</h1>
-                  <div className="flex flex-wrap gap-3 mb-4">
-                    <span className="px-4 py-2  text-blue-700  text-sm font-semibold flex items-center gap-2">
-                      <FaUserMd />
-                      {doctor.speciality || "General Practitioner"}
-                    </span>
-
-                  </div>
-
-
-                </div>
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 p-8">
+     
+          <div className="shrink-0">
+            {avatarSrc ? (
+              <img
+                src={avatarSrc}
+                alt={fullName}
+                className="w-32 h-32 object-cover rounded-xl border border-slate-200"
+              />
+            ) : (
+              <div className="w-32 h-32 rounded-xl bg-blue-600 flex items-center justify-center">
+                <FaUserMd className="text-5xl text-white" />
               </div>
-            </div>
+            )}
           </div>
 
-
-          <div className="grid md:grid-cols-3 gap-6">
-
-            <div className="md:col-span-2 space-y-6">
-
-              <div className="bg-white rounded-xl shadow-md p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <FaUserMd className="text-blue-600" />
-                  Professional Bio
-                </h2>
-                <p className="text-gray-700 leading-relaxed">
-                  {doctor.bio || "No professional bio available at this time."}
-                </p>
-              </div>
-
-  
-              <div className="bg-white rounded-xl shadow-md p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <FaGraduationCap className="text-blue-600" />
-                  Educational Qualifications
-                </h2>
-                <div className="text-gray-700 leading-relaxed">
-                  {doctor.education || doctor.profile?.educationalQualification ? (
-                    <p>{doctor.education || doctor.profile?.educationalQualification}</p>
-                  ) : (
-                    <p className="text-gray-500 italic">No educational qualifications listed</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="md:col-span-1">
-              <div className="bg-white rounded-xl shadow-md p-6 sticky top-24">
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <FaCalendarAlt className="text-blue-600" />
-                  Availability Schedule
-                </h2>
-                
-                <div className="space-y-2">
-                  {doctor.availability && doctor.availability.length > 0 ? (
-                    formatAvailability(doctor.availability)
-                  ) : (
-                    <div className="text-center py-6">
-                      <FaClock className="text-4xl text-gray-300 mx-auto mb-3" />
-                      <p className="text-gray-500 text-sm">Schedule not available</p>
-                    </div>
-                  )}
-                </div>
-
-
-                <button
-                  onClick={() => navigate("/appointment")}
-                  className="w-full mt-6 px-6 py-3 bg-blue-600 text-white rounded-lg cursor-pointer hover:bg-blue-700 transition-colors font-semibold shadow-md hover:shadow-lg"
-                >
-                  Book Appointment
-                </button>
-              </div>
-            </div>
+        
+          <div className="text-center sm:text-left">
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-800 mb-1">
+              {fullName}
+            </h1>
+            <p className="flex items-center justify-center sm:justify-start gap-1.5
+                          text-blue-600 font-semibold text-sm mb-3">
+              <FaStethoscope className="text-xs" />
+              {doctor.speciality || "General Practitioner"}
+            </p>
+            {doctor.department && (
+              <span className="inline-block px-3 py-1 rounded-full bg-slate-100 border border-slate-200
+                               text-slate-600 text-xs font-semibold">
+                {doctor.department}
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      <Footer />
-    </div>
+
+      <div className="grid md:grid-cols-3 gap-6">
+
+     
+        <div className="md:col-span-2 flex flex-col gap-6">
+
+       
+          <div className="bg-white border border-slate-200 rounded-2xl p-6">
+            <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-100">
+              <FaUserMd className="text-blue-500 text-sm" />
+              <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                Professional Bio
+              </h2>
+            </div>
+            <p className="text-slate-700 text-[0.97rem] leading-relaxed">
+              {doctor.bio || (
+                <span className="text-slate-400 italic">No professional bio available at this time.</span>
+              )}
+            </p>
+          </div>
+
+      
+          <div className="bg-white border border-slate-200 rounded-2xl p-6">
+            <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-100">
+              <FaGraduationCap className="text-blue-500 text-sm" />
+              <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                Educational Qualifications
+              </h2>
+            </div>
+            {education ? (
+              <p className="text-slate-700 text-[0.97rem] leading-relaxed">{education}</p>
+            ) : (
+              <p className="text-slate-400 italic text-sm">No educational qualifications listed.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="md:col-span-1">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 sticky top-24">
+            <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-100">
+              <FaCalendarAlt className="text-blue-500 text-sm" />
+              <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                Availability
+              </h2>
+            </div>
+
+            {doctor.availability?.length > 0 ? (
+              <div className="divide-y divide-slate-100">
+                {doctor.availability.map((slot, i) => (
+                  <div key={i} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                    <FaClock className="text-blue-400 text-xs mt-1 shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">{slot.day}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {slot.startTime} – {slot.endTime}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center py-6 gap-2 text-center">
+                <FaClock className="text-3xl text-slate-300" />
+                <p className="text-slate-400 text-sm">Schedule not available.</p>
+              </div>
+            )}
+
+            <button
+              onClick={() => navigate("/appointment")}
+              className="w-full mt-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm
+                         font-semibold rounded-xl transition-colors duration-150 cursor-pointer"
+            >
+              Book Appointment
+            </button>
+          </div>
+        </div>
+      </div>
+    </Shell>
   );
 };
 

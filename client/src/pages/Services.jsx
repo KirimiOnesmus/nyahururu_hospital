@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
 import Card from "../components/layouts/Card";
 import { Header, Partners, Footer } from "../components/layouts";
-// import axios from "axios";
 import { useSearchParams } from "react-router-dom";
 import api from "../api/axios";
+import { FaTimes } from "react-icons/fa";
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
 const Services = () => {
   const [services, setServices] = useState([]);
@@ -17,7 +19,12 @@ const Services = () => {
   const [categoriesInDivision, setCategoriesInDivision] = useState([]);
   const [searchParams] = useSearchParams();
 
-  const BACKEND_URL = "http://localhost:5000";
+  const filterServices = (list, division, category) => {
+    let result = list;
+    if (division) result = result.filter((s) => s.division === division);
+    if (category) result = result.filter((s) => s.category === category);
+    setFilteredServices(result);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -26,117 +33,94 @@ const Services = () => {
       try {
         setLoading(true);
         const res = await api.get("/services");
+        if (!isMounted) return;
 
-        if (isMounted) {
-          setServices(res.data);
-          setError(null);
+        const data = res.data;
+        setServices(data);
+        setError(null);
 
-          const divisions = [
-            ...new Set(res.data.map((s) => s.division).filter(Boolean)),
-          ];
-          setAllDivisions(divisions.sort());
+        const divisions = [
+          ...new Set(data.map((s) => s.division).filter(Boolean)),
+        ].sort();
+        const categories = [
+          ...new Set(data.map((s) => s.category).filter(Boolean)),
+        ].sort();
+        setAllDivisions(divisions);
+        setAllCategories(categories);
 
-          const categories = [
-            ...new Set(res.data.map((s) => s.category).filter(Boolean)),
-          ];
-          setAllCategories(categories.sort());
+        const divParam = searchParams.get("division");
+        const catParam = searchParams.get("category");
 
-          const divisionParam = searchParams.get("division");
-          const categoryParam = searchParams.get("category");
+        if (divParam) {
+          const div = decodeURIComponent(divParam);
+          setSelectedDivision(div);
 
-          if (divisionParam) {
-            const decodedDivision = decodeURIComponent(divisionParam);
-            setSelectedDivision(decodedDivision);
+          const divCats = [
+            ...new Set(
+              data
+                .filter((s) => s.division === div)
+                .map((s) => s.category)
+                .filter(Boolean),
+            ),
+          ].sort();
+          setCategoriesInDivision(divCats);
 
-            const divisionCategories = [
-              ...new Set(
-                res.data
-                  .filter((s) => s.division === decodedDivision)
-                  .map((s) => s.category)
-                  .filter(Boolean)
-              ),
-            ].sort();
-            setCategoriesInDivision(divisionCategories);
-
-            if (categoryParam) {
-              const decodedCategory = decodeURIComponent(categoryParam);
-              setSelectedCategory(decodedCategory);
-              filterServices(res.data, decodedDivision, decodedCategory);
-            } else {
-              filterServices(res.data, decodedDivision, null);
-            }
-          } else if (categoryParam) {
-            const decodedCategory = decodeURIComponent(categoryParam);
-            setSelectedCategory(decodedCategory);
-            filterServices(res.data, null, decodedCategory);
+          if (catParam) {
+            const cat = decodeURIComponent(catParam);
+            setSelectedCategory(cat);
+            filterServices(data, div, cat);
           } else {
-            setFilteredServices(res.data);
-            setSelectedDivision(null);
-            setSelectedCategory(null);
+            filterServices(data, div, null);
           }
+        } else if (catParam) {
+          const cat = decodeURIComponent(catParam);
+          setSelectedCategory(cat);
+          filterServices(data, null, cat);
+        } else {
+          setFilteredServices(data);
         }
       } catch (err) {
         console.error("Failed to fetch services:", err);
-        if (isMounted) {
-          setError("Failed to load services. Please try again.");
-          setServices([]);
-          setFilteredServices([]);
-        }
+        if (!isMounted) return;
+        setError("Failed to load services. Please try again.");
+        setServices([]);
+        setFilteredServices([]);
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        if (isMounted) setLoading(false);
       }
     };
 
     fetchServices();
-
     return () => {
       isMounted = false;
     };
   }, [searchParams]);
 
-  const filterServices = (servicesList, division, category) => {
-    let filtered = servicesList;
-
-    if (division) {
-      filtered = filtered.filter((service) => service.division === division);
-    }
-
-    if (category) {
-      filtered = filtered.filter((service) => service.category === category);
-    }
-
-    setFilteredServices(filtered);
-  };
-
   const handleDivisionChange = (division) => {
-    if (division === null || division === selectedDivision) {
-      // Clear division filter
+    if (!division || division === selectedDivision) {
       setSelectedDivision(null);
       setSelectedCategory(null);
       setCategoriesInDivision([]);
       filterServices(services, null, null);
-    } else {
-      setSelectedDivision(division);
-      setSelectedCategory(null);
-
-      const divisionCategories = [
-        ...new Set(
-          services
-            .filter((s) => s.division === division)
-            .map((s) => s.category)
-            .filter(Boolean)
-        ),
-      ].sort();
-      setCategoriesInDivision(divisionCategories);
-
-      filterServices(services, division, null);
+      return;
     }
+    setSelectedDivision(division);
+    setSelectedCategory(null);
+
+    const divCats = [
+      ...new Set(
+        services
+          .filter((s) => s.division === division)
+          .map((s) => s.category)
+          .filter(Boolean),
+      ),
+    ].sort();
+    setCategoriesInDivision(divCats);
+    filterServices(services, division, null);
   };
 
   const handleCategoryChange = (category) => {
-    if (category === null || category === selectedCategory) {
+    if (!category || category === selectedCategory) {
       setSelectedCategory(null);
       filterServices(services, selectedDivision, null);
     } else {
@@ -151,154 +135,208 @@ const Services = () => {
     setCategoriesInDivision([]);
     setFilteredServices(services);
   };
-  // if(loading){
-  //   return(
-  //      <div className="fixed inset-0 flex items-center justify-center bg-white z-50">
-  //       <div className="flex flex-col justify-center items-center gap-4">
-  //         <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600"></div>
 
-  //       </div>
-  //     </div>
-  //   )
-  // }
+  const hasActiveFilter = selectedDivision || selectedCategory;
 
   return (
-    <div className="">
-      <div className="sticky top-0 z-50 bg-white/60 backdrop-blur-md shadow-sm">
+    <div className="min-h-screen flex flex-col bg-slate-50">
+      <div className="sticky top-0 z-50 bg-white border-b border-slate-200">
         <Header />
       </div>
-      <div className="body px-6 md:px-12 py-8">
-        <h2 className="text-3xl font-bold border-l-4 border-blue-500 px-2 mb-6 flex items-center">
-          Our Services & Departments -{" "}
-          <span
-            className={` rounded-full  ${
-              selectedDivision === "Outpatient"
-                ? "text-purple-600 "
-                : "text-indigo-600 "
-            }`}
-          >
-            ({selectedDivision})
-          </span>
-        </h2>
 
+      <main className="flex-1 max-w-7xl mx-auto w-full px-6 md:px-10 py-10">
+        <div className="mb-8">
+          <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-1">
+            What We Offer
+          </p>
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-800">
+            Our Services &amp; Departments
+            {selectedDivision && (
+              <span className="text-blue-600"> — {selectedDivision}</span>
+            )}
+          </h2>
+        </div>
+
+        {/* ── Filters ── */}
         {!loading && services.length > 0 && (
-          <div className="mb-8">
-            <div className="">
-              <div className="md:flex items-center justify-between mb-4">
-                {" "}
-                <p className="text-gray-700 mb-3 font-semibold text-lg">
-                  Filter by Category
-                  {selectedDivision && (
-                    <span className="text-sm text-gray-500 ml-2">
-                      (in {selectedDivision})
-                    </span>
-                  )}
-                  :
-                </p>
-                <p className="text-gray-700">
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-8">
+            <div className="flex flex-wrap gap-4 items-end justify-between">
+              <div className="flex flex-wrap gap-4 flex-1">
+                <div className="flex flex-col gap-1 min-w-[180px]">
+                  <label className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                    Division
+                  </label>
+                  <select
+                    value={selectedDivision || ""}
+                    onChange={(e) =>
+                      handleDivisionChange(e.target.value || null)
+                    }
+                    className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700
+                               text-sm font-medium outline-none focus:border-blue-400 focus:ring-2
+                               focus:ring-blue-100 transition-all cursor-pointer"
+                  >
+                    <option value="">All Divisions</option>
+                    {allDivisions.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1 min-w-[180px]">
+                  <label className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                    Category
+                    {selectedDivision && (
+                      <span className="normal-case font-normal text-slate-400 ml-1">
+                        (in {selectedDivision})
+                      </span>
+                    )}
+                  </label>
+                  <select
+                    value={selectedCategory || ""}
+                    onChange={(e) =>
+                      handleCategoryChange(e.target.value || null)
+                    }
+                    className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700
+                               text-sm font-medium outline-none focus:border-blue-400 focus:ring-2
+                               focus:ring-blue-100 transition-all cursor-pointer"
+                  >
+                    <option value="">All Categories</option>
+                    {(selectedDivision
+                      ? categoriesInDivision
+                      : allCategories
+                    ).map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Count + clear */}
+              <div className="flex items-center gap-4 shrink-0">
+                <p className="text-sm text-slate-500">
                   Showing{" "}
-                  <span className="font-bold text-blue-600">
+                  <span className="font-bold text-slate-800">
                     {filteredServices.length}
                   </span>{" "}
                   of{" "}
-                  <span className="font-bold text-blue-600">
+                  <span className="font-bold text-slate-800">
                     {services.length}
                   </span>{" "}
                   services
-                  {selectedCategory && (
-                    <span className="text-blue-700 ml-2">
-                      in <span className="font-bold">{selectedCategory}</span>{" "}
-                      category
-                    </span>
-                  )}
                 </p>
-              </div>
-
-              <div className="w-full md:w-auto md:ml-auto">
-                <select
-                  id="category-select"
-                  value={selectedCategory || ""}
-                  onChange={(e) => handleCategoryChange(e.target.value || null)}
-                  className="w-full md:w-64 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 font-semibold shadow-sm outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">All Categories</option>
-                  {selectedDivision ? (
-                    categoriesInDivision.length > 0 ? (
-                      categoriesInDivision.map((category) => (
-                        <option key={category} value={category}>
-                          {category}
-                        </option>
-                      ))
-                    ) : (
-                      <option disabled>
-                        No categories available in this division
-                      </option>
-                    )
-                  ) : (
-                    allCategories.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    ))
-                  )}
-                </select>
+                {hasActiveFilter && (
+                  <button
+                    onClick={handleClearFilters}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-red-500
+                               hover:text-red-700 border border-red-200 hover:border-red-400
+                               px-3 py-1.5 rounded-lg transition-colors duration-150 cursor-pointer"
+                  >
+                    <FaTimes className="text-[10px]" /> Clear filters
+                  </button>
+                )}
               </div>
             </div>
+
+            {/* Active filter chips */}
+            {hasActiveFilter && (
+              <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-100">
+                {selectedDivision && (
+                  <span
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50
+                                   border border-blue-200 text-blue-700 text-xs font-semibold"
+                  >
+                    Division: {selectedDivision}
+                    <button
+                      onClick={() => handleDivisionChange(null)}
+                      className="hover:text-blue-900 cursor-pointer"
+                    >
+                      <FaTimes className="text-[9px]" />
+                    </button>
+                  </span>
+                )}
+                {selectedCategory && (
+                  <span
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100
+                                   border border-slate-200 text-slate-700 text-xs font-semibold"
+                  >
+                    Category: {selectedCategory}
+                    <button
+                      onClick={() => handleCategoryChange(null)}
+                      className="hover:text-slate-900 cursor-pointer"
+                    >
+                      <FaTimes className="text-[9px]" />
+                    </button>
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         )}
 
+        {/* ── States ── */}
         {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <div className="w-10 h-10 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
+            <p className="text-slate-500 text-sm">Loading services…</p>
           </div>
         ) : error ? (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-5 py-4 rounded-xl">
             {error}
           </div>
         ) : filteredServices.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-600 text-lg mb-4">
-              No services found with the selected filters
+          <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+            <p className="text-slate-600 font-semibold">
+              No services found with the selected filters.
             </p>
             <button
               onClick={handleClearFilters}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold
+                         rounded-xl transition-colors duration-150 cursor-pointer"
             >
-              Clear Filters & View All Services
+              Clear Filters &amp; View All
             </button>
           </div>
         ) : (
-          <>
-            <div className="services grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredServices.map((service) => (
-                <div key={service._id} className="relative">
-                  {service.nhifCovered && (
-                    <span className="absolute top-4 right-4 z-10 text-xs px-3 py-1 rounded-full font-semibold shadow-md bg-green-600 text-white">
-                      SHA Covered
-                    </span>
-                  )}
-
-                  <Card
-                    id={service._id}
-                    image={`${BACKEND_URL}${service.imageUrl}`}
-                    title={service.name}
-                    buttonText="Learn More"
-                  />
-                </div>
-              ))}
-            </div>
-          </>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filteredServices.map((service) => (
+              <div key={service._id} className="relative">
+                {service.nhifCovered && (
+                  <span
+                    className="absolute top-3 right-3 z-10 text-xs px-2.5 py-0.5 rounded-full
+                                   font-semibold bg-emerald-600 text-white border border-emerald-700"
+                  >
+                    SHA Covered
+                  </span>
+                )}
+                <Card
+                  id={service._id}
+                  image={`${BACKEND_URL}${service.imageUrl}`}
+                  title={service.name}
+                  buttonText="Learn More"
+                />
+              </div>
+            ))}
+          </div>
         )}
 
-        <div className="py-12">
-          <h3 className="text-3xl font-bold my-4 text-center">Our Partners</h3>
-          <Partners />
-        </div>
-      </div>
+        {!loading && (
+          <div className="mt-16 pt-10 border-t border-slate-200">
+            <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-1 text-center">
+              Trusted By
+            </p>
+            <h3 className="text-2xl font-bold text-slate-800 text-center mb-8">
+              Our Partners
+            </h3>
+            <Partners />
+          </div>
+        )}
+      </main>
 
-      <div className="">
-        <Footer />
-      </div>
+      <Footer />
     </div>
   );
 };

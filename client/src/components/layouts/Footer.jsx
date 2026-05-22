@@ -8,125 +8,111 @@ import { useNavigate } from "react-router-dom";
 
 const Footer = () => {
   const navigate = useNavigate();
-  
   const currentYear = new Date().getFullYear();
 
   const quickLinks = [
     { label: "Give us your Feedback", path: "/feedback" },
     { label: "Report Fraud", path: "/report-fraud" },
-    { label: "Events", path: "/events" },
     { label: "Careers", path: "/careers" },
     { label: "Tenders", path: "/tenders" },
     { label: "Downloads", path: "/downloads" },
     { label: "Research", path: "/research" },
-   
   ];
 
   const contactInfo = [
-    { icon: FaPhoneAlt, label: "0712345678", type: "phone" },
+    { icon: FaPhoneAlt, label: "0712 345 678", type: "phone" },
     { icon: MdEmail, label: "nyahururuhospital@gmail.com", type: "email" },
-    { icon: MdLocationOn, label: "Along Nyahururu-Nakuru Road", type: "location" },
+    { icon: MdLocationOn, label: "Along Nyahururu–Nakuru Road", type: "location" },
   ];
 
   const socialLinks = [
-    { icon: MdFacebook, color: "text-blue-600", label: "Facebook", url: "#" },
-    { icon: FaSquareXTwitter, color: "text-black", label: "Twitter", url: "#" },
-    { icon: AiFillInstagram, color: "text-pink-500", label: "Instagram", url: "#" },
+    { icon: MdFacebook, label: "Facebook", url: "#" },
+    { icon: FaSquareXTwitter, label: "Twitter", url: "#" },
+    { icon: AiFillInstagram, label: "Instagram", url: "#" },
   ];
-  
+
   const externalLinks = [
-    {
-      label: "Ministry of Health",
-      path: "https://www.health.go.ke/"
-    },
-    {
-      label: "Laikipia County Government",
-      path: "https://laikipia.go.ke/"
-    },
-    {
-      label: "Social Health Authority",
-      path: "https://sha.go.ke/"
-    },
-    {
-      label: "Kenya Medical Training College",
-      path: "https://kmtc.ac.ke/"
-    }
+    { label: "Ministry of Health", path: "https://www.health.go.ke/" },
+    { label: "Laikipia County Government", path: "https://laikipia.go.ke/" },
+    { label: "Social Health Authority", path: "https://sha.go.ke/" },
+    { label: "Kenya Medical Training College", path: "https://kmtc.ac.ke/" },
   ];
 
   return (
-    <footer className="bg-gradient-to-b from-gray-50 to-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <footer className="bg-white border-t border-slate-200 mt-auto">
+      <div className="max-w-7xl mx-auto px-6 md:px-10">
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 py-12">
-    
-          <div className="flex flex-col items-center md:items-start">
-            <img src={logo} alt="Nyahururu Hospital logo" className="h-24 mb-4" />
-            <p className="text-sm text-gray-600 text-center md:text-left">
-              Providing quality healthcare services to our community
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 py-12">
+
+       
+          <div className="flex flex-col items-start gap-3">
+            <img src={logo} alt="Nyahururu Hospital logo" className="h-16" />
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Providing quality healthcare services to our community.
             </p>
-          </div>
-
-          <div>
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Get in Touch</h3>
-            <ul className="space-y-3">
-              {contactInfo.map((info, idx) => {
-                const Icon = info.icon;
-                return (
-                  <li key={idx} className="flex items-start space-x-3 group">
-                    <Icon className="text-blue-600 text-lg flex-shrink-0 mt-1" />
-                    <span className="text-gray-700 text-sm group-hover:text-blue-600 transition-colors duration-300 cursor-pointer">
-                      {info.label}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-            <div className="flex space-x-4 pt-3">
-              {socialLinks.map((social, idx) => {
-                const Icon = social.icon;
-                return (
-                  <a
-                    key={idx}
-                    href={social.url}
-                    aria-label={social.label}
-                    className={`${social.color} text-2xl hover:scale-110 transition-transform duration-300`}
-                  >
-                    <Icon />
-                  </a>
-                );
-              })}
+            {/* Social icons */}
+            <div className="flex gap-3 pt-1">
+              {socialLinks.map(({ icon: Icon, label, url }) => (
+                <a
+                  key={label}
+                  href={url}
+                  aria-label={label}
+                  className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-all duration-150"
+                >
+                  <Icon className="text-sm" />
+                </a>
+              ))}
             </div>
           </div>
 
           <div>
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Links</h3>
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">
+              Get in Touch
+            </p>
+            <ul className="space-y-3">
+              {contactInfo.map(({ icon: Icon, label }) => (
+                <li key={label} className="flex items-start gap-2.5">
+                  <Icon className="text-blue-500 text-sm shrink-0 mt-0.5" />
+                  <span className="text-xs text-slate-600 leading-relaxed">{label}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+      
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">
+              Quick Links
+            </p>
             <ul className="space-y-2">
-              {quickLinks.map((link, idx) => (
-                <li key={idx}>
+              {quickLinks.map(({ label, path }) => (
+                <li key={label}>
                   <button
-                    onClick={() => navigate(link.path)}
-                    className="text-gray-700 text-sm hover:text-blue-600 transition-colors
-                    cursor-pointer duration-300 font-medium"
+                    onClick={() => navigate(path)}
+                    className="text-xs text-slate-600 hover:text-blue-600 transition-colors duration-150 font-medium"
                   >
-                    {link.label}
+                    {label}
                   </button>
                 </li>
               ))}
             </ul>
           </div>
 
+     
           <div>
-            <h3 className="text-lg font-bold text-gray-900 mb-4">External Links</h3>
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">
+              External Links
+            </p>
             <ul className="space-y-2">
-              {externalLinks.map((link, idx) => (
-                <li key={idx}>
+              {externalLinks.map(({ label, path }) => (
+                <li key={label}>
                   <a
-                    href={link.path}
+                    href={path}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-gray-700 text-sm hover:text-blue-600 transition-colors duration-300 font-medium"
+                    className="text-xs text-slate-600 hover:text-blue-600 transition-colors duration-150 font-medium"
                   >
-                    {link.label}
+                    {label}
                   </a>
                 </li>
               ))}
@@ -134,19 +120,18 @@ const Footer = () => {
           </div>
         </div>
 
-        <div className="border-t border-gray-300"></div>
-
-        <div className="py-6 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
-          <p className="text-gray-600 text-sm">
+      
+        <div className="border-t border-slate-100 py-5 flex flex-col sm:flex-row justify-between items-center gap-3">
+          <p className="text-xs text-slate-400">
             &copy; {currentYear} Nyahururu Hospital. All rights reserved.
           </p>
           <a
             href="https://onesmuskirimi.netlify.app/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-600 text-sm hover:text-blue-800 transition-colors duration-300 font-medium"
+            className="text-xs text-blue-500 hover:text-blue-700 transition-colors duration-150 font-medium"
           >
-            Design & Development by Onesmus Kirimi - ITR Limited
+            Design &amp; Development by Onesmus Kirimi – ITR Limited
           </a>
         </div>
       </div>

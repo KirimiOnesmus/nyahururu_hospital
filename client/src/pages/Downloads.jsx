@@ -41,7 +41,6 @@ const Downloads = () => {
       setReports(reportsData);
       console.log("The reports to download:", reportsData);
 
-      // Extract unique categories
       const uniqueCategories = [
         ...new Set(reportsData.map((r) => r.category).filter(Boolean)),
       ];
@@ -66,7 +65,7 @@ const Downloads = () => {
         (r) =>
           r.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           r.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          r.category?.toLowerCase().includes(searchTerm.toLowerCase())
+          r.category?.toLowerCase().includes(searchTerm.toLowerCase()),
       );
     }
 
@@ -171,7 +170,8 @@ const Downloads = () => {
 
             <button
               onClick={() => handleDownload(report)}
-              className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white
+               rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium cursor-pointer"
             >
               <FaDownload className="mr-2" />
               Download
@@ -190,9 +190,7 @@ const Downloads = () => {
 
       <div className="p-6">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold mb-4 border-l-4 border-blue-500 pl-3">
-            Downloads Center
-          </h1>
+          <h1 className="text-3xl font-bold mb-4 ">Downloads Center</h1>
           <p className="text-xl text-blue-500">
             Access reports, documents, and resources
           </p>
@@ -200,7 +198,7 @@ const Downloads = () => {
       </div>
 
       <div className="max-w-7xl mx-auto p-6 space-y-8">
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-white  p-6">
           <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
             <div className="relative">
               <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
