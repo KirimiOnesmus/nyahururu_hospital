@@ -16,7 +16,7 @@ import {
   ApplyCareer,
   AmbulanceServices,
   BloodRegistration,
-  EventsPage,
+  // EventsPage,
   Downloads, 
   Tenders,
   VerifyEmail
@@ -95,7 +95,7 @@ function App() {
           <Route path="/hmis" element={<HMIS />} />
           <Route path="/ambulance-services" element={<AmbulanceServices />} />
           <Route path="/blood-registration" element={<BloodRegistration />} />
-          <Route path="/events" element={<EventsPage/>}/>
+          {/* <Route path="/events" element={<EventsPage/>}/> */}
           <Route path="/downloads" element={<Downloads/>}/>
           <Route path= "/tenders" element ={<Tenders/>}/>
           

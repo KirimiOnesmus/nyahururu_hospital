@@ -13,7 +13,6 @@ export { default as Dashboard } from "../components/Dashboard/Dashboard";
 export { default as ApplyCareer } from "./ApplyCareer";
 export { default as AmbulanceServices } from "./AmbulanceServices";
 export { default as BloodRegistration } from "./BloodRegistration";
-export { default as EventsPage } from "./EventsPage";
 export { default as Gallery } from "./Gallery";
 export { default as Tenders } from "./TenderPage";
 export { default as Downloads } from "./Downloads";

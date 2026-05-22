@@ -3,7 +3,91 @@ import { Header, TimeRibbon, Footer } from "../components/layouts";
 import DoctorCard from "../components/layouts/DoctorCard";
 import api from "../api/axios";
 import { useSearchParams } from "react-router-dom";
-import { FaTimes, FaUserMd } from "react-icons/fa";
+import { FaTimes, FaUserMd, FaChevronLeft, FaChevronRight } from "react-icons/fa";
+
+const PAGE_SIZE = 8;
+
+
+const DoctorSlider = ({ doctors }) => {
+  const [page, setPage] = useState(0);
+
+  const totalPages = Math.ceil(doctors.length / PAGE_SIZE);
+  const canPrev = page > 0;
+  const canNext = page < totalPages - 1;
+
+  useEffect(() => {
+    setPage(0);
+  }, [doctors]);
+
+  const currentSlice = doctors.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+
+  if (!doctors.length) return null;
+
+  return (
+    <div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+        {currentSlice.map((doctor) => (
+          <DoctorCard key={doctor._id} id={doctor._id} doctor={doctor} />
+        ))}
+      </div>
+
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6">
+
+          <div className="flex items-center gap-2">
+            {Array.from({ length: totalPages }).map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setPage(i)}
+                aria-label={`Go to page ${i + 1}`}
+                className={`rounded-full transition-all duration-200 cursor-pointer ${
+                  i === page
+                    ? "w-6 h-2 bg-blue-600"
+                    : "w-2 h-2 bg-slate-300 hover:bg-slate-400"
+                }`}
+              />
+            ))}
+          </div>
+
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-400 font-medium">
+              {page + 1} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => p - 1)}
+              disabled={!canPrev}
+              aria-label="Previous page"
+              className={`
+                w-9 h-9 rounded-full border flex items-center justify-center transition-all duration-150
+                ${canPrev
+                  ? "border-slate-300 text-slate-600 hover:border-blue-400 hover:text-blue-600 bg-white cursor-pointer"
+                  : "border-slate-100 text-slate-300 bg-slate-50 cursor-not-allowed"}
+              `}
+            >
+              <FaChevronLeft className="text-xs" />
+            </button>
+            <button
+              onClick={() => setPage((p) => p + 1)}
+              disabled={!canNext}
+              aria-label="Next page"
+              className={`
+                w-9 h-9 rounded-full border flex items-center justify-center transition-all duration-150
+                ${canNext
+                  ? "border-slate-300 text-slate-600 hover:border-blue-400 hover:text-blue-600 bg-white cursor-pointer"
+                  : "border-slate-100 text-slate-300 bg-slate-50 cursor-not-allowed"}
+              `}
+            >
+              <FaChevronRight className="text-xs" />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const Doctors = () => {
   const [loading, setLoading] = useState(true);
@@ -82,7 +166,7 @@ const Doctors = () => {
           </h2>
         </div>
 
-        {/* ── Filter bar ── */}
+
         {!loading && doctors.length > 0 && (
           <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-8">
             <div className="flex flex-wrap items-end justify-between gap-4">
@@ -92,18 +176,14 @@ const Doctors = () => {
                 </label>
                 <select
                   value={selectedDepartment || ""}
-                  onChange={(e) =>
-                    handleDepartmentChange(e.target.value || null)
-                  }
+                  onChange={(e) => handleDepartmentChange(e.target.value || null)}
                   className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700
                              text-sm font-medium outline-none focus:border-blue-400 focus:ring-2
                              focus:ring-blue-100 transition-all"
                 >
                   <option value="">All Departments</option>
                   {allDepartments.map((dept) => (
-                    <option key={dept} value={dept}>
-                      {dept}
-                    </option>
+                    <option key={dept} value={dept}>{dept}</option>
                   ))}
                 </select>
               </div>
@@ -111,13 +191,9 @@ const Doctors = () => {
               <div className="flex items-center gap-4 shrink-0">
                 <p className="text-sm text-slate-500">
                   Showing{" "}
-                  <span className="font-bold text-slate-800">
-                    {filteredDoctors.length}
-                  </span>{" "}
+                  <span className="font-bold text-slate-800">{filteredDoctors.length}</span>{" "}
                   of{" "}
-                  <span className="font-bold text-slate-800">
-                    {doctors.length}
-                  </span>{" "}
+                  <span className="font-bold text-slate-800">{doctors.length}</span>{" "}
                   specialists
                 </p>
                 {selectedDepartment && (
@@ -135,15 +211,10 @@ const Doctors = () => {
 
             {selectedDepartment && (
               <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-100">
-                <span
-                  className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50
-                                 border border-blue-200 text-blue-700 text-xs font-semibold"
-                >
+                <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50
+                                 border border-blue-200 text-blue-700 text-xs font-semibold">
                   Department: {selectedDepartment}
-                  <button
-                    onClick={handleClearFilters}
-                    className="hover:text-blue-900"
-                  >
+                  <button onClick={handleClearFilters} className="hover:text-blue-900">
                     <FaTimes className="text-[9px]" />
                   </button>
                 </span>
@@ -163,8 +234,7 @@ const Doctors = () => {
               <FaUserMd className="text-2xl text-slate-400" />
             </div>
             <p className="font-semibold text-slate-600">
-              No specialists found
-              {selectedDepartment ? ` in ${selectedDepartment}` : ""}.
+              No specialists found{selectedDepartment ? ` in ${selectedDepartment}` : ""}.
             </p>
             {selectedDepartment && (
               <button
@@ -177,11 +247,7 @@ const Doctors = () => {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-            {filteredDoctors.map((doctor) => (
-              <DoctorCard key={doctor._id} id={doctor._id} doctor={doctor} />
-            ))}
-          </div>
+          <DoctorSlider doctors={filteredDoctors} />
         )}
       </main>
 

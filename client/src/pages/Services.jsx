@@ -3,10 +3,110 @@ import Card from "../components/layouts/Card";
 import { Header, Partners, Footer } from "../components/layouts";
 import { useSearchParams } from "react-router-dom";
 import api from "../api/axios";
-import { FaTimes } from "react-icons/fa";
+import { FaTimes, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+const PAGE_SIZE = 6;
 
+/* ── Service Slider (pure state-driven, no scroll/DOM manipulation) ───────── */
+const ServiceSlider = ({ services }) => {
+  const [page, setPage] = useState(0);
+
+  const totalPages = Math.ceil(services.length / PAGE_SIZE);
+  const canPrev = page > 0;
+  const canNext = page < totalPages - 1;
+
+  // Reset to page 0 whenever the services list changes (filter applied)
+  useEffect(() => {
+    setPage(0);
+  }, [services]);
+
+  const currentSlice = services.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+
+  if (!services.length) return null;
+
+  return (
+    <div>
+      {/* Current page grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {currentSlice.map((service) => (
+          <div key={service._id} className="relative">
+            {service.nhifCovered && (
+              <span
+                className="absolute top-3 right-3 z-10 text-xs px-2.5 py-0.5 rounded-full
+                           font-semibold bg-emerald-600 text-white border border-emerald-700"
+              >
+                SHA Covered
+              </span>
+            )}
+            <Card
+              id={service._id}
+              image={`${BACKEND_URL}${service.imageUrl}`}
+              title={service.name}
+              buttonText="Learn More"
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Pagination controls — only shown when more than 1 page */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6">
+          {/* Dot indicators */}
+          <div className="flex items-center gap-2">
+            {Array.from({ length: totalPages }).map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setPage(i)}
+                aria-label={`Go to page ${i + 1}`}
+                className={`rounded-full transition-all duration-200 cursor-pointer ${
+                  i === page
+                    ? "w-6 h-2 bg-blue-600"
+                    : "w-2 h-2 bg-slate-300 hover:bg-slate-400"
+                }`}
+              />
+            ))}
+          </div>
+
+          {/* Arrow buttons + page counter */}
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-400 font-medium">
+              {page + 1} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => p - 1)}
+              disabled={!canPrev}
+              aria-label="Previous page"
+              className={`
+                w-9 h-9 rounded-full border flex items-center justify-center transition-all duration-150
+                ${canPrev
+                  ? "border-slate-300 text-slate-600 hover:border-blue-400 hover:text-blue-600 bg-white cursor-pointer"
+                  : "border-slate-100 text-slate-300 bg-slate-50 cursor-not-allowed"}
+              `}
+            >
+              <FaChevronLeft className="text-xs" />
+            </button>
+            <button
+              onClick={() => setPage((p) => p + 1)}
+              disabled={!canNext}
+              aria-label="Next page"
+              className={`
+                w-9 h-9 rounded-full border flex items-center justify-center transition-all duration-150
+                ${canNext
+                  ? "border-slate-300 text-slate-600 hover:border-blue-400 hover:text-blue-600 bg-white cursor-pointer"
+                  : "border-slate-100 text-slate-300 bg-slate-50 cursor-not-allowed"}
+              `}
+            >
+              <FaChevronRight className="text-xs" />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ── Main Page ───────────────────────────────────────────────────────────── */
 const Services = () => {
   const [services, setServices] = useState([]);
   const [filteredServices, setFilteredServices] = useState([]);
@@ -39,12 +139,8 @@ const Services = () => {
         setServices(data);
         setError(null);
 
-        const divisions = [
-          ...new Set(data.map((s) => s.division).filter(Boolean)),
-        ].sort();
-        const categories = [
-          ...new Set(data.map((s) => s.category).filter(Boolean)),
-        ].sort();
+        const divisions = [...new Set(data.map((s) => s.division).filter(Boolean))].sort();
+        const categories = [...new Set(data.map((s) => s.category).filter(Boolean))].sort();
         setAllDivisions(divisions);
         setAllCategories(categories);
 
@@ -54,17 +150,10 @@ const Services = () => {
         if (divParam) {
           const div = decodeURIComponent(divParam);
           setSelectedDivision(div);
-
           const divCats = [
-            ...new Set(
-              data
-                .filter((s) => s.division === div)
-                .map((s) => s.category)
-                .filter(Boolean),
-            ),
+            ...new Set(data.filter((s) => s.division === div).map((s) => s.category).filter(Boolean)),
           ].sort();
           setCategoriesInDivision(divCats);
-
           if (catParam) {
             const cat = decodeURIComponent(catParam);
             setSelectedCategory(cat);
@@ -91,9 +180,7 @@ const Services = () => {
     };
 
     fetchServices();
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [searchParams]);
 
   const handleDivisionChange = (division) => {
@@ -106,14 +193,8 @@ const Services = () => {
     }
     setSelectedDivision(division);
     setSelectedCategory(null);
-
     const divCats = [
-      ...new Set(
-        services
-          .filter((s) => s.division === division)
-          .map((s) => s.category)
-          .filter(Boolean),
-      ),
+      ...new Set(services.filter((s) => s.division === division).map((s) => s.category).filter(Boolean)),
     ].sort();
     setCategoriesInDivision(divCats);
     filterServices(services, division, null);
@@ -168,18 +249,14 @@ const Services = () => {
                   </label>
                   <select
                     value={selectedDivision || ""}
-                    onChange={(e) =>
-                      handleDivisionChange(e.target.value || null)
-                    }
+                    onChange={(e) => handleDivisionChange(e.target.value || null)}
                     className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700
                                text-sm font-medium outline-none focus:border-blue-400 focus:ring-2
                                focus:ring-blue-100 transition-all cursor-pointer"
                   >
                     <option value="">All Divisions</option>
                     {allDivisions.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
+                      <option key={d} value={d}>{d}</option>
                     ))}
                   </select>
                 </div>
@@ -195,37 +272,25 @@ const Services = () => {
                   </label>
                   <select
                     value={selectedCategory || ""}
-                    onChange={(e) =>
-                      handleCategoryChange(e.target.value || null)
-                    }
+                    onChange={(e) => handleCategoryChange(e.target.value || null)}
                     className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700
                                text-sm font-medium outline-none focus:border-blue-400 focus:ring-2
                                focus:ring-blue-100 transition-all cursor-pointer"
                   >
                     <option value="">All Categories</option>
-                    {(selectedDivision
-                      ? categoriesInDivision
-                      : allCategories
-                    ).map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
+                    {(selectedDivision ? categoriesInDivision : allCategories).map((c) => (
+                      <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
                 </div>
               </div>
 
-              {/* Count + clear */}
               <div className="flex items-center gap-4 shrink-0">
                 <p className="text-sm text-slate-500">
                   Showing{" "}
-                  <span className="font-bold text-slate-800">
-                    {filteredServices.length}
-                  </span>{" "}
+                  <span className="font-bold text-slate-800">{filteredServices.length}</span>{" "}
                   of{" "}
-                  <span className="font-bold text-slate-800">
-                    {services.length}
-                  </span>{" "}
+                  <span className="font-bold text-slate-800">{services.length}</span>{" "}
                   services
                 </p>
                 {hasActiveFilter && (
@@ -241,33 +306,22 @@ const Services = () => {
               </div>
             </div>
 
-            {/* Active filter chips */}
             {hasActiveFilter && (
               <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-100">
                 {selectedDivision && (
-                  <span
-                    className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50
-                                   border border-blue-200 text-blue-700 text-xs font-semibold"
-                  >
+                  <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50
+                                   border border-blue-200 text-blue-700 text-xs font-semibold">
                     Division: {selectedDivision}
-                    <button
-                      onClick={() => handleDivisionChange(null)}
-                      className="hover:text-blue-900 cursor-pointer"
-                    >
+                    <button onClick={() => handleDivisionChange(null)} className="hover:text-blue-900 cursor-pointer">
                       <FaTimes className="text-[9px]" />
                     </button>
                   </span>
                 )}
                 {selectedCategory && (
-                  <span
-                    className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100
-                                   border border-slate-200 text-slate-700 text-xs font-semibold"
-                  >
+                  <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100
+                                   border border-slate-200 text-slate-700 text-xs font-semibold">
                     Category: {selectedCategory}
-                    <button
-                      onClick={() => handleCategoryChange(null)}
-                      className="hover:text-slate-900 cursor-pointer"
-                    >
+                    <button onClick={() => handleCategoryChange(null)} className="hover:text-slate-900 cursor-pointer">
                       <FaTimes className="text-[9px]" />
                     </button>
                   </span>
@@ -301,26 +355,7 @@ const Services = () => {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredServices.map((service) => (
-              <div key={service._id} className="relative">
-                {service.nhifCovered && (
-                  <span
-                    className="absolute top-3 right-3 z-10 text-xs px-2.5 py-0.5 rounded-full
-                                   font-semibold bg-emerald-600 text-white border border-emerald-700"
-                  >
-                    SHA Covered
-                  </span>
-                )}
-                <Card
-                  id={service._id}
-                  image={`${BACKEND_URL}${service.imageUrl}`}
-                  title={service.name}
-                  buttonText="Learn More"
-                />
-              </div>
-            ))}
-          </div>
+          <ServiceSlider services={filteredServices} />
         )}
 
         {!loading && (
