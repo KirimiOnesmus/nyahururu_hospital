@@ -225,7 +225,7 @@ const Sidebar = () => {
         </nav>
 
 
-        <div className="px-3 mb-4 border-t border-gray-100 pt-4">
+        {/* <div className="px-3 mb-4 border-t border-gray-100 pt-4">
           <Link
             to="/dashboard/settings"
             className="flex items-center px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50"
@@ -247,7 +247,7 @@ const Sidebar = () => {
               </span>
             )}
           </button>
-        </div>
+        </div> */}
 
         {/* PROFILE SECTION */}
         <div className="p-4 border-t border-gray-100">

@@ -19,9 +19,10 @@ const upload = createUploader('reports');
 
 // Public routes (with authentication)
 router.get('/',  getAllReports); 
-router.get('/:id',getReportById);
 router.get('/category/:category',  getReportsByCategory);
 router.get('/:id/download',  downloadReport);
+router.get('/:id',getReportById);
+
 
 // Protected routes (create/edit/delete)
 router.post('/', verifyToken,authorizeRoles('admin'), upload.single('file'), createReport);

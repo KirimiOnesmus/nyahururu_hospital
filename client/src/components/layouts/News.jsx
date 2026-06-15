@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 import { FaArrowRight, FaArrowLeft, FaNewspaper } from "react-icons/fa";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL?.replace("/api", "") || "http://localhost:5000";
 
 const News = () => {
   const [news, setNews] = useState([]);
@@ -80,7 +81,7 @@ const News = () => {
                 <img
                   src={`${BACKEND_URL}${item.imageUrl}`}
                   alt={item.title}
-                  className="w-full h-full object-cover"
+                  className="w-fit h-full object-cover"
                 />
               ) : (
                 <FaNewspaper className="text-5xl text-slate-300" />

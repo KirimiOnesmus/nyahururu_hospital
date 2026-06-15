@@ -10,12 +10,15 @@ const EventOverlay = () => {
   const [visible, setVisible] = useState(false);
   const [fading, setFading] = useState(false);
 
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+ const BACKEND_URL =
+  import.meta.env.VITE_BACKEND_URL?.replace("/api", "") ||
+  "http://localhost:5000";
 
   useEffect(() => {
     const fetchEvents = async () => {
       try {
         const res = await api.get("/events");
+        console.log("Fetched events:", res.data);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const active = res.data.filter(
@@ -25,7 +28,7 @@ const EventOverlay = () => {
           setEvents(active);
           setVisible(true);
         }
-      } catch (err) {
+      } catch  {
         // silently fail — overlay is non-critical
       }
     };
@@ -68,7 +71,7 @@ const EventOverlay = () => {
       onClick={() => setVisible(false)}
     >
       <div
-        className="relative w-full max-w-xl mx-4 h-[90vh] rounded-2xl overflow-hidden bg-white shadow-xl"
+        className="relative w-fit max-w-xl mx-4 h-[90vh] rounded-2xl overflow-hidden bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
    
@@ -84,41 +87,21 @@ const EventOverlay = () => {
 
 
         <div
-          className={`relative  overflow-hidden transition-opacity duration-300 h-full w-full ${
+          className={`relative  overflow-hidden transition-opacity duration-300 h-full  w-fit ${
             fading ? "opacity-0" : "opacity-100"
           }`}
         >
-          {ev.image && (
+          {ev.imageUrl && (
             <img
-              src={`${BACKEND_URL}${ev.image}`}
+              src={`${BACKEND_URL}${ev.imageUrl}`}
               alt={ev.title}
-              className="w-full h-full object-cover"
+              className="w-fit h-full object-cover"
             />
           )}
          
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
         </div>
 
-
-        {/* <div
-          className={`px-5 py-4 transition-opacity duration-300 ${
-            fading ? "opacity-0" : "opacity-100"
-          }`}
-        >
-          <p className="text-lg font-bold text-slate-800 mb-3">{ev.title}</p>
-          <div className="flex flex-col gap-2 text-sm text-slate-500">
-            <span className="flex items-center gap-2">
-              <FaCalendarAlt className="text-blue-600 shrink-0" />
-              {formatDate(ev.date)}
-            </span>
-            {ev.location && (
-              <span className="flex items-center gap-2">
-                <FaMapMarkerAlt className="text-blue-600 shrink-0" />
-                {ev.location}
-              </span>
-            )}
-          </div>
-        </div> */}
 
       
         {events.length > 1 && (

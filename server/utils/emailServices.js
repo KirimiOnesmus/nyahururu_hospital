@@ -130,12 +130,13 @@ exports.sendVerificationEmail = async (email, token, userId) => {
   const verificationUrl = `${process.env.FRONTEND_URL}verify-email?token=${token}&userId=${userId}`;
   return sendMail(
     email,
-    "Email Verification - Healthcare Management System",
+    "Email Verification - Nyahururu Healthcare Management System",
     `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
        <div style="background-color:#f9f9f9;padding:20px;border-radius:8px;">
          <h2 style="color:#2196F3;margin-top:0;">Email Verification</h2>
+          <p style="color:#555;line-height:1.6;">Dear User,</p>
          <p style="color:#555;line-height:1.6;">
-           Thank you for registering. Please verify your email address by clicking the button below:
+           An account has been created for you. Please verify your email address by clicking the button below:
          </p>
          <div style="margin:30px 0;text-align:center;">
            <a href="${verificationUrl}"
@@ -161,7 +162,7 @@ exports.sendHmisPasswordResetEmail = async (email, token, userId) => {
   const resetUrl = `${process.env.FRONTEND_URL}reset-password?token=${token}&userId=${userId}`;
   return sendMail(
     email,
-    "Password Reset Request - Healthcare Management System",
+    "Password Reset Request - Nyahururu Healthcare Management System",
     `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
        <div style="background-color:#f9f9f9;padding:20px;border-radius:8px;">
          <h2 style="color:#2196F3;margin-top:0;">Password Reset Request</h2>
@@ -191,7 +192,7 @@ exports.sendNewPasswordEmail = async (email, password) => {
   const loginUrl = `${process.env.FRONTEND_URL}login`;
   return sendMail(
     email,
-    "Your New Password - Healthcare Management System",
+    "Your New Password - NyahururuHealthcare Management System",
     `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
        <div style="background-color:#f9f9f9;padding:20px;border-radius:8px;">
          <h2 style="color:#4CAF50;margin-top:0;">Email Verified Successfully!</h2>

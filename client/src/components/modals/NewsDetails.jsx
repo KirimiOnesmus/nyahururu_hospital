@@ -12,7 +12,10 @@ import {
   FaWhatsapp,
 } from "react-icons/fa";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+// const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+const BACKEND_URL =
+  import.meta.env.VITE_BACKEND_URL?.replace("/api", "") ||
+  "http://localhost:5000";
 
 const Shell = ({ children }) => (
   <div className="min-h-screen flex flex-col bg-slate-50">
@@ -133,11 +136,11 @@ const NewsDetails = () => {
 
       <article className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
         {news.imageUrl && (
-          <div className="h-72 md:h-96 overflow-hidden bg-slate-100">
+          <div className="h-72 md:h-96 overflow-hidden bg-slate-100 flex items-center justify-center">
             <img
               src={`${BACKEND_URL}${news.imageUrl}`}
               alt={news.title}
-              className="w-full h-full object-cover"
+              className="w-fit h-full object-cover"
             />
           </div>
         )}
