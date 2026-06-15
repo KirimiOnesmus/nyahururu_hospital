@@ -1,4 +1,4 @@
-const Research   = require("../models/ResearchModel");
+const Research   = require("../models/researchModel");
 const Researcher = require("../models/ResearcherModel");
 const Payment    = require("../models/PaymentModel");
 const Review     = require("../models/ReviewModel");
