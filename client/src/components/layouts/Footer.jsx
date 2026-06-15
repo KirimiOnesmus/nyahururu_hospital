@@ -16,7 +16,7 @@ const Footer = () => {
     { label: "Careers", path: "/careers" },
     { label: "Tenders", path: "/tenders" },
     { label: "Downloads", path: "/downloads" },
-    { label: "Research", path: "/research" },
+    // { label: "Research", path: "/research" },
   ];
 
   const contactInfo = [
