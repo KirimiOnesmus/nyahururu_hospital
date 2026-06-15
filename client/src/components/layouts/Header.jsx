@@ -283,7 +283,8 @@ const Header = () => {
             className="lg:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
             aria-label="Toggle menu"
           >
-            {isOpen ? <MdClose className="text-2xl" /> : <MdMenu className="text-2xl" />}
+
+                 {isOpen ? <MdMenu className="hidden" />:<MdMenu className="text-2xl" />  }
           </button>
         </div>
       </div>
@@ -307,9 +308,9 @@ const Header = () => {
               </div>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-500 transition-colors cursor-pointer"
               >
-                <MdClose className="text-xl" />
+                <MdClose className="text-2xl hover:text-red-500" />
               </button>
             </div>
 

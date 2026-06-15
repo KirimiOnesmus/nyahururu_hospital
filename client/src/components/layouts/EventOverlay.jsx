@@ -87,7 +87,7 @@ const EventOverlay = () => {
 
 
         <div
-          className={`relative  overflow-hidden transition-opacity duration-300 h-full  w-fit ${
+          className={`relative  overflow-hidden transition-opacity duration-300 h-full w-fit m-0.5 ${
             fading ? "opacity-0" : "opacity-100"
           }`}
         >

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import ScrollBehaviour from "./components/layouts/scrollBehaviour";
 // import logo from "./assets/logo.png"
 import {
   Doctors,
@@ -16,7 +17,6 @@ import {
   ApplyCareer,
   AmbulanceServices,
   BloodRegistration,
-  // EventsPage,
   Downloads, 
   Tenders,
   VerifyEmail
@@ -57,7 +57,6 @@ import "./App.css";
 function App() {
     const [loading, setLoading] = useState(true);
       useEffect(() => {
-    // 2 second delay to allow APIs to initialize
     const timer = setTimeout(() => {
       setLoading(false);
     }, 2000);
@@ -81,6 +80,7 @@ function App() {
   return (
     <>
       <BrowserRouter>
+        <ScrollBehaviour />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
