@@ -1,209 +1,294 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/userModel");
 const Researcher = require("../models/ResearcherModel");
+const { AppError, asyncHandler } = require("../utils/appError");
+const { RESEARCHER_ROLES, RESEARCHER_STATUSES } = require("../constants/researchIndex");
 
+//  INTERNAL HELPERS-  Extract Bearer token from Authorization header or jwt cookie.
 
-exports.verifyToken = async (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) {
-    return res.status(401).json({ message: "No token provided" });
+const extractToken = (req) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    return authHeader.split(" ")[1];
   }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // Reject researcher tokens on staff routes
-    if (decoded.collection === "researchers") {
-      return res.status(403).json({ 
-        message: "Access denied — researcher token not allowed here" 
-      });
-    }
-
-    req.user = await User.findById(decoded.id).select("-password");
-    if (!req.user) {
-      return res.status(401).json({ message: "User not found" });
-    }
-
-    next();
-  } catch (err) {
-    res.status(401).json({ message: "Invalid or expired token" });
+  if (req.cookies && req.cookies.jwt) {
+    return req.cookies.jwt;
   }
+  return null;
 };
 
-exports.authorizeRoles = (...roles) => {
-  return (req, res, next) => {
-    // Superadmin can do anything
-    if (req.user?.role === "superadmin") return next();
+//Build a consistent caller identity object used by both - getCallerName and getCallerIdentity.
 
-    // Check if user role is in allowed roles
-    if (!roles.includes(req.user?.role)) {
-      return res.status(403).json({ 
-        message: `Access denied — role '${req.user?.role}' not authorized` 
-      });
-    }
 
-    next();
-  };
+const buildCallerIdentity = (req) => {
+  if (req.researcher) {
+    return {
+      id:    req.researcher._id,
+      name:  req.researcher.name || req.researcher.firstName || "Researcher",
+      role:  req.researcher.role,
+      model: "Researcher",
+    };
+  }
+  if (req.user) {
+    const name =
+      req.user.name ||
+      `${req.user.firstName || ""} ${req.user.lastName || ""}`.trim() ||
+      "Staff Admin";
+    return {
+      id:    req.user._id,
+      name,
+      role:  req.user.role,
+      model: "User",
+    };
+  }
+  return null;
 };
+ 
+
+//  HMIS STAFF ROUTES
+
+exports.verifyToken = asyncHandler(async (req, res, next) => {
+  const token = extractToken(req);
+  if (!token) throw new AppError("No token provided.", 401);
+ 
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+ 
+  if (decoded.collection === "researchers") {
+    throw new AppError("Access denied — researcher token not allowed on staff routes.", 403);
+  }
+ 
+  const user = await User.findById(decoded.id).select("-password");
+  if (!user) throw new AppError("User not found.", 401);
+ 
+  if (user.isActive === false) throw new AppError("Your account has been deactivated.", 403);
+ 
+  req.user = user;
+  next();
+});
+
+// STAFF ROLE GATE
+
+exports.authorizeRoles = (...roles) => (req, res, next) => {
+  // Superadmin always passes
+  if (req.user?.role === "superadmin") return next();
+ 
+  if (!roles.includes(req.user?.role)) {
+    return next(
+      new AppError(
+        `Access denied — role '${req.user?.role}' is not authorized for this action.`,
+        403
+      )
+    );
+  }
+  next();
+};
+
+
 
 // RESEARCHER AUTHENTICATION
 
-exports.protectResearcher = async (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) {
-    return res.status(401).json({ message: "No token provided" });
+exports.protectResearcher = asyncHandler(async (req, res, next) => {
+  const token = extractToken(req);
+  if (!token) throw new AppError("No token provided.", 401);
+ 
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+ 
+  // Staff tokens must never reach researcher routes
+  if (decoded.collection !== "researchers") {
+    throw new AppError("Access denied — researcher token required.", 403);
   }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // Reject hospital staff tokens on researcher routes
-    if (decoded.collection !== "researchers") {
-      return res.status(403).json({ 
-        message: "Access denied — researcher token required" 
-      });
-    }
-
-    const researcher = await Researcher.findById(decoded.id);
-    if (!researcher) {
-      return res.status(401).json({ message: "Account not found" });
-    }
-
-    req.researcher = researcher;
-    next();
-  } catch (err) {
-    res.status(401).json({ message: "Invalid or expired token" });
+ 
+  const researcher = await Researcher.findById(decoded.id);
+  if (!researcher) throw new AppError("Account not found.", 401);
+ 
+  if (researcher.isActive === false) {
+    throw new AppError("Your account has been deactivated.", 403);
   }
-};
+  if (researcher.status === RESEARCHER_STATUSES.SUSPENDED) {
+    throw new AppError("Your account has been suspended. Please contact support.", 403);
+  }
+ 
+  req.researcher = researcher;
+  next();
+});
 
 
-exports.authorizeResearcherRoles = (...roles) => {
-  return (req, res, next) => {
-    // Research admin can do anything
-    if (req.researcher?.role === "admin") return next();
+//  RESEARCHER ROLE GATE
 
-    // Check if researcher role is in allowed roles
-    if (!roles.includes(req.researcher?.role)) {
-      return res.status(403).json({ 
-        message: `Access denied — role '${req.researcher?.role}' not authorized` 
-      });
-    }
-
-    next();
-  };
+exports.authorizeResearcherRoles = (...roles) => (req, res, next) => {
+  // Both admin and superadmin always pass 
+  if (
+    req.researcher?.role === RESEARCHER_ROLES.ADMIN ||
+    req.researcher?.role === RESEARCHER_ROLES.SUPERADMIN
+  ) {
+    return next();
+  }
+ 
+  if (!roles.includes(req.researcher?.role)) {
+    return next(
+      new AppError(
+        `Access denied — role '${req.researcher?.role}' is not authorized for this action.`,
+        403
+      )
+    );
+  }
+  next();
 };
 
 //DUAL-AUTHORITY AUTHENTICATION
 
-exports.protectEither = async (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) {
-    return res.status(401).json({ message: "No token provided" });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    if (decoded.collection === "researchers") {
-      const researcher = await Researcher.findById(decoded.id);
-      if (!researcher) {
-        return res.status(401).json({ message: "Researcher not found" });
-      }
-      req.researcher = researcher;
-    } else {
-      const user = await User.findById(decoded.id).select("-password");
-      if (!user) {
-        return res.status(401).json({ message: "User not found" });
-      }
-      req.user = user;
+exports.protectEither = asyncHandler(async (req, res, next) => {
+  const token = extractToken(req);
+  if (!token) throw new AppError("No token provided.", 401);
+ 
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+ 
+  if (decoded.collection === "researchers") {
+    const researcher = await Researcher.findById(decoded.id);
+    if (!researcher) throw new AppError("Researcher not found.", 401);
+ 
+    if (researcher.isActive === false) {
+      throw new AppError("Your account has been deactivated.", 403);
     }
-
-    next();
-  } catch (err) {
-    res.status(401).json({ message: "Invalid or expired token" });
+    if (researcher.status === RESEARCHER_STATUSES.SUSPENDED) {
+      throw new AppError("Your account has been suspended.", 403);
+    }
+ 
+    req.researcher = researcher;
+  } else {
+    // Hospital staff token
+    const user = await User.findById(decoded.id).select("-password");
+    if (!user) throw new AppError("User not found.", 401);
+    if (user.isActive === false) throw new AppError("Your account has been deactivated.", 403);
+ 
+    req.user = user;
   }
-};
+ 
+  next();
+});
+
 
 //REVIEW/MODERATION AUTHENTICATION
 
-exports.protectReviewers = async (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) {
-    return res.status(401).json({ message: "No token provided" });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    if (decoded.collection === "researchers") {
-      const researcher = await Researcher.findById(decoded.id);
-      if (!researcher) {
-        return res.status(401).json({ message: "Researcher not found" });
-      }
-
-      // Only reviewer or admin can review research
-      if (!["reviewer", "admin"].includes(researcher.role)) {
-        return res.status(403).json({ 
-          message: `Role '${researcher.role}' cannot review research` 
-        });
-      }
-
-      req.researcher = researcher;
-    } else {
-      const user = await User.findById(decoded.id).select("-password");
-      if (!user) {
-        return res.status(401).json({ message: "User not found" });
-      }
-
-      // Only admin or superadmin can review research
-      if (!["admin", "superadmin"].includes(user.role)) {
-        return res.status(403).json({ 
-          message: `Role '${user.role}' cannot review research` 
-        });
-      }
-
-      req.user = user;
+exports.protectReviewers = asyncHandler(async (req, res, next) => {
+  const token = extractToken(req);
+  if (!token) throw new AppError("No token provided.", 401);
+ 
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+ 
+  if (decoded.collection === "researchers") {
+    const researcher = await Researcher.findById(decoded.id);
+    if (!researcher) throw new AppError("Researcher not found.", 401);
+ 
+    if (researcher.isActive === false) {
+      throw new AppError("Your account has been deactivated.", 403);
     }
-
-    next();
-  } catch (err) {
-    res.status(401).json({ message: "Invalid or expired token" });
+ 
+    const allowedRoles = [
+      RESEARCHER_ROLES.REVIEWER,
+      RESEARCHER_ROLES.ADMIN,
+      RESEARCHER_ROLES.SUPERADMIN,
+    ];
+ 
+    if (!allowedRoles.includes(researcher.role)) {
+      throw new AppError(
+        `Role '${researcher.role}' does not have review permissions.`,
+        403
+      );
+    }
+ 
+    req.researcher = researcher;
+  } else {
+    // Hospital staff token
+    const user = await User.findById(decoded.id).select("-password");
+    if (!user) throw new AppError("User not found.", 401);
+ 
+    if (!["admin", "superadmin"].includes(user.role)) {
+      throw new AppError(
+        `Role '${user.role}' does not have review permissions.`,
+        403
+      );
+    }
+ 
+    req.user = user;
   }
-};
+ 
+  next();
+});
 
 // Optional researcher authentication
 
-exports.optionalResearcherAuth = async (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
+exports.optionalResearcher = async (req, res, next) => {
+  const token = extractToken(req);
   if (!token) return next();
-
+ 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
     if (decoded.collection === "researchers") {
       const researcher = await Researcher.findById(decoded.id);
-      if (researcher) {
+      if (researcher && researcher.isActive !== false) {
         req.researcher = researcher;
       }
     }
-  } catch (err) {
-    // Silent fail — continue unauthenticated
-    console.warn("[Optional Auth] Token invalid:", err.message);
+  } catch {
+    // Silent fail — token invalid or expired; request proceeds unauthenticated
   }
-
+ 
   next();
 };
 
-// UTILITY: Get caller identity for logging/emails
+//RESEARCH ADMIN GUARD- Accepts BOTH hospital staff admins (req.user) AND research admins (req.researcher).
+
+exports.protectResearchAdmin = (req, res, next) => {
+  const staffIsAdmin =
+    req.user && ["admin", "superadmin"].includes(req.user.role);
+ 
+  const researcherIsAdmin =
+    req.researcher &&
+    [RESEARCHER_ROLES.ADMIN, RESEARCHER_ROLES.SUPERADMIN].includes(req.researcher.role);
+ 
+  if (staffIsAdmin || researcherIsAdmin) return next();
+ 
+  return next(new AppError("Admin access required.", 403));
+};
+
+
+exports.restrictTo = (...roles) => (req, res, next) => {
+  // HMIS staff superadmin/admin always passes
+  if (req.user && ["admin", "superadmin"].includes(req.user.role)) {
+    return next();
+  }
+ 
+  if (!req.researcher) {
+    return next(new AppError("Authentication required.", 401));
+  }
+ 
+  if (!roles.includes(req.researcher.role)) {
+    return next(
+      new AppError(`Access denied — required role: ${roles.join(" or ")}.`, 403)
+    );
+  }
+ 
+  next();
+};
+ 
+
+//  UTILITIES
 
 exports.getCallerName = (req) => {
-  if (req.user) {
-    return req.user.name || 
-           `${req.user.firstName} ${req.user.lastName}`.trim() ||
-           "Staff Admin";
-  }
-  if (req.researcher) {
-    return req.researcher.name || "Researcher";
-  }
-  return "Unknown";
+  const identity = buildCallerIdentity(req);
+  return identity?.name || "Unknown";
+};
+
+exports.getCallerIdentity = (req) => buildCallerIdentity(req);
+
+exports.isResearchAdmin = (req) => {
+  const staffIsAdmin =
+    req.user && ["admin", "superadmin"].includes(req.user.role);
+ 
+  const researcherIsAdmin =
+    req.researcher &&
+    [RESEARCHER_ROLES.ADMIN, RESEARCHER_ROLES.SUPERADMIN].includes(req.researcher.role);
+ 
+  return !!(staffIsAdmin || researcherIsAdmin);
 };

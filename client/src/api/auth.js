@@ -13,7 +13,7 @@ export const loginUser = async (email, password) => {
     throw error.response?.data || { message: 'Login failed' };
   }
 };
-
+ 
 
 export const registerResearcher = async (formData) => {
   try {
@@ -29,14 +29,16 @@ export const registerResearcher = async (formData) => {
       password: formData.password,
     });
 
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('role', response.data.researcher?.role || 'researcher');
+        const data = response.data.data || response.data;
+
+    if (data.token) {
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('role', data.researcher?.role || 'researcher');
       localStorage.setItem('collection', 'researchers');
-      localStorage.setItem('researcher', JSON.stringify(response.data.researcher));
+      localStorage.setItem('researcher', JSON.stringify(data.researcher));
     }
 
-    return response.data;
+    return data;
   } catch (error) {
     throw error.response?.data || { message: 'Registration failed' };
   }
@@ -49,7 +51,8 @@ export const verifyResearcherEmail = async (token, email) => {
       token,
       email,
     });
-    return response.data;
+        const data = response.data.data || response.data;
+    return data;
   } catch (error) {
     throw error.response?.data || { message: 'Email verification failed' };
   }
@@ -63,14 +66,16 @@ export const loginResearcher = async (email, password) => {
       password,
     });
 
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('role', response.data.researcher?.role || 'researcher');
+        const data = response.data.data || response.data;
+
+    if (data.token) {
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('role', data.researcher?.role || 'researcher');
       localStorage.setItem('collection', 'researchers');
-      localStorage.setItem('researcher', JSON.stringify(response.data.researcher));
+      localStorage.setItem('researcher', JSON.stringify(data.researcher));
     }
 
-    return response.data;
+    return data;
 
     
 
@@ -83,11 +88,12 @@ export const loginResearcher = async (email, password) => {
 export const getResearcherProfile = async () => {
   try {
     const response = await api.get('/researchers/me');
-    if (response.data.researcher) {
-      localStorage.setItem('researcher', JSON.stringify(response.data.researcher));
+        const data = response.data.data || response.data;
+    if (data.researcher) {
+      localStorage.setItem('researcher', JSON.stringify(data.researcher));
     }
 
-    return response.data;
+    return data;
 
   } catch (error) {
 
@@ -99,10 +105,13 @@ export const getResearcherProfile = async () => {
 export const updateResearcherProfile = async (updates) => {
   try {
     const response = await api.put('/researchers/profile', updates);
-    if (response.data.researcher) {
-      localStorage.setItem('researcher', JSON.stringify(response.data.researcher));
+   
+        const data = response.data.data || response.data;
+   
+    if (data.researcher) {
+      localStorage.setItem('researcher', JSON.stringify(data.researcher));
     }
-    return response.data;
+    return data;
   } catch (error) {
     throw error.response?.data || { message: 'Failed to update profile' };
   }
@@ -122,7 +131,10 @@ export const changeResearcherPassword = async (
       newPassword,
       confirmPassword,
     });
-    return response.data;
+
+        const data = response.data.data || response.data;
+
+    return data;
   } catch (error) {
     throw error.response?.data || { message: 'Password change failed' };
   }
@@ -133,7 +145,9 @@ export const forgotResearcherPassword = async (email) => {
     const response = await api.post('/researchers/forgot-password', {
       email,
     });
-    return response.data;
+
+        const data = response.data.data || response.data;
+    return data;
   } catch (error) {
     throw error.response?.data || { message: 'Password reset request failed' };
   }
@@ -153,7 +167,9 @@ export const resetResearcherPassword = async (
       password,
       confirmPassword,
     });
-    return response.data;
+
+        const data = response.data.data || response.data;
+    return data;
   } catch (error) {
     throw error.response?.data || { message: 'Password reset failed' };
   }

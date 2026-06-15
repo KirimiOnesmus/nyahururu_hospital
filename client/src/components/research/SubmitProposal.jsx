@@ -1,20 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "react-toastify";
 import {
-  FaFlask,
-  FaFileAlt,
-  FaBullseye,
-  FaUpload,
-  FaFilePdf,
-  FaTrash,
-  FaMobileAlt,
-  FaCheckCircle,
-  FaSpinner,
-  FaChevronDown,
-  FaArrowRight,
-  FaArrowLeft,
-  FaInfoCircle,
-  FaArrowUp,
+  FaArrowLeft, FaArrowRight, FaCheckCircle, FaFilePdf,
+  FaUpload, FaTrash, FaInfoCircle, FaMobileAlt,
 } from "react-icons/fa";
 import {
   initiateProposalSubmission,
@@ -22,167 +10,147 @@ import {
   verifyPaymentStatus,
 } from "../../api/research";
 
-const DISCIPLINES = ["Medicine"];
-const SUBMISSION_FEE = 1; // Set to 1 KES for testing. Change to 150 for production.
+// ─── Config ───────────────────────────────────────────────────────────────────
+const SUBMISSION_FEE = 1; // KES — change to 150 for production
+const POLL_INTERVAL_MS = 3000;
+const POLL_MAX_ATTEMPTS = 40; // 40 × 3s = 2 min
 
 const formatPhone = (v) => {
   const d = v.replace(/\D/g, "");
-  if (d.startsWith("0")) return d.slice(0, 10);
+  if (d.startsWith("0"))   return d.slice(0, 10);
   if (d.startsWith("254")) return d.slice(0, 12);
   return d.slice(0, 10);
 };
 
-const STEPS = [
-  { id: "basics", label: "Basics", icon: FaFileAlt },
-  { id: "research", label: "Research", icon: FaBullseye },
-  { id: "upload", label: "Upload", icon: FaUpload },
-  { id: "review", label: "Review", icon: FaFlask },
-  { id: "payment", label: "Payment", icon: FaMobileAlt },
-];
+const wordCount = (s) => s.trim().split(/\s+/).filter(Boolean).length;
 
-const inputCls = (err) =>
-  `w-full px-3.5 py-2.5 border rounded-lg text-gray-800 placeholder-gray-400 text-sm
-  outline-none focus:ring focus:ring-blue-500 transition-all bg-gray-50 hover:border-gray-300
-   ${err ? "border-red-400 bg-red-50" : "border-gray-200"}`;
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const clr = {
+  primary: "#1D4ED8",
+  primaryLight: "#EFF6FF",
+  primaryBorder: "#BFDBFE",
+  success: "#16A34A",
+  successLight: "#F0FDF4",
+  successBorder: "#BBF7D0",
+  error: "#DC2626",
+  errorLight: "#FEF2F2",
+  errorBorder: "#FECACA",
+  warning: "#D97706",
+  warningLight: "#FFFBEB",
+  warningBorder: "#FDE68A",
+  border: "#E2E8F0",
+  muted: "#64748B",
+  body: "#1E293B",
+  surface: "#F8FAFC",
+};
 
-const Field = ({ label, error, required, hint, children }) => (
-  <div>
-    <div className="flex items-center justify-between mb-1.5">
-      <label className="text-sm font-semibold text-gray-700">
-        {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
+// ─── Shared primitives ────────────────────────────────────────────────────────
+const inputStyle = (err) => ({
+  width: "100%",
+  padding: "9px 13px",
+  border: `1px solid ${err ? clr.error : clr.border}`,
+  borderRadius: 10,
+  fontSize: 14,
+  color: clr.body,
+  background: err ? clr.errorLight : "#fff",
+  outline: "none",
+  boxSizing: "border-box",
+  fontFamily: "inherit",
+  transition: "border-color 0.15s",
+});
+
+const Field = ({ label, required, error, hint, children }) => (
+  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <label style={{ fontSize: 13, fontWeight: 600, color: clr.body }}>
+        {label}{required && <span style={{ color: clr.error, marginLeft: 2 }}>*</span>}
       </label>
-      {hint && <span className="text-xs text-gray-400">{hint}</span>}
+      {hint && <span style={{ fontSize: 11, color: clr.muted }}>{hint}</span>}
     </div>
     {children}
-    {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+    {error && <p style={{ fontSize: 12, color: clr.error, margin: 0 }}>{error}</p>}
   </div>
 );
 
+const InfoBox = ({ color = "primary", icon = "ℹ", children }) => {
+  const map = { primary: [clr.primaryLight, clr.primaryBorder, clr.primary], warning: [clr.warningLight, clr.warningBorder, clr.warning], success: [clr.successLight, clr.successBorder, clr.success], error: [clr.errorLight, clr.errorBorder, clr.error] };
+  const [bg, border, txt] = map[color] || map.primary;
+  return (
+    <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: 10, padding: "10px 14px", display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13, color: txt }}>
+      <span style={{ flexShrink: 0, marginTop: 1 }}>{icon}</span>
+      <span style={{ lineHeight: 1.55 }}>{children}</span>
+    </div>
+  );
+};
+
+const Spinner = ({ size = 22, color = clr.primary }) => (
+  <div style={{ width: size, height: size, borderRadius: "50%", border: `2.5px solid ${color}22`, borderTopColor: color, animation: "spin 0.65s linear infinite", flexShrink: 0 }} />
+);
+
+// ─── Step 1 — Basics ──────────────────────────────────────────────────────────
 const StepBasics = ({ form, setField, errors }) => (
-  <div className="space-y-5">
-    <Field
-      label="Research Title"
-      required
-      error={errors.title}
-      hint="Be specific"
-    >
+  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <Field label="Research title" required error={errors.title} hint="Be descriptive">
       <input
-        type="text"
+        value={form.title} onChange={e => setField("title", e.target.value)}
         placeholder="e.g. Impact of X on Y in Laikipia County"
-        value={form.title}
-        onChange={(e) => setField("title", e.target.value)}
-        className={inputCls(errors.title)}
+        style={inputStyle(errors.title)}
       />
     </Field>
 
-    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4 flex items-center gap-3">
-      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-        <span className="text-blue-600 font-bold text-lg">Rx</span>
-      </div>
+    <div style={{ background: clr.primaryLight, border: `1px solid ${clr.primaryBorder}`, borderRadius: 10, padding: "12px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ width: 40, height: 40, background: "#fff", border: `1px solid ${clr.primaryBorder}`, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 800, fontSize: 14, color: clr.primary }}>Rx</div>
       <div>
-        <p className="text-xs text-gray-500 mb-0.5">Research Discipline</p>
-        <p className="font-semibold text-gray-900">Medicine</p>
-        <p className="text-xs text-gray-500 mt-0.5">
-          This portal is dedicated to medical research.
-        </p>
+        <p style={{ fontSize: 11, color: clr.muted, margin: "0 0 2px" }}>Research discipline</p>
+        <p style={{ fontWeight: 700, color: clr.body, margin: 0 }}>Medicine</p>
+        <p style={{ fontSize: 11, color: clr.muted, margin: "2px 0 0" }}>This portal is dedicated to medical research</p>
       </div>
     </div>
 
-    <Field
-      label="Abstract"
-      required
-      error={errors.abstract}
-      hint="50–200 words"
-    >
-      <div className="relative">
+    <Field label="Abstract" required error={errors.abstract} hint={`${wordCount(form.abstract)} words (min 30)`}>
+      <div style={{ position: "relative" }}>
         <textarea
-          rows={4}
+          rows={5} value={form.abstract} onChange={e => setField("abstract", e.target.value)}
           placeholder="A brief summary of what you're researching, why it matters, and what you expect to find…"
-          value={form.abstract}
-          onChange={(e) => setField("abstract", e.target.value)}
-          className={`${inputCls(errors.abstract)} resize-none`}
+          style={{ ...inputStyle(errors.abstract), resize: "vertical", paddingBottom: 24 }}
         />
-        <span className="absolute bottom-2 right-3 text-xs text-gray-400">
-          {form.abstract.trim().split(/\s+/).filter(Boolean).length} words
+        <span style={{ position: "absolute", bottom: 8, right: 12, fontSize: 11, color: clr.muted, pointerEvents: "none" }}>
+          {wordCount(form.abstract)} words
         </span>
       </div>
     </Field>
   </div>
 );
 
-const StepResearch = ({ form, setField, errors }) => (
-  <div className="space-y-5">
-    <Field
-      label="Problem Statement"
-      required
-      error={errors.background}
-      hint="2–4 sentences"
-    >
-      <textarea
-        rows={3}
-        placeholder="What gap or problem does your research address? Why is it important now?"
-        value={form.background}
-        onChange={(e) => setField("background", e.target.value)}
-        className={`${inputCls(errors.background)} resize-none`}
-      />
-    </Field>
-
-    <Field
-      label="Objectives"
-      required
-      error={errors.objectives}
-      hint="One per line"
-    >
-      <textarea
-        rows={3}
-        placeholder={
-          "1. To investigate...\n2. To determine...\n3. To assess..."
-        }
-        value={form.objectives}
-        onChange={(e) => setField("objectives", e.target.value)}
-        className={`${inputCls(errors.objectives)} resize-none`}
-      />
-    </Field>
-
-    <Field
-      label="Methodology"
-      required
-      error={errors.methodology}
-      hint="Brief overview"
-    >
-      <textarea
-        rows={3}
-        placeholder="How will you collect and analyse data? e.g. surveys, interviews, lab analysis…"
-        value={form.methodology}
-        onChange={(e) => setField("methodology", e.target.value)}
-        className={`${inputCls(errors.methodology)} resize-none`}
-      />
-    </Field>
-
-    <div className="grid grid-cols-2 gap-4">
-      <Field label="Expected Outcome" required error={errors.expectedOutcome}>
-        <textarea
-          rows={2}
-          placeholder="What will this research produce or contribute?"
-          value={form.expectedOutcome}
-          onChange={(e) => setField("expectedOutcome", e.target.value)}
-          className={`${inputCls(errors.expectedOutcome)} resize-none`}
-        />
-      </Field>
-      <Field label="Duration" required error={errors.timeline}>
-        <input
-          type="text"
+// ─── Step 2 — Research details ────────────────────────────────────────────────
+const StepResearch = ({ form, setField, errors }) => {
+  const fields = [
+    { key: "background",      label: "Problem statement",  hint: "2–4 sentences",  rows: 3, placeholder: "What gap or problem does your research address? Why is it important now?" },
+    { key: "objectives",      label: "Objectives",          hint: "One per line",   rows: 3, placeholder: "1. To investigate…\n2. To determine…\n3. To assess…" },
+    { key: "methodology",     label: "Methodology",         hint: "Brief overview", rows: 3, placeholder: "How will you collect and analyse data? e.g. surveys, interviews, lab analysis…" },
+    { key: "expectedOutcome", label: "Expected outcome",    hint: null,             rows: 2, placeholder: "What will this research produce or contribute?" },
+  ];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {fields.map(({ key, label, hint, rows, placeholder }) => (
+        <Field key={key} label={label} required error={errors[key]} hint={hint}>
+          <textarea rows={rows} value={form[key]} onChange={e => setField(key, e.target.value)}
+            placeholder={placeholder}
+            style={{ ...inputStyle(errors[key]), resize: "vertical" }}
+          />
+        </Field>
+      ))}
+      <Field label="Timeline / Duration" required error={errors.timeline}>
+        <input value={form.timeline} onChange={e => setField("timeline", e.target.value)}
           placeholder="e.g. 6 months (Jan–Jun 2025)"
-          value={form.timeline}
-          onChange={(e) => setField("timeline", e.target.value)}
-          className={inputCls(errors.timeline)}
+          style={inputStyle(errors.timeline)}
         />
       </Field>
     </div>
-  </div>
-);
+  );
+};
 
+// ─── Step 3 — Upload ──────────────────────────────────────────────────────────
 const StepUpload = ({ file, onFile, onClear, error }) => {
   const handleDrop = (e) => {
     e.preventDefault();
@@ -192,685 +160,406 @@ const StepUpload = ({ file, onFile, onClear, error }) => {
   };
 
   return (
-    <div className="space-y-4">
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {!file ? (
         <label
-          onDrop={handleDrop}
-          onDragOver={(e) => e.preventDefault()}
-          className={`flex flex-col items-center justify-center gap-4 border-2 border-dashed rounded-2xl p-10 cursor-pointer transition-all
-            ${error ? "border-red-400 bg-red-50" : "border-gray-200 bg-gray-50 hover:border-blue-400 hover:bg-blue-50/50"}`}
+          onDrop={handleDrop} onDragOver={e => e.preventDefault()}
+          style={{
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+            gap: 14, padding: "40px 24px",
+            border: `2px dashed ${error ? clr.error : clr.border}`,
+            borderRadius: 14, cursor: "pointer",
+            background: error ? clr.errorLight : clr.surface,
+            transition: "all 0.15s",
+          }}
         >
-          <input
-            type="file"
-            accept=".pdf"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files[0];
-              if (f) onFile(f);
-            }}
-          />
-          <div className="w-14 h-14 bg-white border border-gray-200 rounded-2xl flex items-center justify-center shadow-sm">
-            <FaUpload className="text-blue-500 text-xl" />
+          <input type="file" accept=".pdf" style={{ display: "none" }} onChange={e => { const f = e.target.files[0]; if (f) onFile(f); }} />
+          <div style={{ width: 52, height: 52, background: "#fff", border: `1px solid ${clr.border}`, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <FaUpload style={{ color: clr.primary, fontSize: 20 }} />
           </div>
-          <div className="text-center">
-            <p className="font-semibold text-gray-700 text-sm">
-              Drag & drop or{" "}
-              <span className="text-blue-600 underline underline-offset-2">
-                browse files
-              </span>
+          <div style={{ textAlign: "center" }}>
+            <p style={{ fontWeight: 600, color: clr.body, margin: "0 0 4px", fontSize: 14 }}>
+              Drag & drop or <span style={{ color: clr.primary, textDecoration: "underline" }}>browse files</span>
             </p>
-            <p className="text-xs text-gray-400 mt-1">PDF only · Max 10 MB</p>
+            <p style={{ fontSize: 12, color: clr.muted, margin: 0 }}>PDF only · Max 20 MB</p>
           </div>
         </label>
       ) : (
-        <div className="flex items-center gap-3 border border-green-200 bg-green-50 rounded-xl px-4 py-4">
-          <div className="w-11 h-11 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
-            <FaFilePdf className="text-red-500 text-lg" />
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", border: `1px solid ${clr.successBorder}`, borderRadius: 12, background: clr.successLight }}>
+          <div style={{ width: 42, height: 42, background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <FaFilePdf style={{ color: clr.error, fontSize: 18 }} />
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-800 truncate">
-              {file.name}
-            </p>
-            <p className="text-xs text-gray-500">
-              {(file.size / 1024 / 1024).toFixed(2)} MB · PDF
-            </p>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontWeight: 600, fontSize: 14, margin: 0, color: clr.body, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</p>
+            <p style={{ fontSize: 12, color: clr.muted, margin: 0 }}>{(file.size / 1024 / 1024).toFixed(2)} MB · PDF</p>
           </div>
-          <button
-            type="button"
-            onClick={onClear}
-            className="text-gray-400 hover:text-red-500 transition-colors p-1.5 
-            rounded-lg hover:bg-red-50 cursor-pointer"
+          <button type="button" onClick={onClear}
+            style={{ background: "none", border: "none", cursor: "pointer", color: clr.muted, padding: 6, borderRadius: 8, display: "flex" }}
+            onMouseEnter={e => e.currentTarget.style.color = clr.error}
+            onMouseLeave={e => e.currentTarget.style.color = clr.muted}
           >
-            <FaTrash size={14} />
+            <FaTrash size={13} />
           </button>
         </div>
       )}
-      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
-
-      <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-4 py-3 flex gap-2 items-start">
-        <FaInfoCircle className="text-yellow-500 mt-0.5 flex-shrink-0 text-xs" />
-        <p className="text-xs text-yellow-700 leading-relaxed">
-          Your PDF should include all sections, figures, and appendices. Files
-          are stored securely — no direct URL is exposed.
-        </p>
-      </div>
+      {error && <p style={{ fontSize: 12, color: clr.error, margin: 0 }}>{error}</p>}
+      <InfoBox color="warning" >
+        Your PDF should include all sections, figures, and appendices. Files are stored securely — no direct URL is exposed.
+      </InfoBox>
     </div>
   );
 };
 
+// ─── Step 4 — Review ─────────────────────────────────────────────────────────
 const StepReview = ({ form, file }) => {
   const rows = [
-    { label: "Title", value: form.title },
-    { label: "Discipline", value: form.discipline },
-    { label: "Abstract", value: form.abstract },
-    { label: "Problem Statement", value: form.background },
-    { label: "Objectives", value: form.objectives },
-    { label: "Methodology", value: form.methodology },
-    { label: "Expected Outcome", value: form.expectedOutcome },
-    { label: "Duration", value: form.timeline },
+    ["Title", form.title], ["Discipline", form.discipline],
+    ["Abstract", form.abstract], ["Problem statement", form.background],
+    ["Objectives", form.objectives], ["Methodology", form.methodology],
+    ["Expected outcome", form.expectedOutcome], ["Timeline", form.timeline],
   ];
-
   return (
-    <div className="space-y-3">
-      <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex gap-2 items-start">
-        <FaInfoCircle className="text-blue-500 mt-0.5 flex-shrink-0 text-sm" />
-        <p className="text-xs text-blue-700 leading-relaxed">
-          Please review your submission details below. After confirmation,
-          you'll proceed to payment.
-        </p>
-      </div>
-
-      <div className="border border-gray-100 rounded-xl overflow-hidden divide-y divide-gray-50">
-        {rows.map(
-          ({ label, value }) =>
-            value && (
-              <div key={label} className="px-4 py-3 flex gap-3">
-                <span className="text-xs font-semibold text-gray-400 w-32 flex-shrink-0 pt-0.5">
-                  {label}
-                </span>
-                <span className="text-xs text-gray-700 leading-relaxed flex-1 line-clamp-2">
-                  {value}
-                </span>
-              </div>
-            ),
-        )}
-        {file && (
-          <div className="px-4 py-3 flex gap-3 items-center">
-            <span className="text-xs font-semibold text-gray-400 w-32 flex-shrink-0">
-              Document
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <InfoBox color="primary" icon="ℹ">
+        Review your details carefully. Once you proceed to payment your submission will be locked.
+      </InfoBox>
+      <div style={{ border: `1px solid ${clr.border}`, borderRadius: 12, overflow: "hidden" }}>
+        {rows.filter(([, v]) => v).map(([label, value], i) => (
+          <div key={label} style={{ display: "grid", gridTemplateColumns: "130px 1fr", gap: 12, padding: "10px 14px", background: i % 2 === 0 ? "#fff" : clr.surface, borderBottom: `1px solid ${clr.border}` }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: clr.muted, paddingTop: 1 }}>{label}</span>
+            <span style={{ fontSize: 13, color: clr.body, lineHeight: 1.55 }}>
+              {value.length > 140 ? value.slice(0, 140) + "…" : value}
             </span>
-            <span className="flex items-center gap-1.5 text-xs text-gray-700">
-              <FaFilePdf className="text-red-500" /> {file.name}
+          </div>
+        ))}
+        {file && (
+          <div style={{ display: "grid", gridTemplateColumns: "130px 1fr", gap: 12, padding: "10px 14px", background: rows.filter(([, v]) => v).length % 2 === 0 ? "#fff" : clr.surface }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: clr.muted }}>Document</span>
+            <span style={{ fontSize: 13, color: clr.body, display: "flex", alignItems: "center", gap: 6 }}>
+              <FaFilePdf style={{ color: clr.error }} /> {file.name}
             </span>
           </div>
         )}
       </div>
-
-      <p className="text-xs text-gray-400 text-center pt-1">
-        By submitting you confirm this is original work and agree to the
-        repository's publication terms.
+      <p style={{ fontSize: 12, color: clr.muted, textAlign: "center", margin: 0 }}>
+        By submitting you confirm this is original work and agree to the repository's publication terms.
       </p>
     </div>
   );
 };
 
-const StepPayment = ({ form, file, onPaymentComplete }) => {
-  const [phone, setPhone] = useState("");
-  const [stage, setStage] = useState("input");
-  const [error, setError] = useState("");
-  const [paymentData, setPaymentData] = useState(null);
-  const [pollProgress, setPollProgress] = useState(0);
-  const pollIntervalRef = useRef(null);
-  const abortControllerRef = useRef(new AbortController());
+// ─── Step 5 — Payment ────────────────────────────────────────────────────────
+const StepPayment = ({ form, file, onComplete }) => {
+  const [phone, setPhone]       = useState("");
+  const [stage, setStage]       = useState("input");
+  const [error, setError]       = useState("");
+  const [receipt, setReceipt]   = useState("");
+  const [pollPct, setPollPct]   = useState(0);
+  const pollRef                 = useRef(null);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-      abortControllerRef.current.abort();
-    };
-  }, []);
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
-  const pollPaymentAndSubmit = async (checkoutRequestId, paymentId) => {
+  const startPolling = (checkoutRequestId, paymentId) => {
+    setStage("waiting"); setPollPct(0);
     let attempts = 0;
-    const maxAttempts = 40; // Poll for up to 2 minutes (40 attempts x 3 seconds)
-
-    setStage("waiting");
-    setPollProgress(0);
-
-    pollIntervalRef.current = setInterval(async () => {
+    pollRef.current = setInterval(async () => {
       attempts++;
-      const progress = (attempts / maxAttempts) * 100;
-      setPollProgress(progress);
-
+      setPollPct(Math.min(Math.round((attempts / POLL_MAX_ATTEMPTS) * 100), 99));
       try {
-        if (abortControllerRef.current.signal.aborted) {
-          clearInterval(pollIntervalRef.current);
-          return;
-        }
-
-        const result = await verifyPaymentStatus(checkoutRequestId);
-        // console.log("Payment status:", result.status);
-
-        if (result.status === "completed") {
-          clearInterval(pollIntervalRef.current);
-          setPaymentData({
-            paymentId,
-            transactionCode: result.transactionId || checkoutRequestId,
-            mpesaReceiptNumber: result.mpesaReceiptNumber,
-          });
-
-          setStage("success");
-        
-
-          // Wait 1.5 seconds to show success, then submit proposal
-          setTimeout(() => submitProposal(paymentId), 1500);
-        } else if (
-          result.status === "failed" ||
-          result.status === "cancelled"
-        ) {
-          clearInterval(pollIntervalRef.current);
+        const res = await verifyPaymentStatus(checkoutRequestId);
+        if (res.status === "completed") {
+          clearInterval(pollRef.current);
+          setReceipt(res.mpesaReceiptNumber || "");
+          submitProposal(paymentId, res.mpesaReceiptNumber);
+        } else if (["failed", "cancelled"].includes(res.status)) {
+          clearInterval(pollRef.current);
+          setError(res.status === "cancelled" ? "Payment was cancelled." : "Payment failed. Please try again.");
           setStage("error");
-          setError(
-            result.status === "cancelled"
-              ? "Payment was cancelled. Please try again."
-              : "Payment failed. Please try again.",
-          );
-        
         }
-      } catch (err) {
-        // console.error("Payment status check error:", err);
-      }
-
-      if (attempts >= maxAttempts) {
-        clearInterval(pollIntervalRef.current);
+      } catch (_) {  }
+      if (attempts >= POLL_MAX_ATTEMPTS) {
+        clearInterval(pollRef.current);
+        setError("Verification timed out after 2 minutes. Contact support with your M-Pesa receipt.");
         setStage("error");
-        setError(
-          "Payment verification timed out after 2 minutes. Please contact support.",
-        );
-        
       }
-    }, 3000); // Poll every 3 seconds
+    }, POLL_INTERVAL_MS);
   };
 
-  const submitProposal = async (paymentId) => {
+  const submitProposal = async (paymentId, mpesaReceipt) => {
+    setStage("submitting");
     try {
-      setStage("processing");
-    
-
-      const result = await confirmProposalSubmission(
-        {
-          title: form.title,
-          discipline: form.discipline,
-          abstract: form.abstract,
-          background: form.background,
-          objectives: form.objectives,
-          methodology: form.methodology,
-          expectedOutcome: form.expectedOutcome,
-          timeline: form.timeline,
-        },
-        paymentId,
-        file
-      );
+      const fd = new FormData();
+      const allowed = ["title","discipline","abstract","background","objectives","methodology","expectedOutcome","timeline"];
+      allowed.forEach(k => { if (form[k]) fd.append(k, form[k]); });
+      if (file) fd.append("proposalFile", file);
+      await confirmProposalSubmission(form, paymentId, file);
       setStage("success");
-
-      // Notify parent component
-      onPaymentComplete({
-        paymentId,
-        researchId: result.research?.id,
-        status: "completed",
-      });
-
-      toast.success("Proposal submitted successfully! ");
+      setTimeout(() => onComplete({ paymentId, receipt: mpesaReceipt }), 1800);
     } catch (err) {
-      // console.error("Proposal submission error:", err);
+      setError(err.message || "Proposal submission failed after payment. Please contact support — your payment was received.");
       setStage("error");
-      setError(
-        err.message ||
-          "Failed to submit proposal after payment. Please contact support.",
-      );
-      toast.error("Proposal submission failed: " + err.message);
     }
   };
 
-  const handleComplete = async () => {
+  const handlePay = async () => {
     const digits = phone.replace(/\D/g, "");
-    if (digits.length < 10) {
-      setError("Enter a valid Safaricom number");
-      return;
-    }
-
-    setError("");
-    setStage("processing");
-
+    if (digits.length < 10) { setError("Enter a valid Safaricom number (10 digits)"); return; }
+    setError(""); setStage("initiating");
     try {
-     
-
-      // Step 1: Initiate M-Pesa STK Push
-      const result = await initiateProposalSubmission(
-        {
-          title: form.title,
-          discipline: form.discipline,
-          abstract: form.abstract,
-          background: form.background,
-          objectives: form.objectives,
-          methodology: form.methodology,
-          expectedOutcome: form.expectedOutcome,
-          timeline: form.timeline,
-        },
-        phone,
-      );
-
- 
-      setPaymentData(result);
-
-      
-      pollPaymentAndSubmit(result.checkoutRequestId, result.paymentId);
+      const res = await initiateProposalSubmission({
+        title: form.title, discipline: form.discipline, abstract: form.abstract,
+        background: form.background, objectives: form.objectives, methodology: form.methodology,
+        expectedOutcome: form.expectedOutcome, timeline: form.timeline,
+      }, phone);
+      startPolling(res.checkoutRequestId, res.paymentId);
     } catch (err) {
-      // console.error("Payment initiation error:", err);
-      setError(err.message || "Failed to initiate payment");
+      setError(err.message || "Failed to initiate payment. Check your number and try again.");
       setStage("input");
     }
   };
 
 
-  if (stage === "processing" && !paymentData)
-    return (
-      <div className="flex flex-col items-center justify-center py-10 gap-4">
-        <FaSpinner className="text-4xl text-blue-600 animate-spin" />
-        <div className="text-center">
-          <p className="font-bold text-gray-900 text-lg">Initiating Payment</p>
-          <p className="text-gray-500 text-sm mt-1">
-            Sending M-Pesa prompt to <strong>{phone}</strong>…
-          </p>
-        </div>
+  if (stage === "initiating") return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "36px 0" }}>
+      <Spinner size={40} />
+      <div style={{ textAlign: "center" }}>
+        <p style={{ fontWeight: 700, color: clr.body, margin: "0 0 4px" }}>Initiating payment…</p>
+        <p style={{ fontSize: 13, color: clr.muted, margin: 0 }}>Sending M-Pesa prompt to <strong>{phone}</strong></p>
       </div>
-    );
+    </div>
+  );
 
-  // Waiting state - polling payment status
-  if (stage === "waiting")
-    return (
-      <div className="flex flex-col items-center justify-center py-10 gap-4">
-        <FaSpinner className="text-4xl text-blue-600 animate-spin" />
-        <div className="text-center">
-          <p className="font-bold text-gray-900 text-lg">Waiting for Payment</p>
-          <p className="text-gray-500 text-sm mt-1">
-            Enter your M-Pesa PIN on your phone to confirm payment.
-          </p>
-          <p className="text-xs text-gray-400 mt-2">
-            Verifying…{" "}
-            <span className="font-semibold">{Math.round(pollProgress)}%</span>
-          </p>
-          <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
-            <div
-              className="bg-blue-600 h-1.5 rounded-full transition-all duration-500"
-              style={{ width: `${pollProgress}%` }}
-            />
-          </div>
+  if (stage === "waiting") return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "36px 0" }}>
+      <Spinner size={40} />
+      <div style={{ textAlign: "center", width: "100%", maxWidth: 280 }}>
+        <p style={{ fontWeight: 700, color: clr.body, margin: "0 0 4px" }}>Waiting for confirmation</p>
+        <p style={{ fontSize: 13, color: clr.muted, margin: "0 0 16px" }}>Enter your M-Pesa PIN on your phone to complete the payment</p>
+        <div style={{ height: 6, background: clr.surface, borderRadius: 99, overflow: "hidden", marginBottom: 6 }}>
+          <div style={{ height: "100%", width: `${pollPct}%`, background: clr.primary, borderRadius: 99, transition: "width 1s ease" }} />
         </div>
+        <p style={{ fontSize: 11, color: clr.muted, margin: 0 }}>Verifying… {pollPct}%</p>
       </div>
-    );
+    </div>
+  );
 
-  // Processing state - submitting proposal
-  if (stage === "processing" && paymentData)
-    return (
-      <div className="flex flex-col items-center justify-center py-10 gap-4">
-        <FaSpinner className="text-4xl text-green-600 animate-spin" />
-        <div className="text-center">
-          <p className="font-bold text-gray-900 text-lg">Payment Confirmed</p>
-          <p className="text-gray-500 text-sm mt-1">
-            Receipt: <strong>{paymentData.mpesaReceiptNumber}</strong>
-          </p>
-          <p className="text-xs text-gray-400 mt-3">
-            Submitting your proposal to the system…
-          </p>
-        </div>
+  if (stage === "submitting") return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "36px 0" }}>
+      <Spinner size={40} color={clr.success} />
+      <div style={{ textAlign: "center" }}>
+        <p style={{ fontWeight: 700, color: clr.body, margin: "0 0 4px" }}>Payment confirmed ✓</p>
+        {receipt && <p style={{ fontSize: 12, color: clr.muted, margin: "0 0 8px" }}>Receipt: <strong>{receipt}</strong></p>}
+        <p style={{ fontSize: 13, color: clr.muted, margin: 0 }}>Submitting your proposal…</p>
       </div>
-    );
+    </div>
+  );
 
-  // Success state
-  if (stage === "success")
-    return (
-      <div className="flex flex-col items-center justify-center py-10 gap-4">
-        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-          <FaCheckCircle className="text-3xl text-green-600" />
-        </div>
-        <div className="text-center">
-          <p className="font-bold text-gray-900 text-lg">
-            Proposal Submitted Successfully!
-          </p>
-          <p className="text-gray-500 text-sm mt-1">
-            Your research proposal has been received and is awaiting reviewer
-            feedback.
-          </p>
-          {paymentData?.mpesaReceiptNumber && (
-            <p className="text-xs text-gray-400 mt-3">
-              M-Pesa Receipt: <strong>{paymentData.mpesaReceiptNumber}</strong>
-            </p>
-          )}
-        </div>
+  if (stage === "success") return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "36px 0" }}>
+      <div style={{ width: 64, height: 64, background: clr.successLight, border: `1px solid ${clr.successBorder}`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <FaCheckCircle style={{ color: clr.success, fontSize: 28 }} />
       </div>
-    );
-
-  // Error state
-  if (stage === "error")
-    return (
-      <div className="space-y-4">
-        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-4 flex gap-3 items-start">
-          <FaInfoCircle className="text-red-500 mt-0.5 flex-shrink-0 text-sm" />
-          <div>
-            <p className="text-sm font-semibold text-red-700">Error</p>
-            <p className="text-xs text-red-600 mt-1">{error}</p>
-          </div>
-        </div>
-        <button
-          onClick={() => {
-            setStage("input");
-            setError("");
-            setPaymentData(null);
-            setPollProgress(0);
-            abortControllerRef.current = new AbortController();
-          }}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-all cursor-pointer"
-        >
-          Try Again
-        </button>
+      <div style={{ textAlign: "center" }}>
+        <p style={{ fontWeight: 700, color: clr.body, margin: "0 0 6px", fontSize: 17 }}>Proposal submitted successfully!</p>
+        <p style={{ fontSize: 13, color: clr.muted, margin: 0 }}>Awaiting reviewer assignment. You'll receive an email notification.</p>
+        {receipt && <p style={{ fontSize: 12, color: clr.muted, margin: "8px 0 0" }}>M-Pesa receipt: <strong>{receipt}</strong></p>}
       </div>
-    );
+    </div>
+  );
 
-  // Input state - phone number and complete button
+  if (stage === "error") return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <InfoBox color="error" icon="⚠">{error}</InfoBox>
+      <button onClick={() => { setStage("input"); setError(""); }}
+        style={{ padding: "11px 0", background: clr.primary, color: "#fff", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: "pointer", width: "100%" }}>
+        Try again
+      </button>
+    </div>
+  );
+
+  // ── Input state ───────────────────────────────────────────────────────────
   return (
-    <div className="space-y-5">
-      {/* Amount card */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4 flex items-center justify-between">
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ background: clr.primaryLight, border: `1px solid ${clr.primaryBorder}`, borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <p className="text-xs text-gray-400 mb-0.5">
-            One-time submission fee
-          </p>
-          <p className="text-3xl font-extrabold text-gray-900">
-            KES {SUBMISSION_FEE}
-          </p>
+          <p style={{ fontSize: 12, color: clr.muted, margin: "0 0 2px" }}>One-time submission fee</p>
+          <p style={{ fontSize: 30, fontWeight: 800, color: clr.body, margin: 0, letterSpacing: "-1px" }}>KES {SUBMISSION_FEE.toLocaleString()}</p>
         </div>
-        <div className="text-right">
-          <p className="text-xs text-gray-400 mb-0.5">via</p>
-          <p className="font-extrabold text-green-600 flex items-center gap-1">
+        <div style={{ textAlign: "right" }}>
+          <p style={{ fontSize: 11, color: clr.muted, margin: "0 0 2px" }}>via</p>
+          <p style={{ fontWeight: 700, color: clr.success, margin: 0, display: "flex", alignItems: "center", gap: 5, fontSize: 15 }}>
             <FaMobileAlt /> M-Pesa
           </p>
         </div>
       </div>
 
-      {/* Info box */}
-      <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 flex gap-2 items-start">
-        <FaInfoCircle className="text-blue-400 mt-0.5 flex-shrink-0 text-sm" />
-        <p className="text-xs text-blue-700 leading-relaxed">
-          This is a one-time fee per proposal. Once you click "Complete", we'll
-          send an M-Pesa prompt to your phone. Enter your PIN to confirm, and
-          your proposal will be automatically submitted.
-        </p>
-      </div>
+      <InfoBox color="primary" icon="ℹ">
+        Once you click "Pay & Submit", we'll send an STK Push to your phone. Enter your PIN to confirm — your proposal submits automatically after payment.
+      </InfoBox>
 
-      {/* Phone input */}
-      <Field label="Safaricom Number" required error={error}>
-        <input
-          type="tel"
-          placeholder="0712 345 678"
-          value={phone}
-          onChange={(e) => {
-            setPhone(formatPhone(e.target.value));
-            setError("");
-          }}
-          className={inputCls(error)}
-        />
+      <Field label="Safaricom number" required error={error}>
+        <input type="tel" value={phone} onChange={e => { setPhone(formatPhone(e.target.value)); setError(""); }}
+          placeholder="0712 345 678" style={inputStyle(!!error)} />
       </Field>
 
-      {/* Single Complete button */}
-      <button
-        onClick={handleComplete}
-        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600
-         hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3.5 
-         rounded-xl transition-all hover:shadow-lg flex items-center justify-center 
-         gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+      <button onClick={handlePay}
+        style={{ padding: "13px 0", background: clr.primary, color: "#fff", border: "none", borderRadius: 11, fontWeight: 700, fontSize: 15, cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "background 0.15s" }}
+        onMouseEnter={e => e.currentTarget.style.background = "#1E40AF"}
+        onMouseLeave={e => e.currentTarget.style.background = clr.primary}
       >
-        <FaMobileAlt /> Complete & Pay KES {SUBMISSION_FEE}
+        <FaMobileAlt /> Pay KES {SUBMISSION_FEE.toLocaleString()} & submit
       </button>
 
-      <p className="text-center text-xs text-gray-400">
-        M-Pesa prompt will appear on your phone · Your proposal will be
-        submitted automatically
+      <p style={{ fontSize: 12, color: clr.muted, textAlign: "center", margin: 0 }}>
+        M-Pesa prompt will appear on your phone · Proposal submits automatically on confirmation
       </p>
     </div>
   );
 };
 
+
+const STEPS = ["Basics", "Research", "Upload", "Review", "Payment"];
+
+const StepBar = ({ current }) => (
+  <div style={{ display: "flex", alignItems: "center", padding: "20px 32px 0" }}>
+    {STEPS.map((label, i) => {
+      const done = i < current, active = i === current;
+      return (
+        <div key={label} style={{ display: "flex", alignItems: "center", flex: i < STEPS.length - 1 ? 1 : "none" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: "50%",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 13, fontWeight: 700,
+              background: done ? clr.primary : active ? "#fff" : clr.surface,
+              color: done ? "#fff" : active ? clr.primary : clr.muted,
+              border: active ? `2px solid ${clr.primary}` : done ? "none" : `1.5px solid ${clr.border}`,
+              transition: "all 0.3s",
+            }}>
+              {done ? <FaCheckCircle size={13} /> : i + 1}
+            </div>
+            <span style={{ fontSize: 11, fontWeight: active ? 700 : 500, color: active ? clr.primary : done ? "#93C5FD" : clr.muted, whiteSpace: "nowrap" }}>{label}</span>
+          </div>
+          {i < STEPS.length - 1 && (
+            <div style={{ flex: 1, height: 1.5, background: i < current ? clr.primary : clr.border, margin: "0 6px", marginBottom: 20, transition: "background 0.4s" }} />
+          )}
+        </div>
+      );
+    })}
+  </div>
+);
+
+
 const SubmitProposal = ({ onClose, onSubmitted }) => {
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState({});
-  const [proposalFile, setFile] = useState(null);
-  const [submissionComplete, setSubmissionComplete] = useState(false);
+  const [file, setFile] = useState(null);
+  const [done, setDone] = useState(false);
   const bodyRef = useRef(null);
 
-  const [form, setFormState] = useState({
-    title: "",
-    discipline: "Medicine",
-    abstract: "",
-    background: "",
-    objectives: "",
-    methodology: "",
-    expectedOutcome: "",
-    timeline: "",
+  const [form, setFormRaw] = useState({
+    title: "", discipline: "Medicine", abstract: "",
+    background: "", objectives: "", methodology: "",
+    expectedOutcome: "", timeline: "",
   });
 
-  const setField = (k, v) => {
-    setFormState((p) => ({ ...p, [k]: v }));
-    if (errors[k]) setErrors((p) => ({ ...p, [k]: "" }));
-  };
+  const setField = (k, v) => { setFormRaw(p => ({ ...p, [k]: v })); setErrors(p => ({ ...p, [k]: "" })); };
 
-  // Scroll body to top on step change
-  useEffect(() => {
-    bodyRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  }, [step]);
+  useEffect(() => { bodyRef.current?.scrollTo({ top: 0, behavior: "smooth" }); }, [step]);
 
-  // Validation per step
   const validate = (s) => {
     const e = {};
     if (s === 0) {
-      if (!form.title.trim() || form.title.length < 10)
-        e.title = "Please enter a descriptive title (min 10 chars)";
-      const wc = form.abstract.trim().split(/\s+/).filter(Boolean).length;
+      if (!form.title.trim() || form.title.length < 10) e.title = "Title must be at least 10 characters";
+      const wc = wordCount(form.abstract);
       if (!form.abstract.trim()) e.abstract = "Abstract is required";
-      else if (wc < 30) e.abstract = `Too short — ${wc} words (min 30)`;
+      else if (wc < 30) e.abstract = `Too short — ${wc} words (minimum 30)`;
     }
     if (s === 1) {
-      if (!form.background.trim()) e.background = "Required";
-      if (!form.objectives.trim()) e.objectives = "Required";
-      if (!form.methodology.trim()) e.methodology = "Required";
-      if (!form.expectedOutcome.trim()) e.expectedOutcome = "Required";
-      if (!form.timeline.trim()) e.timeline = "Required";
+      ["background","objectives","methodology","expectedOutcome","timeline"]
+        .forEach(k => { if (!form[k].trim()) e[k] = "This field is required"; });
     }
-    if (s === 2) {
-      if (!proposalFile) e.proposalFile = "Please upload your proposal PDF";
-    }
+    if (s === 2 && !file) e.file = "Please upload your proposal PDF";
     return e;
   };
 
   const next = () => {
-    const errs = validate(step);
-    if (Object.keys(errs).length) {
-      setErrors(errs);
-      return;
-    }
-    setErrors({});
-    setStep((s) => s + 1);
+    const e = validate(step);
+    if (Object.keys(e).length) { setErrors(e); return; }
+    setErrors({}); setStep(s => s + 1);
   };
 
-  const back = () => {
-    setErrors({});
-    setStep((s) => s - 1);
+  const back = () => { setErrors({}); setStep(s => s - 1); };
+
+  const handleComplete = (data) => {
+    setDone(true);
+    toast.success("Proposal submitted successfully!");
+    setTimeout(() => { onSubmitted?.(); onClose(); }, 2000);
   };
 
-  const handlePaymentComplete = (paymentData) => {
-    setSubmissionComplete(true);
-    // console.log("Payment and submission complete:", paymentData);
+  const stepContent = [
+    <StepBasics form={form} setField={setField} errors={errors} />,
+    <StepResearch form={form} setField={setField} errors={errors} />,
+    <StepUpload file={file} onFile={setFile} onClear={() => setFile(null)} error={errors.file} />,
+    <StepReview form={form} file={file} />,
+    <StepPayment form={form} file={file} onComplete={handleComplete} />,
+  ];
 
-    // Auto-close modal after 2 seconds to show success
-    setTimeout(() => {
-      onSubmitted?.();
-      onClose();
-    }, 2000);
-  };
-
-  const isLastStep = step === STEPS.length - 1;
-
-  const renderStep = () => {
-    switch (step) {
-      case 0:
-        return <StepBasics form={form} setField={setField} errors={errors} />;
-      case 1:
-        return <StepResearch form={form} setField={setField} errors={errors} />;
-      case 2:
-        return (
-          <StepUpload
-            file={proposalFile}
-            onFile={setFile}
-            onClear={() => setFile(null)}
-            error={errors.proposalFile}
-          />
-        );
-      case 3:
-        return <StepReview form={form} file={proposalFile} />;
-      case 4:
-        return (
-          <StepPayment
-            form={form}
-            file={proposalFile}
-            onPaymentComplete={handlePaymentComplete}
-          />
-        );
-      default:
-        return null;
-    }
-  };
+  const stepTitles = ["Basic information", "Research details", "Upload document", "Review & confirm", "Complete payment"];
+  const stepSubs   = [
+    "Tell us your title, discipline, and what your research is about.",
+    "Describe the problem, objectives, and how you'll conduct the research.",
+    "Upload your full proposal document as a PDF.",
+    "Check all details before proceeding to payment.",
+    `A one-time fee of KES ${SUBMISSION_FEE.toLocaleString()} is required. Your proposal submits automatically after payment confirmation.`,
+  ];
 
   return (
-    <div className="p-2">
-      <button
-        onClick={onClose}
-        className="flex items-center gap-2 text-gray-600 hover:cursor-pointer hover:text-gray-900 transition-colors mb-6"
-      >
-        <FaArrowLeft /> Back to Dashboard
-      </button>
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-        <div className="bg-blue-600 px-8 py-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-11 h-11 bg-white/20 rounded-xl flex items-center justify-center">
-              <FaFlask className="text-white text-lg" />
-            </div>
-            <div>
-              <p className="text-white font-bold text-lg">Submit Proposal</p>
-              <p className="text-blue-200 text-sm">
-                Research Portal · Stage 1 of 3
-              </p>
-            </div>
-          </div>
-        </div>
+    <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
-        <div className="px-8 py-6 border-b border-gray-100">
-          <div className="flex items-center gap-1.5">
-            {STEPS.map((s, i) => {
-              const done = i < step;
-              const current = i === step;
-              const Icon = s.icon;
-              return (
-                <React.Fragment key={s.id}>
-                  <div className="flex flex-col items-center gap-2 flex-shrink-0">
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border-2
-                    ${
-                      done
-                        ? "bg-blue-600 border-blue-600 text-white"
-                        : current
-                          ? "bg-white border-blue-600 text-blue-600 shadow-sm"
-                          : "bg-gray-100 border-gray-200 text-gray-400"
-                    }`}
-                    >
-                      {done ? (
-                        <FaCheckCircle className="text-sm" />
-                      ) : (
-                        <Icon className="text-sm" />
-                      )}
-                    </div>
-                    <span
-                      className={`text-xs font-semibold whitespace-nowrap
-                    ${current ? "text-blue-600 font-bold" : done ? "text-blue-400" : "text-gray-400"}`}
-                    >
-                      {s.label}
-                    </span>
-                  </div>
-                  {i < STEPS.length - 1 && (
-                    <div
-                      className={`flex-1 h-0.5 mb-8 transition-all duration-500 ${i < step ? "bg-blue-500" : "bg-gray-200"}`}
-                    />
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </div>
+      {/* Header */}
+      <div style={{ background: clr.primary, borderRadius: "16px 16px 0 0", padding: "20px 28px", display: "flex", alignItems: "center", gap: 14 }}>
+        <div>
+          <p style={{ color: "#fff", fontWeight: 700, fontSize: 17, margin: 0 }}>Submit research proposal</p>
+          <p style={{ color: "#93C5FD", fontSize: 12, margin: 0 }}>Nyahururu Research Portal · Stage 1 of 3</p>
         </div>
+      </div>
 
-        <div className="px-8 pt-6 pb-2">
-          <h3 className="font-bold text-gray-900 text-lg">
-            {step === 0 && "Basic Information"}
-            {step === 1 && "Research Details"}
-            {step === 2 && "Upload Document"}
-            {step === 3 && "Review & Submit"}
-            {step === 4 && "Complete Payment & Submit"}
-          </h3>
-          <p className="text-sm text-gray-500 mt-1">
-            {step === 0 &&
-              "Tell us the title, discipline, and what your research is about."}
-            {step === 1 &&
-              "Describe the problem, objectives, and how you'll conduct the research."}
-            {step === 2 && "Upload your full proposal document as a PDF."}
-            {step === 3 && "Check your details before final submission."}
-            {step === 4 &&
-              `A one-time fee of KES ${SUBMISSION_FEE} is required. Your proposal will be automatically submitted after payment confirmation.`}
-          </p>
-        </div>
+      
+      <StepBar current={step} />
 
-        <div
-          ref={bodyRef}
-          className="px-8 py-6 overflow-y-auto"
-          style={{ maxHeight: "500px" }}
-        >
-          {renderStep()}
-        </div>
+      
+      <div style={{ padding: "18px 32px 4px" }}>
+        <h3 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 700, color: clr.body }}>{stepTitles[step]}</h3>
+        <p style={{ margin: 0, fontSize: 13, color: clr.muted }}>{stepSubs[step]}</p>
+      </div>
 
-        <div className="px-8 py-6 border-t border-gray-100 flex gap-3 bg-gray-50/50">
-          {step > 0 && !submissionComplete && (
-            <button
-              type="button"
-              onClick={back}
-              className="flex items-center gap-2 border-2 border-gray-200
-             text-gray-600 hover:border-blue-300 hover:text-blue-600
-              font-semibold px-6 py-3 rounded-xl transition-all text-sm cursor-pointer"
-            >
-              <FaArrowLeft /> Back
-            </button>
-          )}
+  
+      <div ref={bodyRef} style={{ padding: "16px 32px 8px", maxHeight: 420, overflowY: "auto" }}>
+        {stepContent[step]}
+      </div>
 
-          {!isLastStep && !submissionComplete && (
-            <button
-              type="button"
-              onClick={next}
-              className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600
-             hover:from-blue-700 hover:to-indigo-700 text-white font-bold
-              py-3 rounded-xl transition-all hover:shadow-lg flex items-center 
-              justify-center gap-2 text-sm cursor-pointer"
-            >
-              Continue <FaArrowRight className="text-xs" />
-            </button>
-          )}
-        </div>
+ 
+      <div style={{ padding: "16px 32px 20px", borderTop: `1px solid ${clr.border}`, background: clr.surface, borderRadius: "0 0 16px 16px", display: "flex", gap: 10 }}>
+        {step > 0 && !done && (
+          <button type="button" onClick={back}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 20px", border: `1.5px solid ${clr.border}`, borderRadius: 10, background: "#fff", color: clr.muted, fontWeight: 600, fontSize: 13, cursor: "pointer", transition: "border-color 0.15s, color 0.15s" }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = clr.primary; e.currentTarget.style.color = clr.primary; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = clr.border; e.currentTarget.style.color = clr.muted; }}
+          >
+            <FaArrowLeft size={11} /> Back
+          </button>
+        )}
+        {step < 4 && !done && (
+          <button type="button" onClick={next}
+            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 0", background: clr.primary, color: "#fff", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: "pointer", transition: "background 0.15s" }}
+            onMouseEnter={e => e.currentTarget.style.background = "#1E40AF"}
+            onMouseLeave={e => e.currentTarget.style.background = clr.primary}
+          >
+            Continue <FaArrowRight size={12} />
+          </button>
+        )}
       </div>
     </div>
   );

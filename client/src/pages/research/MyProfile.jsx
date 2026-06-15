@@ -9,9 +9,7 @@ import {
   FaShieldAlt, FaLock, FaArrowLeft,
 } from "react-icons/fa";
 
-/* ══════════════════════════════════════════
-   MOCK DATA - For testing/fallback
-══════════════════════════════════════════ */
+
 const MOCK_PUBLICATIONS = [
   {
     id: "p1",
@@ -38,9 +36,7 @@ const MOCK_STATS = {
   totalDownloads: 498, totalCitations: 20, h_index: 2,
 };
 
-/* ══════════════════════════════════════════
-   STAT CARD
-══════════════════════════════════════════ */
+
 const StatCard = ({ icon: Icon, label, value, color }) => (
   <div className="bg-gray-50 rounded-lg border border-gray-100 p-3 flex items-center gap-3">
     <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${color}`}>
@@ -53,9 +49,7 @@ const StatCard = ({ icon: Icon, label, value, color }) => (
   </div>
 );
 
-/* ══════════════════════════════════════════
-   AVATAR INITIALS
-══════════════════════════════════════════ */
+
 const Avatar = ({ firstName, lastName, size = "lg" }) => {
   const initials = `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
   const sz = size === "lg" ? "w-24 h-24 text-2xl" : "w-10 h-10 text-sm";
@@ -66,9 +60,7 @@ const Avatar = ({ firstName, lastName, size = "lg" }) => {
   );
 };
 
-/* ══════════════════════════════════════════
-   EDIT PROFILE MODAL
-══════════════════════════════════════════ */
+
 const EditProfileModal = ({ profile, onClose, onSave }) => {
   const [formData, setFormData] = useState(profile);
   const [saving, setSaving]     = useState(false);
@@ -76,7 +68,7 @@ const EditProfileModal = ({ profile, onClose, onSave }) => {
   const set = (field, value) => setFormData((p) => ({ ...p, [field]: value }));
 
   const handleSubmit = async () => {
-    // Validate required fields
+   
     if (!formData.firstName?.trim() || !formData.lastName?.trim()) {
       toast.error("First and last name are required");
       return;
@@ -127,7 +119,7 @@ const EditProfileModal = ({ profile, onClose, onSave }) => {
           )}
         </div>
 
-        {/* Scrollable form body */}
+       
         <div className="p-6 space-y-5 overflow-y-auto flex-grow">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -203,16 +195,14 @@ const EditProfileModal = ({ profile, onClose, onSave }) => {
   );
 };
 
-/* ══════════════════════════════════════════
-   MAIN PROFILE COMPONENT - Full Page Card
-══════════════════════════════════════════ */
+
 const MyProfile = ({ onBack }) => {
   const [profile, setProfile]   = useState(null);
   const [loading, setLoading]   = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
 
-  // Fetch user profile on mount
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -221,7 +211,7 @@ const MyProfile = ({ onBack }) => {
       } catch (err) {
         console.error("Failed to fetch profile:", err);
         toast.error("Failed to load profile. Please try again.");
-        // Optionally redirect back
+  
         setTimeout(() => onBack?.(), 2000);
       } finally {
         setLoading(false);
@@ -281,8 +271,7 @@ const MyProfile = ({ onBack }) => {
         <FaArrowLeft /> Back to Dashboard
       </button>
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col h-full">
-      
-        {/* ── Header ── */}
+
         <div className="bg-blue-500 px-8 py-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-11 h-11 bg-white/20 rounded-xl flex
@@ -296,10 +285,8 @@ const MyProfile = ({ onBack }) => {
           </div>
         </div>
 
-        {/* ── Content ── */}
         <div className="px-8 py-6">
-          
-          {/* ── Profile Summary ── */}
+  
           <div className="mb-8 pb-8 border-b border-gray-100">
             <div className="flex items-start gap-6">
               <Avatar firstName={profile.firstName} lastName={profile.lastName} />
@@ -321,7 +308,7 @@ const MyProfile = ({ onBack }) => {
                   </button>
                 </div>
 
-                {/* Quick info */}
+            
                 <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-600 mb-4">
                   {profile.institution && (
                     <div className="flex items-center gap-1.5">
@@ -341,12 +328,11 @@ const MyProfile = ({ onBack }) => {
                   </div>
                 </div>
 
-                {/* Bio */}
+        
                 {profile.bio && (
                   <p className="text-gray-600 text-sm leading-relaxed mb-3">{profile.bio}</p>
                 )}
 
-                {/* Meta info */}
                 <div className="flex flex-wrap gap-4 text-xs text-gray-400 pt-4 border-t border-gray-50">
                   {profile.emailVerified && <span className="flex items-center gap-1 text-green-600"><FaCheckCircle /> Email Verified</span>}
                   <span className="flex items-center gap-1"><FaShieldAlt /> Public Profile</span>
@@ -355,7 +341,7 @@ const MyProfile = ({ onBack }) => {
             </div>
           </div>
 
-          {/* ── Stats ── */}
+   
           <div className="mb-8 pb-8 border-b border-gray-100">
             <h3 className="font-bold text-gray-900 text-sm mb-4">Research Statistics</h3>
             <div className="grid md:grid-cols-5 gap-3">
@@ -367,7 +353,7 @@ const MyProfile = ({ onBack }) => {
             </div>
           </div>
 
-          {/* ── Tabs ── */}
+   
           <div>
             <div className="flex gap-6 border-b border-gray-100 mb-5">
               {[
@@ -389,10 +375,10 @@ const MyProfile = ({ onBack }) => {
               })}
             </div>
 
-            {/* ── Overview Tab ── */}
+
             {activeTab === "overview" && (
               <div className="space-y-6">
-                {/* Contact */}
+        
                 <div>
                   <h4 className="font-bold text-gray-900 text-sm mb-4 flex items-center gap-2">
                     <FaEnvelope className="text-blue-500" /> Contact Information
@@ -416,7 +402,7 @@ const MyProfile = ({ onBack }) => {
                   </div>
                 </div>
 
-                {/* Research Focus */}
+   
                 <div className="border-t border-gray-50 pt-6">
                   <h4 className="font-bold text-gray-900 text-sm mb-4 flex items-center gap-2">
                     <FaAward className="text-blue-500" /> Research Focus
@@ -441,7 +427,7 @@ const MyProfile = ({ onBack }) => {
               </div>
             )}
 
-            {/* ── Publications Tab ── */}
+
             {activeTab === "publications" && (
               <div className="space-y-3">
                 {MOCK_PUBLICATIONS.length === 0 ? (
@@ -487,7 +473,7 @@ const MyProfile = ({ onBack }) => {
           </div>
         </div>
 
-        {/* Edit modal */}
+
         {editMode && (
           <EditProfileModal
             profile={profile}

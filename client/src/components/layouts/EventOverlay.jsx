@@ -68,7 +68,7 @@ const EventOverlay = () => {
       onClick={() => setVisible(false)}
     >
       <div
-        className="relative w-full max-w-xl mx-4 h-screen rounded-2xl overflow-hidden bg-white shadow-xl"
+        className="relative w-full max-w-xl mx-4 h-[90vh] rounded-2xl overflow-hidden bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
    

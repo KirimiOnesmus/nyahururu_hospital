@@ -1,579 +1,168 @@
-const express = require("express");
+const router = require("express").Router();
+const ctrl = require("../controllers/researchController");
 const upload = require("../middleware/upload");
-const router = express.Router();
-const researchController = require("../controllers/researchController");
-const mpesaController = require("../controllers/mpesaController");
-const reviewerController = require("../controllers/reviewerController");
+const {
+  validate,
+  proposalInitiateSchema,
+  proposalConfirmSchema,
+  finalPaperSchema,
+  researchAdminQuerySchema,
+  updateDownloadPriceSchema,
+  assignReviewerSchema,
+  publicResearchQuerySchema,
+  submitReviewSchema,
+} = require("../utils/validators");
 
 const {
-  protectEither,
-  protectResearcher,
-  protectReviewers,
   verifyToken,
   authorizeRoles,
+  protectEither,
+    protectResearcher,
+  optionalResearcher,
+  restrictTo,
+  isResearchAdmin,
 } = require("../middleware/auth");
 
+
+const { AppError } = require("../utils/appError");
+const { RESEARCHER_ROLES } = require("../constants/researchIndex");
+
+const requireAdmin = [
+  protectEither,
+  (req, res, next) => {
+    if (isResearchAdmin(req)) return next();
+    return next(new AppError("Admin access required.", 403));
+  },
+];
+
+const requireReviewer = [
+  protectEither,
+  (req, res, next) => {
+    const researcherOk =
+      req.researcher &&
+      [
+        RESEARCHER_ROLES.REVIEWER,
+        RESEARCHER_ROLES.ADMIN,
+        RESEARCHER_ROLES.SUPERADMIN,
+      ].includes(req.researcher.role);
+    const staffOk =
+      req.user &&
+      [RESEARCHER_ROLES.ADMIN, RESEARCHER_ROLES.SUPERADMIN].includes(
+        req.user.role,
+      );
+
+    if (researcherOk || staffOk) return next();
+    return next(new AppError("Reviewer or admin access required.", 403));
+  },
+];
+
+// ── File upload config ────────────────────────────────────────────────────────
 const uploader = upload("research");
-const uploadFields = uploader.fields([
-  { name: "proposal", maxCount: 1 },
-  { name: "proposalFile", maxCount: 1 },
-  { name: "paper", maxCount: 1 },
-  { name: "finalPaperFile", maxCount: 1 },
-  { name: "pdf", maxCount: 1 },
-]);
+const uploadAny = uploader.any();
 
-// PUBLIC ENDPOINTS
-
-router.get("/", researchController.getAllPublishedResearch);
-
-//REVIER ROUTES
-router.get(
-  "/reviewer/assigned",
-  protectReviewers,
-  async (req, res) => {
-    try {
-      const Research = require("../models/researchModel");
-      const { stage, search, page = 1, limit = 20 } = req.query;
-
-      // Build filter - research assigned to this reviewer
-      const reviewerId = req.researcher?._id || req.user?._id;
-      const filter = { assignedReviewer: reviewerId };
-
-      if (stage && stage !== "all") {
-        filter.stage = stage;
-      }
-
-      if (search) {
-        filter.$or = [
-          { title: { $regex: search, $options: "i" } },
-          { abstract: { $regex: search, $options: "i" } },
-        ];
-      }
-
-      // Fetch with pagination
-      const [queue, total] = await Promise.all([
-        Research.find(filter)
-          .populate(
-            "researcher",
-            "name firstName lastName email institution discipline",
-          )
-          .sort({ createdAt: -1 })
-          .skip((page - 1) * limit)
-          .limit(Number(limit)),
-        Research.countDocuments(filter),
-      ]);
-
-      // Transform response for frontend
-      const formattedQueue = queue.map((item) => ({
-        id: item._id,
-        title: item.title,
-        stage: item.stage,
-        status: item.status,
-        abstract: item.abstract,
-        submittedAt: item.createdAt,
-        author:
-          item.researcher?.name ||
-          `${item.researcher?.firstName} ${item.researcher?.lastName}`,
-        institution: item.researcher?.institution,
-        discipline: item.researcher?.discipline,
-        reviewer: item.assignedReviewer,
-      }));
-
-      res.json({
-        total,
-        page: Number(page),
-        limit: Number(limit),
-        queue: formattedQueue,
-      });
-    } catch (error) {
-      console.error("Fetch assigned research error:", error);
-      res.status(500).json({ message: error.message });
-    }
-  },
-);
+//  PUBLIC ROUTES
 
 router.get(
-  "/reviewer/stats",
-   protectReviewers,
-  async (req, res) => {
-    try {
-      const Research = require("../models/researchModel");
-      const reviewerId = req.researcher?._id || req.user?._id;
-
-      const [assigned, completed, approved, rejected] = await Promise.all([
-        Research.countDocuments({
-          assignedReviewer: reviewerId,
-          status: "pending",
-        }),
-        Research.countDocuments({
-          reviewedBy: reviewerId,
-        }),
-        Research.countDocuments({
-          reviewedBy: reviewerId,
-          status: "approved",
-        }),
-        Research.countDocuments({
-          reviewedBy: reviewerId,
-          status: "rejected",
-        }),
-      ]);
-
-      res.json({
-        stats: {
-          assigned,
-          completed,
-          approved,
-          rejected,
-        },
-      });
-    } catch (error) {
-      console.error("Fetch reviewer stats error:", error);
-      res.status(500).json({ message: error.message });
-    }
-  },
+  "/public",
+  validate(publicResearchQuerySchema, "query"),
+  ctrl.getPublishedResearch,
 );
+router.get("/public/:id", ctrl.getPublishedPaperById);
 
-router.get(
-  "/reviewer/history",
-   protectReviewers,  
-  async (req, res) => {
-    try {
-      const Research = require("../models/researchModel");
-      const { page = 1, limit = 20, stage, status } = req.query;
-      const reviewerId = req.researcher?._id || req.user?._id;
+//  REVIEWER ROUTES
 
-      const filter = {
-        reviewedBy: reviewerId,
-      };
-
-      if (stage && stage !== "all") filter.stage = stage;
-      if (status && status !== "all") filter.status = status;
-
-      const [history, total] = await Promise.all([
-        Research.find(filter)
-          .select("title stage status reviewComment reviewedAt researcher")
-          .populate("researcher", "name firstName lastName email institution")
-          .sort({ reviewedAt: -1 })
-          .skip((page - 1) * limit)
-          .limit(Number(limit)),
-        Research.countDocuments(filter),
-      ]);
-
-      res.json({
-        total,
-        page: Number(page),
-        limit: Number(limit),
-        history: history.map((item) => ({
-          id: item._id,
-          title: item.title,
-          stage: item.stage,
-          status: item.status,
-          reviewComment: item.reviewComment,
-          reviewedAt: item.reviewedAt,
-          researcher: {
-            name:
-              item.researcher?.name ||
-              `${item.researcher?.firstName} ${item.researcher?.lastName}`,
-            email: item.researcher?.email,
-            institution: item.researcher?.institution,
-          },
-        })),
-      });
-    } catch (error) {
-      console.error("Fetch review history error:", error);
-      res.status(500).json({ message: error.message });
-    }
-  },
-);
-
-
-router.get(
-  "/reviews/pending",
-  protectReviewers, 
-  async (req, res) => {
-    try {
-      const Research = require("../models/researchModel");
-      const { stage, search, page = 1, limit = 20 } = req.query;
-
-      const filter = { status: "pending" };
-      if (stage) filter.stage = stage;
-
-      if (search) {
-        filter.$or = [
-          { title: { $regex: search, $options: "i" } },
-          { abstract: { $regex: search, $options: "i" } },
-        ];
-      }
-
-      const [queue, total] = await Promise.all([
-        Research.find(filter)
-          .populate("researcher", "name email institution discipline")
-          .sort({ createdAt: -1 })
-          .skip((page - 1) * limit)
-          .limit(Number(limit)),
-        Research.countDocuments(filter),
-      ]);
-
-      res.json({
-        total,
-        page: Number(page),
-        limit: Number(limit),
-        queue,
-      });
-    } catch (error) {
-      res.status(500).json({ message: error.message });
-    }
-  },
-);
-
+router.get("/reviewer/assigned", ...requireReviewer, ctrl.getAssignedResearch);
+router.get("/reviewer/stats", ...requireReviewer, ctrl.getReviewerStats);
 router.post(
-  "/:id/review",
-  protectReviewers,
-  async (req, res) => {
-    try {
-      const { decision, comment } = req.body;
-      const Research = require("../models/researchModel");
-      const Researcher = require("../models/ResearcherModel");
-      const researchEmail = require("../utils/emailServices");
-
-      if (!["approved", "rejected"].includes(decision)) {
-        return res.status(400).json({ message: "Invalid decision" });
-      }
-
-      if (!comment || comment.trim().length < 10) {
-        return res
-          .status(400)
-          .json({ message: "Comment must be at least 10 characters" });
-      }
-
-      const research = await Research.findById(req.params.id);
-      if (!research) {
-        return res.status(404).json({ message: "Research not found" });
-      }
-
-      if (research.status !== "pending") {
-        return res.status(400).json({
-          message: `Cannot review research with status: ${research.status}`,
-        });
-      }
-
-      // Update research
-      research.status = decision === "approved" ? "approved" : "rejected";
-      research.reviewComment = comment;
-      research.reviewedBy = req.researcher?._id || req.user?._id;
-      research.reviewedAt = new Date();
-      await research.save();
-
-      // Get researcher and send notification
-      const researcher = await Researcher.findById(research.researcher);
-      if (researcher) {
-        const stage = research.stage;
-        const stageLabel = {
-          proposal: "Stage 1 — Proposal",
-          abstract: "Stage 2 — Abstract",
-          final_paper: "Stage 3 — Final Paper",
-        }[stage];
-
-        if (decision === "approved") {
-          await researchEmail.sendProposalApproved({
-            email: researcher.email,
-            name: researcher.firstName,
-            proposalTitle: research.title,
-            stage,
-            reviewerComment: comment,
-          });
-        } else {
-          await researchEmail.sendRevisionRequested({
-            email: researcher.email,
-            name: researcher.firstName,
-            proposalTitle: research.title,
-            stage,
-            reviewerComment: comment,
-          });
-        }
-      }
-
-      res.json({
-        message: `Proposal ${
-          decision === "approved" ? "approved" : "rejected"
-        } successfully`,
-        research,
-      });
-    } catch (error) {
-      console.error("Review submission error:", error);
-      res.status(500).json({ message: error.message });
-    }
-  },
+  "/reviews",
+  ...requireReviewer,
+  validate(submitReviewSchema),
+  ctrl.submitReview,
 );
+router.get("/reviews/:researchId", ...requireAdmin, ctrl.getReviewHistory);
 
+//  ADMIN ROUTES
 
-
-// ADMIN ROUTES
 router.get(
   "/admin/all",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  researchController.getAllResearchAdmin,
+  ...requireAdmin,
+  validate(researchAdminQuerySchema, "query"),
+  ctrl.getAllResearchAdmin,
 );
+router.get("/admin/stats", ...requireAdmin, ctrl.getDashboardStats);
+router.get("/admin/revenue", ...requireAdmin, ctrl.getAllRevenue);
+router.get("/admin/:id/revenue", ...requireAdmin, ctrl.getResearchRevenue);
 
-// RESEARCHER ROUTES
+//  RESEARCHER ROUTES
 
-router.get("/my-research", protectResearcher, async (req, res) => {
-  try {
-    const Research = require("../models/researchModel");
-    const research = await Research.find({
-      researcher: req.researcher._id,
-    })
-      .select(
-        "title stage status submittedAt reviewedAt downloads reviewComment",
-      )
-      .sort({ createdAt: -1 });
+router.get("/my-research", protectResearcher, ctrl.getMyResearch);
+router.get("/:id/revenue", protectResearcher, ctrl.getMyRevenue);
 
-    res.json({
-      count: research.length,
-      research,
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
+// Proposal payment: optionalResearcher so anonymous requests get a clean 401
 
-router.get(
-  "/:id/revenue-share",
-  protectResearcher,
-  researchController.getResearcherRevenue,
-);
-
-// PROPOSAL SUBMISSION ROUTES
-
-router.post(
+router.post( 
   "/proposals/initiate",
-  async (req, res, next) => {
-    try {
-      const token = req.headers.authorization?.split(" ")[1];
-      if (token) {
-        const jwt = require("jsonwebtoken");
-        try {
-          const decoded = jwt.verify(token, process.env.JWT_SECRET);
-          if (decoded.collection === "researchers") {
-            const Researcher = require("../models/ResearcherModel");
-            const researcher = await Researcher.findById(decoded.id);
-            if (researcher) req.researcher = researcher;
-          }
-        } catch (err) {
-          // Token invalid, continue without auth
-        }
-      }
-      next();
-    } catch (err) {
-      next();
-    }
-  },
-  researchController.initiateProposalSubmission,
+  optionalResearcher,
+  validate(proposalInitiateSchema),
+  ctrl.initiateProposalPayment,
 );
-
-//Verifies payment completed
 
 router.post(
   "/proposals/confirm",
   protectResearcher,
-  // uploadFields,
-  uploader.any(),
-  researchController.confirmProposalSubmission,
+  uploadAny,
+  validate(proposalConfirmSchema),
+  ctrl.confirmProposalSubmission,
 );
-
-// PAYMENT ROUTES
 
 router.post(
-  "/mpesa/stk-push",
-  async (req, res, next) => {
-    try {
-      const token = req.headers.authorization?.split(" ")[1];
-      if (token) {
-        const jwt = require("jsonwebtoken");
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        if (decoded.collection === "researchers") {
-          const Researcher = require("../models/ResearcherModel");
-          const researcher = await Researcher.findById(decoded.id);
-          if (researcher) req.researcher = researcher;
-        }
-      }
-    } catch (err) {
-      // Token invalid, continue
-    }
-    next();
-  },
-  mpesaController.initiateSTKPush,
+  "/:id/final-paper",
+  protectResearcher,
+  uploadAny,
+  validate(finalPaperSchema),
+  ctrl.submitFinalPaper,
 );
 
-router.get(
-  "/mpesa/verify/:checkoutRequestId",
-  async (req, res, next) => {
-    try {
-      const token = req.headers.authorization?.split(" ")[1];
-      if (token) {
-        const jwt = require("jsonwebtoken");
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        if (decoded.collection === "researchers") {
-          const Researcher = require("../models/ResearcherModel");
-          const researcher = await Researcher.findById(decoded.id);
-          if (researcher) req.researcher = researcher;
-        }
-      }
-    } catch (err) {
-      // Token invalid, continue
-    }
-    next();
-  },
-  mpesaController.verifyPayment,
-);
+router.patch("/:id/resubmit", protectResearcher, uploadAny, ctrl.resubmit);
 
-router.post("/mpesa/callback", mpesaController.mpesaCallback);
 
-//Publish research (Admin only)
+//  ADMIN MANAGEMENT ROUTES (parameterized — declare after named routes)
 router.patch(
-  "/:id/publish",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  researchController.publishResearch,
+  "/admin/:id/assign-reviewer",
+  ...requireAdmin,
+  validate(assignReviewerSchema),
+  ctrl.assignReviewer,
 );
 
-
-
-// REVIEWER MANAGEMENT (Admin only)
-
-router.post(
-  "/reviewers/invite",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  reviewerController.inviteReviewer,
-);
-
-router.post("/reviewers/set-password", reviewerController.setPassword);
-
-router.post(
-  "/reviewers/:id/resend-invite",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  reviewerController.resendInvite,
-);
-
-router.get(
-  "/reviewers",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  reviewerController.listReviewers,
-);
-
-router.get(
-  "/reviewers/all",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  reviewerController.listAllReviewers,
-);
+router.patch("/admin/:id/publish", ...requireAdmin, ctrl.publishResearch);
 
 router.patch(
-  "/reviewers/:id/revoke",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  reviewerController.revokeReviewer,
+  "/admin/:id/download-price",
+  ...requireAdmin,
+  validate(updateDownloadPriceSchema),
+  ctrl.updateDownloadPrice,
 );
 
-router.patch(
-  "/reviewers/:id/promote-admin",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  reviewerController.promoteToAdmin,
-);
+router.delete("/admin/:id", ...requireAdmin, ctrl.deleteResearch);
 
-router.put(
-  "/reviewers/:id",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  reviewerController.updateReviewer,
-);
 
-router.post(
-  "/:id/assign-reviewer",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  researchController.assignReviewer,
-);
+//  PARAMETERIZED — must be LAST to avoid swallowing named routes above
 
-router.get(
-  "/:id/review-history",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  async (req, res) => {
-    try {
-      const Research = require("../models/researchModel");
-      const research = await Research.findById(req.params.id)
-        .select(
-          "title stage status reviewComment reviewedBy reviewedAt resubmissionCount",
-        )
-        .populate("reviewedBy", "name email");
 
-      if (!research) {
-        return res.status(404).json({ message: "Research not found" });
-      }
+router.get("/:id", ...requireReviewer, ctrl.getResearchById);
 
-      res.json({
-        research,
-      });
-    } catch (error) {
-      res.status(500).json({ message: error.message });
-    }
-  },
-);
+//  MULTER ERROR HANDLER
 
-// ADMIN ENDPOINTS
-
-router.get(
-  "/admin/research/:researchId/revenue",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  mpesaController.getResearchRevenue,
-);
-
-router.get(
-  "/admin/revenue",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  mpesaController.getAllResearchRevenue,
-);
-
-router.post(
-  "/admin/payments/refund",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  mpesaController.refundPayment,
-);
-
-router.patch(
-  "/:id/download-price",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  researchController.updateDownloadPrice,
-);
-
-// PARAMETERIZED ROUTES
-
-router.get("/:id", researchController.getResearchById);
-
-router.delete(
-  "/:id",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  researchController.deleteResearch,
-);
-
-// Error handling middleware
 router.use((err, req, res, next) => {
+  if (err.code === "LIMIT_FILE_SIZE") {
+    return res
+      .status(400)
+      .json({ success: false, message: "File too large. Maximum 20MB." });
+  }
   if (err.name === "MulterError") {
-    return res.status(400).json({
-      message: `Upload error: ${err.message}`,
-      field: err.field,
-    });
+    return res
+      .status(400)
+      .json({ success: false, message: `Upload error: ${err.message}` });
   }
   next(err);
 });

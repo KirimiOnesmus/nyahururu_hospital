@@ -1,169 +1,389 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Header, Footer } from "../../components/layouts";
-import ReviewModal from "../../components/research/ReviewModal";
-import SubmitProposalPage from "../../components/research/SubmitProposal";
-import SubmitFullPaper from "../../components/research/SubmitFullPaper";
+import SubmitProposal from "../../components/research/SubmitProposal";
+import SubmitFinalPaper from "../../components/research/SubmitFullPaper";
 import ViewProposalDetails from "../../components/research/Viewproposaldetails ";
 import MyProfile from "./MyProfile";
-import { ResearcherStatsSection } from "../../components/research/ResearcherStatsSection";
+import ResearcherStats from "../../components/research/ResearcherStatsSection";
+import ReviewModal from "../../components/research/ReviewModal";
 import {
-  FaFlask,
-  FaFileAlt,
-  FaCheckCircle,
-  FaTimesCircle,
-  FaClock,
-  FaPlus,
-  FaEye,
-  FaDownload,
-  FaUsers,
-  FaChartBar,
-  FaInbox,
-  FaBell,
-  FaSearch,
-  FaChevronDown,
-  FaChevronRight,
-  FaUserCircle,
-  FaSignOutAlt,
-  FaBookOpen,
-  FaEdit,
-  FaCommentAlt,
-  FaArrowRight,
-  FaShieldAlt,
-  FaStar,
-  FaCalendarAlt,
-  FaUniversity,
-  FaUser,
+  FaFlask, FaFileAlt, FaCheckCircle, FaTimesCircle, FaClock,
+  FaPlus, FaEye, FaDownload, FaInbox, FaBell, FaSearch,
+  FaChevronDown, FaChevronRight, FaUserCircle, FaSignOutAlt,
+  FaBookOpen, FaEdit, FaCommentAlt, FaArrowRight, FaShieldAlt,
+  FaStar, FaCalendarAlt, FaUniversity, FaUser, FaRedo,
 } from "react-icons/fa";
 import { getResearcherProfile } from "../../api/auth";
 import * as research from "../../api/research";
 
-export const STAGE_LABELS = {
-  proposal: "Proposal",
-  abstract: "Abstract",
+// ─── Constants & mappings ─────────────────────────────────────────────────────
+const STAGE_LABELS = {
+  proposal:    "Proposal",
   final_paper: "Final Paper",
 };
 
-export const STAGE_COLORS = {
-  proposal: "bg-blue-100 text-blue-700",
-  abstract: "bg-purple-100 text-purple-700",
-  final_paper: "bg-green-100 text-green-700",
+const STAGE_COLORS = {
+  proposal:    "bg-blue-100 text-blue-700 border-blue-200",
+  final_paper: "bg-green-100 text-green-700 border-green-200",
 };
 
 const STATUS_CONFIG = {
-  approved: {
-    label: "Approved",
-    icon: FaCheckCircle,
-    cls: "text-green-600 bg-green-50 border-green-200",
-  },
-  pending: {
-    label: "Under Review",
-    icon: FaClock,
-    cls: "text-yellow-600 bg-yellow-50 border-yellow-200",
-  },
-  rejected: {
-    label: "Needs Revision",
-    icon: FaTimesCircle,
-    cls: "text-red-600 bg-red-50 border-red-200",
-  },
+  approved: { label: "Approved",      Icon: FaCheckCircle, cls: "text-green-700 bg-green-50 border-green-200" },
+  pending:  { label: "Under review",  Icon: FaClock,       cls: "text-amber-700 bg-amber-50 border-amber-200" },
+  rejected: { label: "Needs revision",Icon: FaTimesCircle, cls: "text-red-700   bg-red-50   border-red-200"   },
 };
 
 const PAGE_LABELS = {
-  dashboard: { researcher: "My Dashboard", admin: "Reviewer Dashboard" },
-  "submit-proposal": {
-    researcher: "Submit Proposal",
-    admin: "Submit Proposal",
-  },
-  "submit-full-paper": {
-    researcher: "Submit Final Paper",
-    admin: "Submit Final Paper",
-  },
-  profile: { researcher: "My Profile", admin: "My Profile" },
-  "view-proposal": {
-    researcher: "Proposal Details",
-    admin: "Proposal Details",
-  },
+  dashboard:          { researcher: "My Dashboard",    reviewer: "Reviewer Dashboard" },
+  "submit-proposal":  { researcher: "Submit Proposal", reviewer: "Submit Proposal"    },
+  "submit-final":     { researcher: "Submit Final Paper", reviewer: "Submit Final Paper" },
+  profile:            { researcher: "My Profile",      reviewer: "My Profile"         },
+  "view-proposal":    { researcher: "Proposal Details",reviewer: "Proposal Details"  },
 };
 
 const fmt = (d) =>
-  new Date(d).toLocaleDateString("en-KE", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  d ? new Date(d).toLocaleDateString("en-KE", { day: "numeric", month: "short", year: "numeric" }) : "—";
 
-const StatCard = ({ icon: Icon, label, value, color, sub }) => (
-  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-start gap-4">
-    <div
-      className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}
-    >
-      <Icon className="text-lg text-white" />
+// ─── Shared class strings ─────────────────────────────────────────────────────
+const filterBtnCls = (active) =>
+  `px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer
+   ${active
+     ? "bg-blue-600 text-white border-blue-600"
+     : "bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600"}`;
+
+const actionBtnCls = (variant = "primary") => {
+  const map = {
+    primary:   "bg-blue-600 hover:bg-blue-700 text-white border-transparent",
+    success:   "bg-green-700 hover:bg-green-800 text-white border-transparent",
+    secondary: "bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-600",
+    amber:     "bg-amber-600 hover:bg-amber-700 text-white border-transparent",
+  };
+  return `flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-lg
+    border transition-colors cursor-pointer ${map[variant]}`;
+};
+
+// ─── Shared components ────────────────────────────────────────────────────────
+const Spinner = ({ size = 8, color = "border-t-blue-600" }) => (
+  <div className={`w-${size} h-${size} border-4 border-slate-200 ${color}
+    rounded-full animate-spin`} />
+);
+
+const PageSpinner = ({ label = "Loading…" }) => (
+  <div className="flex flex-col items-center justify-center py-16 gap-3">
+    <Spinner size={10} />
+    <p className="text-slate-500 font-medium text-sm">{label}</p>
+  </div>
+);
+
+const EmptyState = ({ icon: Icon, title, sub, action }) => (
+  <div className="flex flex-col items-center py-16 gap-3 text-center">
+    <div className="w-14 h-14 rounded-full bg-slate-100 border border-slate-200
+      flex items-center justify-center">
+      <Icon className="text-2xl text-slate-400" />
     </div>
-    <div>
-      <p className="text-2xl font-extrabold text-gray-900">{value}</p>
-      <p className="text-sm text-gray-500 leading-tight">{label}</p>
-      {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+    <p className="font-semibold text-slate-700">{title}</p>
+    <p className="text-sm text-slate-400 max-w-xs">{sub}</p>
+    {action}
+  </div>
+);
+
+// ─── Inline modal shell ────────────────────────────────────────────────────────
+const SlideModal = ({ onClose, children }) => (
+  <div
+    className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+    onClick={onClose}
+  >
+    <div
+      className="bg-white rounded-2xl border border-slate-200 w-full max-w-xl
+        max-h-[90vh] overflow-y-auto shadow-xl"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {children}
     </div>
   </div>
 );
 
-// RESEARCHER DASHBOARD
+// ─── Resubmit modal ───────────────────────────────────────────────────────────
+const ResubmitModal = ({ item, onClose, onResubmitted }) => {
+  const [form, setFormRaw] = useState({
+    abstract:        item.abstract        || "",
+    background:      item.background      || "",
+    objectives:      item.objectives      || "",
+    methodology:     item.methodology     || "",
+    expectedOutcome: item.expectedOutcome || "",
+  });
+  const [file, setFile]       = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState("");
 
-const ResearcherDashboard = ({
-  user,
-  onNewProposal,
-  onSubmitFullPaper,
-  onViewProposal,
-}) => {
-  const [myResearch, setMyResearch] = useState([]);
-  const [filter, setFilter] = useState("all");
-  const [expanded, setExpanded] = useState(null);
-  const [loadingResearch, setLoadingResearch] = useState(true);
+  const setField = (k, v) => setFormRaw((p) => ({ ...p, [k]: v }));
 
-  // Fetch researcher's research submissions
-  useEffect(() => {
-    const fetchMyResearch = async () => {
-      try {
-        setLoadingResearch(true);
-        const response = await research.getMyResearch();
-        setMyResearch(response.research || []);
-      } catch (err) {
-        console.error("Failed to fetch my research:", err);
-        toast.error("Failed to load your research submissions");
-      } finally {
-        setLoadingResearch(false);
+  const inputCls = `w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-slate-800
+    placeholder-slate-400 text-sm outline-none focus:border-blue-500
+    focus:ring-2 focus:ring-blue-500/10 transition-all bg-white resize-none`;
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const fd = new FormData();
+      Object.entries(form).forEach(([k, v]) => { if (v) fd.append(k, v); });
+      if (file) {
+        const fileField = item.stage === "final_paper" ? "finalPaperFile" : "proposalFile";
+        fd.append(fileField, file);
       }
-    };
+      // PATCH /:id/resubmit
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/research/${item._id}/resubmit`,
+        {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${localStorage.getItem("researcher_token")}` },
+          body: fd,
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Resubmission failed");
+      toast.success("Resubmitted successfully!");
+      onResubmitted?.();
+      onClose();
+    } catch (err) {
+      setError(err.message || "Resubmission failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchMyResearch();
+  const fields = [
+    { key: "abstract",        label: "Abstract",         rows: 4 },
+    { key: "background",      label: "Problem statement", rows: 3 },
+    { key: "objectives",      label: "Objectives",        rows: 3 },
+    { key: "methodology",     label: "Methodology",       rows: 3 },
+    { key: "expectedOutcome", label: "Expected outcome",  rows: 2 },
+  ];
+
+  return (
+    <div className="p-6 flex flex-col gap-5">
+      <div className="flex items-center justify-between">
+        <h2 className="font-bold text-slate-900 text-lg">Resubmit for review</h2>
+      </div>
+
+      {item.reviewComment && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
+          <p className="font-semibold mb-1 text-xs uppercase tracking-wider">Reviewer comment</p>
+          {item.reviewComment}
+        </div>
+      )}
+
+      <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
+        {fields.map(({ key, label, rows }) => (
+          <div key={key} className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+              {label}
+            </label>
+            <textarea
+              rows={rows}
+              value={form[key]}
+              onChange={(e) => setField(key, e.target.value)}
+              className={inputCls}
+            />
+          </div>
+        ))}
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+            Revised document <span className="text-slate-400 font-normal">(optional)</span>
+          </label>
+          {!file ? (
+            <label className="flex items-center gap-3 border border-dashed border-slate-300
+              rounded-xl px-4 py-3 cursor-pointer hover:border-blue-400 hover:bg-blue-50/30
+              transition-all text-sm text-slate-500">
+              <input type="file" accept=".pdf" className="hidden"
+                onChange={(e) => { const f = e.target.files[0]; if (f) setFile(f); }} />
+              📄 Browse revised PDF…
+            </label>
+          ) : (
+            <div className="flex items-center gap-3 border border-green-200 bg-green-50
+              rounded-xl px-4 py-2.5 text-sm">
+              <span className="flex-1 text-slate-800 truncate font-medium">{file.name}</span>
+              <button type="button" onClick={() => setFile(null)}
+                className="text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
+                aria-label="Remove file">
+                ✕
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3
+          text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      <div className="flex gap-3">
+        <button type="button" onClick={onClose}
+          className="flex-1 px-5 py-2.5 rounded-xl border border-slate-200
+            text-slate-600 text-sm font-semibold hover:border-slate-300
+            transition-colors cursor-pointer">
+          Cancel
+        </button>
+        <button type="button" onClick={handleSubmit} disabled={loading}
+          className="flex-1 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700
+            text-white text-sm font-semibold transition-colors
+            disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex
+            items-center justify-center gap-2">
+          {loading ? <><Spinner size={4} color="border-t-white" /> Submitting…</> : "Resubmit"}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ─── Research paper row ────────────────────────────────────────────────────────
+const PaperRow = ({ item, onSubmitFinal, onViewProposal, onResubmit }) => {
+  const [open, setOpen] = useState(false);
+  const sc = STATUS_CONFIG[item.status] || STATUS_CONFIG.pending;
+  const { Icon: StatusIcon } = sc;
+
+  const canSubmitFinal = item.stage === "proposal" && item.status === "approved";
+  const canResubmit    = item.status === "rejected";
+
+  return (
+    <div className="hover:bg-slate-50/60 transition-colors">
+      {/* Row header */}
+      <button
+        type="button"
+        className="w-full px-6 py-4 flex items-start gap-4 text-left cursor-pointer"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        <span className={`text-xs font-bold px-2.5 py-1 rounded-full mt-0.5 shrink-0
+          border ${STAGE_COLORS[item.stage] || "bg-slate-100 text-slate-600 border-slate-200"}`}>
+          {STAGE_LABELS[item.stage] || item.stage}
+        </span>
+
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-slate-900 text-sm leading-snug truncate">
+            {item.title}
+          </p>
+          <p className="text-xs text-slate-400 mt-1 flex items-center gap-3 flex-wrap">
+            <span className="flex items-center gap-1">
+              <FaCalendarAlt className="text-[10px]" /> Submitted {fmt(item.createdAt)}
+            </span>
+            {item.downloads > 0 && (
+              <span className="flex items-center gap-1">
+                <FaDownload className="text-[10px]" /> {item.downloads} downloads
+              </span>
+            )}
+            {item.researchId && (
+              <span className="text-slate-300">ID: {item.researchId}</span>
+            )}
+          </p>
+        </div>
+
+        <span className={`flex items-center gap-1.5 text-xs font-semibold
+          px-3 py-1.5 rounded-full border shrink-0 ${sc.cls}`}>
+          <StatusIcon className="text-[11px]" /> {sc.label}
+        </span>
+
+        <FaChevronDown className={`text-slate-400 text-xs mt-1.5 shrink-0 transition-transform
+          duration-200 ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {/* Expanded detail */}
+      {open && (
+        <div className="px-6 pb-5 pt-3 border-t border-slate-50 bg-slate-50/40 space-y-3">
+          {item.reviewComment && (
+            <div className={`rounded-xl px-4 py-3 border text-sm leading-relaxed
+              flex items-start gap-2
+              ${item.status === "approved"
+                ? "bg-green-50 border-green-200 text-green-800"
+                : "bg-red-50   border-red-200   text-red-800"}`}>
+              <FaCommentAlt className="mt-0.5 shrink-0 text-xs" />
+              <span>
+                <span className="font-semibold">Reviewer: </span>
+                {item.reviewComment}
+              </span>
+            </div>
+          )}
+
+          {item.reviewedAt && (
+            <p className="text-xs text-slate-400 flex items-center gap-1">
+              <FaCalendarAlt className="text-[10px]" /> Reviewed {fmt(item.reviewedAt)}
+            </p>
+          )}
+
+          <div className="flex gap-2 flex-wrap">
+            {canSubmitFinal && (
+              <button type="button" onClick={() => onSubmitFinal(item)}
+                className={actionBtnCls("success")}>
+                <FaArrowRight className="text-[10px]" /> Submit final paper
+              </button>
+            )}
+            {canResubmit && (
+              <button type="button" onClick={() => onResubmit(item)}
+                className={actionBtnCls("amber")}>
+                <FaRedo className="text-[10px]" /> Resubmit (free)
+              </button>
+            )}
+            <button type="button" onClick={() => onViewProposal(item)}
+              className={actionBtnCls("secondary")}>
+              <FaEye className="text-[10px]" /> View full
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Researcher dashboard ─────────────────────────────────────────────────────
+const ResearcherDashboard = ({ user, onNewProposal, onSubmitFinal, onViewProposal }) => {
+  const [papers, setPapers]     = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [filter, setFilter]     = useState("all");
+  const [resubmit, setResubmit] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await research.getMyResearch();
+      // backend returns { papers: [...], total, page, … }
+      setPapers(Array.isArray(res.papers) ? res.papers : []);
+    } catch {
+      toast.error("Failed to load your research submissions");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const filtered =
-    filter === "all"
-      ? myResearch
-      : myResearch.filter((r) => r.status === filter);
+  useEffect(() => { load(); }, [load]);
 
-  const nextStageAction = (item) => {
-    if (item.status !== "approved") return null;
-    if (item.stage === "proposal")
-      return { label: "Submit Abstract", action: "submit-abstract" };
-    if (item.stage === "abstract")
-      return { label: "Submit Final Paper", action: "submit-final" };
-    return null;
-  };
+  const FILTERS = [
+    { id: "all",      label: "All"          },
+    { id: "approved", label: "Approved"     },
+    { id: "pending",  label: "Under review" },
+    { id: "rejected", label: "Needs revision"},
+  ];
+
+  const filtered = filter === "all"
+    ? papers
+    : papers.filter((p) => p.status === filter);
 
   return (
     <div className="space-y-6">
       {/* Welcome banner */}
       <div className="relative bg-blue-700 rounded-2xl p-6 text-white overflow-hidden">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full translate-x-16 -translate-y-16 pointer-events-none" />
+        <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full
+          translate-x-16 -translate-y-16 pointer-events-none" />
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <p className="text-blue-200 text-sm font-medium mb-1">
-              Welcome back,
-            </p>
-            <h2 className="text-2xl font-extrabold">
+            <p className="text-blue-200 text-sm font-medium mb-1">Welcome back,</p>
+            <h2 className="text-2xl font-bold tracking-tight">
               {user.firstName} {user.lastName}
             </h2>
             <p className="text-blue-200 text-sm mt-1">
@@ -171,526 +391,320 @@ const ResearcherDashboard = ({
             </p>
           </div>
           <button
+            type="button"
             onClick={onNewProposal}
-            className="flex items-center gap-2 bg-yellow-400
-             hover:bg-yellow-300 text-gray-900 font-bold px-5 py-3 rounded-xl
-              transition-all hover:-translate-y-0.5 shadow-md self-start 
-              sm:self-auto whitespace-nowrap cursor-pointer"
+            className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-300
+              text-slate-900 font-bold px-5 py-2.5 rounded-xl transition-colors
+              shadow-sm self-start sm:self-auto whitespace-nowrap cursor-pointer"
           >
-            <FaPlus /> New Proposal
+            <FaPlus className="text-xs" /> New proposal
           </button>
         </div>
       </div>
 
-      <ResearcherStatsSection
-        myResearch={myResearch}
-        isLoading={loadingResearch}
-      />
+      {/* Stats */}
+      <ResearcherStats myResearch={papers} isLoading={loading} />
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-bold text-gray-900 text-base flex items-center gap-2">
-            <FaBookOpen className="text-blue-500" /> My Research
+      {/* Paper list */}
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 flex flex-wrap
+          items-center justify-between gap-3">
+          <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+            <FaBookOpen className="text-blue-500" /> My research
           </h3>
           <div className="flex gap-2 flex-wrap">
-            {["all", "approved", "pending", "rejected"].map((f) => (
+            {FILTERS.map((f) => (
               <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold 
-                  border transition-all cursor-pointer ${
-                    filter === f
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-gray-500 border-gray-200 hover:border-blue-300 hover:text-blue-600"
-                  }`}
+                key={f.id}
+                type="button"
+                onClick={() => setFilter(f.id)}
+                className={filterBtnCls(filter === f.id)}
               >
-                {f === "all"
-                  ? "All"
-                  : f === "approved"
-                    ? "Approved"
-                    : f === "pending"
-                      ? "Pending"
-                      : "Needs Revision"}
+                {f.label}
+                {f.id !== "all" && papers.filter((p) => p.status === f.id).length > 0 && (
+                  <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold
+                    ${filter === f.id ? "bg-white/30 text-white" : "bg-slate-100 text-slate-500"}`}>
+                    {papers.filter((p) => p.status === f.id).length}
+                  </span>
+                )}
               </button>
             ))}
           </div>
         </div>
 
-        {loadingResearch ? (
-          <div className="text-center py-12">
-            <div className="inline-block">
-              <svg
-                className="animate-spin h-8 w-8 text-blue-600"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-            </div>
-            <p className="text-gray-500 font-medium mt-2">
-              Loading your research...
-            </p>
-          </div>
+        {loading ? (
+          <PageSpinner label="Loading your research…" />
         ) : filtered.length === 0 ? (
-          <div className="text-center py-16">
-            <FaFlask className="text-gray-200 text-4xl mx-auto mb-3" />
-            <p className="text-gray-400 font-medium">No submissions yet</p>
-            <button
-              onClick={onNewProposal}
-              className="mt-4 text-blue-600 text-sm font-semibold 
-              hover:underline flex items-center gap-1 mx-auto cursor-pointer"
-            >
-              Submit your first proposal <FaArrowRight className="text-xs" />
-            </button>
-          </div>
+          <EmptyState
+            icon={FaFlask}
+            title={filter === "all" ? "No submissions yet" : `No ${filter} submissions`}
+            sub={filter === "all"
+              ? "Submit your first research proposal to get started."
+              : "Try a different filter to see other submissions."}
+            action={filter === "all" && (
+              <button type="button" onClick={onNewProposal}
+                className="text-blue-600 text-sm font-semibold hover:underline
+                  flex items-center gap-1 cursor-pointer">
+                Submit first proposal <FaArrowRight className="text-xs" />
+              </button>
+            )}
+          />
         ) : (
-          <div className="divide-y divide-gray-50">
-            {filtered.map((item) => {
-              const sc = STATUS_CONFIG[item.status];
-              const StatusIcon = sc.icon;
-              const action = nextStageAction(item);
-              const isOpen = expanded === item.id;
-              return (
-                <div
-                  key={item.id}
-                  className="hover:bg-gray-50/50 transition-colors"
-                >
-                  <div
-                    className="px-6 py-4 cursor-pointer flex items-start gap-4"
-                    onClick={() => setExpanded(isOpen ? null : item.id)}
-                  >
-                    <span
-                      className={`text-xs font-bold px-2.5 py-1 rounded-full mt-0.5 flex-shrink-0 ${STAGE_COLORS[item.stage]}`}
-                    >
-                      {STAGE_LABELS[item.stage]}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-900 text-sm leading-snug truncate">
-                        {item.title}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1 flex items-center gap-3 flex-wrap">
-                        <span className="flex items-center gap-1">
-                          <FaCalendarAlt /> Submitted {fmt(item.submittedAt)}
-                        </span>
-                        {item.downloads > 0 && (
-                          <span className="flex items-center gap-1">
-                            <FaDownload /> {item.downloads} downloads
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                    <span
-                      className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border flex-shrink-0 ${sc.cls}`}
-                    >
-                      <StatusIcon className="text-[11px]" /> {sc.label}
-                    </span>
-                    <FaChevronDown
-                      className={`text-gray-400 text-xs mt-1.5 flex-shrink-0 transition-transform duration-200 ${
-                        isOpen ? "rotate-180" : ""
-                      }`}
-                    />
-                  </div>
-
-                  {isOpen && (
-                    <div className="px-6 pb-5 space-y-3 border-t border-gray-50 pt-4 bg-gray-50/50">
-                      {item.reviewComment && (
-                        <div
-                          className={`rounded-lg px-4 py-3 border text-sm leading-relaxed flex items-start gap-2 ${
-                            item.status === "approved"
-                              ? "bg-green-50 border-green-200 text-green-800"
-                              : "bg-red-50 border-red-200 text-red-800"
-                          }`}
-                        >
-                          <FaCommentAlt className="mt-0.5 flex-shrink-0 text-xs" />
-                          <span>
-                            <span className="font-semibold">
-                              Reviewer feedback:{" "}
-                            </span>
-                            {item.reviewComment}
-                          </span>
-                        </div>
-                      )}
-                      {item.reviewedAt && (
-                        <p className="text-xs text-gray-400 flex items-center gap-1">
-                          <FaCalendarAlt /> Reviewed on {fmt(item.reviewedAt)}
-                        </p>
-                      )}
-                      <div className="flex gap-2 flex-wrap">
-                        {item.status === "rejected" && (
-                          <button
-                            onClick={onNewProposal}
-                            className="flex items-center gap-2 bg-blue-600
-                             hover:bg-blue-700 text-white text-xs cursor-pointer
-                             font-bold px-4 py-2 rounded-lg transition-all"
-                          >
-                            <FaEdit /> Resubmit (Free)
-                          </button>
-                        )}
-                        {action && (
-                          <button
-                            onClick={() =>
-                              action.action === "submit-final"
-                                ? onSubmitFullPaper(item)
-                                : onNewProposal()
-                            }
-                            className="flex items-center gap-2 bg-green-600
-                             hover:bg-green-700 text-white text-xs cursor-pointer
-                             font-bold px-4 py-2 rounded-lg transition-all"
-                          >
-                            <FaArrowRight /> {action.label}
-                          </button>
-                        )}
-                        <button
-                          onClick={() => onViewProposal(item)}
-                          className="flex items-center gap-2 border
-                         border-gray-200 text-gray-600 hover:border-blue-300
-                          hover:text-blue-600 text-xs font-semibold px-4 py-2 
-                          rounded-lg transition-all cursor-pointer"
-                        >
-                          <FaEye /> View Full
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+          <div className="divide-y divide-slate-50">
+            {filtered.map((item) => (
+              <PaperRow
+                key={item._id}
+                item={item}
+                onSubmitFinal={onSubmitFinal}
+                onViewProposal={onViewProposal}
+                onResubmit={(p) => setResubmit(p)}
+              />
+            ))}
           </div>
         )}
       </div>
 
-      <div className="bg-blue-50 rounded-xl border border-blue-100 p-5">
-        <h4 className="font-bold text-gray-900 text-sm mb-3 flex items-center gap-2">
-          <FaStar className="text-yellow-400" /> Submission Tips
+      {/* Tips */}
+      {/* <div className="bg-blue-50 rounded-2xl border border-blue-100 p-5">
+        <h4 className="font-bold text-slate-900 text-sm mb-3 flex items-center gap-2">
+          <FaStar className="text-yellow-400" /> Submission tips
         </h4>
-        <ul className="space-y-1.5 text-sm text-gray-600">
+        <ul className="space-y-1.5 text-sm text-slate-600">
           {[
             "Abstracts must be at least 30 words with clear objectives",
-            "Resubmissions after rejection are completely free",
-            "Final papers must be submitted as PDF (max 10 MB)",
+            "Resubmissions after revision requests are completely free",
+            "Final papers must be submitted as PDF (max 20 MB)",
             "You'll receive an email notification on every status change",
           ].map((tip) => (
             <li key={tip} className="flex items-start gap-2">
-              <FaCheckCircle className="text-green-500 mt-0.5 flex-shrink-0 text-xs" />{" "}
+              <FaCheckCircle className="text-green-500 mt-0.5 shrink-0 text-xs" />
               {tip}
             </li>
           ))}
         </ul>
-      </div>
+      </div> */}
+
+      {/* Resubmit modal */}
+      {resubmit && (
+        <SlideModal onClose={() => setResubmit(null)}>
+          <ResubmitModal
+            item={resubmit}
+            onClose={() => setResubmit(null)}
+            onResubmitted={() => { setResubmit(null); load(); }}
+          />
+        </SlideModal>
+      )}
     </div>
   );
 };
 
-//REVIEWER
-const AdminDashboard = ({ user }) => {
-  const [queue, setQueue] = useState([]);
+// ─── Reviewer / admin dashboard ───────────────────────────────────────────────
+const ReviewerDashboard = ({ user }) => {
+  const [queue, setQueue]         = useState([]);
   const [reviewing, setReviewing] = useState(null);
-  const [search, setSearch] = useState("");
-  const [stageFilter, setStageFilter] = useState("all");
-  const [loadingQueue, setLoadingQueue] = useState(true);
-  const [activeTab, setActiveTab] = useState("assigned"); // "assigned" or "pending"
+  const [search, setSearch]       = useState("");
+  const [stageFilter, setStage]   = useState("all");
+  const [loading, setLoading]     = useState(true);
 
-  const isAdmin = ["admin", "superadmin"].includes(
-    localStorage.getItem("role") || "",
-  );
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await research.getAssignedResearch({
+        stage: stageFilter === "all" ? undefined : stageFilter,
+        search: search || undefined,
+        page: 1,
+        limit: 50,
+      });
+      // backend: GET /research/reviewer/assigned → { papers: [...], total, … }
+      setQueue(Array.isArray(res.papers) ? res.papers : []);
+    } catch (err) {
+      toast.error(err.message || "Failed to load review queue");
+    } finally {
+      setLoading(false);
+    }
+  }, [stageFilter, search]);
 
   useEffect(() => {
-    const fetchQueue = async () => {
-      try {
-        setLoadingQueue(true);
+    const t = setTimeout(load, 300);
+    return () => clearTimeout(t);
+  }, [load]);
 
-        let response;
-        if (activeTab === "assigned") {
-          response = await research.getAssignedResearch({
-            stage: stageFilter === "all" ? undefined : stageFilter,
-            search: search || undefined,
-            page: 1,
-            limit: 50,
-          });
-        } else {
-          if (!isAdmin) {
-            toast.error("Only admins can view pending reviews");
-            return;
-          }
-          response = await research.getPendingReviews({
-            stage: stageFilter === "all" ? undefined : stageFilter,
-            search: search || undefined,
-            page: 1,
-            limit: 50,
-          });
-        }
-
-        setQueue(response.queue || []);
-      } catch (err) {
-        console.error("Failed to fetch reviews:", err);
-        toast.error(err.message || "Failed to load review queue");
-      } finally {
-        setLoadingQueue(false);
-      }
-    };
-
-    const debounceTimer = setTimeout(fetchQueue, 300);
-    return () => clearTimeout(debounceTimer);
-  }, [stageFilter, search, activeTab, isAdmin]);
-
-  const stats = {
-    total: queue.length,
-    pending: queue.filter((q) => q.status === "pending").length,
-    approved: 0,
-    researchers: 0,
-  };
-
-  const handleDecision = (researchId, decision, comment) => {
-    setQueue((prev) => prev.filter((q) => q.id !== researchId));
+  const handleDecision = (researchId) => {
+    setQueue((q) => q.filter((r) => r._id !== researchId));
     setReviewing(null);
-    toast.success(
-      `Proposal ${decision === "approved" ? "approved" : "sent for revision"} successfully`,
-    );
   };
+
+  const STAGE_FILTERS = [
+    { id: "all",        label: "All"         },
+    { id: "proposal",   label: "Proposals"   },
+    { id: "final_paper",label: "Final papers"},
+  ];
+
+  const reviewerFilterCls = (active) =>
+    `px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer
+     ${active
+       ? "bg-indigo-600 text-white border-indigo-600"
+       : "bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600"}`;
 
   return (
     <div className="space-y-6">
-      {/* Welcome banner */}
+      {/* Banner */}
       <div className="relative bg-indigo-700 rounded-2xl p-6 text-white overflow-hidden">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full translate-x-16 -translate-y-16 pointer-events-none" />
+        <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full
+          translate-x-16 -translate-y-16 pointer-events-none" />
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <FaShieldAlt className="text-yellow-300 text-sm" />
-              <p className="text-indigo-200 text-sm font-medium">
-                {isAdmin ? "Admin Panel" : "Reviewer Panel"}
-              </p>
+              <p className="text-indigo-200 text-sm font-medium">Reviewer panel</p>
             </div>
-            <h2 className="text-2xl font-extrabold">
+            <h2 className="text-2xl font-bold tracking-tight">
               {user.firstName} {user.lastName}
             </h2>
             <p className="text-indigo-200 text-sm mt-1">{user.institution}</p>
           </div>
           {queue.length > 0 && (
-            <div className="flex items-center gap-2 bg-red-500/30 border border-red-400/40 rounded-xl px-4 py-2 self-start sm:self-auto">
+            <div className="flex items-center gap-2 bg-red-500/30 border border-red-400/40
+              rounded-xl px-4 py-2 self-start sm:self-auto">
               <FaBell className="text-red-300 animate-pulse" />
               <span className="text-white text-sm font-bold">
-                {queue.length}{" "}
-                {activeTab === "assigned" ? "assigned" : "pending"}{" "}
-                {queue.length !== 1 ? "items" : "item"}
+                {queue.length} assigned item{queue.length !== 1 ? "s" : ""}
               </span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          icon={FaInbox}
-          label={
-            activeTab === "assigned" ? "Assigned to You" : "Total Submissions"
-          }
-          value={stats.total}
-          color="bg-indigo-500"
-        />
-        <StatCard
-          icon={FaClock}
-          label="Awaiting Review"
-          value={stats.pending}
-          color="bg-yellow-500"
-          sub="Needs action"
-        />
-        <StatCard
-          icon={FaCheckCircle}
-          label="Reviewed"
-          value={stats.approved}
-          color="bg-green-500"
-        />
-        <StatCard
-          icon={FaUsers}
-          label="Researchers"
-          value={stats.researchers}
-          color="bg-blue-500"
-        />
+      {/* Stats row */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        {[
+          { icon: FaInbox,       label: "Assigned to you", value: queue.length,                                  color: "bg-indigo-500" },
+          { icon: FaClock,       label: "Pending review",  value: queue.filter(q => q.status === "pending").length, color: "bg-amber-500"  },
+          { icon: FaCheckCircle, label: "Unique authors",
+            value: new Set(queue.map(q => q.researcher?._id).filter(Boolean)).size,     color: "bg-green-600"  },
+        ].map(({ icon: Icon, label, value, color }) => (
+          <div key={label} className="bg-white rounded-2xl border border-slate-200 p-5
+            flex items-start gap-4">
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center
+              shrink-0 ${color}`}>
+              <Icon className="text-white text-lg" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-slate-900">{value}</p>
+              <p className="text-sm text-slate-500">{label}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Review Queue */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h3 className="font-bold text-gray-900 text-base flex items-center gap-2">
+      {/* Queue */}
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
               <FaInbox className="text-indigo-500" />
-              {activeTab === "assigned" ? "My Review Queue" : "Pending Reviews"}
+              My review queue
               {queue.length > 0 && (
-                <span className="bg-red-100 text-red-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                <span className="bg-red-100 text-red-600 text-xs font-bold
+                  px-2 py-0.5 rounded-full">
                   {queue.length}
                 </span>
               )}
             </h3>
-
-            {/* Tabs */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setActiveTab("assigned")}
-                className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-                  activeTab === "assigned"
-                    ? "bg-indigo-600 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-              >
-                My Queue
-              </button>
-              {isAdmin && (
-                <button
-                  onClick={() => setActiveTab("pending")}
-                  className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-                    activeTab === "pending"
-                      ? "bg-indigo-600 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  All Pending
-                </button>
-              )}
-            </div>
           </div>
 
           <div className="flex flex-wrap gap-3 items-center">
+            {/* Search */}
             <div className="relative flex-1 min-w-48">
-              <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
+              <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2
+                text-slate-400 text-xs pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search by title or author…"
+                placeholder="Search by title…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-gray-200
-                 rounded-lg text-sm text-gray-800 placeholder-gray-400
-                  outline-none focus:ring focus:ring-indigo-400 bg-gray-50"
+                aria-label="Search review queue"
+                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl
+                  text-sm text-slate-800 placeholder-slate-400 outline-none
+                  focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/10
+                  bg-slate-50 transition-all"
               />
             </div>
+
+            {/* Stage filters */}
             <div className="flex gap-2 flex-wrap">
-              {["all", "proposal", "abstract", "final_paper"].map((s) => (
+              {STAGE_FILTERS.map((s) => (
                 <button
-                  key={s}
-                  onClick={() => setStageFilter(s)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold 
-                    border transition-all whitespace-nowrap cursor-pointer ${
-                      stageFilter === s
-                        ? "bg-indigo-600 text-white border-indigo-600"
-                        : "bg-white text-gray-500 border-gray-200 hover:border-indigo-300 hover:text-indigo-600"
-                    }`}
+                  key={s.id}
+                  type="button"
+                  onClick={() => setStage(s.id)}
+                  className={reviewerFilterCls(stageFilter === s.id)}
                 >
-                  {s === "all"
-                    ? "All"
-                    : s === "final_paper"
-                      ? "Final Paper"
-                      : s.charAt(0).toUpperCase() + s.slice(1)}
+                  {s.label}
                 </button>
               ))}
             </div>
           </div>
         </div>
 
-        {loadingQueue ? (
-          <div className="text-center py-12">
-            <div className="inline-block">
-              <svg
-                className="animate-spin h-8 w-8 text-indigo-600"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-            </div>
-            <p className="text-gray-500 font-medium mt-2">
-              Loading review queue...
-            </p>
-          </div>
+        {loading ? (
+          <PageSpinner label="Loading review queue…" />
         ) : queue.length === 0 ? (
-          <div className="text-center py-16">
-            <FaCheckCircle className="text-green-300 text-4xl mx-auto mb-3" />
-            <p className="text-gray-500 font-semibold">All caught up!</p>
-            <p className="text-gray-400 text-sm mt-1">
-              {activeTab === "assigned"
-                ? "No submissions assigned to you awaiting review."
-                : "No pending submissions to review."}
-            </p>
-          </div>
+          <EmptyState
+            icon={FaCheckCircle}
+            title="All caught up!"
+            sub="No submissions assigned to you are currently awaiting review."
+          />
         ) : (
-          <div className="divide-y divide-gray-50">
-            {queue.map((item, i) => (
-              <div
-                key={item.id}
-                className="px-6 py-5 hover:bg-gray-50/60 transition-colors"
-                style={{ animation: `fadeIn .3s ease ${i * 0.05}s both` }}
-              >
+          <div className="divide-y divide-slate-50">
+            {queue.map((item) => (
+              <div key={item._id}
+                className="px-6 py-5 hover:bg-slate-50/60 transition-colors">
                 <div className="flex items-start gap-4">
-                  <span
-                    className={`text-xs font-bold px-2.5 py-1 rounded-full mt-0.5 flex-shrink-0 ${STAGE_COLORS[item.stage]}`}
-                  >
-                    {STAGE_LABELS[item.stage]}
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full
+                    mt-0.5 shrink-0 border
+                    ${STAGE_COLORS[item.stage] || "bg-slate-100 text-slate-600 border-slate-200"}`}>
+                    {STAGE_LABELS[item.stage] || item.stage}
                   </span>
+
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-gray-900 text-sm leading-snug mb-1">
+                    <h4 className="font-semibold text-slate-900 text-sm leading-snug mb-1">
                       {item.title}
                     </h4>
-                    <div className="flex items-center gap-3 text-xs text-gray-400 mb-2 flex-wrap">
+                    <div className="flex items-center gap-3 text-xs text-slate-400
+                      mb-2 flex-wrap">
                       <span className="flex items-center gap-1">
-                        <FaUserCircle /> {item.author || item.researcher?.name}
+                        <FaUserCircle /> {item.researcher?.name || "—"}
                       </span>
                       <span className="flex items-center gap-1">
-                        <FaUniversity />{" "}
-                        {item.institution || item.researcher?.institution}
+                        <FaUniversity /> {item.researcher?.institution || "—"}
                       </span>
                       <span className="flex items-center gap-1">
-                        <FaCalendarAlt /> {fmt(item.submittedAt)}
+                        <FaCalendarAlt /> Assigned {fmt(item.assignedAt)}
                       </span>
+                      {item.resubmissionCount > 0 && (
+                        <span className="bg-purple-100 text-purple-700 border border-purple-200
+                          px-2 py-0.5 rounded-full font-semibold text-[10px]">
+                          Resubmission #{item.resubmissionCount}
+                        </span>
+                      )}
                     </div>
-                    <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">
-                      {item.abstract}
-                    </p>
+                    {item.abstract && (
+                      <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
+                        {item.abstract}
+                      </p>
+                    )}
                   </div>
-                  <div className="flex flex-col gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => setReviewing(item)}
-                      className="flex items-center gap-2 bg-indigo-600
-                       hover:bg-indigo-700 text-white text-xs font-bold 
-                       px-4 py-2.5 rounded-lg transition-all hover:-translate-y-0.5 
-                       shadow-sm whitespace-nowrap cursor-pointer"
-                    >
-                      <FaShieldAlt /> Review
-                    </button>
-                    <button
-                      className="flex items-center gap-2 border border-gray-200
-                     text-gray-500 hover:border-indigo-300 hover:text-indigo-600 
-                     text-xs font-semibold px-4 py-2 rounded-lg transition-all
-                      whitespace-nowrap cursor-pointer"
-                    >
-                      <FaEye /> View File
-                    </button>
-                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setReviewing(item)}
+                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700
+                      text-white text-xs font-bold px-4 py-2.5 rounded-xl
+                      transition-colors shrink-0 cursor-pointer"
+                  >
+                    <FaShieldAlt /> Review
+                  </button>
                 </div>
               </div>
             ))}
@@ -702,50 +716,59 @@ const AdminDashboard = ({ user }) => {
         <ReviewModal
           item={reviewing}
           onClose={() => setReviewing(null)}
-          onDecision={handleDecision}
+          onDecision={(id) => handleDecision(id)}
         />
       )}
     </div>
   );
 };
 
+// ─── Page shell ───────────────────────────────────────────────────────────────
+const Shell = ({ children }) => (
+  <div className="min-h-screen flex flex-col bg-slate-50">
+    <Header />
+    <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-10">
+      {children}
+    </main>
+    <Footer />
+  </div>
+);
+
+// ─── Root component ───────────────────────────────────────────────────────────
 const ResearchDashboard = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState("dashboard");
-  const [selectedResearch, setSelectedResearch] = useState(null);
+  const [user, setUser]                   = useState(null);
+  const [loading, setLoading]             = useState(true);
+  const [currentPage, setCurrentPage]     = useState("dashboard");
+  const [selectedResearch, setSelected]   = useState(null);
 
   const role = localStorage.getItem("role") || "researcher";
-  const isAdmin = ["admin", "superadmin", "it", "reviewer"].includes(role);
+  const isReviewer = ["admin", "superadmin", "reviewer"].includes(role);
 
   useEffect(() => {
-    const fetchUser = async () => {
+    (async () => {
       try {
-        const response = await getResearcherProfile();
-        setUser(response.researcher);
-      } catch (err) {
-        console.error("Failed to fetch user profile:", err);
-        const storedUser = localStorage.getItem("researcher");
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
+        const res = await getResearcherProfile();
+        setUser(res.researcher || res);
+      } catch {
+        const cached = localStorage.getItem("researcher");
+        if (cached) {
+          try { setUser(JSON.parse(cached)); }
+          catch { toast.error("Failed to load profile"); navigate("/hmis"); }
         } else {
-          toast.error("Failed to load user profile");
+          toast.error("Failed to load profile");
           navigate("/hmis");
         }
       } finally {
         setLoading(false);
       }
-    };
-
-    fetchUser();
+    })();
   }, [navigate]);
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
-    localStorage.removeItem("collection");
-    localStorage.removeItem("researcher");
+    ["token", "role", "collection", "researcher", "researcher_token"].forEach(
+      (k) => localStorage.removeItem(k)
+    );
     navigate("/hmis");
     toast.success("Logged out successfully");
   };
@@ -753,206 +776,177 @@ const ResearchDashboard = () => {
   const goTo = (page) => setCurrentPage(page);
   const backToDashboard = () => setCurrentPage("dashboard");
 
-  const breadcrumbLabel =
-    PAGE_LABELS[currentPage]?.[isAdmin ? "admin" : "researcher"] ?? "Dashboard";
+  const breadcrumb = PAGE_LABELS[currentPage]?.[isReviewer ? "reviewer" : "researcher"] ?? "Dashboard";
 
+  // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="flex flex-col h-screen bg-gray-50">
-        <Header />
-        <main className="flex-grow flex items-center justify-center">
-          <div className="text-center">
-            <svg
-              className="animate-spin h-12 w-12 text-blue-600 mx-auto mb-4"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              />
-            </svg>
-            <p className="text-gray-600 font-medium">Loading dashboard...</p>
-          </div>
-        </main>
-        <Footer />
-      </div>
+      <Shell>
+        <PageSpinner label="Loading dashboard…" />
+      </Shell>
     );
   }
 
+  // ── Auth fail ────────────────────────────────────────────────────────────
   if (!user) {
     return (
-      <div className="flex flex-col h-screen bg-gray-50">
-        <Header />
-        <main className="flex-grow flex items-center justify-center">
-          <div className="text-center">
-            <FaFlask className="text-gray-300 text-5xl mx-auto mb-4" />
-            <p className="text-gray-600 font-medium">
-              Unable to load user profile
-            </p>
-            <button
-              onClick={() => navigate("/hmis")}
-              className="mt-4 text-blue-600 hover:text-blue-700 font-semibold cursor-pointer"
-            >
-              Return to Login
-            </button>
-          </div>
-        </main>
-        <Footer />
-      </div>
+      <Shell>
+        <div className="flex flex-col items-center py-20 gap-4">
+          <FaFlask className="text-slate-300 text-5xl" />
+          <p className="text-slate-600 font-medium">Unable to load profile</p>
+          <button
+            type="button"
+            onClick={() => navigate("/hmis")}
+            className="text-blue-600 hover:text-blue-700 font-semibold
+              text-sm cursor-pointer"
+          >
+            Return to login
+          </button>
+        </div>
+      </Shell>
     );
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
-      <div className="sticky top-0 z-50 bg-white/60 backdrop-blur-md shadow-sm">
+    <div className="min-h-screen flex flex-col bg-slate-50">
+      {/* Sticky header */}
+      <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b
+        border-slate-100 shadow-sm">
         <Header />
       </div>
 
-      <main className="flex-grow">
-        <div className="bg-white border-b border-gray-100">
-          <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between gap-4 flex-wrap h-full">
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <FaFlask className="text-blue-500" />
-              <button
-                onClick={backToDashboard}
-                className={`hover:text-blue-600 transition-colors cursor-pointer
-                  ${currentPage === "dashboard" ? "font-semibold text-gray-800" : ""}`}
-              >
-                Research Portal
-              </button>
-              {currentPage !== "dashboard" && (
-                <>
-                  <FaChevronRight className="text-xs text-gray-300" />
-                  <span className="font-semibold text-gray-800">
-                    {breadcrumbLabel}
-                  </span>
-                </>
-              )}
-            </div>
+      {/* Sub-nav / breadcrumb bar */}
+      <div className="bg-white border-b border-slate-100">
+        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center
+          justify-between gap-4 flex-wrap">
 
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => goTo("profile")}
-                className={`flex items-center gap-2 border rounded-lg px-3 py-1.5
-                   transition-all cursor-pointer ${
-                     currentPage === "profile"
-                       ? "bg-blue-50 border-blue-300 text-blue-700"
-                       : "bg-gray-50 border-gray-200 text-gray-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
-                   }`}
-              >
-                <FaUserCircle
-                  className={
-                    currentPage === "profile"
-                      ? "text-blue-500"
-                      : "text-gray-400"
-                  }
-                />
-                <span className="text-xs font-semibold hidden sm:inline">
-                  {user.firstName} {user.lastName}
-                </span>
-                {currentPage !== "profile" && (
-                  <FaUser className="text-[10px] text-gray-400 hidden sm:inline" />
-                )}
-              </button>
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <FaFlask className="text-blue-500 text-xs" />
+            <button
+              type="button"
+              onClick={backToDashboard}
+              className={`transition-colors cursor-pointer hover:text-blue-600
+                ${currentPage === "dashboard" ? "font-semibold text-slate-800" : ""}`}
+            >
+              Research portal
+            </button>
+            {currentPage !== "dashboard" && (
+              <>
+                <FaChevronRight className="text-xs text-slate-300" />
+                <span className="font-semibold text-slate-800">{breadcrumb}</span>
+              </>
+            )}
+          </div>
 
-              <button
-                onClick={handleLogout}
-                title="Log Out"
-                className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer
-                 text-gray-500 hover:text-red-500 border border-gray-200
-                  hover:border-red-500 px-3 py-1.5 rounded-lg transition-all"
-              >
-                <FaSignOutAlt />
-                <span className="hidden sm:inline">Logout</span>
-              </button>
-            </div>
+          {/* User controls */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => goTo("profile")}
+              className={`flex items-center gap-2 border rounded-xl px-3 py-1.5
+                text-xs font-semibold transition-colors cursor-pointer
+                ${currentPage === "profile"
+                  ? "bg-blue-50 border-blue-300 text-blue-700"
+                  : "bg-slate-50 border-slate-200 text-slate-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"}`}
+            >
+              <FaUserCircle className={currentPage === "profile" ? "text-blue-500" : "text-slate-400"} />
+              <span className="hidden sm:inline">
+                {user.firstName} {user.lastName}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              aria-label="Log out"
+              className="flex items-center gap-1.5 text-xs font-semibold
+                text-slate-500 hover:text-red-600 border border-slate-200
+                hover:border-red-300 px-3 py-1.5 rounded-xl transition-colors
+                cursor-pointer"
+            >
+              <FaSignOutAlt />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
           </div>
         </div>
+      </div>
 
-        <div className="max-w-7xl mx-auto px-6 py-4 h-full">
-          {currentPage === "submit-proposal" && (
-            <SubmitProposalPage
+      {/* Main content */}
+      <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-8">
+
+        {currentPage === "submit-proposal" && (
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="p-4 border-b border-slate-100">
+              <button
+                type="button"
+                onClick={backToDashboard}
+                className="flex items-center gap-2 text-slate-500
+                  hover:text-slate-800 text-sm transition-colors cursor-pointer"
+              >
+                <FaArrowRight className="rotate-180 text-xs" /> Back to dashboard
+              </button>
+            </div>
+            <SubmitProposal
               onClose={backToDashboard}
               onSubmitted={backToDashboard}
             />
-          )}
+          </div>
+        )}
 
-          {currentPage === "submit-full-paper" && (
-            <SubmitFullPaper
+        {currentPage === "submit-final" && selectedResearch && (
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="p-4 border-b border-slate-100">
+              <button
+                type="button"
+                onClick={backToDashboard}
+                className="flex items-center gap-2 text-slate-500
+                  hover:text-slate-800 text-sm transition-colors cursor-pointer"
+              >
+                <FaArrowRight className="rotate-180 text-xs" /> Back to dashboard
+              </button>
+            </div>
+            <SubmitFinalPaper
+              research={selectedResearch}
               onClose={backToDashboard}
               onSubmitted={backToDashboard}
-              proposalId={selectedResearch?.id}
-              proposalTitle={selectedResearch?.title}
             />
-          )}
+          </div>
+        )}
 
-          {currentPage === "profile" && <MyProfile onBack={backToDashboard} />}
+        {currentPage === "profile" && (
+          <MyProfile onBack={backToDashboard} />
+        )}
 
-          {currentPage === "dashboard" && isAdmin && (
-            <AdminDashboard user={user} />
-          )}
+        {currentPage === "view-proposal" && selectedResearch && (
+          <ViewProposalDetails
+            item={selectedResearch}
+            onBack={backToDashboard}
+            onResubmit={backToDashboard}
+            onSubmitNextStage={(r) => {
+              setSelected(r);
+              goTo("submit-final");
+            }}
+          />
+        )}
 
-          {currentPage === "dashboard" && !isAdmin && (
-            <ResearcherDashboard
-              user={user}
-              onNewProposal={() => goTo("submit-proposal")}
-              onSubmitFullPaper={(research) => {
-                setSelectedResearch(research);
-                goTo("submit-full-paper");
-              }}
-              onViewProposal={(item) => {
-                setSelectedResearch(item);
-                goTo("view-proposal");
-              }}
-            />
-          )}
+        {currentPage === "dashboard" && isReviewer && (
+          <ReviewerDashboard user={user} />
+        )}
 
-          {currentPage === "view-proposal" && selectedResearch && (
-            <ViewProposalDetails
-              item={selectedResearch}
-              onBack={backToDashboard}
-              onResubmit={() => goTo("submit-proposal")}
-              onSubmitNextStage={(research) => {
-                setSelectedResearch(research);
-                goTo("submit-full-paper");
-              }}
-            />
-          )}
-        </div>
+        {currentPage === "dashboard" && !isReviewer && (
+          <ResearcherDashboard
+            user={user}
+            onNewProposal={() => goTo("submit-proposal")}
+            onSubmitFinal={(r) => { setSelected(r); goTo("submit-final"); }}
+            onViewProposal={(r) => { setSelected(r); goTo("view-proposal"); }}
+          />
+        )}
       </main>
 
       <Footer />
 
-      <style jsx>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
+      <style>{`
         .line-clamp-2 {
           display: -webkit-box;
           -webkit-line-clamp: 2;

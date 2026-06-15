@@ -1,63 +1,55 @@
-const express = require("express");
-const router = express.Router();
-const reviewerController = require("../controllers/reviewerController");
-const { verifyToken, authorizeRoles } = require("../middleware/auth");
+const router = require("express").Router();
+const ctrl = require("../controllers/reviewerController");
+const {
+  validate,
+  inviteReviewerSchema,
+  setPasswordSchema,
+  updateReviewerSchema,
+} = require("../utils/validators");
 
-router.post(
-  "/set-password",
-  reviewerController.setPassword
-);
+const { protectEither,
+  isResearchAdmin
 
-//ADMIN ONLY ROUTES - Staff admin or research admin JWT required
+ } = require("../middleware/auth");
+ 
+
+const { AppError } = require("../utils/appError");
+
+const requireAdmin = [
+  protectEither,
+  (req, res, next) => {
+    if (isResearchAdmin(req)) return next();
+    return next(new AppError("Admin access required.", 403));
+  },
+];
+
+//  PUBLIC
+router.post("/set-password", validate(setPasswordSchema), ctrl.setPassword);
+
+//  ADMIN ROUTES
+
+router.get("/", ...requireAdmin, ctrl.listReviewers);
+
+router.get("/all", ...requireAdmin, ctrl.listAllResearchers);
 
 router.post(
   "/invite",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  reviewerController.inviteReviewer
+  ...requireAdmin,
+  validate(inviteReviewerSchema),
+  ctrl.inviteReviewer,
 );
 
-router.post(
-  "/:id/resend-invite",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  reviewerController.resendInvite
-);
+router.post("/:id/resend-invite", ...requireAdmin, ctrl.resendInvite);
+
+router.patch("/:id/revoke", ...requireAdmin, ctrl.revokeReviewer);
+
+router.patch("/:id/promote-admin", ...requireAdmin, ctrl.promoteToAdmin);
 
 router.patch(
-  "/:id/revoke",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  reviewerController.revokeReviewer
-);
-
-
-router.patch(
-  "/:id/promote-admin",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  reviewerController.promoteToAdmin
-);
-
-router.put(
   "/:id",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  reviewerController.updateReviewer
+  ...requireAdmin,
+  validate(updateReviewerSchema),
+  ctrl.updateReviewer,
 );
 
-router.get(
-  "/",
-  verifyToken,
-  authorizeRoles("admin", "superadmin"),
-  reviewerController.listReviewers
-);
-
-// router.get( 
-//   "/all",
-//   verifyToken,
-//   authorizeRoles("admin", "superadmin"),
-//   reviewerController.listAllResearchers
-// );
-
-module.exports = router; 
+module.exports = router;

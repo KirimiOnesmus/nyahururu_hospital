@@ -8,7 +8,7 @@ const STAFF_ROLES = ["superadmin", "admin", "it", "communication", "doctor", "st
 const LoginForm = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); 
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [loginType, setLoginType] = useState("staff");
@@ -76,6 +76,7 @@ const LoginForm = () => {
       }
     } catch (err) {
       toast.error(err.response?.data?.message || "Login failed");
+      console.log("Login error:", err);
     } finally {
       setLoading(false);
     }

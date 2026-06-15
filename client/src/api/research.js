@@ -452,7 +452,7 @@ export default {
   refundPayment,
   updateDownloadPrice,
 
-  // Helpers 
+  // Helpers  
   formatPhoneNumber,
   validatePaymentAmount,
 };
