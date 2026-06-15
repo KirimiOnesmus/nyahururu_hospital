@@ -1,6 +1,6 @@
 const crypto   = require("crypto");
 const Payment  = require("../models/PaymentModel");
-const Research = require("../models/ResearchModel");
+const Research = require("../models/researchModel");
 const Researcher = require("../models/ResearcherModel");
 const mpesa    = require("../utils/mpesaService")
 const email    = require("../utils/emailServices")
