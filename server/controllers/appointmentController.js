@@ -5,7 +5,7 @@ const smsServices = require("../utils/smsServices");
 
 exports.bookAppointment = async (req, res) => {
   try {
-    const { name, email, phone, service, date, time } = req.body;
+    const { name, email, phone, service, department, date, time } = req.body;
 
     if (!name || !email || !service || !date || !time)
       return res.status(400).json({ message: "All fields are required" });
@@ -19,10 +19,6 @@ exports.bookAppointment = async (req, res) => {
       time,
     });
 
-    
-    console.log('Controller - Created appointment:', appointment);
-
-
     // Send confirmation emails
     const appointmentData = {
       patientName: name,
@@ -32,17 +28,17 @@ exports.bookAppointment = async (req, res) => {
       time,
       phone,
     };
-    console.log('Controller - Appointment data for SMS:', appointmentData)
 
+    emailService
+      .sendAppointmentConfirmationEmail(appointmentData)
+      .catch((err) =>
+        console.error("Failed to send appointment confirmation email:", err),
+      );
 
-        emailService.sendAppointmentConfirmationEmail(appointmentData)
-      .catch(err => console.error('Failed to send appointment confirmation email:', err));
-
-
-    if (phone) {
-      smsServices.sendAppointmentConfirmation(appointmentData)
-        .catch(err => console.error('Failed to send appointment confirmation SMS:', err));
-    }
+    // if (phone) {
+    //   smsServices.sendAppointmentConfirmation(appointmentData)
+    //     .catch(err => console.error('Failed to send appointment confirmation SMS:', err));
+    // }
 
     res.status(201).json({
       message: "Appointment booked successfully. Await confirmation.",
@@ -84,13 +80,15 @@ exports.getDoctorAppointments = async (req, res) => {
 exports.updateAppointmentStatus = async (req, res) => {
   try {
     const { status } = req.body;
+    const normalizedStatus =
+      status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
     const appointment = await Appointment.findById(req.params.id);
 
     if (!appointment) {
       return res.status(404).json({ message: "Appointment not found" });
     }
 
-    appointment.status = status;
+    appointment.status = normalizedStatus;
     await appointment.save();
 
     // Send status update email
@@ -105,26 +103,26 @@ exports.updateAppointmentStatus = async (req, res) => {
       .sendAppointmentStatusUpdateEmail(
         appointment.patientEmail,
         appointmentData,
-        status
+        normalizedStatus,
       )
       .catch((err) =>
-        console.error("Failed to send status update email:", err)
+        console.error("Failed to send status update email:", err),
       );
 
-    if (appointment.phone) {
-      smsServices
-        .sendAppointmentStatusUpdate(
-          appointment.phone,
-          appointment.patientName,
-          appointment.service,
-          appointment.appointmentDate,
-          appointment.time,
-          status
-        )
-        .catch((err) =>
-          console.error("Failed to send status update SMS:", err)
-        );
-    }
+    // if (appointment.phone) {
+    //   smsServices
+    //     .sendAppointmentStatusUpdate(
+    //       appointment.phone,
+    //       appointment.patientName,
+    //       appointment.service,
+    //       appointment.appointmentDate,
+    //       appointment.time,
+    //       status
+    //     )
+    //     .catch((err) =>
+    //       console.error("Failed to send status update SMS:", err)
+    //     );
+    // }
 
     res.json({ message: `Appointment ${status}`, appointment });
   } catch (error) {

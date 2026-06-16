@@ -134,15 +134,25 @@ exports.sendVerificationEmail = async (email, token, userId) => {
     `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
        <div style="background-color:#f9f9f9;padding:20px;border-radius:8px;">
          <h2 style="color:#2196F3;margin-top:0;">Email Verification</h2>
-          <p style="color:#555;line-height:1.6;">Dear User,</p>
+         <p style="color:#555;line-height:1.6;">Dear User,</p>
          <p style="color:#555;line-height:1.6;">
-           An account has been created for you. Please verify your email address by clicking the button below:
+           An account has been created for you on the Nyahururu Healthcare Management System.
+           Please verify your email address by clicking the button below.
          </p>
+         <div style="background-color:#fff3cd;border:1px solid #ffc107;border-radius:6px;
+                     padding:14px 18px;margin:20px 0;">
+           <p style="margin:0;color:#856404;font-size:13px;line-height:1.6;">
+             <strong>What happens next:</strong><br/>
+             Once you verify your email, your temporary login password will be sent to this address.
+             You will be required to change it immediately after your first login.
+           </p>
+         </div>
          <div style="margin:30px 0;text-align:center;">
            <a href="${verificationUrl}"
               style="display:inline-block;padding:12px 30px;background-color:#4CAF50;
-                     color:white;text-decoration:none;border-radius:5px;font-weight:bold;">
-             Verify Email
+                     color:white;text-decoration:none;border-radius:5px;font-weight:bold;
+                     font-size:15px;">
+             Verify My Email
            </a>
          </div>
          <p style="color:#666;font-size:12px;margin-top:20px;padding-top:20px;border-top:1px solid #ddd;">
@@ -150,7 +160,7 @@ exports.sendVerificationEmail = async (email, token, userId) => {
            <a href="${verificationUrl}" style="color:#2196F3;word-break:break-all;">${verificationUrl}</a>
          </p>
          <p style="color:#999;font-size:11px;margin-top:20px;">
-           This link will expire in 24 hours. If you didn't create this account, please ignore this email.
+           This link will expire in 24 hours. If you did not expect this email, please ignore it.
          </p>
        </div>
      </div>`,
@@ -158,63 +168,158 @@ exports.sendVerificationEmail = async (email, token, userId) => {
 };
 
 // HMIS password reset — signature: (email, token, userId)
-exports.sendHmisPasswordResetEmail = async (email, token, userId) => {
-  const resetUrl = `${process.env.FRONTEND_URL}reset-password?token=${token}&userId=${userId}`;
+// exports.sendHmisPasswordResetEmail = async (email, token, userId) => {
+//   const resetUrl = `${process.env.FRONTEND_URL}reset-password?token=${token}&userId=${userId}`;
+//   return sendMail(
+//     email,
+//     "Password Reset Request - Nyahururu Healthcare Management System",
+//     `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+//        <div style="background-color:#f9f9f9;padding:20px;border-radius:8px;">
+//          <h2 style="color:#2196F3;margin-top:0;">Password Reset Request</h2>
+//          <p style="color:#555;line-height:1.6;">
+//            You requested to reset your password. Click the button below to proceed:
+//          </p>
+//          <div style="margin:30px 0;text-align:center;">
+//            <a href="${resetUrl}"
+//               style="display:inline-block;padding:12px 30px;background-color:#2196F3;
+//                      color:white;text-decoration:none;border-radius:5px;font-weight:bold;">
+//              Reset Password
+//            </a>
+//          </div>
+//          <p style="color:#666;font-size:12px;margin-top:20px;padding-top:20px;border-top:1px solid #ddd;">
+//            <strong>Or copy this link:</strong><br/>
+//            <a href="${resetUrl}" style="color:#2196F3;word-break:break-all;">${resetUrl}</a>
+//          </p>
+//          <p style="color:#999;font-size:11px;margin-top:20px;">
+//            This link will expire in 1 hour. If you didn't request this, please ignore this email.
+//          </p>
+//        </div>
+//      </div>`,
+//   );
+// };
+
+exports.sendNewPasswordEmail = async (email, password) => {
+  const loginUrl = `${process.env.FRONTEND_URL}login`;
   return sendMail(
     email,
-    "Password Reset Request - Nyahururu Healthcare Management System",
+    "Your Temporary Password - Nyahururu Healthcare Management System",
     `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
        <div style="background-color:#f9f9f9;padding:20px;border-radius:8px;">
-         <h2 style="color:#2196F3;margin-top:0;">Password Reset Request</h2>
+         <h2 style="color:#4CAF50;margin-top:0;">Email Verified Successfully!</h2>
          <p style="color:#555;line-height:1.6;">
-           You requested to reset your password. Click the button below to proceed:
+           Your email has been verified. Use the temporary password below to log in.
          </p>
-         <div style="margin:30px 0;text-align:center;">
-           <a href="${resetUrl}"
-              style="display:inline-block;padding:12px 30px;background-color:#2196F3;
-                     color:white;text-decoration:none;border-radius:5px;font-weight:bold;">
-             Reset Password
+
+         <div style="margin:24px 0;padding:20px;background-color:#ffffff;
+                     border:2px solid #4CAF50;border-radius:8px;text-align:center;">
+           <p style="margin:0 0 8px;color:#666;font-size:13px;font-weight:bold;
+                     text-transform:uppercase;letter-spacing:1px;">Your Temporary Password</p>
+           <p style="font-size:26px;font-weight:bold;color:#4CAF50;letter-spacing:4px;
+                     margin:0;font-family:monospace;">${password}</p>
+         </div>
+
+         <div style="background-color:#fff3cd;border-left:4px solid #ffc107;
+                     border-radius:0 6px 6px 0;padding:14px 18px;margin:20px 0;">
+           <p style="margin:0;color:#856404;font-size:13px;line-height:1.7;">
+             <strong>Important — action required after login:</strong><br/>
+             This is a temporary password. Once you log in, go to
+             <strong>My Profile → Change Password</strong> and set a strong personal password.
+             This protects your account and patient data.
+           </p>
+         </div>
+
+         <div style="margin:28px 0;text-align:center;">
+           <a href="${loginUrl}"
+              style="display:inline-block;padding:13px 32px;background-color:#4CAF50;
+                     color:white;text-decoration:none;border-radius:6px;font-weight:bold;
+                     font-size:15px;">
+             Log In Now
            </a>
          </div>
-         <p style="color:#666;font-size:12px;margin-top:20px;padding-top:20px;border-top:1px solid #ddd;">
-           <strong>Or copy this link:</strong><br/>
-           <a href="${resetUrl}" style="color:#2196F3;word-break:break-all;">${resetUrl}</a>
-         </p>
-         <p style="color:#999;font-size:11px;margin-top:20px;">
-           This link will expire in 1 hour. If you didn't request this, please ignore this email.
+
+         <p style="color:#999;font-size:11px;margin-top:20px;padding-top:20px;border-top:1px solid #ddd;">
+           If you did not verify this email, please contact support immediately at
+           <a href="mailto:${process.env.EMAIL_USER}" style="color:#2196F3;">
+             ${process.env.EMAIL_USER}
+           </a>
          </p>
        </div>
      </div>`,
   );
 };
 
-exports.sendNewPasswordEmail = async (email, password) => {
+// utils/emailServices.js — add this new export at the end of the LEGACY HMIS EMAILS section
+
+exports.sendPasswordChangedEmail = async (email, name) => {
   const loginUrl = `${process.env.FRONTEND_URL}login`;
+  const supportEmail = process.env.EMAIL_USER;
+  const timestamp = new Date().toLocaleString("en-KE", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Africa/Nairobi",
+  });
+
   return sendMail(
     email,
-    "Your New Password - NyahururuHealthcare Management System",
+    "Password Changed Successfully - Nyahururu Healthcare Management System",
     `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
        <div style="background-color:#f9f9f9;padding:20px;border-radius:8px;">
-         <h2 style="color:#4CAF50;margin-top:0;">Email Verified Successfully!</h2>
-         <p style="color:#555;line-height:1.6;">Your email has been verified. Your temporary password is:</p>
-         <div style="margin:30px 0;padding:15px;background-color:#fff;
-                     border:2px solid #4CAF50;border-radius:5px;text-align:center;">
-           <p style="font-size:24px;font-weight:bold;color:#4CAF50;
-                     letter-spacing:3px;margin:0;font-family:monospace;">${password}</p>
-         </div>
-         <p style="color:#d32f2f;font-weight:bold;background-color:#ffebee;
-                   padding:10px;border-radius:4px;">
-           Please change this password immediately after logging in for your security.
+
+         <h2 style="color:#4CAF50;margin-top:0;">Password Updated Successfully</h2>
+         <p style="color:#555;line-height:1.6;">Dear ${name || "User"},</p>
+         <p style="color:#555;line-height:1.6;">
+           Your account password was changed successfully. Here are the details of this change:
          </p>
-         <div style="margin:30px 0;text-align:center;">
+
+         <div style="background-color:#ffffff;border:1px solid #e0e0e0;border-radius:8px;
+                     padding:16px 20px;margin:20px 0;">
+           <table style="width:100%;border-collapse:collapse;">
+             <tr>
+               <td style="padding:8px 0;color:#666;font-weight:bold;width:40%;">Account</td>
+               <td style="padding:8px 0;color:#333;">${email}</td>
+             </tr>
+             <tr style="border-top:1px solid #f3f4f6;">
+               <td style="padding:8px 0;color:#666;font-weight:bold;">Changed at</td>
+               <td style="padding:8px 0;color:#333;">${timestamp}</td>
+             </tr>
+             <tr style="border-top:1px solid #f3f4f6;">
+               <td style="padding:8px 0;color:#666;font-weight:bold;">Status</td>
+               <td style="padding:8px 0;">
+                 <span style="color:#4CAF50;font-weight:bold;">Successful</span>
+               </td>
+             </tr>
+           </table>
+         </div>
+
+         <div style="background-color:#ffebee;border-left:4px solid #f44336;
+                     border-radius:0 6px 6px 0;padding:14px 18px;margin:20px 0;">
+           <p style="margin:0;color:#c62828;font-size:13px;line-height:1.7;">
+             <strong>Did not make this change?</strong><br/>
+             If you did not change your password, your account may be compromised.
+             Please contact support immediately at
+             <a href="mailto:${supportEmail}" style="color:#c62828;font-weight:bold;">
+               ${supportEmail}
+             </a>
+             or reset your password right away.
+           </p>
+         </div>
+
+         <div style="margin:28px 0;text-align:center;">
            <a href="${loginUrl}"
-              style="display:inline-block;padding:12px 30px;background-color:#4CAF50;
-                     color:white;text-decoration:none;border-radius:5px;font-weight:bold;">
-             Login Now
+              style="display:inline-block;padding:13px 32px;background-color:#2196F3;
+                     color:white;text-decoration:none;border-radius:6px;font-weight:bold;
+                     font-size:15px;">
+             Go to Login
            </a>
          </div>
+
          <p style="color:#999;font-size:11px;margin-top:20px;padding-top:20px;border-top:1px solid #ddd;">
-           If you didn't verify this email, please contact support immediately.
+           This is an automated security notification from the Nyahururu Healthcare Management System.
+           Please do not reply to this email.
          </p>
        </div>
      </div>`,

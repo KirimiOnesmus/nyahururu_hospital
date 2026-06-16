@@ -13,7 +13,7 @@ const { verifyToken } = require("../middleware/auth");
 // Profile routes
 router.get("/", verifyToken, getProfile);
 router.put("/update", verifyToken, updateProfile);
-router.put("/change-password", verifyToken, changePassword);
+router.post("/change-password", verifyToken, changePassword);
 router.post(
   "/upload-photo",
   verifyToken,

@@ -1,6 +1,8 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL?.replace("/api", "") || "http://localhost:5000";
+
 const DoctorCard = ({ doctor }) => {
 
   const fullName =
@@ -16,7 +18,7 @@ const DoctorCard = ({ doctor }) => {
         <div className="w-full h-52 bg-slate-100 overflow-hidden">
           {doctor.profile?.imageUrl ? (
             <img
-              src={`http://localhost:5000${doctor.profile.imageUrl}`}
+              src={`${BACKEND_URL}${doctor.profile.imageUrl}`}
               alt={fullName}
               className="w-full h-full object-cover"
             />

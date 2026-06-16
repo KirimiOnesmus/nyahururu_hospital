@@ -15,6 +15,8 @@ import {
   FaFileAlt,
   FaShieldAlt,
   FaCheckCircle,
+  FaEye,
+  FaEyeSlash,
 } from "react-icons/fa";
 import api from "../../api/axios";
 import { toast } from "react-toastify";
@@ -90,6 +92,41 @@ const Field = ({
   </div>
 );
 
+// Password Inputs
+
+const PasswordInput = ({ label, placeholder, value, onChange, disabled }) => {
+  const [show, setShow] = React.useState(false);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          type={show ? "text" : "password"}
+          placeholder={placeholder}
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-slate-200 bg-white
+                     text-slate-800 text-sm outline-none focus:border-blue-400
+                     focus:ring-2 focus:ring-blue-100 transition-all
+                     disabled:bg-slate-50 placeholder:text-slate-300"
+        />
+        <button
+          type="button"
+          onClick={() => setShow((v) => !v)}
+          disabled={disabled}
+          aria-label={show ? "Hide password" : "Show password"}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400
+                     hover:text-slate-600 transition-colors disabled:opacity-40 cursor-pointer"
+        >
+          {show ? <FaEyeSlash size={14} /> : <FaEye size={14} />}
+        </button>
+      </div>
+    </div>
+  );
+};
 const PasswordModal = ({ onClose }) => {
   const [fields, setFields] = useState({ old: "", next: "", confirm: "" });
   const [loading, setLoading] = useState(false);
@@ -105,12 +142,14 @@ const PasswordModal = ({ onClose }) => {
     setFields((f) => ({ ...f, [key]: e.target.value }));
   const lengthOk = fields.next.length >= 6;
   const matchOk = fields.next === fields.confirm && fields.next.length > 0;
+  const hasUpper = /[A-Z]/.test(fields.next);
+  const hasSpecial = /[@$!%*?&]/.test(fields.next);
+  const allValid = lengthOk && matchOk && hasUpper && hasSpecial;
 
   const handleSubmit = async () => {
-    if (!fields.old || !fields.next || !fields.confirm)
-      return toast.error("Please fill in all fields");
-    if (!matchOk) return toast.error("New passwords do not match");
-    if (!lengthOk) return toast.error("Password must be at least 6 characters");
+    if (!fields.old) return toast.error("Please enter your current password");
+    if (!allValid) return toast.error("Please meet all password requirements");
+
     setLoading(true);
     try {
       await api.post("/profile/change-password", {
@@ -125,11 +164,19 @@ const PasswordModal = ({ onClose }) => {
       setLoading(false);
     }
   };
+  const Rule = ({ ok, text }) => (
+    <div
+      className={`flex items-center gap-2 text-sm transition-colors ${ok ? "text-green-600" : "text-slate-400"}`}
+    >
+      <FaCheckCircle className="text-xs flex-shrink-0" />
+      {text}
+    </div>
+  );
 
   return (
     <div
       className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onClick={(e) => e.target === e.currentTarget && !loading && onClose()}
     >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden">
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
@@ -139,58 +186,46 @@ const PasswordModal = ({ onClose }) => {
           <button
             onClick={onClose}
             disabled={loading}
-            className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100 disabled:opacity-50"
+            className="text-slate-400 p-1 rounded-lg hover:text-red-500 disabled:opacity-50 cursor-pointer text-xl"
           >
             <FaTimes />
           </button>
         </div>
 
         <div className="px-6 py-5 flex flex-col gap-4">
-          {[
-            {
-              label: "Current Password",
-              key: "old",
-              ph: "Your current password",
-            },
-            { label: "New Password", key: "next", ph: "At least 6 characters" },
-            {
-              label: "Confirm Password",
-              key: "confirm",
-              ph: "Repeat new password",
-            },
-          ].map(({ label, key, ph }) => (
-            <div key={key} className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-                {label}
-              </label>
-              <input
-                type="password"
-                placeholder={ph}
-                value={fields[key]}
-                onChange={set(key)}
-                disabled={loading}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm
-                           outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all
-                           disabled:bg-slate-50 placeholder:text-slate-300"
-              />
-            </div>
-          ))}
+          <PasswordInput
+            label="Current Password"
+            placeholder="Your current password"
+            value={fields.old}
+            onChange={set("old")}
+            disabled={loading}
+          />
+          <PasswordInput
+            label="New Password"
+            placeholder="Min 8 chars, uppercase, special char"
+            value={fields.next}
+            onChange={set("next")}
+            disabled={loading}
+          />
+          <PasswordInput
+            label="Confirm New Password"
+            placeholder="Repeat new password"
+            value={fields.confirm}
+            onChange={set("confirm")}
+            disabled={loading}
+          />
 
-          {/* Rules */}
           <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex flex-col gap-2">
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">
               Requirements
             </p>
-            <div
-              className={`flex items-center gap-2 text-sm transition-colors ${lengthOk ? "text-green-600" : "text-slate-400"}`}
-            >
-              <FaCheckCircle className="text-xs" /> At least 6 characters
-            </div>
-            <div
-              className={`flex items-center gap-2 text-sm transition-colors ${matchOk ? "text-green-600" : "text-slate-400"}`}
-            >
-              <FaCheckCircle className="text-xs" /> Passwords match
-            </div>
+            <Rule ok={lengthOk} text="At least 8 characters" />
+            <Rule ok={hasUpper} text="Contains an uppercase letter" />
+            <Rule
+              ok={hasSpecial}
+              text="Contains a special character (@$!%*?&)"
+            />
+            <Rule ok={matchOk} text="Passwords match" />
           </div>
         </div>
 
@@ -198,17 +233,18 @@ const PasswordModal = ({ onClose }) => {
           <button
             onClick={onClose}
             disabled={loading}
-            className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm
-                       hover:bg-slate-50 transition-all disabled:opacity-60"
+            className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600
+                       font-semibold text-sm hover:bg-slate-50 transition-all disabled:opacity-60
+                       cursor-pointer"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
-            disabled={loading}
-            className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm
-                       flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-md
-                       disabled:opacity-60 disabled:cursor-not-allowed"
+            disabled={loading || !allValid}
+            className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white
+                       font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer
+                       transition-all shadow-sm hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {loading ? (
               <>

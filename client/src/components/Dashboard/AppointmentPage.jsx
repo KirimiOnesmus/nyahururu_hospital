@@ -207,7 +207,7 @@ const AppointmentPage = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
 
-        {/* ── Header ── */}
+        
         <div className="flex items-center gap-3 mb-8 fade-up">
           <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center ">
             <FaCalendarAlt className="text-white" />
@@ -218,7 +218,7 @@ const AppointmentPage = () => {
           </div>
         </div>
 
-        {/* ── Stats ── */}
+   
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatCard label="Total"     value={stats.total}     icon={FaCalendarAlt}  accent={{ bg:"bg-blue-50",    icon:"text-blue-500",    num:"text-blue-700"    }} />
           <StatCard label="Confirmed" value={stats.confirmed} icon={FaCheckCircle}  accent={{ bg:"bg-emerald-50", icon:"text-emerald-500", num:"text-emerald-700" }} />
@@ -264,7 +264,7 @@ const AppointmentPage = () => {
           )}
         </div>
 
-        {/* ── Status filter pills ── */}
+
         <div className="flex flex-wrap gap-2 mb-5">
           {["all", "pending", "confirmed", "completed", "cancelled"].map(s => {
             const c = s === "all" ? null : scfg(s);
@@ -290,7 +290,7 @@ const AppointmentPage = () => {
           })}
         </div>
 
-        {/* ── Table ── */}
+
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           {loading ? <Spinner /> : filtered.length === 0 ? (
             <Empty text={search || filterStatus !== "all" ? "No appointments match your filters" : "No appointments yet"} />
@@ -318,7 +318,7 @@ const AppointmentPage = () => {
                           </div>
                           <div className="min-w-0">
                             <p className="font-semibold text-gray-900 truncate">{appt.patientName || "—"}</p>
-                            <p className="text-[10px] text-gray-400 truncate">{appt.email || "—"}</p>
+                            <p className="text-[10px] text-gray-400 truncate">{appt.patientEmail || "—"}</p>
                           </div>
                         </div>
                       </td>

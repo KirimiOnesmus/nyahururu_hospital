@@ -13,7 +13,7 @@ const { verifyToken, authorizeRoles } = require('../middleware/auth');
 router.get('/', verifyToken, authorizeRoles('admin', 'it'), getAllUsers);
 
 //View a single user by ID
-router.get('/:id', verifyToken, authorizeRoles('admin', 'it'), getUserById);
+router.get('/:id', verifyToken, authorizeRoles('admin', 'it', 'doctor', 'communication'), getUserById);
 
 //add users
 router.post('/', verifyToken, authorizeRoles('admin', 'it'), createUser);

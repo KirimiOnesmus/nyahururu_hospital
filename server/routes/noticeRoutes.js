@@ -15,63 +15,26 @@ const {
 } = require("../controllers/noticeController");
 
 const { verifyToken, authorizeRoles } = require("../middleware/auth");
-const createUploader = require("../middleware/upload"); 
+const createUploader = require("../middleware/upload");
 const uploadNotice = createUploader("notices");
 
-// Public routes
+const adminComms = [verifyToken, authorizeRoles("admin", "communication")];
+
+
 router.get("/", getAllNotices);
-router.get("/stats", getNoticeStats);
+router.get("/stats", getNoticeStats);                        
+
+router.post("/bulk/delete", ...adminComms, bulkDeleteNotices); 
+
+
 router.get("/:id", getNoticeById);
 
-// Protected routes
-router.post(
-  "/",
-  verifyToken,
-  authorizeRoles("admin", "communication"),
-  createNotice
-);
-router.put(
-  "/:id",
-  verifyToken,
-  authorizeRoles("admin", "communication"),
-  updateNotice
-);
-router.delete(
-  "/:id",
-  verifyToken,
-  authorizeRoles("admin", "communication"),
-  deleteNotice
-);
-router.post(
-  "/bulk/delete",
-  verifyToken,
-  authorizeRoles("admin", "communication"),
-  bulkDeleteNotices
-);
-router.patch(
-  "/:id/toggle-visibility",
-  verifyToken,
-  authorizeRoles("admin", "communication"),
-  toggleVisibility
-);
-router.post(
-  "/:id/duplicate",
-  verifyToken,
-  authorizeRoles("admin", "communication"),
-  duplicateNotice
-);
-router.post(
-  "/:id/attachments",
-  verifyToken,
-  authorizeRoles("admin", "communication"),
-  uploadNotice.single("file"),
-  uploadAttachment
-);
-router.delete(
-  "/:id/attachments",
-  verifyToken,
-  authorizeRoles("admin", "communication"),
-  deleteAttachment
-);
+router.post("/", ...adminComms, createNotice);
+router.put("/:id", ...adminComms, updateNotice);
+router.delete("/:id", ...adminComms, deleteNotice);
+router.patch("/:id/toggle-visibility", ...adminComms, toggleVisibility);
+router.post("/:id/duplicate", ...adminComms, duplicateNotice);
+router.post("/:id/attachments", ...adminComms, uploadNotice.single("file"), uploadAttachment);
+router.delete("/:id/attachments", ...adminComms, deleteAttachment);
 
 module.exports = router;

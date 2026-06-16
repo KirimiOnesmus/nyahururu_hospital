@@ -12,7 +12,7 @@ const { verifyToken, authorizeRoles } = require('../middleware/auth');
 
 router.post('/', bookAppointment);
 
-router.get('/', verifyToken, authorizeRoles('admin'), getAllAppointments);
+router.get('/', verifyToken, authorizeRoles('admin', 'doctor'), getAllAppointments);
 router.get('/pending', verifyToken, authorizeRoles('admin','doctor'), async (req, res) => {
   try {
     const Appointment = require('../models/appointmentModel');
