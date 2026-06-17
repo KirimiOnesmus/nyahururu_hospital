@@ -45,6 +45,16 @@ const initEmpty = {
   profileImage: "",
 };
 
+const DAYS = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+
 const Field = ({
   icon: Icon,
   label,
@@ -269,6 +279,10 @@ const ProfilePage = () => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
+  // Weekly availability state (doctor only)
+  const [availability, setAvailability] = useState([]);
+  const [savingAvailability, setSavingAvailability] = useState(false);
+
   const buildProfile = useCallback((data) => {
     const { user, doctorDetails, profile: pd } = data;
     return {
@@ -282,6 +296,19 @@ const ProfilePage = () => {
     };
   }, []);
 
+  const buildAvailability = useCallback((data) => {
+    const existing = data?.doctorDetails?.availability || [];
+    return DAYS.map((day) => {
+      const found = existing.find((a) => a.day === day);
+      return {
+        day,
+        enabled: !!found,
+        startTime: found?.startTime || "09:00",
+        endTime: found?.endTime || "17:00",
+      };
+    });
+  }, []);
+
   const fetchProfile = useCallback(async () => {
     try {
       setLoading(true);
@@ -289,12 +316,13 @@ const ProfilePage = () => {
       const full = buildProfile(res.data.data);
       setProfile(full);
       setEditedProfile(full);
+      setAvailability(buildAvailability(res.data.data));
     } catch {
       toast.error("Failed to load profile");
     } finally {
       setLoading(false);
     }
-  }, [buildProfile]);
+  }, [buildProfile, buildAvailability]);
 
   useEffect(() => {
     fetchProfile();
@@ -345,6 +373,42 @@ const ProfilePage = () => {
     } finally {
       setUploading(false);
       e.target.value = "";
+    }
+  };
+
+  // Availability handlers (doctor only)
+  const toggleDay = (day) =>
+    setAvailability((prev) =>
+      prev.map((d) => (d.day === day ? { ...d, enabled: !d.enabled } : d))
+    );
+
+  const updateDayTime = (day, field, value) =>
+    setAvailability((prev) =>
+      prev.map((d) => (d.day === day ? { ...d, [field]: value } : d))
+    );
+
+  const handleSaveAvailability = async () => {
+    const enabledDays = availability.filter((d) => d.enabled);
+    for (const d of enabledDays) {
+      if (d.startTime >= d.endTime) {
+        return toast.error(`${d.day}: start time must be before end time`);
+      }
+    }
+    try {
+      setSavingAvailability(true);
+      const payload = enabledDays.map(({ day, startTime, endTime }) => ({
+        day,
+        startTime,
+        endTime,
+      }));
+      await api.put("/doctors/availability", { availability: payload });
+      toast.success("Availability updated!");
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.message || "Failed to update availability"
+      );
+    } finally {
+      setSavingAvailability(false);
     }
   };
 
@@ -581,6 +645,85 @@ const ProfilePage = () => {
                     onChange={handleChange}
                     textarea
                   />
+                </div>
+              </div>
+            )}
+
+            {isDoctor && (
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <FaBriefcase className="text-blue-500" />
+                    <h3 className="text-base font-bold text-slate-800">
+                      Weekly Availability
+                    </h3>
+                  </div>
+                  <button
+                    onClick={handleSaveAvailability}
+                    disabled={savingAvailability}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700
+                               text-white text-xs font-semibold shadow-sm hover:shadow-md transition-all
+                               disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {savingAvailability ? (
+                      <>
+                        <Spinner size="sm" /> Saving…
+                      </>
+                    ) : (
+                      <>
+                        <FaSave /> Save Availability
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  {availability.map((d) => (
+                    <div
+                      key={d.day}
+                      className="flex flex-wrap items-center gap-3 px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-100"
+                    >
+                      <label className="flex items-center gap-2 w-28 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={d.enabled}
+                          onChange={() => toggleDay(d.day)}
+                          className="w-4 h-4 accent-blue-600 cursor-pointer"
+                        />
+                        <span className="text-sm font-semibold text-slate-700">
+                          {d.day}
+                        </span>
+                      </label>
+
+                      {d.enabled ? (
+                        <div className="flex items-center gap-2 text-sm">
+                          <input
+                            type="time"
+                            value={d.startTime}
+                            onChange={(e) =>
+                              updateDayTime(d.day, "startTime", e.target.value)
+                            }
+                            className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-800
+                                       text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                          />
+                          <span className="text-slate-400">to</span>
+                          <input
+                            type="time"
+                            value={d.endTime}
+                            onChange={(e) =>
+                              updateDayTime(d.day, "endTime", e.target.value)
+                            }
+                            className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-800
+                                       text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                          />
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 italic text-sm">
+                          Unavailable
+                        </span>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

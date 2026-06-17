@@ -195,7 +195,7 @@ exports.getDoctorById = async (req, res) => {
       });
     }
 
-    // Get profile info
+    // Get profile info  
     const profile = await Profile.findOne({ userId: doctor.userId._id });
 
     res.status(200).json({

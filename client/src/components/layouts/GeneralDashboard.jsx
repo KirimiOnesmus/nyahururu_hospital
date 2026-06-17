@@ -34,7 +34,9 @@ const STAT_DEFINITIONS = [
     fetch: async () => {
       const res = await api.get("/appointments/pending");
       return Array.isArray(res.data) ? res.data.length : res.data.length ?? 0;
+    
     },
+  
   },
   {
     key: "activeNews",

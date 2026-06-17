@@ -14,6 +14,7 @@ exports.bookAppointment = async (req, res) => {
       patientName: name,
       patientEmail: email,
       service,
+      department,
       phone,
       appointmentDate: date,
       time,
@@ -23,6 +24,7 @@ exports.bookAppointment = async (req, res) => {
     const appointmentData = {
       patientName: name,
       patientEmail: email,
+      department,
       service,
       appointmentDate: date,
       time,
@@ -51,7 +53,20 @@ exports.bookAppointment = async (req, res) => {
 
 exports.getAllAppointments = async (req, res) => {
   try {
-    const appointments = await Appointment.find().sort({ createdAt: -1 });
+    const filter = {};
+
+    if (req.user.role === "doctor") {
+      const Doctor = require("../models/doctorModel");
+      const doctorProfile = await Doctor.findOne({ userId: req.user._id });
+
+      if (!doctorProfile || !doctorProfile.department) {
+        return res
+          .status(400)
+          .json({ message: "No department assigned to this doctor" });
+      }
+      filter.department = doctorProfile.department;
+    }
+    const appointments = await Appointment.find(filter).sort({ createdAt: -1 });
     res.json(appointments);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -86,6 +101,22 @@ exports.updateAppointmentStatus = async (req, res) => {
 
     if (!appointment) {
       return res.status(404).json({ message: "Appointment not found" });
+    }
+
+    const allowedTransitions = {
+      Pending: ["Confirmed", "Cancelled"],
+      Confirmed: ["Completed"],
+      Cancelled: [],
+      Completed: [],
+    };
+
+    if (
+      appointment.status !== normalizedStatus &&
+      !allowedTransitions[appointment.status]?.includes(normalizedStatus)
+    ) {
+      return res.status(400).json({
+        message: `Cannot change status from ${appointment.status} to ${normalizedStatus}`,
+      });
     }
 
     appointment.status = normalizedStatus;
