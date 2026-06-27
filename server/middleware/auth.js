@@ -18,7 +18,7 @@ const extractToken = (req) => {
 };
 
 //Build a consistent caller identity object used by both - getCallerName and getCallerIdentity.
-
+ 
 
 const buildCallerIdentity = (req) => {
   if (req.researcher) {
@@ -43,6 +43,14 @@ const buildCallerIdentity = (req) => {
   }
   return null;
 };
+
+const staffIsAdmin = (req) =>
+  !!(req.user && ["admin", "superadmin"].includes(req.user.role));
+
+const researcherHasCommitteeAccess = (researcher) =>
+  !!researcher &&
+  (researcher.role === RESEARCHER_ROLES.RESEARCH_COMMITTEE ||
+    researcher.isCommittee === true);
  
 
 //  HMIS STAFF ROUTES
@@ -114,24 +122,35 @@ exports.protectResearcher = asyncHandler(async (req, res, next) => {
 
 
 //  RESEARCHER ROLE GATE
-
+// NOTE: no implicit bypass anymore — Researcher collection no longer has an
 exports.authorizeResearcherRoles = (...roles) => (req, res, next) => {
-  // Both admin and superadmin always pass 
-  if (
-    req.researcher?.role === RESEARCHER_ROLES.ADMIN ||
-    req.researcher?.role === RESEARCHER_ROLES.SUPERADMIN
-  ) {
-    return next();
-  }
- 
   if (!roles.includes(req.researcher?.role)) {
     return next(
       new AppError(
         `Access denied — role '${req.researcher?.role}' is not authorized for this action.`,
-        403
-      )
+        403,
+      ),
     );
   }
+  next();
+};
+
+// RESEARCH COMMITTEE GATE
+// Use on endpoints reserved for committee oversight (cross-cutting paper
+// visibility, final-paper sign-off). Covers BOTH committee paths: promoted
+// reviewers (role stays REVIEWER, isCommittee=true) 
+
+exports.protectCommittee = (req, res, next) => {
+  if (staffIsAdmin(req)) return next();
+
+  if (!req.researcher) {
+    return next(new AppError("Authentication required.", 401));
+  }
+
+  if (!researcherHasCommitteeAccess(req.researcher)) {
+    return next(new AppError("Research Committee access required.", 403));
+  }
+
   next();
 };
 
@@ -186,8 +205,7 @@ exports.protectReviewers = asyncHandler(async (req, res, next) => {
  
     const allowedRoles = [
       RESEARCHER_ROLES.REVIEWER,
-      RESEARCHER_ROLES.ADMIN,
-      RESEARCHER_ROLES.SUPERADMIN,
+      RESEARCHER_ROLES.RESEARCH_COMMITTEE,
     ];
  
     if (!allowedRoles.includes(researcher.role)) {
@@ -240,37 +258,27 @@ exports.optionalResearcher = async (req, res, next) => {
 //RESEARCH ADMIN GUARD- Accepts BOTH hospital staff admins (req.user) AND research admins (req.researcher).
 
 exports.protectResearchAdmin = (req, res, next) => {
-  const staffIsAdmin =
-    req.user && ["admin", "superadmin"].includes(req.user.role);
- 
-  const researcherIsAdmin =
-    req.researcher &&
-    [RESEARCHER_ROLES.ADMIN, RESEARCHER_ROLES.SUPERADMIN].includes(req.researcher.role);
- 
-  if (staffIsAdmin || researcherIsAdmin) return next();
- 
+  if (staffIsAdmin(req)) return next();
   return next(new AppError("Admin access required.", 403));
 };
 
-
 exports.restrictTo = (...roles) => (req, res, next) => {
-  // HMIS staff superadmin/admin always passes
-  if (req.user && ["admin", "superadmin"].includes(req.user.role)) {
-    return next();
-  }
- 
+  if (staffIsAdmin(req)) return next();
+
   if (!req.researcher) {
     return next(new AppError("Authentication required.", 401));
   }
- 
+
   if (!roles.includes(req.researcher.role)) {
     return next(
-      new AppError(`Access denied — required role: ${roles.join(" or ")}.`, 403)
+      new AppError(`Access denied — required role: ${roles.join(" or ")}.`, 403),
     );
   }
- 
+
   next();
 };
+
+
  
 
 //  UTILITIES
@@ -282,13 +290,7 @@ exports.getCallerName = (req) => {
 
 exports.getCallerIdentity = (req) => buildCallerIdentity(req);
 
-exports.isResearchAdmin = (req) => {
-  const staffIsAdmin =
-    req.user && ["admin", "superadmin"].includes(req.user.role);
- 
-  const researcherIsAdmin =
-    req.researcher &&
-    [RESEARCHER_ROLES.ADMIN, RESEARCHER_ROLES.SUPERADMIN].includes(req.researcher.role);
- 
-  return !!(staffIsAdmin || researcherIsAdmin);
-};
+exports.isResearchAdmin = (req) => staffIsAdmin(req);
+
+exports.hasCommitteeAccess = (req) =>
+  staffIsAdmin(req) || researcherHasCommitteeAccess(req.researcher);

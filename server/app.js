@@ -73,6 +73,7 @@ const bidRoutes              = require("./routes/bidRoutes");
 // Research & Payments
 const researchRoutes         = require("./routes/researchRoutes");
 const paymentRoutes          = require("./routes/paymentRoute");
+const certificateRoutes      = require("./routes/certificates");
 
 
 connectDB();
@@ -174,6 +175,15 @@ app.use(
   })
 );
 
+app.use(
+  "/public",
+  express.static(path.resolve(__dirname, "public"), {
+    maxAge:   "7d",
+    etag:     true,
+    dotfiles: "deny",
+  })
+)
+
 
 
 app.get("/health", (req, res) =>
@@ -224,6 +234,7 @@ app.use("/api/bids",          bidRoutes);
 //Research & Payments 
 app.use("/api/research",      researchRoutes);
 app.use("/api/payments",   paymentRoutes);
+app.use("/api/certificates", certificateRoutes);
 
 
 app.all("*splat", (req, res, next) => {

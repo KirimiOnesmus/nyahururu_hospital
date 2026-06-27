@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import ScrollBehaviour from "./components/layouts/scrollBehaviour";
-// import logo from "./assets/logo.png"
 import {
   Doctors,
   Home,
@@ -17,9 +16,10 @@ import {
   ApplyCareer,
   AmbulanceServices,
   BloodRegistration,
-  Downloads, 
+  Downloads,
   Tenders,
-  VerifyEmail
+  VerifyEmail,
+  ResearchDashboard,
 } from "./pages/index";
 import {
   Dashboard,
@@ -42,21 +42,49 @@ import {
   NoticePage,
   TenderPage,
   ReportsPage,
-  Donations
+  Donations,
 } from "./components/Dashboard";
 import {
   ServiceDetails,
   DoctorDetails,
   NewsDetails,
 } from "./components/modals";
-import{ ResearchPage, PublicResearch, ResearchRegister, ResearchDashboard, Myprofile } from "./pages/research";
+import {
+  ResearchPage,
+  PublicResearch,
+  ResearchRegister,
+  Myprofile,
+  DashboardIndex,
+} from "./pages/research";
+
+//  Research dashboard children
+
+import {
+  SubmitProposal,
+  ResearchProgress,
+  SubmitFinalPaper,
+  ReviewSubmission,
+  MySubmissions,
+  Payments,
+  Certificates,
+  ResearchDetails,
+  ReviewHistory,
+  ReviewQueue,
+  CommitteeDashboard,
+  ResearcherDashboard,
+  ReviewerDashboard,
+  AllResearch,
+  FinalApproval,
+  CommitteeResearchDetails,
+  CommitteeSignOff,
+} from "./components/research";
 
 import "./App.css";
-  import { ToastContainer } from 'react-toastify';
+import { ToastContainer } from "react-toastify";
 
 function App() {
-    const [loading, setLoading] = useState(true);
-      useEffect(() => {
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
     const timer = setTimeout(() => {
       setLoading(false);
     }, 2000);
@@ -64,15 +92,11 @@ function App() {
     return () => clearTimeout(timer);
   }, []);
 
-    if (loading) {
+  if (loading) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white z-50">
         <div className="flex flex-col justify-center items-center gap-4">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600">
-             
-          </div>
-           {/* <img src={logo} alt="logo" srcset="" className="w-12 h-12" /> */}
-
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600" />
         </div>
       </div>
     );
@@ -96,23 +120,57 @@ function App() {
           <Route path="/ambulance-services" element={<AmbulanceServices />} />
           <Route path="/blood-registration" element={<BloodRegistration />} />
           {/* <Route path="/events" element={<EventsPage/>}/> */}
-          <Route path="/downloads" element={<Downloads/>}/>
-          <Route path= "/tenders" element ={<Tenders/>}/>
-          
+          <Route path="/downloads" element={<Downloads />} />
+          <Route path="/tenders" element={<Tenders />} />
+
           <Route path="/research" element={<ResearchPage />} />
           <Route path="/research/public" element={<PublicResearch />} />
           <Route path="/research/register" element={<ResearchRegister />} />
-          <Route path="/research/dashboard" element={<ResearchDashboard />} />
-          <Route path="/research/profile" element={<Myprofile />} />
+          {/* Research Dashboard */}
+          <Route path="/research/dashboard" element={<ResearchDashboard />}>
+            <Route index element={<DashboardIndex />} />
 
-          <Route path="verify-email" element={<VerifyEmail/>}/>
+            <Route path="researcher" element={<ResearcherDashboard />} />
+            <Route path="reviewer" element={<ReviewerDashboard />} />
+            <Route path="committee" element={<CommitteeDashboard />} />
+            <Route
+              path="committee-research-detail/:id"
+              element={<CommitteeResearchDetails />}
+            />
+            <Route
+              path="committee-sign-off/:id"
+              element={<CommitteeSignOff />}
+            />
+            <Route path="submit-proposal" element={<SubmitProposal />} />
+            <Route
+              path="research-progress/:id"
+              element={<ResearchProgress />}
+            />
+
+            <Route path="submit-final/:id" element={<SubmitFinalPaper />} />
+            <Route path="view/:id" element={<ResearchDetails />} />
+            <Route path="review/:id" element={<ReviewSubmission />} />
+            <Route path="profile" element={<Myprofile />} />
+            <Route path="submissions" element={<MySubmissions />} />
+            <Route path="payments" element={<Payments />} />
+            <Route path="certificates" element={<Certificates />} />
+            <Route path="review-queue" element={<ReviewQueue />} />
+            <Route path="review-history" element={<ReviewHistory />} />
+            <Route path="final-approvals" element={<FinalApproval />} />
+            <Route path="all-research" element={<AllResearch />} />
+          </Route>
+
+          <Route path="verify-email" element={<VerifyEmail />} />
           <Route path="/apply/:id" element={<ApplyCareer />} />
           <Route path="/services/:id" element={<ServiceDetails />} />
           <Route path="/doctors/:id" element={<DoctorDetails />} />
           <Route path="/news/:id" element={<NewsDetails />} />
+
+          {/* //Hospital Dashboard */}
           <Route path="/dashboard" element={<Sidebar />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/dashboard/users" element={<Users />} />
+
             <Route
               path="/dashboard/appointments"
               element={<AppointmentPage />}
@@ -126,19 +184,20 @@ function App() {
             <Route path="/dashboard/services" element={<ServicesList />} />
             <Route path="/dashboard/profile" element={<Profile />} />
             <Route path="/dashboard/hospitals" element={<Hospital />} />
-            <Route path="/dashboard/users/edit/:id" element={<EditUserPage />} /> 
-            <Route path="/dashboard/inventory" element={<InventoryPage/>} />
-            <Route path="/dashboard/logistics" element={<LogisticsPage/>} />
-            <Route path="/dashboard/gallery" element={<GalleryPage/>} />
-            <Route path="/dashboard/notices" element={<NoticePage/>} />
-            <Route path="/dashboard/tenders" element={<TenderPage/>} />
-            <Route path="/dashboard/reports" element={<ReportsPage/>} />
-            <Route path="/dashboard/donations" element={<Donations/>} />
-
-
+            <Route
+              path="/dashboard/users/edit/:id"
+              element={<EditUserPage />}
+            />
+            <Route path="/dashboard/inventory" element={<InventoryPage />} />
+            <Route path="/dashboard/logistics" element={<LogisticsPage />} />
+            <Route path="/dashboard/gallery" element={<GalleryPage />} />
+            <Route path="/dashboard/notices" element={<NoticePage />} />
+            <Route path="/dashboard/tenders" element={<TenderPage />} />
+            <Route path="/dashboard/reports" element={<ReportsPage />} />
+            <Route path="/dashboard/donations" element={<Donations />} />
           </Route>
         </Routes>
-         <ToastContainer />
+        <ToastContainer />
       </BrowserRouter>
     </>
   );

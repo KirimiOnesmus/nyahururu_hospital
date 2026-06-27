@@ -20,6 +20,9 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+     if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
     return config;
   },
   (error) => {
@@ -33,17 +36,22 @@ api.interceptors.response.use(
 
      const status = error.response?.status;
     const url    = error.config?.url || "";
+
+     const isResearchEndpoint = url.includes("/research/");
+
     const isAuthEndpoint = url.includes("/change-password") || url.includes("/login");
 
 
-    if (error.response?.status === 401) {
+    if (status === 401 && !isResearchEndpoint)  {
       localStorage.removeItem('token');
       localStorage.removeItem('role');
       localStorage.removeItem('collection');
     
      window.location.href = '/hmis';
+
+        return new Promise(() => {});
     }
-    if (error.response?.status === 403) {
+    if (status === 401 && isResearchEndpoint) {
       console.warn('[Auth] Access forbidden:', error.response.data.message);
     }
 

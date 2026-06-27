@@ -10,7 +10,7 @@ const {
 } = require("../constants/researchIndex");
 
 const signToken = (id, role) =>
-  jwt.sign(
+  jwt.sign( 
     { id, role, collection: "researchers" },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
@@ -97,7 +97,7 @@ const login = async ({ email, password }) => {
   const authError = new AppError("Invalid email or password.", 401);
 
   if (!researcher) throw authError;
-
+ 
   const isValid = await researcher.matchPassword(password);
   if (!isValid) throw authError;
 

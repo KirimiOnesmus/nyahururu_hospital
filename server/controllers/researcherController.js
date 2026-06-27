@@ -10,7 +10,7 @@ exports.register = asyncHandler(async (req, res) => {
     ...(result._devVerifyLink && { _devVerifyLink: result._devVerifyLink }),
   });
 });
-
+ 
 exports.verifyEmail = asyncHandler(async (req, res) => {
   const researcher = await authService.verifyEmail(req.body);
   sendSuccess(res, 200, "Email verified successfully.", { researcher });
@@ -41,10 +41,10 @@ exports.forgotPassword = asyncHandler(async (req, res) => {
   sendSuccess(res, 200, message);
 });
 
-exports.resetPassword = asyncHandler(async (req, res) => {
+exports.resetPassword = asyncHandler(async (req, res) => { 
   await authService.resetPassword(req.body);
   sendSuccess(res, 200, "Password reset successfully. You can now log in.");
-});
+}); 
 
 exports.adminCreateResearcher = asyncHandler(async (req, res) => {
   const researcher = await authService.adminCreateResearcher(req.body);

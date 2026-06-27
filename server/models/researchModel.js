@@ -5,7 +5,19 @@ const {
   FEES,
 } = require("../constants/researchIndex");
 
-//  SCHEMA
+const reviewSnapshotSchema = {
+  decision: { type: String, default: null },
+  comment: { type: String, trim: true, default: null },
+  criteria: { type: mongoose.Schema.Types.Mixed, default: {} },
+  aggregateScore: { type: Number, default: null, min: 0, max: 10 },
+  reviewedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Researcher",
+    default: null,
+  },
+  reviewedAt: { type: Date, default: null },
+};
+
 const researchSchema = new mongoose.Schema(
   {
     researcher: {
@@ -43,14 +55,86 @@ const researchSchema = new mongoose.Schema(
     teamMembers: { type: String, trim: true },
     references: { type: String, trim: true },
 
+    // Stage 1: Ethics & Funding
+    hypotheses: { type: String, trim: true },
+    literatureReviewSummary: { type: String, trim: true },
+    studyDuration: { type: String, trim: true },
+    studySites: [{ type: String, trim: true }],
+    coInvestigators: [{ type: String, trim: true }],
+    fundingSource: { type: String, trim: true },
+    ethicsInformation: { type: String, trim: true },
+
+    //  Files
     proposalFile: { type: String, default: null },
-    proposalFileKey: { type: String, default: null }, // cloud storage object key
+    proposalFileKey: { type: String, default: null },
+
+    //  Stage 2: Progress
+    progressData: {
+      methodology: { type: String, trim: true },
+      studyDesign: { type: String, trim: true },
+      samplingMethod: { type: String, trim: true },
+      sampleSizeAchieved: { type: Number, min: 0 },
+      sampleSizeTarget: { type: Number, min: 0 },
+      dataCollectionProgress: { type: String, trim: true },
+      statisticalMethods: { type: String, trim: true },
+      analysisTools: { type: String, trim: true },
+      preliminaryFindings: { type: String, trim: true },
+      deviationsFromProtocol: { type: String, trim: true },
+      ethicalIncidents: { type: String, trim: true },
+      participantWithdrawals: { type: String, trim: true },
+      submittedAt: { type: Date },
+      savedAt: { type: Date },
+    },
+    progressFiles: [
+      {
+        label: { type: String, trim: true },
+        url: { type: String, trim: true },
+        key: { type: String, trim: true },
+      },
+    ],
+
+    priority: {
+      type: String,
+      enum: ["high", "medium", "normal"],
+      default: "normal",
+    },
+    reviewDeadline: { type: Date, default: null },
+    //  Stage 3: Final Paper
     finalPaperFile: { type: String, default: null },
     finalPaperFileKey: { type: String, default: null },
-
     finalAbstract: { type: String, trim: true },
     keywords: [{ type: String, trim: true }],
+    finalPaperFiles: [
+      {
+        label: { type: String, trim: true },
+        url: { type: String, trim: true },
+        key: { type: String, trim: true },
+      },
+    ],
+    finalPaperSubmission: {
+      supportingFiles: {
+        finalDataset: { url: String, key: String },
+        dataDictionary: { url: String, key: String },
+        statisticalScripts: { url: String, key: String },
+        ethicsApproval: { url: String, key: String },
+        fundingDisclosure: { url: String, key: String },
+      },
+      declarations: {
+        conflictOfInterestDeclared: { type: Boolean, default: false },
+        aiUsageDeclared: { type: Boolean, default: false },
+        aiUsageDetails: { type: String, trim: true, maxlength: 2000 },
+      },
+      plagiarismReportLink: { type: String, trim: true },
+      fundingSource: { type: String, trim: true, maxlength: 300 },
+      noteToCommittee: { type: String, trim: true, maxlength: 2000 },
+    },
 
+    //  Publication
+    journalName: { type: String, trim: true },
+    journalVolume: { type: String, trim: true },
+    journalDoi: { type: String, trim: true },
+
+    //  Workflow
     stage: {
       type: String,
       enum: Object.values(RESEARCH_STAGES),
@@ -70,19 +154,53 @@ const researchSchema = new mongoose.Schema(
     },
     assignedAt: { type: Date },
 
+    proposalReview: reviewSnapshotSchema,
+    progressReview: reviewSnapshotSchema,
+    finalPaperReview: reviewSnapshotSchema,
+
+    // ── Generic "latest decision, whichever stage" fields ──────────────
+   
     reviewComment: { type: String, trim: true },
-    reviewedBy: {
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Researcher" },
+    reviewedAt: { type: Date },
+
+    resubmissionCount: { type: Number, default: 0, min: 0 },
+    submissionPayment: { type: mongoose.Schema.Types.ObjectId, ref: "Payment" },
+
+    // ── Committee quorum voting ─────────────────────────────────────────
+  
+    committeeRound: { type: Number, default: 1, min: 1 },
+
+    committeeReviewedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Researcher",
+      default: null,
     },
-    reviewedAt: { type: Date },
-    resubmissionCount: { type: Number, default: 0, min: 0 },
+    committeeReviewedAt: { type: Date, default: null },
 
-    submissionPayment: {
+    committeeComment: { type: String, default: "" },
+    reactivatedAt: { type: Date, default: null },
+    reactivatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Researcher" },
+    reactivationReason: { type: String, trim: true, default: null },
+
+    aggregateScore: { type: Number, default: null, min: 0, max: 10 },
+    reviewDecision: { type: String, default: null },
+
+    // NACOSTI
+    nacostiPermit: { type: String, trim: true, default: null },
+    nacostiSubmittedAt: { type: Date, default: null },
+
+    //  Certificates
+    clearanceCertificate: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Payment",
+      ref: "Certificate",
+    },
+    completionCertificate: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Certificate",
     },
 
+    //  Publishing
     isPublished: { type: Boolean, default: false, index: true },
     publishedAt: { type: Date, default: null },
     downloadPrice: {
@@ -93,9 +211,7 @@ const researchSchema = new mongoose.Schema(
     downloads: { type: Number, default: 0, min: 0 },
     views: { type: Number, default: 0, min: 0 },
 
-    nacostiPermit: { type: String, trim: true, default: null },
-    nacostiSubmittedAt: { type: Date, default: null },
-
+    //  Soft Delete
     isDeleted: { type: Boolean, default: false, index: true },
     deletedAt: { type: Date, default: null },
     deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Researcher" },
@@ -107,7 +223,7 @@ const researchSchema = new mongoose.Schema(
   },
 );
 
-//  INDEXES
+// INDEXES
 
 researchSchema.index({ researcher: 1, createdAt: -1 });
 researchSchema.index({ stage: 1, status: 1 });
@@ -135,9 +251,18 @@ researchSchema.index(
   },
 );
 
-researchSchema.virtual("canSubmitFinalPaper").get(function () {
+//  VIRTUALS
+
+researchSchema.virtual("canSubmitProgress").get(function () {
   return (
     this.stage === RESEARCH_STAGES.PROPOSAL &&
+    this.status === RESEARCH_STATUSES.APPROVED
+  );
+});
+
+researchSchema.virtual("canSubmitFinalPaper").get(function () {
+  return (
+    this.stage === RESEARCH_STAGES.PROGRESS &&
     this.status === RESEARCH_STATUSES.APPROVED
   );
 });
@@ -150,12 +275,16 @@ researchSchema.virtual("isReadyToPublish").get(function () {
   );
 });
 
+//  METHODS
+
 researchSchema.methods.softDelete = async function (deletedByUserId) {
   this.isDeleted = true;
   this.deletedAt = new Date();
   this.deletedBy = deletedByUserId;
   return this.save();
 };
+
+// STATICS
 
 researchSchema.statics.generateResearchId = async function () {
   const year = new Date().getFullYear();
@@ -166,6 +295,50 @@ researchSchema.statics.generateResearchId = async function () {
   return `NCRH-${year}-${seq}`;
 };
 
+researchSchema.statics.findSimilarTitles = async function (
+  title,
+  { excludeId, threshold = 0.85 } = {},
+) {
+  const filter = { $text: { $search: title } };
+  if (excludeId) filter._id = { $ne: excludeId };
+  const candidates = await this.find(filter, {
+    score: { $meta: "textScore" },
+    title: 1,
+  })
+    .sort({ score: { $meta: "textScore" } })
+    .limit(5)
+    .lean();
+  const normalize = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const a = normalize(title);
+  return candidates.filter((c) => {
+    const b = normalize(c.title);
+    const longer = Math.max(a.length, b.length) || 1;
+    const distance = levenshtein(a, b);
+    return 1 - distance / longer >= threshold;
+  });
+};
+
+//  HELPERS (module-scoped)
+
+function levenshtein(a, b) {
+  const dp = Array.from({ length: a.length + 1 }, (_, i) => [
+    i,
+    ...Array(b.length).fill(0),
+  ]);
+  for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      dp[i][j] =
+        a[i - 1] === b[j - 1]
+          ? dp[i - 1][j - 1]
+          : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[a.length][b.length];
+}
+
+// MIDDLEWARE
+
 researchSchema.pre(/^find/, function (next) {
   if (!this.getOptions().includeDeleted) {
     this.where({ isDeleted: { $ne: true } });
@@ -173,4 +346,4 @@ researchSchema.pre(/^find/, function (next) {
   next();
 });
 
-module.exports = mongoose.model("Research", researchSchema);
+module.exports = mongoose.model("Research", researchSchema); 

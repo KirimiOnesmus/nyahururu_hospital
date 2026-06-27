@@ -18,24 +18,9 @@ import {
 } from "react-icons/fa";
 import { getAllPublishedResearch } from "../../api/research";
 
-const CATEGORIES = [
-  "All",
-  "Agriculture",
-  "Economics",
-  "Health",
-  "Urban Planning",
-  "Environment",
-  "Education",
-];
 
-const CATEGORY_STYLES = {
-  Agriculture: { bg: "bg-green-100", text: "text-green-700" },
-  Economics: { bg: "bg-blue-100", text: "text-blue-700" },
-  Health: { bg: "bg-red-100", text: "text-red-700" },
-  "Urban Planning": { bg: "bg-yellow-100", text: "text-yellow-700" },
-  Environment: { bg: "bg-teal-100", text: "text-teal-700" },
-  Education: { bg: "bg-purple-100", text: "text-purple-700" },
-};
+
+
 
 const formatPhone = (v) => {
   const d = v.replace(/\D/g, "");
@@ -235,10 +220,7 @@ const PaymentModal = ({ research, onClose, onSuccess }) => {
 
 const ResearchCard = ({ item, onDownload }) => {
   const [expanded, setExpanded] = useState(false);
-  const cat = CATEGORY_STYLES[item.category] || {
-    bg: "bg-gray-100",
-    text: "text-gray-600",
-  };
+
 
   return (
     <div
@@ -470,22 +452,7 @@ const PublicResearch = () => {
             className="max-w-6xl mx-auto py-4 md:flex 
            items-center gap-6 justify-end px-6 "
           >
-            <div className="flex items-center gap-4 md:p-0 py-2 ">
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="text-sm text-gray-600 border border-gray-200 rounded-md 
-                p-3 bg-white focus:outline-none focus:ring focus:ring-blue-400 
-                cursor-pointer w-full md:w-auto"
-              >
-                <option value="All">All Categories</option>
-                {CATEGORIES.filter((cat) => cat !== "All").map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </div>
+
             <div className="flex items-center gap-2 ">
               <select
                 value={sortBy}

@@ -8,7 +8,7 @@ const Hmis = () => {
     <div>
       <div>
         <LoginForm />
-      </div>
+      </div>  
       <div className="
       absolute right-4 bottom-4 text-4xl bg-blue-600 p-2 text-white rounded-full
        cursor-pointer hover:text-blue-600 hover:bg-transparent

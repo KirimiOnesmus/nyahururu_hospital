@@ -3,16 +3,12 @@ const ctrl = require("../controllers/reviewerController");
 const {
   validate,
   inviteReviewerSchema,
+  inviteCommitteeSchema,
   setPasswordSchema,
   updateReviewerSchema,
 } = require("../utils/validators");
 
-const { protectEither,
-  isResearchAdmin
-
- } = require("../middleware/auth");
- 
-
+const { protectEither, isResearchAdmin } = require("../middleware/auth");
 const { AppError } = require("../utils/appError");
 
 const requireAdmin = [
@@ -22,14 +18,13 @@ const requireAdmin = [
     return next(new AppError("Admin access required.", 403));
   },
 ];
-
-//  PUBLIC
+ 
+//  PUBLIC 
 router.post("/set-password", validate(setPasswordSchema), ctrl.setPassword);
 
-//  ADMIN ROUTES
+//  ADMIN ROUTES (hospital staff admin only — see auth middleware)  
 
 router.get("/", ...requireAdmin, ctrl.listReviewers);
-
 router.get("/all", ...requireAdmin, ctrl.listAllResearchers);
 
 router.post(
@@ -38,12 +33,8 @@ router.post(
   validate(inviteReviewerSchema),
   ctrl.inviteReviewer,
 );
-
 router.post("/:id/resend-invite", ...requireAdmin, ctrl.resendInvite);
-
 router.patch("/:id/revoke", ...requireAdmin, ctrl.revokeReviewer);
-
-router.patch("/:id/promote-admin", ...requireAdmin, ctrl.promoteToAdmin);
 
 router.patch(
   "/:id",
@@ -51,5 +42,14 @@ router.patch(
   validate(updateReviewerSchema),
   ctrl.updateReviewer,
 );
+
+//  RESEARCH COMMITTEE 
+router.post(
+  "/committee/invite",
+  ...requireAdmin,
+  validate(inviteCommitteeSchema),
+  ctrl.inviteCommitteeMember,
+);
+router.patch("/:id/revoke-committee", ...requireAdmin, ctrl.revokeCommitteeAccess);
 
 module.exports = router;

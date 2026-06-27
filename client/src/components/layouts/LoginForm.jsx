@@ -1,20 +1,48 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { loginUser, loginResearcher, verifyResearcherEmail } from "../../api/auth";
+import {
+  loginUser,
+  loginResearcher,
+  verifyResearcherEmail,
+} from "../../api/auth";
 import { toast } from "react-toastify";
+import { FaUserMd, FaEnvelope, FaLock, FaEye, FaEyeSlash, FaSpinner } from "react-icons/fa";
 
-const STAFF_ROLES = ["superadmin", "admin", "it", "communication", "doctor", "staff","research"];
+const STAFF_ROLES = [
+  "superadmin",
+  "admin",
+  "it",
+  "communication",
+  "doctor",
+  "staff",
+  "research",
+];
+
+
+const RESEARCHER_REGISTER_PATH = "/research/register";
+const SUPPORT_EMAIL = "onesmuskirimi64@gmail.com";
+
+const inputClass =
+  "w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 " +
+  "outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/10 fo transition-colors " +
+  "placeholder:text-slate-400 cursor-pointer";
+
+const primaryButtonClass =
+  "w-full px-5 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold cursor-pointer" +
+  "transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2";
+
+const ghostLinkClass =
+  "text-sm font-semibold text-blue-700 hover:underline transition-colors cursor-pointer";
 
 const LoginForm = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false); 
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [loginType, setLoginType] = useState("staff");
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-
 
   useEffect(() => {
     const isVerifying = searchParams.get("verify");
@@ -24,22 +52,25 @@ const LoginForm = () => {
     if (isVerifying && token && emailParam) {
       handleEmailVerification(token, emailParam);
     }
+   
   }, [searchParams]);
 
   const handleEmailVerification = async (token, emailParam) => {
     setVerifying(true);
     try {
       const response = await verifyResearcherEmail(token, emailParam);
-      
+
       if (response) {
         toast.success("Email verified successfully! You can now log in.");
-        
         setEmail(emailParam);
         setLoginType("researcher");
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     } catch (err) {
-      const errorMsg = err.response?.data?.message || err.message || "Verification link is invalid or expired";
+      const errorMsg =
+        err.response?.data?.message ||
+        err.message ||
+        "Verification link is invalid or expired";
       toast.error(errorMsg);
       window.history.replaceState({}, document.title, window.location.pathname);
     } finally {
@@ -49,112 +80,113 @@ const LoginForm = () => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (!email.trim() || !password) {
+      toast.error("Please enter your email and password.");
+      return;
+    }
+
     setLoading(true);
     try {
       if (loginType === "staff") {
         const data = await loginUser(email, password);
-        localStorage.setItem("role", data.user.role);
-        localStorage.setItem("collection", "users");
 
-        if (STAFF_ROLES.includes(data.user.role)) {
+        if (data?.user?.role && STAFF_ROLES.includes(data.user.role)) {
+          localStorage.setItem("role", data.user.role);
+          localStorage.setItem("collection", "users");
           toast.success("Logged in successfully!");
           navigate("/dashboard");
         } else {
           toast.error("Login failed. Please check your credentials.");
         }
       } else {
-        
         const data = await loginResearcher(email, password);
-        toast.success("Logged in successfully!");
 
-       
-        if (["researcher", "reviewer"].includes(data.researcher.role)) {
-          navigate("/research/dashboard");           
-        } else {
-          navigate("/research/dashboard");
-        }
+        const ROLE_ALIAS = {
+          research_committee: "committee",
+          reviewer: "reviewer",
+          researcher: "researcher",
+        };
+        const normalizedRole = ROLE_ALIAS[data?.researcher?.role] || "researcher";
+        localStorage.setItem("role", normalizedRole);
+        localStorage.setItem("collection", "researchers");
+
+        toast.success("Logged in successfully!");
+        navigate(`/research/dashboard/${normalizedRole}`);
       }
     } catch (err) {
       toast.error(err.response?.data?.message || "Login failed");
-      console.log("Login error:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-50 p-4">
-      <div className="w-full max-w-lg">
-        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+ 
+  const handleSecondaryAction = () => {
+    if (loginType === "researcher") {
+      navigate(RESEARCHER_REGISTER_PATH);
+    } else {
+      window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
+        "New staff account request"
+      )}`;
+    }
+  };
 
-     
-          <div className="bg-blue-600 p-8 text-center">
-            <div className="w-20 h-20 bg-white rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg">
-              <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+      <div className="w-full max-w-lg">
+        <div className="bg-white rounded-2xl border border-slate-200">
+  
+          <div className="px-8 pt-8 pb-6 text-center border-b border-slate-200">
+            <div className="w-14 h-14 rounded-full bg-blue-50 border border-blue-100 mx-auto mb-4 flex items-center justify-center">
+              <FaUserMd className="text-2xl text-blue-700" />
             </div>
-            <h2 className="text-3xl font-bold text-white mb-2">Welcome Back</h2>
-            <p className="text-blue-100">Sign in to access your dashboard</p>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Welcome Back</h1>
+            <p className="text-sm text-slate-500 mt-1">Sign in to access your dashboard</p>
           </div>
 
           <div className="p-8 space-y-6">
-
-           
             {verifying && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
-                <svg className="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                </svg>
-                <span className="text-blue-700 font-medium">Verifying your email...</span>
+              <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex items-center gap-3">
+                <FaSpinner className="animate-spin text-blue-700 shrink-0" />
+                <span className="text-sm font-semibold text-blue-800">Verifying your email...</span>
               </div>
             )}
 
            
-            <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+            <div className="flex rounded-xl border border-slate-200 overflow-hidden">
               <button
                 type="button"
                 onClick={() => setLoginType("staff")}
-                className={`flex-1 py-2.5 text-sm font-semibold transition-colors cursor-pointer duration-200 ${
+                className={`flex-1 py-2.5 text-sm font-semibold transition-colors cursor-pointer ${
                   loginType === "staff"
-                    ? "bg-blue-600 text-white"
-                    : "bg-white text-gray-500 hover:bg-gray-50"
+                    ? "bg-blue-700 text-white"
+                    : "bg-white text-slate-500 hover:bg-slate-50"
                 }`}
               >
-                Hospital Staff
+                Hospital Portal
               </button>
               <button
                 type="button"
                 onClick={() => setLoginType("researcher")}
-                className={`flex-1 py-2.5 text-sm font-semibold transition-colors cursor-pointer duration-200 ${
+                className={`flex-1 py-2.5 text-sm font-semibold transition-colors cursor-pointer ${
                   loginType === "researcher"
-                    ? "bg-blue-600 text-white"
-                    : "bg-white text-gray-500 hover:bg-gray-50"
+                    ? "bg-blue-700 text-white"
+                    : "bg-white text-slate-500 hover:bg-slate-50"
                 }`}
               >
-                Researcher / Reviewer
+                Research Portal
               </button>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-5">
-
-            
-              <div>
-                <label className="block text-gray-700 mb-2 font-semibold text-sm" htmlFor="email">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold uppercase tracking-widest text-slate-500" htmlFor="email">
                   Email Address
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                    </svg>
-                  </div>
+                  <FaEnvelope className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
                   <input
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring
-                     focus:ring-blue-500 focus:border-transparent transition duration-200"
+                    className={inputClass}
                     type="email"
                     id="email"
                     value={email}
@@ -165,20 +197,14 @@ const LoginForm = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-gray-700 mb-2 font-semibold text-sm" htmlFor="password">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold uppercase tracking-widest text-slate-500" htmlFor="password">
                   Password
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </div>
+                  <FaLock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
                   <input
-                    className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg outline-none focus:ring
-                     focus:ring-blue-500 focus:border-transparent transition duration-200"
+                    className={`${inputClass} pr-10`}
                     type={showPassword ? "text" : "password"}
                     id="password"
                     value={password}
@@ -188,68 +214,50 @@ const LoginForm = () => {
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex cursor-pointer 
-                    items-center text-gray-400 hover:text-gray-600"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                   >
-                    {showPassword ? (
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                      </svg>
-                    ) : (
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    )}
+                    {showPassword ? <FaEyeSlash /> : <FaEye />}
                   </button>
                 </div>
               </div>
 
-             
               <div className="flex items-center justify-between text-sm">
-                <label className="flex items-center cursor-pointer">
-                  <input type="checkbox" className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-                  <span className="ml-2 text-gray-600">Remember me</span>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-slate-300 text-blue-700 focus:ring-blue-600/20"
+                  />
+                  <span className="text-slate-600">Remember me</span>
                 </label>
-                <a href="#" className="text-blue-600 hover:text-blue-700 font-semibold cursor-pointer">Forgot password?</a>
+                <button type="button" className={ghostLinkClass} onClick={() => navigate("/forgot-password")}>
+                  Forgot password?
+                </button>
               </div>
 
-             
-              <button
-                className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700
-                 transform hover:scale-[1.02] transition duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 
-                 cursor-pointer disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center"
-                type="submit"
-                disabled={loading || verifying}
-              >
+              <button className={primaryButtonClass} type="submit" disabled={loading || verifying}>
                 {loading ? (
                   <>
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
+                    <FaSpinner className="animate-spin" />
                     Signing in...
                   </>
                 ) : (
-                  `Sign In as ${loginType === "staff" ? "Staff" : "Researcher / Reviewer"}`
+                  `Sign In as ${loginType === "staff" ? "Staff" : "Researcher / Reviewer / Committee"}`
                 )}
               </button>
             </form>
           </div>
 
-          <div className="px-8 pb-8 text-center">
-            <p className="text-sm text-gray-600">
+          <div className="px-8 pb-8 text-center border-t border-slate-200 pt-5">
+            <p className="text-sm text-slate-500">
               Don't have an account?{" "}
-              <span className="text-blue-600 hover:text-blue-700 font-semibold cursor-pointer">
+              <button type="button" onClick={handleSecondaryAction} className={ghostLinkClass}>
                 {loginType === "staff" ? "Contact Administrator" : "Register as Researcher"}
-              </span>
+              </button>
             </p>
           </div>
         </div>
-
       </div>
     </div>
   );
