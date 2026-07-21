@@ -10,6 +10,11 @@ import {
 import { BiSolidDonateHeart } from "react-icons/bi";
 import api from "../../api/axios";
 
+const extractList = (resData) => {
+  if (Array.isArray(resData)) return resData;
+  if (Array.isArray(resData?.data)) return resData.data;
+  return [];
+};
 
 const STAT_DEFINITIONS = [
   {
@@ -21,7 +26,9 @@ const STAT_DEFINITIONS = [
     roles: ["superadmin", "admin", "it"],
     fetch: async () => {
       const res = await api.get("/users");
-      return Array.isArray(res.data) ? res.data.length : res.data.length ?? 0;
+
+      if (typeof res.data?.meta?.total === "number") return res.data.meta.total;
+      return extractList(res.data).length;
     },
   },
   {
@@ -33,10 +40,8 @@ const STAT_DEFINITIONS = [
     roles: ["superadmin", "admin", "doctor"],
     fetch: async () => {
       const res = await api.get("/appointments/pending");
-      return Array.isArray(res.data) ? res.data.length : res.data.length ?? 0;
-    
+      return extractList(res.data).length;
     },
-  
   },
   {
     key: "activeNews",
@@ -47,7 +52,7 @@ const STAT_DEFINITIONS = [
     roles: ["superadmin", "admin", "it", "communication"],
     fetch: async () => {
       const res = await api.get("/news/active");
-      return Array.isArray(res.data) ? res.data.length : res.data.length ?? 0;
+      return extractList(res.data).length;
     },
   },
   {
@@ -59,7 +64,7 @@ const STAT_DEFINITIONS = [
     roles: ["superadmin", "admin", "it", "communication"],
     fetch: async () => {
       const res = await api.get("/events/upcoming");
-      return Array.isArray(res.data) ? res.data.length : res.data.length ?? 0;
+      return extractList(res.data).length;
     },
   },
   {
@@ -71,7 +76,7 @@ const STAT_DEFINITIONS = [
     roles: ["superadmin", "admin", "it", "communication"],
     fetch: async () => {
       const res = await api.get("/feedback");
-      return Array.isArray(res.data) ? res.data.length : res.data.length ?? 0;
+      return extractList(res.data).length;
     },
   },
   {
@@ -83,7 +88,7 @@ const STAT_DEFINITIONS = [
     roles: ["superadmin", "admin", "it"],
     fetch: async () => {
       const res = await api.get("/ambulance-bookings");
-      const list = Array.isArray(res.data) ? res.data : res.data.data || [];
+      const list = extractList(res.data);
       return list.filter(b => b.status === "Pending" || b.status === "Waiting").length;
     },
   },
@@ -96,7 +101,7 @@ const STAT_DEFINITIONS = [
     roles: ["superadmin", "admin", "it"],
     fetch: async () => {
       const res = await api.get("/ambulance-bookings");
-      const list = Array.isArray(res.data) ? res.data : res.data.data || [];
+      const list = extractList(res.data);
       return list.filter(b => b.emergencyLevel === "critical").length;
     },
   },
@@ -108,8 +113,9 @@ const STAT_DEFINITIONS = [
     sub: { icon: FaChartLine, text: "In repository" },
     roles: ["superadmin", "admin", "it", "research"],
     fetch: async () => {
-      const res = await api.get("/research");
-      return Array.isArray(res.data) ? res.data.length : res.data.length ?? 0;
+   
+      const res = await api.get("/research/admin/stats");
+      return res.data?.data?.stats?.totalResearch ?? 0;
     },
   },
   {
@@ -120,13 +126,14 @@ const STAT_DEFINITIONS = [
     sub: { icon: FaBullhorn, text: "Published" },
     roles: ["superadmin", "admin", "it", "communication", "research"],
     fetch: async () => {
-      const res = await api.get("/notices/active");
-      return Array.isArray(res.data) ? res.data.length : res.data.length ?? 0;
+
+      const res = await api.get("/notices/stats");
+      return res.data?.active ?? 0;
     },
   },
 ];
 
-// ── Action definitions ─────────────────────────────────────────────────────────
+
 const ACTION_DEFINITIONS = [
   { title:"Manage Users",       icon: FaUsers,              path:"/dashboard/users",         color:"bg-blue-500",   roles:["superadmin","admin","it"]                              },
   { title:"View Appointments",  icon: FaCalendarAlt,        path:"/dashboard/appointments",  color:"bg-green-500",  roles:["superadmin","admin","doctor"]                          },
@@ -145,7 +152,6 @@ const ACTION_DEFINITIONS = [
   { title:"View Feedback",      icon: FaComments,           path:"/dashboard/feedback",      color:"bg-fuchsia-500",roles:["superadmin","admin","it","communication"]              },
 ];
 
-// ── Color palette ──────────────────────────────────────────────────────────────
 const COLOR_MAP = {
   blue:   { bg:"bg-blue-50",   text:"text-blue-600",   num:"text-blue-700"   },
   orange: { bg:"bg-orange-50", text:"text-orange-600", num:"text-orange-700" },
@@ -244,7 +250,7 @@ const GeneralDashboard = () => {
         return;
       }
       const res  = await api.get(`/users/${userID}`);
-      const data = res.data;
+      const data = res.data?.data || res.data;
       setUser({
         name: data.name || `${data.firstName || ""} ${data.lastName || ""}`.trim() || "Staff Member",
         role: data.role ?? role,

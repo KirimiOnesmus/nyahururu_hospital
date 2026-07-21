@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 
 .env
+# Uploaded files are runtime data, not source — never ship real uploads in
+# the repo/deliverable. Keep the folder structure via .gitkeep instead.
+uploads/*/*
+!uploads/*/.gitkeep

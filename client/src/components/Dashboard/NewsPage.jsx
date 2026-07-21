@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import api from "../../api/axios";
+import { ASSET_BASE_URL } from "../../config/env";
 import { MdEdit, MdDelete } from "react-icons/md";
 import {
   FaSearch, FaPlus, FaImage, FaRegFileAlt, FaCalendarAlt,
@@ -11,7 +12,7 @@ import { toast } from "react-toastify";
 const EMPTY_FORM = { title: "", content: "", author: "", image: null };
 
 
-const IMG_BASE = import.meta.env.VITE_BACKEND_URL?.replace("/api", "") || "http://localhost:5000";
+const IMG_BASE = ASSET_BASE_URL;
 
 const resolveImage = (url) => {
   if (!url) return null;

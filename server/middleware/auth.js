@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/userModel");
 const Researcher = require("../models/ResearcherModel");
+const TokenBlacklist = require("../models/tokenBlacklistModel");
 const { AppError, asyncHandler } = require("../utils/appError");
 const { RESEARCHER_ROLES, RESEARCHER_STATUSES } = require("../constants/researchIndex");
 
@@ -64,6 +65,13 @@ exports.verifyToken = asyncHandler(async (req, res, next) => {
   if (decoded.collection === "researchers") {
     throw new AppError("Access denied — researcher token not allowed on staff routes.", 403);
   }
+
+  // H5: reject tokens that were explicitly revoked via /api/auth/logout,
+  // even though they haven't hit their natural expiry yet.
+  if (decoded.jti) {
+    const blacklisted = await TokenBlacklist.findOne({ jti: decoded.jti });
+    if (blacklisted) throw new AppError("Session expired. Please log in again.", 401);
+  }
  
   const user = await User.findById(decoded.id).select("-password");
   if (!user) throw new AppError("User not found.", 401);
@@ -71,6 +79,7 @@ exports.verifyToken = asyncHandler(async (req, res, next) => {
   if (user.isActive === false) throw new AppError("Your account has been deactivated.", 403);
  
   req.user = user;
+  req.decodedToken = decoded;
   next();
 });
 

@@ -8,6 +8,8 @@ const roleShortCodes = {
   nurse: "NR",
   pharmacist: "PH",
   communication: "CM",
+  research: "RS",
+  vendor: "VN",
 };
 
 // Generate Employee ID: NCRH-ROLE-XXXX

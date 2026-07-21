@@ -117,15 +117,35 @@ const processCallback = async (body) => {
     return;
   }
 
-  if (status === PAYMENT_STATUSES.COMPLETED) {
+  // C4 fix: the callback body is fully attacker-controlled (anyone who
+  // obtains a checkoutRequestId — returned to the client on STK push
+  // initiation — could previously POST a forged "completed" callback and
+  // get a payment marked paid without paying). Before ever marking a
+  // payment completed, independently re-verify the transaction with
+  // Safaricom's server-to-server status-query API. A callback claiming
+  // success is now only a *hint* to check now instead of on the next poll
+  // — the database mutation is driven by `queryResult`, not by `parsed`.
+  let queryResult = null;
+  try {
+    queryResult = await mpesa.querySTKStatus(checkoutRequestId);
+  } catch (err) {
+    console.error(`[Payment] STK status re-verification failed for ${checkoutRequestId}:`, err.message);
+  }
+
+  const verifiedCompleted = queryResult ? queryResult.isCompleted : status === PAYMENT_STATUSES.COMPLETED;
+  const verifiedReceipt = queryResult?.MpesaReceiptNumber || mpesaReceiptNumber;
+  const verifiedResultCode = queryResult?.ResultCode ?? resultCode;
+  const verifiedResultDesc = queryResult?.ResultDesc ?? resultDesc;
+
+  if (verifiedCompleted) {
     payment.status             = PAYMENT_STATUSES.COMPLETED;
-    payment.mpesaReceiptNumber = mpesaReceiptNumber;
+    payment.mpesaReceiptNumber = verifiedReceipt;
     payment.transactionDate    = transactionDate;
-    payment.resultCode         = resultCode;
-    payment.resultDesc         = resultDesc;
+    payment.resultCode         = verifiedResultCode;
+    payment.resultDesc         = verifiedResultDesc;
     await payment.save();
 
-    console.log(`[Payment]completed: ${mpesaReceiptNumber}`);
+    console.log(`[Payment]completed: ${verifiedReceipt}`);
 
     // Send confirmation email to researcher
     if (payment.researcher && payment.type === PAYMENT_TYPES.PROPOSAL_SUBMISSION) {
@@ -135,7 +155,7 @@ const processCallback = async (body) => {
         await email.sendPaymentConfirmation({
           email:   researcher.email,
           name:    researcher.name || researcher.firstName,
-          mpesaReceipt: mpesaReceiptNumber,
+          mpesaReceipt: verifiedReceipt,
           amount:  payment.amount,
           purpose: "Research Proposal Submission",
         });
@@ -148,10 +168,11 @@ const processCallback = async (body) => {
     }
 
   } else {
-    // failed or cancelled
-    payment.status     = status;
-    payment.resultCode = resultCode;
-    payment.resultDesc = resultDesc;
+    // failed or cancelled — query result (when available) is authoritative;
+    // otherwise fall back to the callback's own status.
+    payment.status     = queryResult ? queryResult.status : status;
+    payment.resultCode = verifiedResultCode;
+    payment.resultDesc = verifiedResultDesc;
     await payment.save();
 
     console.log(`[Payment] ✗ ${status}: ${resultDesc}`);

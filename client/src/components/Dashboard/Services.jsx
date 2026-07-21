@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import api from "../../api/axios";
+import { ASSET_BASE_URL } from "../../config/env";
 import {
   FaPlus, FaEdit, FaTrash, FaStethoscope, FaImage, FaTimes,
   FaCheckCircle, FaEye, FaSearch, FaFilter, FaUserMd, FaClock,
@@ -30,7 +31,7 @@ const DIVISION_CONFIG = {
 const divCfg = (d) => DIVISION_CONFIG[d] || DIVISION_CONFIG["Outpatient"];
 
 
-const IMG_BASE = import.meta.env.VITE_BACKEND_URL?.replace("/api", "") || "http://localhost:5000";
+const IMG_BASE = ASSET_BASE_URL;
 
 const EMPTY_FORM = {
   name: "", division: "", category: "", description: "",

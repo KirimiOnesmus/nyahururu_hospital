@@ -5,10 +5,15 @@ import api from './axios';
 export const loginUser = async (email, password) => {
   try {
     const res = await api.post('/auth/login', { email, password });
-    if (res.data.token) {
-      localStorage.setItem('token', res.data.token);
+    // Backend wraps payloads as { success, message, data }, matching every
+    // other endpoint in this app (see registerResearcher, loginResearcher
+    // below) — this was the one spot still reading the un-wrapped shape,
+    // so the token never saved and the caller never saw `user`/`role`.
+    const data = res.data?.data || res.data;
+    if (data.token) {
+      localStorage.setItem('token', data.token);
     }
-    return res.data;
+    return data;
   } catch (error) {
     throw error.response?.data || { message: 'Login failed' };
   }

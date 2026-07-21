@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { FaMapMarkerAlt, FaCalendarAlt, FaTimes } from "react-icons/fa";
 import api from "../../api/axios";
+import { ASSET_BASE_URL } from "../../config/env";
 
 const SLIDE_INTERVAL = 30000;
 
@@ -10,9 +11,7 @@ const EventOverlay = () => {
   const [visible, setVisible] = useState(false);
   const [fading, setFading] = useState(false);
 
- const BACKEND_URL =
-  import.meta.env.VITE_BACKEND_URL?.replace("/api", "") ||
-  "http://localhost:5000";
+  const BACKEND_URL = ASSET_BASE_URL;
 
   useEffect(() => {
     const fetchEvents = async () => {

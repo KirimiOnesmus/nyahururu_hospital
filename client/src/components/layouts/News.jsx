@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/axios";
+import { ASSET_BASE_URL } from "../../config/env";
 import { FaArrowRight, FaArrowLeft, FaNewspaper } from "react-icons/fa";
 
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL?.replace("/api", "") || "http://localhost:5000";
+const BACKEND_URL = ASSET_BASE_URL;
 
 const News = () => {
   const [news, setNews] = useState([]);

@@ -1,7 +1,8 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { ASSET_BASE_URL } from "../../config/env";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL?.replace("/api", "") || "http://localhost:5000";
+const BACKEND_URL = ASSET_BASE_URL;
 
 const DoctorCard = ({ doctor }) => {
 

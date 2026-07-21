@@ -11,6 +11,7 @@ import {
 } from "../components/layouts";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
+import { ASSET_BASE_URL } from "../config/env";
 import { toast } from "react-toastify";
 
 const Home = () => {
@@ -18,8 +19,7 @@ const Home = () => {
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const BACKEND_URL =
-    import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+  const BACKEND_URL = ASSET_BASE_URL;
 
   useEffect(() => {
     const fetchServices = async () => {

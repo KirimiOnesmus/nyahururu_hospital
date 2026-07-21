@@ -1,0 +1,12 @@
+# Security headers for Netlify (FH3 in the security review).
+# Applies to every route on the deployed site.
+#
+# IMPORTANT: replace <api-origin> below with the deployed backend's
+# origin (e.g. https://api.ncrh-hospital.org) before shipping — connect-src
+# needs it or every fetch()/axios call to the API will be blocked.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: <api-origin>; connect-src 'self' <api-origin>; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), camera=(), microphone=()

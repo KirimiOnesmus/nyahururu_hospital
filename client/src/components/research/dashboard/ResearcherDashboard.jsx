@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import ResearcherStats from "../ResearcherStatsSection";
+import { API_BASE_URL } from "../../../config/env";
 import {
   FaFlask,
   FaCheckCircle,
@@ -161,7 +162,7 @@ const ResubmitModal = ({ item, onClose, onResubmitted }) => {
         fd.append(fileField, file);
       }
       const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/research/${item._id}/resubmit`,
+        `${API_BASE_URL}/research/${item._id}/resubmit`,
         {
           method: "PATCH",
           headers: {

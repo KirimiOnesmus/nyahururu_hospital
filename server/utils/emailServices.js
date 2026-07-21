@@ -57,8 +57,8 @@ const PORTAL_NAME  = "Nyahururu Hospital Research Portal";
 const PORTAL_YEAR  = new Date().getFullYear();
 const SUPPORT_EMAIL = process.env.EMAIL_USER || "support@ncrh.ac.ke";
 const FRONTEND_URL  = process.env.FRONTEND_URL || "";
-const HOSPITAL_LOGO = `${process.env.BACKEND_URL}/public/logo.png`;
-const COUNTY_LOGO   = `${process.env.BACKEND_URL}/public/county-government.png`;
+// const HOSPITAL_LOGO = `${process.env.BACKEND_URL}/public/logo.png`;
+// const COUNTY_LOGO   = `${process.env.BACKEND_URL}/public/county-government.png`;
 
 //  SHELL BUILDER 
 
@@ -82,20 +82,14 @@ const makeShell = (portalName, subTitle, content) => `
         <td style="background:#1A3C6E;padding:16px 28px;">
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
-              <td width="52" style="vertical-align:middle;">
-                <img src="${HOSPITAL_LOGO}" alt="Hospital Logo" width="48" height="48"
-                     style="display:block;object-fit:contain;border-radius:4px;" />
-              </td>
+
               <td style="vertical-align:middle;text-align:center;padding:0 12px;">
                 <p style="margin:0;color:#ffffff;font-size:14px;font-weight:bold;
                            letter-spacing:0.5px;line-height:1.4;">${portalName}</p>
                 <p style="margin:3px 0 0;color:#BFD7F0;font-size:10px;
                            letter-spacing:1px;text-transform:uppercase;">${subTitle}</p>
               </td>
-              <td width="52" style="vertical-align:middle;">
-                <img src="${COUNTY_LOGO}" alt="County Government Logo" width="48" height="48"
-                     style="display:block;object-fit:contain;border-radius:4px;" />
-              </td>
+
             </tr>
           </table>
         </td>

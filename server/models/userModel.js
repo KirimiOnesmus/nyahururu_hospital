@@ -4,7 +4,7 @@ const userSchema = new mongoose.Schema({
   firstName: { type: String, required: true, trim: true },
   lastName: { type: String, required: true, trim: true },
 
-  name: { type: String, trim: true }, // auto combined
+  name: { type: String, trim: true }, 
 
   email: { 
     type: String, 
@@ -14,7 +14,6 @@ const userSchema = new mongoose.Schema({
   },
   password: { type: String, required: true },
 
-  // Email verification fields
   emailVerified: { 
     type: Boolean, 
     default: false 
@@ -62,7 +61,10 @@ const userSchema = new mongoose.Schema({
   signatureText: { type: String },
   dateOfBirth: { type: Date },
   joinDate: { type: Date },
-  profileImage: { type: String },
+
+  photo: { type: String },
+
+  terms: { type: String },
   signature: { type: String },
   employeeId: { type: String, unique: true }, 
   rfidTag: { type: String, unique: true },    

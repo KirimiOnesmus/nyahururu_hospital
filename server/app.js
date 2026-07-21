@@ -87,10 +87,35 @@ if (process.env.NODE_ENV === "production") {
 }
 
 
+// M4: previously `contentSecurityPolicy: production ? undefined : false`
+// meant production silently fell back to Helmet's generic default policy
+// — never verified against this app's actual origins/CDNs. Now explicit,
+// built from the same CORS_ORIGINS allowlist already configured below,
+// plus the CDNs this app is known to load from client-side.
+const buildProductionCSP = () => {
+  const selfOrigins = (process.env.CORS_ORIGINS || "").split(",").map((o) => o.trim()).filter(Boolean);
+  return {
+    useDefaults: false,
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://cdn.tailwindcss.com"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", ...selfOrigins],
+      connectSrc: ["'self'", ...selfOrigins],
+      fontSrc: ["'self'", "data:"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      upgradeInsecureRequests: [],
+    },
+  };
+};
+
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
-    contentSecurityPolicy: process.env.NODE_ENV === "production" ? undefined : false,
+    contentSecurityPolicy: process.env.NODE_ENV === "production" ? buildProductionCSP() : false,
   })
 );
 
@@ -166,12 +191,51 @@ app.use(sanitizeRequest);
 app.use(hpp({ whitelist: ["fields", "sort", "page", "limit", "filter"] }));
 
 
+// H6: uploaded files were previously served from one fully public
+// `/uploads` static mount — including research papers, bid documents,
+// reports and progress files, with randomized filenames as the *only*
+// protection (security-by-obscurity, not access control: any leaked/
+// logged/referrer-forwarded URL exposed the file to the internet
+// permanently). Split into:
+//   - genuinely public CMS assets (gallery/news/events/services/notices/
+//     tenders — the hospital's own public-facing images and procurement
+//     documents), served as before, and
+//   - everything else, which now requires a valid staff or researcher
+//     session before the file is streamed at all.
+// This is a floor, not the full fix — per-file ownership checks (e.g. "is
+// this researcher allowed to see *this* paper") still belong in a proper
+// GET /api/research/:id/file-style controller route; this closes the
+// "public to the entire internet" gap in the meantime.
+const PUBLIC_UPLOAD_FOLDERS = ["public", "gallery", "news", "events", "services", "notices", "tenders"];
+
+PUBLIC_UPLOAD_FOLDERS.forEach((folder) => {
+  app.use(
+    `/uploads/${folder}`,
+    express.static(path.resolve(__dirname, "uploads", folder), {
+      maxAge: "7d",
+      etag: true,
+      dotfiles: "deny",
+    })
+  );
+});
+
+const { verifyToken: requireStaffToken, protectResearcher: requireResearcherToken } = require("./middleware/auth");
+const requireUploadAuth = (req, res, next) => {
+  // Accept either a staff session or a researcher session — both
+  // extractToken() paths already exist in middleware/auth.js.
+  requireStaffToken(req, res, (staffErr) => {
+    if (!staffErr) return next();
+    requireResearcherToken(req, res, next);
+  });
+};
+
 app.use(
   "/uploads",
+  requireUploadAuth,
   express.static(path.resolve(__dirname, "uploads"), {
-    maxAge:  "7d",       
-    etag:    true,
-    dotfiles: "deny",    
+    maxAge: "7d",
+    etag: true,
+    dotfiles: "deny",
   })
 );
 

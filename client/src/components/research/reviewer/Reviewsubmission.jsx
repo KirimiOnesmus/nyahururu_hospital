@@ -19,13 +19,12 @@ import {
   getReviewHistory,
   submitReview,
 } from "../../../api/research";
-
-const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL?.replace('/api', '') || "";
+import { ASSET_BASE_URL } from "../../../config/env";
 
 const resolveUrl = (url) => {
   if (!url) return null;
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
-  return `${API_BASE}${url}`;
+  return `${ASSET_BASE_URL}${url}`;
 };
 
 //  Constants

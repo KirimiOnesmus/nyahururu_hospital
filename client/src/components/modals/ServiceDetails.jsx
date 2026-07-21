@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../api/axios";
+import { ASSET_BASE_URL } from "../../config/env";
 import { Header, Footer } from "../../components/layouts";
 import {
   FaStethoscope, FaCheckCircle, FaClock, FaPhone,
@@ -8,7 +9,7 @@ import {
   FaTags, FaArrowLeft,
 } from "react-icons/fa";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000"; 
+const BACKEND_URL = ASSET_BASE_URL;
 
 const InfoTile = ({ icon: Icon, iconColor, label, value }) => (
   <div className="bg-white border border-slate-200 rounded-xl p-5">

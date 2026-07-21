@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Header, Footer } from "../../components/layouts";
 import api from "../../api/axios";
+import { ASSET_BASE_URL } from "../../config/env";
 import {
   FaArrowLeft,
   FaNewspaper,
@@ -12,9 +13,7 @@ import {
   FaWhatsapp,
 } from "react-icons/fa";
 
-const BACKEND_URL =
-  import.meta.env.VITE_BACKEND_URL?.replace("/api", "") ||
-  "http://localhost:5000";
+const BACKEND_URL = ASSET_BASE_URL;
 
 const Shell = ({ children }) => (
   <div className="min-h-screen flex flex-col bg-slate-50">

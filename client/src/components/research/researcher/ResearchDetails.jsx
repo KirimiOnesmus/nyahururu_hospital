@@ -11,6 +11,7 @@ import {
 } from "react-icons/fa";
 
 import * as research from "../../../api/research";
+import { ASSET_BASE_URL } from "../../../config/env";
 
 const STAGE_ORDER = ["proposal", "progress", "final_paper"];
 
@@ -150,8 +151,7 @@ const PROGRESS_FILE_LABELS = {
 
 const buildFileUrl = (path) => {
   if (!path) return null;
-  const origin = (import.meta.env.VITE_API_URL || "").replace(/\/api\/v\d+\/?$/, "");
-  return `${origin}${path}`;
+  return `${ASSET_BASE_URL}${path}`;
 };
 
 const fileEntry = (path, fallbackName) => {

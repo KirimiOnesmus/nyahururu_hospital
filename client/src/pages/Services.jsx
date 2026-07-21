@@ -3,9 +3,10 @@ import Card from "../components/layouts/Card";
 import { Header, Partners, Footer } from "../components/layouts";
 import { useSearchParams } from "react-router-dom";
 import api from "../api/axios";
+import { ASSET_BASE_URL } from "../config/env";
 import { FaTimes, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+const BACKEND_URL = ASSET_BASE_URL;
 const PAGE_SIZE = 6;
 
 /* ── Service Slider (pure state-driven, no scroll/DOM manipulation) ───────── */
