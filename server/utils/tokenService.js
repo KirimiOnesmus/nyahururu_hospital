@@ -18,10 +18,17 @@ const cookieOptions = (maxAgeMs) => ({
 const ACCESS_COOKIE_MAX_AGE = 24 * 60 * 60 * 1000; // 1d
 const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7d
 
+// CUTOVER NOTE: this file signs tokens for BOTH `User` (staff — now
+// Sequelize) and `Researcher` (still Mongoose until its own domain is
+// cut over). Using `user.id` instead of `user._id` keeps working for
+// both: Sequelize instances have a real numeric `id`, and Mongoose
+// documents expose a virtual `.id` getter (string form of `_id`) by
+// default — so this one-line change is safe for the still-Mongoose
+// Researcher model too, no separate branch needed.
 const signAccessToken = (user) => {
   const jti = crypto.randomUUID();
   const token = jwt.sign(
-    { id: user._id, role: user.role, jti },
+    { id: user.id, role: user.role, jti },
     process.env.JWT_SECRET,
     { expiresIn: ACCESS_TOKEN_EXPIRES_IN }
   );
@@ -31,7 +38,7 @@ const signAccessToken = (user) => {
 const signRefreshToken = (user) => {
   const jti = crypto.randomUUID();
   const token = jwt.sign(
-    { id: user._id, jti, type: "refresh" },
+    { id: user.id, jti, type: "refresh" },
     process.env.JWT_REFRESH_SECRET,
     { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
   );

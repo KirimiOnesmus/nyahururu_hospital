@@ -1,10 +1,15 @@
-const Feedback = require('../models/feedbackModel');
-const { sendFeedbackReplyEmail } = require('../utils/emailServices');
+"use strict";
+
+const { Feedback } = require("../sequelize/models");
+const { sendFeedbackReplyEmail } = require("../utils/emailServices");
+
 // Submit feedback (Public)
 exports.submitFeedback = async (req, res) => {
   try {
     const { name, email, subject, message, type } = req.body;
-    if (!message || !type) return res.status(400).json({ message: 'Message and type are required' });
+    if (!message || !type) {
+      return res.status(400).json({ message: "Message and type are required" });
+    }
 
     const feedback = await Feedback.create({
       name,
@@ -12,10 +17,10 @@ exports.submitFeedback = async (req, res) => {
       subject,
       message,
       type,
-      status: 'pending',
+      status: "pending",
     });
 
-    res.status(201).json({ message: 'Feedback submitted successfully', feedback });
+    res.status(201).json({ message: "Feedback submitted successfully", feedback });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -25,11 +30,16 @@ exports.submitFeedback = async (req, res) => {
 exports.getAllFeedback = async (req, res) => {
   try {
     const { type, status } = req.query;
-    const filter = {};
-    if (type) filter.type = type;
-    if (status) filter.status = status;
+    // Build the where-clause dynamically so an omitted query param means
+    // "no filter" — same semantics as the Mongoose empty-object filter.
+    const where = {};
+    if (type) where.type = type;
+    if (status) where.status = status;
 
-    const feedback = await Feedback.find(filter).sort({ createdAt: -1 });
+    const feedback = await Feedback.findAll({
+      where,
+      order: [["createdAt", "DESC"]],
+    });
     res.json(feedback);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -39,8 +49,8 @@ exports.getAllFeedback = async (req, res) => {
 // Admin / Communication — View single feedback
 exports.getFeedbackById = async (req, res) => {
   try {
-    const feedback = await Feedback.findById(req.params.id);
-    if (!feedback) return res.status(404).json({ message: 'Feedback not found' });
+    const feedback = await Feedback.findByPk(req.params.id);
+    if (!feedback) return res.status(404).json({ message: "Feedback not found" });
     res.json(feedback);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -51,24 +61,25 @@ exports.getFeedbackById = async (req, res) => {
 exports.respondToFeedback = async (req, res) => {
   try {
     const { response, status } = req.body;
-    const feedback = await Feedback.findById(req.params.id);
+    const feedback = await Feedback.findByPk(req.params.id);
 
-    if (!feedback) return res.status(404).json({ message: 'Feedback not found' });
+    if (!feedback) return res.status(404).json({ message: "Feedback not found" });
 
-    if (typeof response !== 'undefined') feedback.response = response;
-    if (typeof status !== 'undefined') feedback.status = status;
-
+    if (typeof response !== "undefined") feedback.response = response;
+    if (typeof status !== "undefined") feedback.status = status;
 
     if (req.user) {
-      if (req.user._id) feedback.respondedBy = req.user._id;
-      else if (req.user.id) feedback.respondedBy = req.user.id;
-      else if (req.user.name) feedback.respondedByName = req.user.name;
+      // req.user comes from verifyToken → Sequelize User instance now, so
+      // it always exposes `id`. Keep the fallback chain in case a future
+      // dual-token flow attaches a research-side object with a different
+      // shape.
+      if (req.user.id) feedback.respondedBy = req.user.id;
+      if (req.user.name) feedback.respondedByName = req.user.name;
     }
 
     feedback.respondedAt = new Date();
 
     await feedback.save();
-
 
     if (response && feedback.email) {
       try {
@@ -76,16 +87,14 @@ exports.respondToFeedback = async (req, res) => {
           feedback.email,
           feedback.name,
           feedback.message,
-          response
+          response,
         );
-        console.log('Feedback reply email sent successfully');
       } catch (emailError) {
-        console.error('Failed to send feedback reply email:', emailError);
-     
+        console.error("Failed to send feedback reply email:", emailError);
       }
     }
 
-    res.json({ message: 'Feedback updated successfully', feedback });
+    res.json({ message: "Feedback updated successfully", feedback });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -94,12 +103,12 @@ exports.respondToFeedback = async (req, res) => {
 // Admin — Delete feedback
 exports.deleteFeedback = async (req, res) => {
   try {
-    const deleted = await Feedback.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ message: 'Feedback not found' });
-    res.json({ message: 'Feedback deleted successfully' });
+    const feedback = await Feedback.findByPk(req.params.id);
+    if (!feedback) return res.status(404).json({ message: "Feedback not found" });
+
+    await feedback.destroy();
+    res.json({ message: "Feedback deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
-
-

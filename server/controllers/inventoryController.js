@@ -1,55 +1,74 @@
-const Inventory = require('../models/inventoryModel');
+"use strict";
+
+const { Op } = require("sequelize");
+const { Inventory, User, sequelize } = require("../sequelize/models");
+
+// ── Helpers ─────────────────────────────────────────────────────────
+
+const AUTHOR_INCLUDE = [
+  { model: User, as: "creator", attributes: ["id", "name", "email"] },
+  { model: User, as: "updater", attributes: ["id", "name", "email"] },
+];
+
+// Mongo's `$expr: { $lt: ['$quantity', '$minThreshold'] }` was a
+// column-vs-column comparison. Sequelize supports the same via
+// sequelize.where + col references, which compiles to a plain SQL
+// `quantity < min_threshold`. Reused across getLowStockItems and
+// getInventoryStats.
+const LOW_STOCK_WHERE = sequelize.where(
+  sequelize.col("quantity"),
+  Op.lt,
+  sequelize.col("min_threshold"),
+);
+
+// ── CRUD ────────────────────────────────────────────────────────────
 
 exports.getAllInventory = async (req, res) => {
   try {
-    const inventory = await Inventory.find()
-      .populate('createdBy', 'name email')
-      .populate('updatedBy', 'name email')
-      .sort({ createdAt: -1 });
-
+    const inventory = await Inventory.findAll({
+      include: AUTHOR_INCLUDE,
+      order: [["createdAt", "DESC"]],
+    });
     res.json(inventory);
   } catch (error) {
-    console.error('Get all inventory error:', error);
+    console.error("Get all inventory error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Get inventory by ID
 exports.getInventoryById = async (req, res) => {
   try {
-    const item = await Inventory.findById(req.params.id)
-      .populate('createdBy', 'name email')
-      .populate('updatedBy', 'name email');
-
-    if (!item) {
-      return res.status(404).json({ message: 'Inventory item not found' });
-    }
-
+    const item = await Inventory.findByPk(req.params.id, {
+      include: AUTHOR_INCLUDE,
+    });
+    if (!item) return res.status(404).json({ message: "Inventory item not found" });
     res.json(item);
   } catch (error) {
-    console.error('Get inventory by ID error:', error);
+    console.error("Get inventory by ID error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Create inventory item
 exports.createInventory = async (req, res) => {
   try {
-    const { name, category, quantity, unit, price, supplier, batch, expiry, minThreshold, sku, description } = req.body;
+    const {
+      name, category, quantity, unit, price, supplier, batch,
+      expiry, minThreshold, sku, description,
+    } = req.body;
 
-    // Validate required fields
     if (!name || !category || quantity === undefined || !unit || price === undefined) {
       return res.status(400).json({
-        message: 'Missing required fields: name, category, quantity, unit, price',
+        message: "Missing required fields: name, category, quantity, unit, price",
       });
     }
 
-    // Check if SKU already exists
+    // Explicit SKU-duplicate guard for a clean 400. The model's sparse
+    // unique index still catches races. (SKU is nullable, MySQL allows
+    // multiple NULLs on a unique index — same "sparse unique" semantics
+    // the Mongoose schema had.)
     if (sku) {
-      const existingSku = await Inventory.findOne({ sku });
-      if (existingSku) {
-        return res.status(400).json({ message: 'SKU already exists' });
-      }
+      const existingSku = await Inventory.findOne({ where: { sku } });
+      if (existingSku) return res.status(400).json({ message: "SKU already exists" });
     }
 
     const newItem = await Inventory.create({
@@ -61,7 +80,7 @@ exports.createInventory = async (req, res) => {
       supplier,
       batch,
       expiry: expiry ? new Date(expiry) : null,
-      minThreshold: minThreshold || 5,
+      minThreshold: minThreshold ?? 5,
       sku,
       description,
       createdBy: req.user?.id,
@@ -69,34 +88,32 @@ exports.createInventory = async (req, res) => {
     });
 
     res.status(201).json({
-      message: 'Inventory item created successfully',
+      message: "Inventory item created successfully",
       item: newItem,
     });
   } catch (error) {
-    console.error('Create inventory error:', error);
+    console.error("Create inventory error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Update inventory item
 exports.updateInventory = async (req, res) => {
   try {
-    const { name, category, quantity, unit, price, supplier, batch, expiry, minThreshold, sku, description } = req.body;
+    const {
+      name, category, quantity, unit, price, supplier, batch,
+      expiry, minThreshold, sku, description,
+    } = req.body;
 
-    const item = await Inventory.findById(req.params.id);
-    if (!item) {
-      return res.status(404).json({ message: 'Inventory item not found' });
-    }
+    const item = await Inventory.findByPk(req.params.id);
+    if (!item) return res.status(404).json({ message: "Inventory item not found" });
 
-    // Check if new SKU already exists (and is different from current)
     if (sku && sku !== item.sku) {
-      const existingSku = await Inventory.findOne({ sku });
-      if (existingSku) {
-        return res.status(400).json({ message: 'SKU already exists' });
-      }
+      const existingSku = await Inventory.findOne({
+        where: { sku, id: { [Op.ne]: item.id } },
+      });
+      if (existingSku) return res.status(400).json({ message: "SKU already exists" });
     }
 
-    // Update fields
     if (name !== undefined) item.name = name;
     if (category !== undefined) item.category = category;
     if (quantity !== undefined) item.quantity = quantity;
@@ -110,129 +127,139 @@ exports.updateInventory = async (req, res) => {
     if (description !== undefined) item.description = description;
 
     item.updatedBy = req.user?.id;
+    // NOTE: preserved the Mongoose behaviour of stamping lastRestocked
+    // on every update. That's arguably too broad (only a quantity
+    // increase is a real restock), but tightening it would be a
+    // semantic change and belongs in a separate follow-up — cutover is
+    // supposed to preserve behaviour, not refactor it.
     item.lastRestocked = new Date();
 
-    const updatedItem = await item.save();
+    await item.save();
 
-    res.json({
-      message: 'Inventory item updated successfully',
-      item: updatedItem,
-    });
+    res.json({ message: "Inventory item updated successfully", item });
   } catch (error) {
-    console.error('Update inventory error:', error);
+    console.error("Update inventory error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Delete inventory item
 exports.deleteInventory = async (req, res) => {
   try {
-    const item = await Inventory.findByIdAndDelete(req.params.id);
+    const item = await Inventory.findByPk(req.params.id);
+    if (!item) return res.status(404).json({ message: "Inventory item not found" });
 
-    if (!item) {
-      return res.status(404).json({ message: 'Inventory item not found' });
-    }
-
-    res.json({ message: 'Inventory item deleted successfully' });
+    await item.destroy();
+    res.json({ message: "Inventory item deleted successfully" });
   } catch (error) {
-    console.error('Delete inventory error:', error);
+    console.error("Delete inventory error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Get low stock items
+// ── Reports ─────────────────────────────────────────────────────────
+
 exports.getLowStockItems = async (req, res) => {
   try {
-    const items = await Inventory.find({
-      $expr: { $lt: ['$quantity', '$minThreshold'] },
-    }).sort({ quantity: 1 });
-
+    const items = await Inventory.findAll({
+      where: LOW_STOCK_WHERE,
+      order: [["quantity", "ASC"]],
+    });
     res.json(items);
   } catch (error) {
-    console.error('Get low stock items error:', error);
+    console.error("Get low stock items error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Get expired items
 exports.getExpiredItems = async (req, res) => {
   try {
-    const now = new Date();
-    const items = await Inventory.find({
-      expiry: { $lte: now },
-    }).sort({ expiry: 1 });
-
+    const items = await Inventory.findAll({
+      where: { expiry: { [Op.lte]: new Date() } },
+      order: [["expiry", "ASC"]],
+    });
     res.json(items);
   } catch (error) {
-    console.error('Get expired items error:', error);
+    console.error("Get expired items error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Get items expiring soon (within 30 days)
 exports.getExpiringItems = async (req, res) => {
   try {
     const now = new Date();
     const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-    const items = await Inventory.find({
-      expiry: { $gte: now, $lte: thirtyDaysFromNow },
-    }).sort({ expiry: 1 });
-
+    const items = await Inventory.findAll({
+      where: { expiry: { [Op.gte]: now, [Op.lte]: thirtyDaysFromNow } },
+      order: [["expiry", "ASC"]],
+    });
     res.json(items);
   } catch (error) {
-    console.error('Get expiring items error:', error);
+    console.error("Get expiring items error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Get inventory statistics
 exports.getInventoryStats = async (req, res) => {
   try {
-    const total = await Inventory.countDocuments();
-    const byCategory = await Inventory.aggregate([
-      { $group: { _id: '$category', count: { $sum: 1 } } },
+    // All four counts / aggregates in parallel — four round trips
+    // become one wall-clock window on the connection pool.
+    const [total, byCategoryRaw, lowStock, expired] = await Promise.all([
+      Inventory.count(),
+      Inventory.findAll({
+        attributes: [
+          "category",
+          [sequelize.fn("COUNT", sequelize.col("id")), "count"],
+        ],
+        group: ["category"],
+        raw: true,
+      }),
+      Inventory.count({ where: LOW_STOCK_WHERE }),
+      Inventory.count({ where: { expiry: { [Op.lte]: new Date() } } }),
     ]);
-    const lowStock = await Inventory.countDocuments({
-      $expr: { $lt: ['$quantity', '$minThreshold'] },
-    });
-    const expired = await Inventory.countDocuments({
-      expiry: { $lte: new Date() },
-    });
 
-    res.json({
-      total,
-      byCategory,
-      lowStock,
-      expired,
-    });
+    // Reshape byCategory to the { _id, count } shape the frontend
+    // received from the Mongo `$group` output. Kept intentionally to
+    // avoid changing the client contract during cutover.
+    const byCategory = byCategoryRaw.map((r) => ({
+      _id: r.category,
+      count: Number(r.count),
+    }));
+
+    res.json({ total, byCategory, lowStock, expired });
   } catch (error) {
-    console.error('Get inventory stats error:', error);
+    console.error("Get inventory stats error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Search inventory
 exports.searchInventory = async (req, res) => {
   try {
     const { query } = req.query;
+    if (!query) return res.status(400).json({ message: "Search query is required" });
 
-    if (!query) {
-      return res.status(400).json({ message: 'Search query is required' });
-    }
+    // Escape LIKE metacharacters so a search for "50%" doesn't become
+    // a runaway wildcard. utf8mb4_unicode_ci is already
+    // case-insensitive so no explicit flag needed. `category` is an
+    // ENUM column here but MySQL treats ENUMs as strings for LIKE
+    // comparison — the Mongoose behaviour is preserved.
+    const escaped = String(query).replace(/[\\%_]/g, (m) => `\\${m}`);
+    const like = `%${escaped}%`;
 
-    const items = await Inventory.find({
-      $or: [
-        { name: { $regex: query, $options: 'i' } },
-        { category: { $regex: query, $options: 'i' } },
-        { supplier: { $regex: query, $options: 'i' } },
-        { sku: { $regex: query, $options: 'i' } },
-      ],
+    const items = await Inventory.findAll({
+      where: {
+        [Op.or]: [
+          { name: { [Op.like]: like } },
+          { category: { [Op.like]: like } },
+          { supplier: { [Op.like]: like } },
+          { sku: { [Op.like]: like } },
+        ],
+      },
     });
 
     res.json(items);
   } catch (error) {
-    console.error('Search inventory error:', error);
+    console.error("Search inventory error:", error);
     res.status(500).json({ message: error.message });
   }
 };

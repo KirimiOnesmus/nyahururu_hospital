@@ -1,135 +1,164 @@
-const Notice = require('../models/noticeModel');
-const fs = require('fs');
-const path = require('path');
+"use strict";
 
-// Get all notices
+const fs = require("fs");
+const path = require("path");
+const { Op } = require("sequelize");
+const { Notice, User, sequelize } = require("../sequelize/models");
+
+// ── Helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Translate the client's Mongoose-style sort string into Sequelize's
+ * order-array form. Accepts "field" (asc) or "-field" (desc), same as
+ * Mongoose. Defaults to createdAt DESC when nothing usable is passed.
+ *
+ * Whitelisted to a small set of columns so a client can't slip
+ * arbitrary column names / expressions into ORDER BY.
+ */
+const SORTABLE_COLUMNS = new Set([
+  "createdAt", "updatedAt", "startDate", "endDate", "title", "views",
+]);
+const parseSort = (raw) => {
+  if (!raw) return [["createdAt", "DESC"]];
+  const dir = raw.startsWith("-") ? "DESC" : "ASC";
+  const col = raw.replace(/^-/, "");
+  if (!SORTABLE_COLUMNS.has(col)) return [["createdAt", "DESC"]];
+  return [[col, dir]];
+};
+
+// The two populated author fields — a hot path (every list + detail
+// call), so this is worth naming once here rather than re-writing every
+// query.
+const AUTHOR_INCLUDE = [
+  { model: User, as: "creator", attributes: ["id", "name", "email"] },
+  { model: User, as: "updater", attributes: ["id", "name", "email"] },
+];
+
+// Attachment paths on disk sit under /public/uploads/notices/… — the
+// same path convention Mongoose used. Extracted so the same delete
+// logic works from every entry point (single, bulk, single-attachment).
+const attachmentDiskPath = (attachment) =>
+  path.join(__dirname, "../public", attachment.fileUrl);
+
+const safeUnlink = (filePath) => {
+  try {
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  } catch (err) {
+    // Filesystem cleanup is best-effort — a missing/locked file
+    // shouldn't fail the DB delete that was already durable.
+    console.error("Failed to remove attachment file:", filePath, err);
+  }
+};
+
+// ── CRUD ────────────────────────────────────────────────────────────
+
 exports.getAllNotices = async (req, res) => {
   try {
-    const { category, audience, status, search, sort = '-createdAt' } = req.query;
+    const { category, audience, status, search, sort = "-createdAt" } = req.query;
 
-    let query = {};
+    const where = {};
+    if (category && category !== "all") where.category = category;
+    if (audience && audience !== "all") where.audience = audience;
+    if (status && status !== "all") where.status = status;
 
-    if (category && category !== 'all') {
-      query.category = category;
-    }
-
-    if (audience && audience !== 'all') {
-      query.audience = audience;
-    }
-
-    if (status && status !== 'all') {
-      query.status = status;
-    }
-
+    // Mongoose case-insensitive $regex → MySQL LIKE. utf8mb4_unicode_ci
+    // is our default collation so LIKE is already case-insensitive; no
+    // per-query flag needed. Escape SQL LIKE metacharacters so a search
+    // for "50%" doesn't match every row.
     if (search) {
-      query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { content: { $regex: search, $options: 'i' } },
+      const escaped = String(search).replace(/[\\%_]/g, (m) => `\\${m}`);
+      where[Op.or] = [
+        { title: { [Op.like]: `%${escaped}%` } },
+        { content: { [Op.like]: `%${escaped}%` } },
       ];
     }
 
-    const notices = await Notice.find(query)
-      .populate('createdBy', 'name email')
-      .populate('updatedBy', 'name email')
-      .sort(sort);
+    const notices = await Notice.findAll({
+      where,
+      include: AUTHOR_INCLUDE,
+      order: parseSort(sort),
+    });
 
     res.json(notices);
   } catch (error) {
-    console.error('Get all notices error:', error);
+    console.error("Get all notices error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Get notice by ID
 exports.getNoticeById = async (req, res) => {
   try {
-    const notice = await Notice.findById(req.params.id)
-      .populate('createdBy', 'name email')
-      .populate('updatedBy', 'name email');
+    // Wrap the read + view-increment in a transaction so a concurrent
+    // reader can't see a half-updated view count. Not strictly required
+    // for correctness but keeps behaviour clean under load.
+    const notice = await sequelize.transaction(async (t) => {
+      const n = await Notice.findByPk(req.params.id, {
+        include: AUTHOR_INCLUDE,
+        transaction: t,
+      });
+      if (!n) return null;
+      n.views = (n.views || 0) + 1;
+      await n.save({ transaction: t });
+      return n;
+    });
 
-    if (!notice) {
-      return res.status(404).json({ message: 'Notice not found' });
-    }
-
-    // Increment views
-    notice.views += 1;
-    await notice.save();
-
+    if (!notice) return res.status(404).json({ message: "Notice not found" });
     res.json(notice);
   } catch (error) {
-    console.error('Get notice by ID error:', error);
+    console.error("Get notice by ID error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Create notice
 exports.createNotice = async (req, res) => {
   try {
     const {
-      title,
-      content,
-      category,
-      audience,
-      startDate,
-      startTime,
-      endDate,
-      endTime,
-      visible,
-      sendNotification,
+      title, content, category, audience,
+      startDate, startTime, endDate, endTime,
+      visible, sendNotification,
     } = req.body;
 
     if (!title || !content || !category || !audience || !startDate) {
       return res.status(400).json({
-        message: 'Missing required fields: title, content, category, audience, startDate',
+        message: "Missing required fields: title, content, category, audience, startDate",
       });
     }
 
+    // The Notice model's beforeSave hook derives `status` from
+    // visibility + start/end windows — no need to compute it here.
     const notice = await Notice.create({
       title,
       content,
       category,
       audience,
       startDate: new Date(startDate),
-      startTime: startTime || '00:00',
+      startTime: startTime || "00:00",
       endDate: endDate ? new Date(endDate) : null,
-      endTime: endTime || '23:59',
+      endTime: endTime || "23:59",
       visible: visible !== false,
       sendNotification: sendNotification || false,
       createdBy: req.user?.id,
       updatedBy: req.user?.id,
+      attachments: [],
     });
 
-    res.status(201).json({
-      message: 'Notice created successfully',
-      notice,
-    });
+    res.status(201).json({ message: "Notice created successfully", notice });
   } catch (error) {
-    console.error('Create notice error:', error);
+    console.error("Create notice error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Update notice
 exports.updateNotice = async (req, res) => {
   try {
     const {
-      title,
-      content,
-      category,
-      audience,
-      startDate,
-      startTime,
-      endDate,
-      endTime,
-      visible,
-      sendNotification,
+      title, content, category, audience,
+      startDate, startTime, endDate, endTime,
+      visible, sendNotification,
     } = req.body;
 
-    const notice = await Notice.findById(req.params.id);
-
-    if (!notice) {
-      return res.status(404).json({ message: 'Notice not found' });
-    }
+    const notice = await Notice.findByPk(req.params.id);
+    if (!notice) return res.status(404).json({ message: "Notice not found" });
 
     if (title !== undefined) notice.title = title;
     if (content !== undefined) notice.content = content;
@@ -144,210 +173,188 @@ exports.updateNotice = async (req, res) => {
 
     notice.updatedBy = req.user?.id;
 
-    const updatedNotice = await notice.save();
+    await notice.save();
 
-    res.json({
-      message: 'Notice updated successfully',
-      notice: updatedNotice,
-    });
+    res.json({ message: "Notice updated successfully", notice });
   } catch (error) {
-    console.error('Update notice error:', error);
+    console.error("Update notice error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Delete notice
 exports.deleteNotice = async (req, res) => {
   try {
-    const notice = await Notice.findByIdAndDelete(req.params.id);
+    const notice = await Notice.findByPk(req.params.id);
+    if (!notice) return res.status(404).json({ message: "Notice not found" });
 
-    if (!notice) {
-      return res.status(404).json({ message: 'Notice not found' });
+    // Attachment cleanup BEFORE destroying the row — if the disk cleanup
+    // fails we still want the row to disappear (best-effort semantics),
+    // but reading attachments off a destroyed instance would be racy.
+    if (Array.isArray(notice.attachments)) {
+      notice.attachments.forEach((a) => safeUnlink(attachmentDiskPath(a)));
     }
 
-    // Delete attached files
-    if (notice.attachments && notice.attachments.length > 0) {
-      notice.attachments.forEach(attachment => {
-        const filePath = path.join(__dirname, '../public', attachment.fileUrl);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
-      });
-    }
-
-    res.json({ message: 'Notice deleted successfully' });
+    await notice.destroy();
+    res.json({ message: "Notice deleted successfully" });
   } catch (error) {
-    console.error('Delete notice error:', error);
+    console.error("Delete notice error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Bulk delete
 exports.bulkDeleteNotices = async (req, res) => {
   try {
     const { ids } = req.body;
-
-    if (!ids || !Array.isArray(ids)) {
-      return res.status(400).json({ message: 'Invalid IDs provided' });
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: "Invalid IDs provided" });
     }
 
-    const notices = await Notice.find({ _id: { $in: ids } });
+    const notices = await Notice.findAll({ where: { id: { [Op.in]: ids } } });
 
-    // Delete attached files
-    notices.forEach(notice => {
-      if (notice.attachments && notice.attachments.length > 0) {
-        notice.attachments.forEach(attachment => {
-          const filePath = path.join(__dirname, '../public', attachment.fileUrl);
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-          }
-        });
+    // File cleanup first, then a single DELETE — matches Mongoose's
+    // find-then-deleteMany flow.
+    notices.forEach((notice) => {
+      if (Array.isArray(notice.attachments)) {
+        notice.attachments.forEach((a) => safeUnlink(attachmentDiskPath(a)));
       }
     });
 
-    await Notice.deleteMany({ _id: { $in: ids } });
+    const deleted = await Notice.destroy({ where: { id: { [Op.in]: ids } } });
 
-    res.json({ message: `${ids.length} notice(s) deleted successfully` });
+    res.json({ message: `${deleted} notice(s) deleted successfully` });
   } catch (error) {
-    console.error('Bulk delete notices error:', error);
+    console.error("Bulk delete notices error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Toggle visibility
 exports.toggleVisibility = async (req, res) => {
   try {
-    const notice = await Notice.findById(req.params.id);
-
-    if (!notice) {
-      return res.status(404).json({ message: 'Notice not found' });
-    }
+    const notice = await Notice.findByPk(req.params.id);
+    if (!notice) return res.status(404).json({ message: "Notice not found" });
 
     notice.visible = !notice.visible;
-    await notice.save();
+    await notice.save(); // beforeSave hook recomputes status
 
     res.json({
-      message: `Notice is now ${notice.visible ? 'visible' : 'hidden'}`,
+      message: `Notice is now ${notice.visible ? "visible" : "hidden"}`,
       notice,
     });
   } catch (error) {
-    console.error('Toggle visibility error:', error);
+    console.error("Toggle visibility error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Upload attachment
 exports.uploadAttachment = async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
-    }
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
-    const notice = await Notice.findById(req.params.id);
+    const notice = await Notice.findByPk(req.params.id);
+    if (!notice) return res.status(404).json({ message: "Notice not found" });
 
-    if (!notice) {
-      return res.status(404).json({ message: 'Notice not found' });
-    }
-
-    notice.attachments.push({
+    const newAttachment = {
       fileName: req.file.originalname,
       fileUrl: `/uploads/notices/${req.file.filename}`,
-    });
+      uploadedAt: new Date().toISOString(),
+    };
 
+    // JSON columns require reassignment (not in-place mutation) for
+    // Sequelize's change tracker to see the update. Same pattern as
+    // Bid.addActivityLog / Report.addComment.
+    notice.attachments = [...(notice.attachments || []), newAttachment];
     await notice.save();
 
-    res.json({
-      message: 'Attachment uploaded successfully',
-      notice,
-    });
+    res.json({ message: "Attachment uploaded successfully", notice });
   } catch (error) {
-    console.error('Upload attachment error:', error);
+    console.error("Upload attachment error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Delete attachment
 exports.deleteAttachment = async (req, res) => {
   try {
     const { attachmentIndex } = req.body;
-    const notice = await Notice.findById(req.params.id);
+    const notice = await Notice.findByPk(req.params.id);
+    if (!notice) return res.status(404).json({ message: "Notice not found" });
 
-    if (!notice) {
-      return res.status(404).json({ message: 'Notice not found' });
+    const attachments = notice.attachments || [];
+    if (attachmentIndex < 0 || attachmentIndex >= attachments.length) {
+      return res.status(400).json({ message: "Invalid attachment index" });
     }
 
-    if (attachmentIndex < 0 || attachmentIndex >= notice.attachments.length) {
-      return res.status(400).json({ message: 'Invalid attachment index' });
-    }
+    safeUnlink(attachmentDiskPath(attachments[attachmentIndex]));
 
-    const attachment = notice.attachments[attachmentIndex];
-    const filePath = path.join(__dirname, '../public', attachment.fileUrl);
-
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-
-    notice.attachments.splice(attachmentIndex, 1);
+    // Rebuild the array so Sequelize picks up the JSON change.
+    notice.attachments = attachments.filter((_, i) => i !== attachmentIndex);
     await notice.save();
 
-    res.json({ message: 'Attachment deleted successfully', notice });
+    res.json({ message: "Attachment deleted successfully", notice });
   } catch (error) {
-    console.error('Delete attachment error:', error);
+    console.error("Delete attachment error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Duplicate notice
 exports.duplicateNotice = async (req, res) => {
   try {
-    const originalNotice = await Notice.findById(req.params.id);
-
-    if (!originalNotice) {
-      return res.status(404).json({ message: 'Notice not found' });
-    }
+    const original = await Notice.findByPk(req.params.id);
+    if (!original) return res.status(404).json({ message: "Notice not found" });
 
     const newNotice = await Notice.create({
-      title: `${originalNotice.title} (Copy)`,
-      content: originalNotice.content,
-      category: originalNotice.category,
-      audience: originalNotice.audience,
+      title: `${original.title} (Copy)`,
+      content: original.content,
+      category: original.category,
+      audience: original.audience,
       startDate: new Date(),
-      startTime: originalNotice.startTime,
+      startTime: original.startTime,
       endDate: null,
-      endTime: originalNotice.endTime,
+      endTime: original.endTime,
       visible: false,
       sendNotification: false,
       createdBy: req.user?.id,
+      updatedBy: req.user?.id,
+      attachments: [], // never carry attachments through a duplicate — matches Mongoose behaviour
     });
 
-    res.status(201).json({
-      message: 'Notice duplicated successfully',
-      notice: newNotice,
-    });
+    res.status(201).json({ message: "Notice duplicated successfully", notice: newNotice });
   } catch (error) {
-    console.error('Duplicate notice error:', error);
+    console.error("Duplicate notice error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Get notice statistics
 exports.getNoticeStats = async (req, res) => {
   try {
-    const total = await Notice.countDocuments();
-    const active = await Notice.countDocuments({ status: 'active' });
-    const scheduled = await Notice.countDocuments({ status: 'scheduled' });
-    const expired = await Notice.countDocuments({ status: 'expired' });
-    const hidden = await Notice.countDocuments({ status: 'hidden' });
+    // Five COUNT queries in Mongoose; in Sequelize we can pull it all in
+    // a single grouped aggregate for four sub-queries + one total, which
+    // is cheaper on MySQL as well as more legible.
+    const [total, byStatus] = await Promise.all([
+      Notice.count(),
+      Notice.findAll({
+        attributes: [
+          "status",
+          [sequelize.fn("COUNT", sequelize.col("id")), "count"],
+        ],
+        group: ["status"],
+        raw: true,
+      }),
+    ]);
+
+    const statMap = byStatus.reduce((acc, row) => {
+      acc[row.status] = Number(row.count);
+      return acc;
+    }, {});
 
     res.json({
       total,
-      active,
-      scheduled,
-      expired,
-      hidden,
-    }); 
+      active: statMap.active || 0,
+      scheduled: statMap.scheduled || 0,
+      expired: statMap.expired || 0,
+      hidden: statMap.hidden || 0,
+    });
   } catch (error) {
-    console.error('Get notice stats error:', error);
+    console.error("Get notice stats error:", error);
     res.status(500).json({ message: error.message });
   }
 };

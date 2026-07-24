@@ -1,6 +1,8 @@
-const FraudReport = require('../models/fraudModel');
+"use strict";
 
-// Submit a new fraud report
+const { FraudReport } = require("../sequelize/models");
+
+// Submit a new fraud report — public endpoint (no auth required).
 exports.submitFraudReport = async (req, res) => {
   try {
     const { issue, dateOfIncident, location, details } = req.body;
@@ -25,22 +27,26 @@ exports.submitFraudReport = async (req, res) => {
   }
 };
 
-// Admin — Get all fraud reports
+// Admin — list all fraud reports.
 exports.getAllFraudReports = async (req, res) => {
   try {
     const { status } = req.query;
-    const filter = status ? { status } : {};
-    const reports = await FraudReport.find(filter).sort({ createdAt: -1 });
+    const where = status ? { status } : {};
+
+    const reports = await FraudReport.findAll({
+      where,
+      order: [["createdAt", "DESC"]],
+    });
     res.json(reports);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// Admin — Get single report by ID
+// Admin — single report by id.
 exports.getFraudReportById = async (req, res) => {
   try {
-    const report = await FraudReport.findById(req.params.id);
+    const report = await FraudReport.findByPk(req.params.id);
     if (!report) return res.status(404).json({ message: "Fraud report not found" });
     res.json(report);
   } catch (error) {
@@ -48,20 +54,21 @@ exports.getFraudReportById = async (req, res) => {
   }
 };
 
-// Admin — Update status or investigation notes
+// Admin — update status or investigation notes.
 exports.updateFraudStatus = async (req, res) => {
   try {
     const { status, investigationNotes } = req.body;
-    const report = await FraudReport.findById(req.params.id);
-
+    const report = await FraudReport.findByPk(req.params.id);
     if (!report) return res.status(404).json({ message: "Fraud report not found" });
 
     if (status) report.status = status;
     if (investigationNotes) report.investigationNotes = investigationNotes;
 
-    // Optional — record admin reviewer
+    // Record reviewer identity. req.user is a Sequelize instance now, so
+    // it always exposes `.id` (not `._id`) — dropped the Mongoose-side
+    // fallback branch.
     if (req.user) {
-      if (req.user._id) report.reviewedBy = req.user._id;
+      if (req.user.id) report.reviewedBy = req.user.id;
       if (req.user.name) report.reviewedByName = req.user.name;
     }
 
@@ -74,11 +81,12 @@ exports.updateFraudStatus = async (req, res) => {
   }
 };
 
-// Admin — Delete a report
 exports.deleteFraudReport = async (req, res) => {
   try {
-    const deleted = await FraudReport.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ message: "Fraud report not found" });
+    const report = await FraudReport.findByPk(req.params.id);
+    if (!report) return res.status(404).json({ message: "Fraud report not found" });
+
+    await report.destroy();
     res.json({ message: "Fraud report deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });

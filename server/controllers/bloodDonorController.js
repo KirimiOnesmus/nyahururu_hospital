@@ -1,27 +1,18 @@
-const BloodDonor = require("../models/BloodDonor");
+"use strict";
+
+const { Op } = require("sequelize");
+const { BloodDonor, sequelize } = require("../sequelize/models");
 const emailService = require("../utils/emailServices");
 
+// Register donor (public)
 exports.registerDonor = async (req, res) => {
   try {
     const {
-      fullName,
-      email,
-      phone,
-      gender,
-      age,
-      weight,
-      nationalId,
-      bloodGroup,
-      healthConditions,
-      medications,
-      donationDate,
-      donationTime,
-      consentDonate,
-      consentTest,
-      consentTerms,
+      fullName, email, phone, gender, age, weight, nationalId,
+      bloodGroup, healthConditions, medications, donationDate,
+      donationTime, consentDonate, consentTest, consentTerms,
     } = req.body;
 
-    // Validate all consents
     if (!consentDonate || !consentTest || !consentTerms) {
       return res.status(400).json({
         success: false,
@@ -29,8 +20,13 @@ exports.registerDonor = async (req, res) => {
       });
     }
 
+    // Duplicate check against email OR nationalId. Explicit "which one
+    // matched" branch preserves the specific 400 message the frontend
+    // relies on to know which field to highlight.
     const existingDonor = await BloodDonor.findOne({
-      $or: [{ email }, { nationalId }],
+      where: {
+        [Op.or]: [{ email }, { nationalId }],
+      },
     });
 
     if (existingDonor) {
@@ -43,14 +39,17 @@ exports.registerDonor = async (req, res) => {
       });
     }
 
-
-    const donor = new BloodDonor({
+    // Use the model's static helper — retries donorId generation up to
+    // 5× on the astronomically-rare collision with an existing donor
+    // ID. The beforeCreate hook that assigns the ID is idempotent, so
+    // the retry is safe.
+    const donor = await BloodDonor.createWithUniqueId({
       fullName,
       email,
       phone,
       gender,
-      age: parseInt(age),
-      weight: parseInt(weight),
+      age: parseInt(age, 10),
+      weight: parseInt(weight, 10),
       nationalId,
       bloodGroup: bloodGroup || "",
       healthConditions,
@@ -59,24 +58,22 @@ exports.registerDonor = async (req, res) => {
       donationTime,
       consentDonate,
       consentTest,
-      consentTerms
+      consentTerms,
     });
-
-    await donor.save();
 
     try {
       await emailService.sendDonorRegistrationEmail({
-        fullName: donor.fullName,
-        email: donor.email,
-        donorId: donor.donorId,
-        bloodGroup: donor.bloodGroup,
-        donationDate: donor.donationDate,
-        donationTime: donor.donationTime,
-        phone: donor.phone
+        fullName:      donor.fullName,
+        email:         donor.email,
+        donorId:       donor.donorId,
+        bloodGroup:    donor.bloodGroup,
+        donationDate:  donor.donationDate,
+        donationTime:  donor.donationTime,
+        phone:         donor.phone,
       });
-      console.log('Registration confirmation email sent successfully');
+      console.log("Registration confirmation email sent successfully");
     } catch (emailError) {
-      console.error('Failed to send registration email:', emailError);
+      console.error("Failed to send registration email:", emailError);
     }
 
     res.status(201).json({
@@ -97,94 +94,77 @@ exports.registerDonor = async (req, res) => {
   }
 };
 
-// Get Donor by ID
 exports.getDonor = async (req, res) => {
   try {
     const { donorId } = req.params;
-
-    const donor = await BloodDonor.findOne({ donorId });
-
+    const donor = await BloodDonor.findOne({ where: { donorId } });
     if (!donor) {
-      return res.status(404).json({
-        success: false,
-        message: "Donor not found",
-      });
+      return res.status(404).json({ success: false, message: "Donor not found" });
     }
-
-    res.status(200).json({
-      success: true,
-      data: donor,
-    });
+    res.status(200).json({ success: true, data: donor });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Get all donors (with pagination and filters)
 exports.getAllDonors = async (req, res) => {
   try {
     const { page = 1, limit = 10, status, bloodGroup, gender } = req.query;
 
-    // Build filter object
-    const filter = {};
-    if (status) filter.status = status;
-    if (bloodGroup) filter.bloodGroup = bloodGroup;
-    if (gender) filter.gender = gender;
+    const where = {};
+    if (status)     where.status = status;
+    if (bloodGroup) where.bloodGroup = bloodGroup;
+    if (gender)     where.gender = gender;
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 10));
+    const offset = (pageNum - 1) * limitNum;
 
-    const donors = await BloodDonor.find(filter)
-      .skip(skip)
-      .limit(parseInt(limit))
-      .sort({ createdAt: -1 });
-
-    const total = await BloodDonor.countDocuments(filter);
+    const { rows: donors, count: total } = await BloodDonor.findAndCountAll({
+      where,
+      offset,
+      limit: limitNum,
+      order: [["createdAt", "DESC"]],
+    });
 
     res.status(200).json({
       success: true,
       data: donors,
       pagination: {
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(total / parseInt(limit)),
+        page: pageNum,
+        limit: limitNum,
+        pages: Math.ceil(total / limitNum),
       },
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Update Donor
 exports.updateDonor = async (req, res) => {
   try {
     const { donorId } = req.params;
-    const updates = req.body;
+    const updates = { ...req.body };
 
-    // Prevent updating sensitive fields
+    // Immutable-post-registration fields — dropping before applying keeps
+    // consent audit fields and IDs stable even if the frontend
+    // accidentally sends them.
     delete updates.donorId;
     delete updates.createdAt;
     delete updates.nationalId;
     delete updates.email;
+    delete updates.id; // never allow PK overwrite
 
-    const donor = await BloodDonor.findOneAndUpdate(
-      { donorId },
-      { ...updates, updatedAt: new Date() },
-      { new: true, runValidators: true }
-    );
-
+    const donor = await BloodDonor.findOne({ where: { donorId } });
     if (!donor) {
-      return res.status(404).json({
-        success: false,
-        message: "Donor not found",
-      });
+      return res.status(404).json({ success: false, message: "Donor not found" });
     }
+
+    // .set + .save so model validators + hooks fire like Mongoose's
+    // `runValidators: true`.
+    donor.set(updates);
+    await donor.save();
 
     res.status(200).json({
       success: true,
@@ -192,35 +172,24 @@ exports.updateDonor = async (req, res) => {
       data: donor,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Update Donor Status
 exports.updateDonorStatus = async (req, res) => {
   try {
     const { donorId } = req.params;
     const { status, registrationStatus } = req.body;
 
-    const updateData = {};
-    if (status) updateData.status = status;
-    if (registrationStatus) updateData.registrationStatus = registrationStatus;
-
-    const donor = await BloodDonor.findOneAndUpdate(
-      { donorId },
-      { ...updateData, updatedAt: new Date() },
-      { new: true }
-    );
-
+    const donor = await BloodDonor.findOne({ where: { donorId } });
     if (!donor) {
-      return res.status(404).json({
-        success: false,
-        message: "Donor not found",
-      });
+      return res.status(404).json({ success: false, message: "Donor not found" });
     }
+
+    if (status)             donor.status = status;
+    if (registrationStatus) donor.registrationStatus = registrationStatus;
+
+    await donor.save();
 
     res.status(200).json({
       success: true,
@@ -228,48 +197,32 @@ exports.updateDonorStatus = async (req, res) => {
       data: donor,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Delete Donor
 exports.deleteDonor = async (req, res) => {
   try {
     const { donorId } = req.params;
-
-    const donor = await BloodDonor.findOneAndDelete({ donorId });
-
+    const donor = await BloodDonor.findOne({ where: { donorId } });
     if (!donor) {
-      return res.status(404).json({
-        success: false,
-        message: "Donor not found",
-      });
+      return res.status(404).json({ success: false, message: "Donor not found" });
     }
-
-    res.status(200).json({
-      success: true,
-      message: "Donor deleted successfully",
-    });
+    await donor.destroy();
+    res.status(200).json({ success: true, message: "Donor deleted successfully" });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Get donors by blood group (for inventory management)
 exports.getDonorsByBloodGroup = async (req, res) => {
   try {
     const { bloodGroup } = req.params;
 
-    const donors = await BloodDonor.find({
-      bloodGroup,
-      status: "completed",
-    }).sort({ createdAt: -1 });
+    const donors = await BloodDonor.findAll({
+      where: { bloodGroup, status: "completed" },
+      order: [["createdAt", "DESC"]],
+    });
 
     res.status(200).json({
       success: true,
@@ -277,24 +230,25 @@ exports.getDonorsByBloodGroup = async (req, res) => {
       count: donors.length,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Get upcoming donations
 exports.getUpcomingDonations = async (req, res) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const donations = await BloodDonor.find({
-      donationDate: { $gte: today },
-      status: { $in: ["registered", "confirmed"] },
-    })
-      .sort({ donationDate: 1, donationTime: 1 });
+    const donations = await BloodDonor.findAll({
+      where: {
+        donationDate: { [Op.gte]: today },
+        status: { [Op.in]: ["registered", "confirmed"] },
+      },
+      order: [
+        ["donationDate", "ASC"],
+        ["donationTime", "ASC"],
+      ],
+    });
 
     res.status(200).json({
       success: true,
@@ -302,92 +256,59 @@ exports.getUpcomingDonations = async (req, res) => {
       count: donations.length,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Get donation statistics
 exports.getDonationStats = async (req, res) => {
   try {
-    const stats = await BloodDonor.aggregate([
-      {
-        $group: {
-          _id: "$bloodGroup",
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { count: -1 } },
+    // Mongo's `aggregate + $group + $sort` becomes Sequelize's
+    // findAll + attributes + group + order. The response shape from the
+    // Mongoose version used `_id` as the grouped-key column; keeping
+    // that mapping so the frontend contract doesn't change.
+    const [byBloodGroup, byStatus, byGender, totalDonors] = await Promise.all([
+      BloodDonor.findAll({
+        attributes: [
+          "bloodGroup",
+          [sequelize.fn("COUNT", sequelize.col("id")), "count"],
+        ],
+        group: ["bloodGroup"],
+        order: [[sequelize.fn("COUNT", sequelize.col("id")), "DESC"]],
+        raw: true,
+      }),
+      BloodDonor.findAll({
+        attributes: [
+          "status",
+          [sequelize.fn("COUNT", sequelize.col("id")), "count"],
+        ],
+        group: ["status"],
+        raw: true,
+      }),
+      BloodDonor.findAll({
+        attributes: [
+          "gender",
+          [sequelize.fn("COUNT", sequelize.col("id")), "count"],
+        ],
+        group: ["gender"],
+        raw: true,
+      }),
+      BloodDonor.count(),
     ]);
 
-    const statusStats = await BloodDonor.aggregate([
-      {
-        $group: {
-          _id: "$status",
-          count: { $sum: 1 },
-        },
-      },
-    ]);
-
-    const genderStats = await BloodDonor.aggregate([
-      {
-        $group: {
-          _id: "$gender",
-          count: { $sum: 1 },
-        },
-      },
-    ]);
+    // Reshape to preserve the { _id, count } contract from Mongoose.
+    const mapRows = (rows, groupField) =>
+      rows.map((r) => ({ _id: r[groupField], count: Number(r.count) }));
 
     res.status(200).json({
       success: true,
       data: {
-        bloodGroupStats: stats,
-        statusStats,
-        genderStats,
-        totalDonors: await BloodDonor.countDocuments(),
+        bloodGroupStats: mapRows(byBloodGroup, "bloodGroup"),
+        statusStats:     mapRows(byStatus, "status"),
+        genderStats:     mapRows(byGender, "gender"),
+        totalDonors,
       },
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
-
-// Helper function to send confirmation email
-// async function sendConfirmationEmail(donor) {
-//   try {
-//     const mailOptions = {
-//       from: process.env.EMAIL_FROM,
-//       to: donor.email,
-//       subject: "Blood Donation Registration Confirmation",
-//       html: `
-//         <h2>Welcome, ${donor.fullName}!</h2>
-//         <p>Your blood donation registration has been received successfully.</p>
-        
-//         <h3>Registration Details:</h3>
-//         <ul>
-//           <li><strong>Donor ID:</strong> ${donor.donorId}</li>
-//           <li><strong>Blood Group:</strong> ${donor.bloodGroup || "Not specified"}</li>
-//           <li><strong>Scheduled Date:</strong> ${new Date(donor.donationDate).toLocaleDateString()}</li>
-//           <li><strong>Scheduled Time:</strong> ${donor.donationTime}</li>
-//         </ul>
-        
-//         <p>Our team will contact you soon to confirm your appointment.</p>
-//         <p>Thank you for saving lives!</p>
-        
-//         <hr>
-//         <p style="font-size: 12px; color: #666;">
-//           For any inquiries, please contact us at support@blooddonation.org
-//         </p>
-//       `,
-//     };
-
-//     await transporter.sendMail(mailOptions);
-//   } catch (error) {
-//     console.error("Error sending email:", error);
-//   }
-// }

@@ -22,17 +22,17 @@ exports.login = asyncHandler(async (req, res) => {
 });
 
 exports.getMe = asyncHandler(async (req, res) => {
-  const researcher = await authService.getMe(req.researcher._id);
+  const researcher = await authService.getMe(req.researcher.id);
   sendSuccess(res, 200, "Profile fetched successfully.", { researcher });
 });
 
 exports.updateProfile = asyncHandler(async (req, res) => {
-  const researcher = await authService.updateProfile(req.researcher._id, req.body);
+  const researcher = await authService.updateProfile(req.researcher.id, req.body);
   sendSuccess(res, 200, "Profile updated successfully.", { researcher });
 });
 
 exports.changePassword = asyncHandler(async (req, res) => {
-  await authService.changePassword(req.researcher._id, req.body);
+  await authService.changePassword(req.researcher.id, req.body);
   sendSuccess(res, 200, "Password changed successfully.");
 });
 

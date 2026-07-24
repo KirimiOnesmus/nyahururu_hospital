@@ -1,5 +1,8 @@
+"use strict";
+
 const crypto = require("crypto");
-const Researcher = require("../models/ResearcherModel");
+const { Op } = require("sequelize");
+const { Researcher } = require("../sequelize/models");
 const emailService = require("../utils/emailServices");
 const { AppError } = require("../utils/appError");
 const {
@@ -10,8 +13,7 @@ const {
 } = require("../constants/researchIndex");
 const { signToken } = require("./researcherService");
 
-//  INVITE REVIEWER 
-
+// ── INVITE REVIEWER ───────────────────────────────────────────────────
 const inviteReviewer = async (data, caller) => {
   const { firstName, lastName, email, institution, discipline, specialisations } = data;
   const callerName = caller?.name || "Administration";
@@ -20,9 +22,7 @@ const inviteReviewer = async (data, caller) => {
 
   if (existing) {
     if (
-      [RESEARCHER_ROLES.REVIEWER, RESEARCHER_ROLES.RESEARCH_COMMITTEE].includes(
-        existing.role,
-      )
+      [RESEARCHER_ROLES.REVIEWER, RESEARCHER_ROLES.RESEARCH_COMMITTEE].includes(existing.role)
     ) {
       throw new AppError(
         `${existing.name} already has the role: ${existing.role}.`,
@@ -31,7 +31,7 @@ const inviteReviewer = async (data, caller) => {
     }
 
     existing.role = RESEARCHER_ROLES.REVIEWER;
-    existing.specialisations = specialisations || existing.specialisations;
+    if (specialisations) existing.specialisations = specialisations;
     if (caller?.id) existing.invitedByAdminId = caller.id;
     existing.invitedByAdminName = callerName;
     existing.invitedAt = new Date();
@@ -46,7 +46,11 @@ const inviteReviewer = async (data, caller) => {
     return { action: "promoted", reviewer: existing };
   }
 
-  const reviewer = new Researcher({
+  // Brand-new reviewer invite. Password is a randomly-generated
+  // placeholder that will be replaced when they accept the invite via
+  // /set-password. It's still hashed by the beforeSave hook so a stolen
+  // DB dump doesn't reveal the placeholder.
+  const reviewer = Researcher.build({
     firstName,
     lastName,
     email: email.toLowerCase(),
@@ -81,15 +85,22 @@ const inviteReviewer = async (data, caller) => {
   };
 };
 
+// ── SET PASSWORD (invite acceptance) ──────────────────────────────────
 const setPassword = async ({ token, email, password }) => {
   const hashed = crypto.createHash("sha256").update(token).digest("hex");
 
-  const account = await Researcher.findOne({
-    email: email.toLowerCase(),
-    emailVerificationToken: hashed,
-    emailVerificationExpire: { $gt: new Date() },
-    role: { $in: [RESEARCHER_ROLES.REVIEWER, RESEARCHER_ROLES.RESEARCH_COMMITTEE] },
-  }).select("+emailVerificationToken +emailVerificationExpire +password");
+  // withSecrets pulls the emailVerificationToken/expire columns needed
+  // for the WHERE — they're excluded by defaultScope.
+  const account = await Researcher.scope("withSecrets").findOne({
+    where: {
+      email: email.toLowerCase(),
+      emailVerificationToken: hashed,
+      emailVerificationExpire: { [Op.gt]: new Date() },
+      role: {
+        [Op.in]: [RESEARCHER_ROLES.REVIEWER, RESEARCHER_ROLES.RESEARCH_COMMITTEE],
+      },
+    },
+  });
 
   if (!account) {
     throw new AppError(
@@ -103,25 +114,23 @@ const setPassword = async ({ token, email, password }) => {
   account.status = RESEARCHER_STATUSES.ACTIVE;
   account.emailVerificationToken = null;
   account.emailVerificationExpire = null;
-  account.invitationAcceptedAt = new Date(); 
+  account.invitationAcceptedAt = new Date();
   await account.save();
 
-  const jwtToken = signToken(account._id, account.role);
-  return { token: jwtToken, reviewer: account };
+  const jwtToken = signToken(account.id, account.role);
+  return { token: jwtToken, reviewer: account.toSafeJSON() };
 };
 
-//  RESEND INVITE (reviewer or committee) 
+// ── RESEND INVITE ─────────────────────────────────────────────────────
 const resendInvite = async (reviewerId, caller) => {
-  const account = await Researcher.findById(reviewerId);
+  const account = await Researcher.findByPk(reviewerId);
   if (!account) throw new AppError("Account not found.", 404);
 
   if (account.emailVerified) {
     throw new AppError("This person has already accepted the invitation.", 400);
   }
   if (
-    ![RESEARCHER_ROLES.REVIEWER, RESEARCHER_ROLES.RESEARCH_COMMITTEE].includes(
-      account.role,
-    )
+    ![RESEARCHER_ROLES.REVIEWER, RESEARCHER_ROLES.RESEARCH_COMMITTEE].includes(account.role)
   ) {
     throw new AppError(`${account.name} does not have a pending invite.`, 400);
   }
@@ -153,10 +162,9 @@ const resendInvite = async (reviewerId, caller) => {
   };
 };
 
-//  REVOKE REVIEWER
-
+// ── REVOKE REVIEWER ───────────────────────────────────────────────────
 const revokeReviewer = async (reviewerId, caller) => {
-  const reviewer = await Researcher.findById(reviewerId);
+  const reviewer = await Researcher.findByPk(reviewerId);
   if (!reviewer) throw new AppError("Reviewer not found.", 404);
 
   if (reviewer.role !== RESEARCHER_ROLES.REVIEWER) {
@@ -182,11 +190,10 @@ const revokeReviewer = async (reviewerId, caller) => {
   return reviewer;
 };
 
-// ── RESEARCH COMMITTEE: INVITE / PROMOTE ──────────────────────────────────────
-//    existing REVIEWER  -> promoted in place (role stays REVIEWER, isCommittee=true)
-//   existing RESEARCHER -> granted direct committee-only access (role -> RESEARCH_COMMITTEE)
-//   no existing account -> brand-new committee-only invite
-
+// ── RESEARCH COMMITTEE: INVITE / PROMOTE ──────────────────────────────
+//   existing REVIEWER    -> promoted in place (role stays, isCommittee=true)
+//   existing RESEARCHER  -> granted direct committee access (role -> RESEARCH_COMMITTEE)
+//   no existing account  -> brand-new committee-only invite
 const inviteCommitteeMember = async (data, caller) => {
   const { firstName, lastName, email, institution, discipline, specialisations } = data;
   const callerName = caller?.name || "Administration";
@@ -236,7 +243,7 @@ const inviteCommitteeMember = async (data, caller) => {
     }
   }
 
-    if (!firstName || !lastName) {
+  if (!firstName || !lastName) {
     throw new AppError(
       "First name and last name are required to invite a new committee member.",
       422,
@@ -244,7 +251,7 @@ const inviteCommitteeMember = async (data, caller) => {
   }
 
   // Brand-new committee-only account
-  const member = new Researcher({
+  const member = Researcher.build({
     firstName,
     lastName,
     email: email.toLowerCase(),
@@ -281,26 +288,28 @@ const inviteCommitteeMember = async (data, caller) => {
   };
 };
 
-//  RESEARCH COMMITTEE: REVOKE ACCESS (downgrade to regular researcher, or remove committee access if promoted from reviewer)
-
+// ── RESEARCH COMMITTEE: REVOKE ACCESS ─────────────────────────────────
 const revokeCommitteeAccess = async (researcherId, caller) => {
-  const researcher = await Researcher.findById(researcherId);
+  const researcher = await Researcher.findByPk(researcherId);
   if (!researcher) throw new AppError("Researcher not found.", 404);
 
   const isCommitteeMember =
     researcher.role === RESEARCHER_ROLES.RESEARCH_COMMITTEE || researcher.isCommittee;
 
   if (!isCommitteeMember) {
-    throw new AppError(`${researcher.name} does not have Research Committee access.`, 400);
+    throw new AppError(
+      `${researcher.name} does not have Research Committee access.`,
+      400,
+    );
   }
 
   if (researcher.promotedFromReviewer) {
-    
+    // Was a reviewer promoted to committee — revert to plain reviewer.
     researcher.isCommittee = false;
     researcher.committeeSince = null;
     researcher.promotedFromReviewer = false;
   } else {
-   
+    // Direct committee grant — revert to researcher role entirely.
     researcher.role = RESEARCHER_ROLES.RESEARCHER;
     researcher.isCommittee = false;
     researcher.committeeSince = null;
@@ -317,20 +326,32 @@ const revokeCommitteeAccess = async (researcherId, caller) => {
   return researcher;
 };
 
-// LIST REVIEWERS + COMMITTEE 
+// ── LIST REVIEWERS + COMMITTEE ────────────────────────────────────────
+const REVIEWER_LIST_ATTRIBUTES = [
+  "id", "name", "email", "role", "institution", "discipline", "specialisations",
+  "emailVerified", "status", "isCommittee", "committeeSince",
+  "promotedFromReviewer", "createdAt", "invitedAt",
+];
+
 const listReviewers = async () => {
-  const reviewers = await Researcher.find({
-    role: { $in: [RESEARCHER_ROLES.REVIEWER, RESEARCHER_ROLES.RESEARCH_COMMITTEE] },
-  })
-    .select(
-      "name email role institution discipline specialisations emailVerified status isCommittee committeeSince promotedFromReviewer createdAt invitedAt",
-    )
-    .sort({ createdAt: -1 });
+  const reviewers = await Researcher.findAll({
+    where: {
+      role: {
+        [Op.in]: [RESEARCHER_ROLES.REVIEWER, RESEARCHER_ROLES.RESEARCH_COMMITTEE],
+      },
+    },
+    attributes: REVIEWER_LIST_ATTRIBUTES,
+    order: [["createdAt", "DESC"]],
+  });
 
   return { count: reviewers.length, reviewers };
 };
 
-//LIST ALL RESEARCHERS (paginated)
+// ── LIST ALL RESEARCHERS (paginated) ──────────────────────────────────
+const RESEARCHER_LIST_ATTRIBUTES = [
+  "id", "name", "email", "role", "institution", "discipline",
+  "emailVerified", "status", "isCommittee", "createdAt", "invitedAt",
+];
 
 const listAllResearchers = async ({ role, page, limit }) => {
   const safePage = Math.max(1, page || PAGINATION.DEFAULT_PAGE);
@@ -339,19 +360,18 @@ const listAllResearchers = async ({ role, page, limit }) => {
     PAGINATION.MAX_LIMIT,
   );
 
-  const filter = {};
-  if (role) filter.role = role;
+  const where = {};
+  if (role) where.role = role;
 
-  const [researchers, total] = await Promise.all([
-    Researcher.find(filter)
-      .select(
-        "name email role institution discipline emailVerified status isCommittee createdAt invitedAt",
-      )
-      .sort({ createdAt: -1 })
-      .skip((safePage - 1) * safeLimit)
-      .limit(safeLimit),
-    Researcher.countDocuments(filter),
-  ]);
+  // findAndCountAll returns both rows and total in one round trip
+  // rather than the Mongoose Promise.all-of-two-queries pattern.
+  const { rows: researchers, count: total } = await Researcher.findAndCountAll({
+    where,
+    attributes: RESEARCHER_LIST_ATTRIBUTES,
+    order: [["createdAt", "DESC"]],
+    offset: (safePage - 1) * safeLimit,
+    limit: safeLimit,
+  });
 
   return {
     total,
@@ -362,8 +382,7 @@ const listAllResearchers = async ({ role, page, limit }) => {
   };
 };
 
-//  UPDATE REVIEWER 
-
+// ── UPDATE REVIEWER ───────────────────────────────────────────────────
 const updateReviewer = async (reviewerId, updates) => {
   const ALLOWED = ["specialisations", "institution", "discipline", "bio"];
   const safeUpdates = {};
@@ -371,12 +390,11 @@ const updateReviewer = async (reviewerId, updates) => {
     if (updates[f] !== undefined) safeUpdates[f] = updates[f];
   });
 
-  const reviewer = await Researcher.findByIdAndUpdate(
-    reviewerId,
-    { $set: safeUpdates },
-    { new: true, runValidators: true },
-  );
+  const reviewer = await Researcher.findByPk(reviewerId);
   if (!reviewer) throw new AppError("Reviewer not found.", 404);
+
+  reviewer.set(safeUpdates);
+  await reviewer.save();
   return reviewer;
 };
 

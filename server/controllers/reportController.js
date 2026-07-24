@@ -1,49 +1,100 @@
-const Report = require("../models/reportModel");
+"use strict";
+
 const path = require("path");
 const fs = require("fs").promises;
+const { Op } = require("sequelize");
+const { Report, User, sequelize } = require("../sequelize/models");
 
-// Get all reports with filters
+// ── Helpers ─────────────────────────────────────────────────────────
+
+const SORT_MAP = {
+  newest:        [["createdAt", "DESC"]],
+  oldest:        [["createdAt", "ASC"]],
+  mostViewed:    [["views", "DESC"]],
+  mostDownloaded:[["downloads", "DESC"]],
+};
+
+const UPLOADER_INCLUDE = [
+  { model: User, as: "uploader", attributes: ["id", "name", "email"] },
+];
+
+const canModify = (report, user) =>
+  String(report.uploadedBy) === String(user.id) || user.role === "admin";
+
+const reportDiskPath = (report) =>
+  path.join(__dirname, "..", report.fileUrl.replace(/^\//, ""));
+
+const safeUnlink = async (filePath) => {
+  try {
+    await fs.unlink(filePath);
+  } catch (err) {
+    // best-effort cleanup — ENOENT / permission errors don't fail the
+    // parent operation
+    if (err.code !== "ENOENT") {
+      console.error("Failed to remove report file:", filePath, err);
+    }
+  }
+};
+
+// Copied verbatim — pure JS, no DB dependency.
+function getFileType(filename) {
+  const ext = filename.split(".").pop().toLowerCase();
+  if (ext === "pdf") return "pdf";
+  if (["xlsx", "xls", "csv"].includes(ext)) return "excel";
+  if (["doc", "docx"].includes(ext)) return "word";
+  if (ext === "zip") return "zip";
+  if (["jpg", "jpeg", "png", "gif"].includes(ext)) return "image";
+  return "pdf";
+}
+
+// ── CRUD ────────────────────────────────────────────────────────────
+
 exports.getAllReports = async (req, res) => {
   try {
     const { search, category, status, period, sortBy = "newest" } = req.query;
 
-    const filter = {};
-    if (category && category !== "all") filter.category = category;
-    if (status && status !== "all") filter.status = status;
-    if (period && period !== "all") filter.period = period;
+    const where = {};
+    if (category && category !== "all") where.category = category;
+    if (status && status !== "all") where.status = status;
+    if (period && period !== "all") where.period = period;
 
     if (search) {
-      filter.$or = [
-        { title: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } },
-        { tags: { $regex: search, $options: "i" } },
+      const escaped = String(search).replace(/[\\%_]/g, (m) => `\\${m}`);
+      const like = `%${escaped}%`;
+      where[Op.or] = [
+        { title: { [Op.like]: like } },
+        { description: { [Op.like]: like } },
+        // Same JSON_SEARCH pattern as galleryController — tags is a JSON
+        // array column and can't be pattern-matched with plain LIKE.
+        sequelize.literal(
+          "JSON_SEARCH(tags, 'one', " +
+            sequelize.escape(like) +
+            ") IS NOT NULL",
+        ),
       ];
     }
 
-    let query = Report.find(filter).populate("uploadedBy", "name email");
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    if (sortBy === "newest") query = query.sort({ createdAt: -1 });
-    if (sortBy === "oldest") query = query.sort({ createdAt: 1 });
-    if (sortBy === "mostViewed") query = query.sort({ views: -1 });
-    if (sortBy === "mostDownloaded") query = query.sort({ downloads: -1 });
-
-    const reports = await query.lean();
-
-    // Calculate stats
-    const stats = {
-      total: await Report.countDocuments(),
-      published: await Report.countDocuments({ status: "published" }),
-      draft: await Report.countDocuments({ status: "draft" }),
-      archived: await Report.countDocuments({ status: "archived" }),
-      thisMonth: await Report.countDocuments({
-        createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+    // Single Promise.all for the list + all stat counts — 6 queries in
+    // parallel is one round-trip window instead of six.
+    const [reports, total, published, draft, archived, thisMonth] = await Promise.all([
+      Report.findAll({
+        where,
+        include: UPLOADER_INCLUDE,
+        order: SORT_MAP[sortBy] || SORT_MAP.newest,
       }),
-    };
+      Report.count(),
+      Report.count({ where: { status: "published" } }),
+      Report.count({ where: { status: "draft" } }),
+      Report.count({ where: { status: "archived" } }),
+      Report.count({ where: { createdAt: { [Op.gte]: thirtyDaysAgo } } }),
+    ]);
 
     res.status(200).json({
       success: true,
       data: reports,
-      stats,
+      stats: { total, published, draft, archived, thisMonth },
     });
   } catch (error) {
     res.status(500).json({
@@ -54,28 +105,26 @@ exports.getAllReports = async (req, res) => {
   }
 };
 
-// Get single report
 exports.getReportById = async (req, res) => {
   try {
-    const report = await Report.findById(req.params.id)
-      .populate("uploadedBy", "name email")
-      .populate("comments.commentedBy", "name email");
-
-    if (!report) {
-      return res.status(404).json({
-        success: false,
-        message: "Report not found",
+    // NOTE: comments.commentedBy was previously populated as a nested
+    // Mongoose ref. In the Sequelize model, `comments` is a JSON array
+    // whose elements already carry a denormalised `commentedByName`
+    // string, so no join is needed to render the comment thread.
+    const report = await sequelize.transaction(async (t) => {
+      const r = await Report.findByPk(req.params.id, {
+        include: UPLOADER_INCLUDE,
+        transaction: t,
       });
-    }
-
-    // Increment views
-    report.views += 1;
-    await report.save();
-
-    res.status(200).json({
-      success: true,
-      data: report,
+      if (!r) return null;
+      r.views = (r.views || 0) + 1;
+      await r.save({ transaction: t });
+      return r;
     });
+
+    if (!report) return res.status(404).json({ success: false, message: "Report not found" });
+
+    res.status(200).json({ success: true, data: report });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -85,51 +134,45 @@ exports.getReportById = async (req, res) => {
   }
 };
 
-// Create new report
 exports.createReport = async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: "File is required",
-      });
+      return res.status(400).json({ success: false, message: "File is required" });
     }
 
     const {
-      title,
-      category,
-      type,
-      period,
-      customStartDate,
-      customEndDate,
-      description,
-      status,
-      tags,
+      title, category, type, period,
+      customStartDate, customEndDate,
+      description, status, tags,
     } = req.body;
 
     if (!title || !category || !period) {
-      // Delete uploaded file if validation fails
-      await fs.unlink(req.file.path);
+      // Roll back the disk write so a failed validation doesn't leak files.
+      await safeUnlink(req.file.path);
       return res.status(400).json({
         success: false,
         message: "Title, category, and period are required",
       });
     }
 
+    // The Report model's cross-field validator enforces that
+    // customStartDate + customEndDate are both present and ordered when
+    // period === "Custom" — no need to duplicate that check here.
     const reportData = {
       title,
       category,
       type: type || getFileType(req.file.originalname),
       period,
-      customStartDate: period === "Custom" ? customStartDate : undefined,
-      customEndDate: period === "Custom" ? customEndDate : undefined,
+      customStartDate: period === "Custom" ? customStartDate : null,
+      customEndDate:   period === "Custom" ? customEndDate   : null,
       description,
       status: status || "draft",
       fileUrl: `/uploads/reports/${req.file.filename}`,
       fileName: req.file.originalname,
       fileSize: req.file.size,
       uploadedBy: req.user.id,
-      tags: tags ? tags.split(",").map((tag) => tag.trim()) : [],
+      tags: tags ? String(tags).split(",").map((tag) => tag.trim()).filter(Boolean) : [],
+      comments: [],
     };
 
     const report = await Report.create(reportData);
@@ -140,9 +183,7 @@ exports.createReport = async (req, res) => {
       data: report,
     });
   } catch (error) {
-    if (req.file) {
-      await fs.unlink(req.file.path).catch(() => {});
-    }
+    if (req.file) await safeUnlink(req.file.path);
     res.status(500).json({
       success: false,
       message: "Error creating report",
@@ -151,49 +192,31 @@ exports.createReport = async (req, res) => {
   }
 };
 
-// Update report
 exports.updateReport = async (req, res) => {
   try {
     const {
-      title,
-      category,
-      type,
-      period,
-      customStartDate,
-      customEndDate,
-      description,
-      status,
-      tags,
+      title, category, type, period,
+      customStartDate, customEndDate,
+      description, status, tags,
     } = req.body;
 
-    const report = await Report.findById(req.params.id);
-
+    const report = await Report.findByPk(req.params.id);
     if (!report) {
-      return res.status(404).json({
-        success: false,
-        message: "Report not found",
-      });
+      return res.status(404).json({ success: false, message: "Report not found" });
     }
 
-    // Check authorization
-    if (
-      report.uploadedBy.toString() !== req.user.id &&
-      req.user.role !== "admin"
-    ) {
+    if (!canModify(report, req.user)) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to update this report",
       });
     }
 
-    // Handle file replacement
+    // Handle file replacement — swap the disk file BEFORE mutating the
+    // model, so if fs fails we haven't already dirtied the record.
     if (req.file) {
-      const oldFilePath = path.join(
-        __dirname,
-        "..",
-        report.fileUrl,
-      );
-      await fs.unlink(oldFilePath).catch(() => {});
+      const oldPath = path.join(__dirname, "..", report.fileUrl);
+      await safeUnlink(oldPath);
 
       report.fileUrl = `/uploads/reports/${req.file.filename}`;
       report.fileName = req.file.originalname;
@@ -207,11 +230,11 @@ exports.updateReport = async (req, res) => {
     if (period) report.period = period;
     if (description !== undefined) report.description = description;
     if (status) report.status = status;
-    if (customStartDate && period === "Custom")
-      report.customStartDate = customStartDate;
-    if (customEndDate && period === "Custom")
-      report.customEndDate = customEndDate;
-    if (tags) report.tags = tags.split(",").map((tag) => tag.trim());
+    if (customStartDate && period === "Custom") report.customStartDate = customStartDate;
+    if (customEndDate   && period === "Custom") report.customEndDate   = customEndDate;
+    if (tags) {
+      report.tags = String(tags).split(",").map((tag) => tag.trim()).filter(Boolean);
+    }
 
     await report.save();
 
@@ -221,9 +244,7 @@ exports.updateReport = async (req, res) => {
       data: report,
     });
   } catch (error) {
-    if (req.file) {
-      await fs.unlink(req.file.path).catch(() => {});
-    }
+    if (req.file) await safeUnlink(req.file.path);
     res.status(500).json({
       success: false,
       message: "Error updating report",
@@ -232,39 +253,24 @@ exports.updateReport = async (req, res) => {
   }
 };
 
-// Delete report
 exports.deleteReport = async (req, res) => {
   try {
-    const report = await Report.findById(req.params.id);
-
+    const report = await Report.findByPk(req.params.id);
     if (!report) {
-      return res.status(404).json({
-        success: false,
-        message: "Report not found",
-      });
+      return res.status(404).json({ success: false, message: "Report not found" });
     }
 
-    // Check authorization
-    if (
-      report.uploadedBy.toString() !== req.user.id &&
-      req.user.role !== "admin"
-    ) {
+    if (!canModify(report, req.user)) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to delete this report",
       });
     }
 
-    // Delete file
-    const filePath = path.join(__dirname, "..", report.fileUrl);
-    await fs.unlink(filePath).catch(() => {});
+    await safeUnlink(path.join(__dirname, "..", report.fileUrl));
+    await report.destroy();
 
-    await Report.findByIdAndDelete(req.params.id);
-
-    res.status(200).json({
-      success: true,
-      message: "Report deleted successfully",
-    });
+    res.status(200).json({ success: true, message: "Report deleted successfully" });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -274,36 +280,29 @@ exports.deleteReport = async (req, res) => {
   }
 };
 
-// Download report
 exports.downloadReport = async (req, res) => {
-;
-
   try {
-    const report = await Report.findById(req.params.id);
-
-
+    const report = await Report.findByPk(req.params.id);
     if (!report) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Report not found" });
+      return res.status(404).json({ success: false, message: "Report not found" });
     }
 
-    const relativePath = report.fileUrl.replace(/^\//, "");
-    const filePath = path.join(__dirname, "..", relativePath);
+    const filePath = path.join(__dirname, "..", report.fileUrl.replace(/^\//, ""));
 
-
-
+    // Bump the download counter before streaming so a client that
+    // hangs up mid-download still gets counted (matches Mongoose flow).
+    // Errors on the increment shouldn't stop the download itself.
+    try {
+      await Report.increment("downloads", { where: { id: report.id } });
+    } catch (err) {
+      console.error("Failed to increment download counter:", err);
+    }
 
     res.download(filePath, report.fileName, (err) => {
       if (err && !res.headersSent) {
-        res
-          .status(404)
-          .json({ success: false, message: "File not found on disk" });
+        res.status(404).json({ success: false, message: "File not found on disk" });
       }
     });
-
-    report.downloads += 1;
-    await report.save();
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -312,21 +311,19 @@ exports.downloadReport = async (req, res) => {
     });
   }
 };
-// Get reports by category
+
 exports.getReportsByCategory = async (req, res) => {
   try {
     const { category } = req.params;
     const { status = "published" } = req.query;
 
-    const reports = await Report.find({ category, status })
-      .populate("uploadedBy", "name email")
-      .sort({ createdAt: -1 })
-      .lean();
-
-    res.status(200).json({
-      success: true,
-      data: reports,
+    const reports = await Report.findAll({
+      where: { category, status },
+      include: UPLOADER_INCLUDE,
+      order: [["createdAt", "DESC"]],
     });
+
+    res.status(200).json({ success: true, data: reports });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -336,11 +333,9 @@ exports.getReportsByCategory = async (req, res) => {
   }
 };
 
-// Add comment to report
 exports.addComment = async (req, res) => {
   try {
     const { text } = req.body;
-
     if (!text) {
       return res.status(400).json({
         success: false,
@@ -348,22 +343,15 @@ exports.addComment = async (req, res) => {
       });
     }
 
-    const report = await Report.findById(req.params.id);
-
+    const report = await Report.findByPk(req.params.id);
     if (!report) {
-      return res.status(404).json({
-        success: false,
-        message: "Report not found",
-      });
+      return res.status(404).json({ success: false, message: "Report not found" });
     }
 
-    report.comments.push({
-      text,
-      commentedBy: req.user.id,
-      commentedByName: req.user.name,
-    });
-
-    await report.save();
+    // Delegate to the model's addComment helper — it handles the
+    // JSON-array-reassignment dance that Sequelize needs to detect the
+    // change, plus stamps the metadata consistently across reports.
+    await report.addComment(text, req.user);
 
     res.status(200).json({
       success: true,
@@ -379,48 +367,41 @@ exports.addComment = async (req, res) => {
   }
 };
 
-// Bulk delete reports
 exports.bulkDeleteReports = async (req, res) => {
   try {
     const { ids } = req.body;
-
-    if (!ids || ids.length === 0) {
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({
         success: false,
         message: "Please provide report IDs",
       });
     }
 
-    const reports = await Report.find({ _id: { $in: ids } });
+    const reports = await Report.findAll({ where: { id: { [Op.in]: ids } } });
 
+    // Authorisation gate: reject the entire bulk operation if the caller
+    // can't touch every row. Prevents surprise partial deletes.
     for (const report of reports) {
-      // Check authorization
-      if (
-        report.uploadedBy.toString() !== req.user.id &&
-        req.user.role !== "admin"
-      ) {
+      if (!canModify(report, req.user)) {
         return res.status(403).json({
           success: false,
           message: "Not authorized to delete one or more reports",
         });
       }
-
-      // Delete files
-      const filePath = path.join(
-        __dirname,
-        "..",
-        "..",
-        "public",
-        report.fileUrl,
-      );
-      await fs.unlink(filePath).catch(() => {});
     }
 
-    await Report.deleteMany({ _id: { $in: ids } });
+    // Filesystem cleanup for each report before the batched DELETE. The
+    // original path was `../../public${report.fileUrl}` which doesn't
+    // exist for this project layout — corrected to match single-delete.
+    for (const report of reports) {
+      await safeUnlink(path.join(__dirname, "..", report.fileUrl));
+    }
+
+    const deleted = await Report.destroy({ where: { id: { [Op.in]: ids } } });
 
     res.status(200).json({
       success: true,
-      message: `${ids.length} report(s) deleted successfully`,
+      message: `${deleted} report(s) deleted successfully`,
     });
   } catch (error) {
     res.status(500).json({
@@ -430,14 +411,3 @@ exports.bulkDeleteReports = async (req, res) => {
     });
   }
 };
-
-// Helper function to detect file type
-function getFileType(filename) {
-  const ext = filename.split(".").pop().toLowerCase();
-  if (ext === "pdf") return "pdf";
-  if (["xlsx", "xls", "csv"].includes(ext)) return "excel";
-  if (["doc", "docx"].includes(ext)) return "word";
-  if (ext === "zip") return "zip";
-  if (["jpg", "jpeg", "png", "gif"].includes(ext)) return "image";
-  return "pdf";
-}

@@ -1,14 +1,20 @@
-const Appointment = require("../models/appointmentModel");
-const Doctor = require("../models/doctorModel");
+"use strict";
+
+const { Appointment, Doctor } = require("../sequelize/models");
 const emailService = require("../utils/emailServices");
-const smsServices = require("../utils/smsServices");
+
+const smsServices = null; // Africa's Talking SMS integration removed.
+                          // If SMS notifications are re-introduced, plug
+                          // the new provider in here — the appointment
+                          // callsites remain in place (commented out).
 
 exports.bookAppointment = async (req, res) => {
   try {
     const { name, email, phone, service, department, date, time } = req.body;
 
-    if (!name || !email || !service || !date || !time)
+    if (!name || !email || !service || !date || !time) {
       return res.status(400).json({ message: "All fields are required" });
+    }
 
     const appointment = await Appointment.create({
       patientName: name,
@@ -20,7 +26,6 @@ exports.bookAppointment = async (req, res) => {
       time,
     });
 
-    // Send confirmation emails
     const appointmentData = {
       patientName: name,
       patientEmail: email,
@@ -53,20 +58,53 @@ exports.bookAppointment = async (req, res) => {
 
 exports.getAllAppointments = async (req, res) => {
   try {
-    const filter = {};
+    const where = {};
 
     if (req.user.role === "doctor") {
-      const Doctor = require("../models/doctorModel");
-      const doctorProfile = await Doctor.findOne({ userId: req.user._id });
-
+      // For doctors, scope the list to their own department. The Doctor
+      // row is the source of truth for department assignment — it may
+      // legitimately differ from user.department in edge cases (a
+      // doctor whose user.department was set but doctor row was never
+      // synced), and the doctor row is what appointment intake uses.
+      const doctorProfile = await Doctor.findOne({ where: { userId: req.user.id } });
       if (!doctorProfile || !doctorProfile.department) {
-        return res
-          .status(400)
-          .json({ message: "No department assigned to this doctor" });
+        return res.status(400).json({ message: "No department assigned to this doctor" });
       }
-      filter.department = doctorProfile.department;
+      where.department = doctorProfile.department;
     }
-    const appointments = await Appointment.find(filter).sort({ createdAt: -1 });
+
+    const appointments = await Appointment.findAll({
+      where,
+      order: [["createdAt", "DESC"]],
+    });
+    res.json(appointments);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// GET /api/appointments/pending
+// Same department-scoping as getAllAppointments, but filtered to
+// status=Pending. Was previously implemented inline in
+// routes/appointmentRoutes.js as a Mongoose call — moved here so all
+// data access goes through the Sequelize controller layer and can be
+// unit-tested + reused. The route file now just delegates.
+exports.getPendingAppointments = async (req, res) => {
+  try {
+    const where = { status: "Pending" };
+
+    if (req.user.role === "doctor") {
+      const doctorProfile = await Doctor.findOne({ where: { userId: req.user.id } });
+      if (!doctorProfile || !doctorProfile.department) {
+        return res.status(400).json({ message: "No department assigned to this doctor" });
+      }
+      where.department = doctorProfile.department;
+    }
+
+    const appointments = await Appointment.findAll({
+      where,
+      order: [["createdAt", "DESC"]],
+    });
     res.json(appointments);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -77,14 +115,15 @@ exports.getDoctorAppointments = async (req, res) => {
   try {
     const doctorId = req.params.doctorId;
 
-    if (req.user.role === "doctor" && req.user._id.toString() !== doctorId) {
-      return res
-        .status(403)
-        .json({ message: "Not authorized to view these appointments" });
+    // req.user.id is a numeric primary key now, not an ObjectId — String()
+    // coerces both sides for a safe equality check without .toString().
+    if (req.user.role === "doctor" && String(req.user.id) !== String(doctorId)) {
+      return res.status(403).json({ message: "Not authorized to view these appointments" });
     }
 
-    const appointments = await Appointment.find({ doctorId }).sort({
-      date: -1,
+    const appointments = await Appointment.findAll({
+      where: { doctorId },
+      order: [["appointmentDate", "DESC"]],
     });
     res.json(appointments);
   } catch (error) {
@@ -97,14 +136,14 @@ exports.updateAppointmentStatus = async (req, res) => {
     const { status } = req.body;
     const normalizedStatus =
       status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
-    const appointment = await Appointment.findById(req.params.id);
 
+    const appointment = await Appointment.findByPk(req.params.id);
     if (!appointment) {
       return res.status(404).json({ message: "Appointment not found" });
     }
 
     const allowedTransitions = {
-      Pending: ["Confirmed", "Cancelled"],
+      Pending:   ["Confirmed", "Cancelled"],
       Confirmed: ["Completed"],
       Cancelled: [],
       Completed: [],
@@ -122,7 +161,6 @@ exports.updateAppointmentStatus = async (req, res) => {
     appointment.status = normalizedStatus;
     await appointment.save();
 
-    // Send status update email
     const appointmentData = {
       patientName: appointment.patientName,
       service: appointment.service,
@@ -163,10 +201,10 @@ exports.updateAppointmentStatus = async (req, res) => {
 
 exports.deleteAppointment = async (req, res) => {
   try {
-    const appointment = await Appointment.findByIdAndDelete(req.params.id);
-    if (!appointment)
-      return res.status(404).json({ message: "Appointment not found" });
+    const appointment = await Appointment.findByPk(req.params.id);
+    if (!appointment) return res.status(404).json({ message: "Appointment not found" });
 
+    await appointment.destroy();
     res.json({ message: "Appointment deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });

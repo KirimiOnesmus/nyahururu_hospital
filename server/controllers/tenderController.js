@@ -1,92 +1,101 @@
-// controllers/tenderController.js
-const Tender = require("../models/tenderModel");
-const Bid = require("../models/bidModel");
+"use strict";
 
-// Get all tenders with filters
+const { Op } = require("sequelize");
+const { Tender, Bid, User, sequelize } = require("../sequelize/models");
+
+// ── Helpers ─────────────────────────────────────────────────────────
+
+const SORT_MAP = {
+  newest:       [["createdAt", "DESC"]],
+  oldest:       [["createdAt", "ASC"]],
+  alphabetical: [["title", "ASC"]],
+  deadline:     [["submissionDeadline", "ASC"]],
+};
+
+const CREATOR_INCLUDE = [
+  { model: User, as: "creator", attributes: ["id", "name", "email"] },
+];
+const DETAIL_INCLUDE = [
+  ...CREATOR_INCLUDE,
+  { model: User, as: "updater", attributes: ["id", "name", "email"] },
+];
+
+const buildActivityEntry = (req, action, description) => ({
+  action,
+  description,
+  performedBy: req.user.id,
+  performedByName: req.user.name,
+  // Timestamp matches what the Mongoose hook auto-set on the
+  // subdocument — kept explicit here because JSON columns don't get
+  // per-element timestamps.
+  timestamp: new Date().toISOString(),
+});
+
+// JSON columns need reassignment (not push) for Sequelize's change
+// tracker to notice the update — same pattern used across the
+// Content-domain cutover.
+const appendActivity = (tender, entry) => {
+  tender.activityLog = [...(tender.activityLog || []), entry];
+};
+
+// ── CRUD ────────────────────────────────────────────────────────────
+
 exports.getAllTenders = async (req, res) => {
   try {
     const {
-      search,
-      category,
-      status,
-      sortBy = "newest",
-      page = 1,
-      limit = 10,
+      search, category, status,
+      sortBy = "newest", page = 1, limit = 10,
     } = req.query;
 
-    // Build query
-    let query = {};
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 10));
+    const offset = (pageNum - 1) * limitNum;
 
-    // Search filter
+    const where = {};
+
     if (search) {
-      query.$or = [
-        { title: { $regex: search, $options: "i" } },
-        { tenderNumber: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } },
+      // LIKE metacharacter escape — same guard used across every list
+      // endpoint since the notice/gallery cutover. utf8mb4_unicode_ci
+      // gives case-insensitive matching for free.
+      const escaped = String(search).replace(/[\\%_]/g, (m) => `\\${m}`);
+      const like = `%${escaped}%`;
+      where[Op.or] = [
+        { title: { [Op.like]: like } },
+        { tenderNumber: { [Op.like]: like } },
+        { description: { [Op.like]: like } },
       ];
     }
 
-    // Category filter
-    if (category && category !== "all") {
-      query.category = category;
-    }
+    if (category && category !== "all") where.category = category;
+    if (status && status !== "all") where.status = status;
 
-    // Status filter
-    if (status && status !== "all") {
-      query.status = status;
-    }
-
-    // Sort options
-    let sort = {};
-    switch (sortBy) {
-      case "newest":
-        sort = { createdAt: -1 };
-        break;
-      case "oldest":
-        sort = { createdAt: 1 };
-        break;
-      case "alphabetical":
-        sort = { title: 1 };
-        break;
-      case "deadline":
-        sort = { submissionDeadline: 1 };
-        break;
-      default:
-        sort = { createdAt: -1 };
-    }
-
-    // Pagination
-    const skip = (page - 1) * limit;
-
-    const tenders = await Tender.find(query)
-      .sort(sort)
-      .skip(skip)
-      .limit(parseInt(limit))
-      .populate("createdBy", "name email")
-      .lean();
-
-    const total = await Tender.countDocuments(query);
-
-    // Get statistics
-    const stats = {
-      total: await Tender.countDocuments(),
-      active: await Tender.countDocuments({ status: "active" }),
-      closed: await Tender.countDocuments({ status: "closed" }),
-      underEvaluation: await Tender.countDocuments({
-        status: "under_evaluation",
-      }),
-      awarded: await Tender.countDocuments({ status: "awarded" }),
-    };
+    // Single Promise.all for the list + all stat counters — five COUNTs
+    // + one SELECT in parallel instead of six sequential round trips.
+    const [{ rows: tenders, count: total }, allTotal, active, closed, underEvaluation, awarded] =
+      await Promise.all([
+        Tender.findAndCountAll({
+          where,
+          order: SORT_MAP[sortBy] || SORT_MAP.newest,
+          offset,
+          limit: limitNum,
+          include: CREATOR_INCLUDE,
+        }),
+        Tender.count(),
+        Tender.count({ where: { status: "active" } }),
+        Tender.count({ where: { status: "closed" } }),
+        Tender.count({ where: { status: "under_evaluation" } }),
+        Tender.count({ where: { status: "awarded" } }),
+      ]);
 
     res.status(200).json({
       success: true,
       data: tenders,
-      stats,
+      stats: { total: allTotal, active, closed, underEvaluation, awarded },
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: pageNum,
+        limit: limitNum,
         total,
-        pages: Math.ceil(total / limit),
+        pages: Math.ceil(total / limitNum),
       },
     });
   } catch (error) {
@@ -98,24 +107,15 @@ exports.getAllTenders = async (req, res) => {
   }
 };
 
-// Get single tender by ID
 exports.getTenderById = async (req, res) => {
   try {
-    const tender = await Tender.findById(req.params.id)
-      .populate("createdBy", "name email")
-      .populate("updatedBy", "name email");
-
-    if (!tender) {
-      return res.status(404).json({
-        success: false,
-        message: "Tender not found",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: tender,
+    const tender = await Tender.findByPk(req.params.id, {
+      include: DETAIL_INCLUDE,
     });
+    if (!tender) {
+      return res.status(404).json({ success: false, message: "Tender not found" });
+    }
+    res.status(200).json({ success: true, data: tender });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -125,39 +125,34 @@ exports.getTenderById = async (req, res) => {
   }
 };
 
-// Create new tender
-
 exports.createTender = async (req, res) => {
   try {
-    const tenderData = {
+    // NOTE: the Tender model's beforeValidate hook generates
+    // tenderNumber atomically via the Counter model — no manual sequence
+    // computation here (the Mongoose version had none either; the model
+    // uses the Counter that the migration plan introduced).
+    const tender = await Tender.create({
       ...req.body,
       createdBy: req.user.id,
       createdByName: req.user.name,
-      activityLog: [
-        {
-          action: "created",
-          description: "Tender created",
-          performedBy: req.user.id,
-          performedByName: req.user.name,
-        },
-      ],
-    };
+      activityLog: [buildActivityEntry(req, "created", "Tender created")],
+    });
 
-    const tender = await Tender.create(tenderData);
-    // console.log('Tender created:', tender);
     res.status(201).json({
       success: true,
       message: "Tender created successfully",
       data: tender,
     });
   } catch (error) {
-    if (error.name === "ValidationError") {
-      const errors = Object.values(error.errors).map((err) => err.message);
-      console.error("Mongoose Validation Error:", errors);
+    // Sequelize's ValidationError has the same `errors` collection shape
+    // as Mongoose's — same 400 response.
+    if (error.name === "SequelizeValidationError" || error.name === "ValidationError") {
+      const errors = error.errors?.map((e) => e.message) || [error.message];
+      console.error("Sequelize Validation Error:", errors);
       return res.status(400).json({
         success: false,
         message: "Validation failed",
-        errors: errors,
+        errors,
       });
     }
 
@@ -169,40 +164,30 @@ exports.createTender = async (req, res) => {
   }
 };
 
-// Update tender
 exports.updateTender = async (req, res) => {
   try {
-    const tender = await Tender.findById(req.params.id);
-
+    const tender = await Tender.findByPk(req.params.id);
     if (!tender) {
-      return res.status(404).json({
-        success: false,
-        message: "Tender not found",
-      });
+      return res.status(404).json({ success: false, message: "Tender not found" });
     }
 
-    // Add to activity log
-    const activityEntry = {
-      action: "updated",
-      description: "Tender information updated",
-      performedBy: req.user.id,
-      performedByName: req.user.name,
-    };
-
-    const updatedTender = await Tender.findByIdAndUpdate(
-      req.params.id,
-      {
-        ...req.body,
-        updatedBy: req.user.id,
-        $push: { activityLog: activityEntry },
-      },
-      { new: true, runValidators: true }
+    // findByIdAndUpdate + $push has no direct Sequelize equivalent;
+    // find + set + activity-log append + save preserves the same
+    // validator behaviour that `runValidators: true` gave us.
+    const { activityLog: _ignored, ...updatable } = req.body;
+    tender.set(updatable);
+    tender.updatedBy = req.user.id;
+    appendActivity(
+      tender,
+      buildActivityEntry(req, "updated", "Tender information updated"),
     );
+
+    await tender.save();
 
     res.status(200).json({
       success: true,
       message: "Tender updated successfully",
-      data: updatedTender,
+      data: tender,
     });
   } catch (error) {
     res.status(500).json({
@@ -213,22 +198,24 @@ exports.updateTender = async (req, res) => {
   }
 };
 
-// Delete tender
 exports.deleteTender = async (req, res) => {
   try {
-    const tender = await Tender.findById(req.params.id);
+    // Wrap bid cascade + tender delete in a transaction so a partial
+    // failure doesn't leave orphaned bids behind. Also arguably a good
+    // audit-safety property — the Mongoose flow could crash between
+    // the two calls and leave bids for a non-existent tender.
+    const deleted = await sequelize.transaction(async (t) => {
+      const tender = await Tender.findByPk(req.params.id, { transaction: t });
+      if (!tender) return { notFound: true };
 
-    if (!tender) {
-      return res.status(404).json({
-        success: false,
-        message: "Tender not found",
-      });
+      await Bid.destroy({ where: { tenderId: tender.id }, transaction: t });
+      await tender.destroy({ transaction: t });
+      return { deleted: true };
+    });
+
+    if (deleted.notFound) {
+      return res.status(404).json({ success: false, message: "Tender not found" });
     }
-
-    // Delete associated bids
-    await Bid.deleteMany({ tender: req.params.id });
-
-    await Tender.findByIdAndDelete(req.params.id);
 
     res.status(200).json({
       success: true,
@@ -243,11 +230,9 @@ exports.deleteTender = async (req, res) => {
   }
 };
 
-// Bulk delete tenders
 exports.bulkDeleteTenders = async (req, res) => {
   try {
     const { ids } = req.body;
-
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({
         success: false,
@@ -255,15 +240,24 @@ exports.bulkDeleteTenders = async (req, res) => {
       });
     }
 
-    // Delete associated bids
-    await Bid.deleteMany({ tender: { $in: ids } });
-
-    const result = await Tender.deleteMany({ _id: { $in: ids } });
+    // Cascade + delete in a single transaction — matches the single
+    // deleteTender pattern.
+    const result = await sequelize.transaction(async (t) => {
+      await Bid.destroy({
+        where: { tenderId: { [Op.in]: ids } },
+        transaction: t,
+      });
+      const n = await Tender.destroy({
+        where: { id: { [Op.in]: ids } },
+        transaction: t,
+      });
+      return n;
+    });
 
     res.status(200).json({
       success: true,
-      message: `${result.deletedCount} tender(s) deleted successfully`,
-      deletedCount: result.deletedCount,
+      message: `${result} tender(s) deleted successfully`,
+      deletedCount: result,
     });
   } catch (error) {
     res.status(500).json({
@@ -274,25 +268,15 @@ exports.bulkDeleteTenders = async (req, res) => {
   }
 };
 
-// Close tender
 exports.closeTender = async (req, res) => {
   try {
-    const tender = await Tender.findById(req.params.id);
-
+    const tender = await Tender.findByPk(req.params.id);
     if (!tender) {
-      return res.status(404).json({
-        success: false,
-        message: "Tender not found",
-      });
+      return res.status(404).json({ success: false, message: "Tender not found" });
     }
 
     tender.status = "closed";
-    tender.activityLog.push({
-      action: "closed",
-      description: "Tender closed",
-      performedBy: req.user.id,
-      performedByName: req.user.name,
-    });
+    appendActivity(tender, buildActivityEntry(req, "closed", "Tender closed"));
 
     await tender.save();
 
@@ -310,11 +294,9 @@ exports.closeTender = async (req, res) => {
   }
 };
 
-// Extend deadline
 exports.extendDeadline = async (req, res) => {
   try {
     const { newDeadline } = req.body;
-
     if (!newDeadline) {
       return res.status(400).json({
         success: false,
@@ -322,25 +304,22 @@ exports.extendDeadline = async (req, res) => {
       });
     }
 
-    const tender = await Tender.findById(req.params.id);
-
+    const tender = await Tender.findByPk(req.params.id);
     if (!tender) {
-      return res.status(404).json({
-        success: false,
-        message: "Tender not found",
-      });
+      return res.status(404).json({ success: false, message: "Tender not found" });
     }
 
     const oldDeadline = tender.submissionDeadline;
-    tender.submissionDeadline = newDeadline;
-    tender.activityLog.push({
-      action: "deadline_extended",
-      description: `Deadline extended from ${oldDeadline.toDateString()} to ${new Date(
-        newDeadline
-      ).toDateString()}`,
-      performedBy: req.user.id,
-      performedByName: req.user.name,
-    });
+    tender.submissionDeadline = new Date(newDeadline);
+
+    appendActivity(
+      tender,
+      buildActivityEntry(
+        req,
+        "deadline_extended",
+        `Deadline extended from ${oldDeadline ? new Date(oldDeadline).toDateString() : "(none)"} to ${new Date(newDeadline).toDateString()}`,
+      ),
+    );
 
     await tender.save();
 
@@ -358,11 +337,9 @@ exports.extendDeadline = async (req, res) => {
   }
 };
 
-// Award tender
 exports.awardTender = async (req, res) => {
   try {
     const { bidId } = req.body;
-
     if (!bidId) {
       return res.status(400).json({
         success: false,
@@ -370,50 +347,56 @@ exports.awardTender = async (req, res) => {
       });
     }
 
-    const tender = await Tender.findById(req.params.id);
-    const bid = await Bid.findById(bidId);
+    // Award = winning bid up, all sibling bids down, tender flagged.
+    // This was three independent Mongoose calls — race-prone, especially
+    // the "reject the others" updateMany that could partially fail.
+    // Wrap the whole thing in a transaction so either every bid state
+    // update sticks or none does.
+    const result = await sequelize.transaction(async (t) => {
+      const tender = await Tender.findByPk(req.params.id, { transaction: t });
+      if (!tender) return { notFound: "tender" };
 
-    if (!tender) {
-      return res.status(404).json({
-        success: false,
-        message: "Tender not found",
-      });
-    }
+      const bid = await Bid.findByPk(bidId, { transaction: t });
+      if (!bid) return { notFound: "bid" };
 
-    if (!bid) {
-      return res.status(404).json({
-        success: false,
-        message: "Bid not found",
-      });
-    }
+      tender.status = "awarded";
+      tender.awardedTo = bid.vendorName;
+      tender.awardedBidId = bid.id;
+      appendActivity(
+        tender,
+        buildActivityEntry(req, "awarded", `Tender awarded to ${bid.vendorName}`),
+      );
 
-    // Update tender
-    tender.status = "awarded";
-    tender.awardedTo = bid.vendorName;
-    tender.awardedBidId = bidId;
-    tender.activityLog.push({
-      action: "awarded",
-      description: `Tender awarded to ${bid.vendorName}`,
-      performedBy: req.user.id,
-      performedByName: req.user.name,
+      bid.status = "awarded";
+
+      // Reject every other bid on this tender. Sequelize returns
+      // [affectedCount] for update — we don't need it here but the
+      // transaction guarantees atomicity.
+      await Bid.update(
+        { status: "rejected" },
+        {
+          where: { tenderId: tender.id, id: { [Op.ne]: bid.id } },
+          transaction: t,
+        },
+      );
+
+      await tender.save({ transaction: t });
+      await bid.save({ transaction: t });
+
+      return { tender, bid };
     });
 
-    // Update winning bid
-    bid.status = "awarded";
-
-    // Update other bids to rejected
-    await Bid.updateMany(
-      { tender: req.params.id, _id: { $ne: bidId } },
-      { status: "rejected" }
-    );
-
-    await tender.save();
-    await bid.save();
+    if (result.notFound === "tender") {
+      return res.status(404).json({ success: false, message: "Tender not found" });
+    }
+    if (result.notFound === "bid") {
+      return res.status(404).json({ success: false, message: "Bid not found" });
+    }
 
     res.status(200).json({
       success: true,
       message: "Tender awarded successfully",
-      data: { tender, bid },
+      data: { tender: result.tender, bid: result.bid },
     });
   } catch (error) {
     res.status(500).json({
@@ -424,51 +407,69 @@ exports.awardTender = async (req, res) => {
   }
 };
 
-// Get tender statistics
 exports.getTenderStatistics = async (req, res) => {
   try {
-    const stats = {
-      total: await Tender.countDocuments(),
-      active: await Tender.countDocuments({ status: "active" }),
-      closed: await Tender.countDocuments({ status: "closed" }),
-      underEvaluation: await Tender.countDocuments({
-        status: "under_evaluation",
+    // Category and monthly trends aggregates — Mongo used $group and
+    // $year/$month operators. Sequelize does the same via
+    // fn('YEAR', ...) / fn('MONTH', ...) plus a group. Empty rows are
+    // fine and MySQL just returns nothing rather than filling with 0.
+    const [
+      total, active, closed, underEvaluation, awarded, draft, cancelled,
+      categoryRaw, monthlyRaw,
+    ] = await Promise.all([
+      Tender.count(),
+      Tender.count({ where: { status: "active" } }),
+      Tender.count({ where: { status: "closed" } }),
+      Tender.count({ where: { status: "under_evaluation" } }),
+      Tender.count({ where: { status: "awarded" } }),
+      Tender.count({ where: { status: "draft" } }),
+      Tender.count({ where: { status: "cancelled" } }),
+
+      Tender.findAll({
+        attributes: [
+          "category",
+          [sequelize.fn("COUNT", sequelize.col("id")), "count"],
+        ],
+        group: ["category"],
+        raw: true,
       }),
-      awarded: await Tender.countDocuments({ status: "awarded" }),
-      draft: await Tender.countDocuments({ status: "draft" }),
-      cancelled: await Tender.countDocuments({ status: "cancelled" }),
-    };
 
-    // Category breakdown
-    const categoryStats = await Tender.aggregate([
-      {
-        $group: {
-          _id: "$category",
-          count: { $sum: 1 },
-        },
-      },
+      Tender.findAll({
+        attributes: [
+          [sequelize.fn("YEAR", sequelize.col("created_at")), "year"],
+          [sequelize.fn("MONTH", sequelize.col("created_at")), "month"],
+          [sequelize.fn("COUNT", sequelize.col("id")), "count"],
+        ],
+        group: [
+          sequelize.fn("YEAR", sequelize.col("created_at")),
+          sequelize.fn("MONTH", sequelize.col("created_at")),
+        ],
+        order: [
+          [sequelize.fn("YEAR", sequelize.col("created_at")), "DESC"],
+          [sequelize.fn("MONTH", sequelize.col("created_at")), "DESC"],
+        ],
+        limit: 12,
+        raw: true,
+      }),
     ]);
 
-    // Monthly trends
-    const monthlyTrends = await Tender.aggregate([
-      {
-        $group: {
-          _id: {
-            year: { $year: "$createdAt" },
-            month: { $month: "$createdAt" },
-          },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { "_id.year": -1, "_id.month": -1 } },
-      { $limit: 12 },
-    ]);
+    // Reshape both aggregates to the `{ _id, count }` shape the
+    // Mongoose $group output produced — keeps the frontend contract
+    // stable across the cutover.
+    const categories = categoryRaw.map((r) => ({
+      _id: r.category,
+      count: Number(r.count),
+    }));
+    const monthlyTrends = monthlyRaw.map((r) => ({
+      _id: { year: Number(r.year), month: Number(r.month) },
+      count: Number(r.count),
+    }));
 
     res.status(200).json({
       success: true,
       data: {
-        overview: stats,
-        categories: categoryStats,
+        overview: { total, active, closed, underEvaluation, awarded, draft, cancelled },
+        categories,
         monthlyTrends,
       },
     });

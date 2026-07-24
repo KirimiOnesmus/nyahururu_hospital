@@ -1,8 +1,10 @@
-const News = require("../models/newsModel");
+"use strict";
+
+const { News } = require("../sequelize/models");
 
 exports.getAllNews = async (req, res) => {
   try {
-    const news = await News.find().sort({ createdAt: -1 });
+    const news = await News.findAll({ order: [["createdAt", "DESC"]] });
     res.json(news);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -11,16 +13,20 @@ exports.getAllNews = async (req, res) => {
 
 exports.getNewsById = async (req, res) => {
   try {
-    const item = await News.findById(req.params.id);
+    const item = await News.findByPk(req.params.id);
     if (!item) return res.status(404).json({ message: "News not found" });
     res.json(item);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
+// getActiveNews returns the same set as getAllNews today — kept as its
+// own export so the public/active/routes can diverge later without a
+// route-file rewrite.
 exports.getActiveNews = async (req, res) => {
   try {
-    const news = await News.find().sort({ createdAt: -1 });
+    const news = await News.findAll({ order: [["createdAt", "DESC"]] });
     res.json(news);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -29,7 +35,7 @@ exports.getActiveNews = async (req, res) => {
 
 exports.createNews = async (req, res) => {
   try {
-    const { title, content, author } = req.body; 
+    const { title, content, author } = req.body;
 
     if (!title || !content) {
       return res.status(400).json({ message: "Title and content are required" });
@@ -37,12 +43,7 @@ exports.createNews = async (req, res) => {
 
     const imageUrl = req.file ? `/uploads/news/${req.file.filename}` : null;
 
-    const newNews = await News.create({
-      title,
-      content,
-      author,
-      imageUrl,
-    });
+    const newNews = await News.create({ title, content, author, imageUrl });
 
     res.status(201).json({ message: "News created successfully", newNews });
   } catch (error) {
@@ -57,17 +58,15 @@ exports.updateNews = async (req, res) => {
     const imageUrl = req.file ? `/uploads/news/${req.file.filename}` : undefined;
 
     const updateData = { title, content, author };
-    if (imageUrl) updateData.imageUrl = imageUrl;
+    if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
 
-    const updatedNews = await News.findByIdAndUpdate(req.params.id, updateData, {
-      new: true,
-    });
+    const news = await News.findByPk(req.params.id);
+    if (!news) return res.status(404).json({ message: "News not found" });
 
-    if (!updatedNews) {
-      return res.status(404).json({ message: "News not found" });
-    }
+    news.set(updateData);
+    await news.save();
 
-    res.json({ message: "News updated successfully", updatedNews });
+    res.json({ message: "News updated successfully", updatedNews: news });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: error.message });
@@ -76,9 +75,10 @@ exports.updateNews = async (req, res) => {
 
 exports.deleteNews = async (req, res) => {
   try {
-    const deletedNews = await News.findByIdAndDelete(req.params.id);
-    if (!deletedNews)
-      return res.status(404).json({ message: "News not found" });
+    const news = await News.findByPk(req.params.id);
+    if (!news) return res.status(404).json({ message: "News not found" });
+
+    await news.destroy();
     res.json({ message: "News deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });

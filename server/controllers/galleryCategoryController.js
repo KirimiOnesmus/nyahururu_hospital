@@ -1,45 +1,48 @@
-const GalleryCategory = require('../models/galleryCategoryModel');
+"use strict";
+
+const { GalleryCategory } = require("../sequelize/models");
+
 exports.getAllCategories = async (req, res) => {
   try {
-    const categories = await GalleryCategory.find({ active: true })
-      .sort({ order: 1 });
-
+    const categories = await GalleryCategory.findAll({
+      where: { active: true },
+      order: [["order", "ASC"]],
+    });
     res.json(categories);
   } catch (error) {
-    console.error('Get all categories error:', error);
+    console.error("Get all categories error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Get category by ID
 exports.getCategoryById = async (req, res) => {
   try {
-    const category = await GalleryCategory.findById(req.params.id);
-
+    const category = await GalleryCategory.findByPk(req.params.id);
     if (!category) {
-      return res.status(404).json({ message: 'Category not found' });
+      return res.status(404).json({ message: "Category not found" });
     }
-
     res.json(category);
   } catch (error) {
-    console.error('Get category error:', error);
+    console.error("Get category error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Create category
 exports.createCategory = async (req, res) => {
   try {
     const { name, description, icon } = req.body;
 
     if (!name) {
-      return res.status(400).json({ message: 'Category name is required' });
+      return res.status(400).json({ message: "Category name is required" });
     }
 
-    // Check if category exists
-    const existing = await GalleryCategory.findOne({ name });
+    // Duplicate-name check before insert. Sequelize's UNIQUE constraint
+    // would also catch this, but the explicit check gives us a clean
+    // 400 response instead of relying on catch(err.name === "SequelizeUniqueConstraintError")
+    // matching. Same behaviour as the Mongoose version.
+    const existing = await GalleryCategory.findOne({ where: { name } });
     if (existing) {
-      return res.status(400).json({ message: 'Category already exists' });
+      return res.status(400).json({ message: "Category already exists" });
     }
 
     const category = await GalleryCategory.create({
@@ -50,24 +53,22 @@ exports.createCategory = async (req, res) => {
     });
 
     res.status(201).json({
-      message: 'Category created successfully',
+      message: "Category created successfully",
       category,
     });
   } catch (error) {
-    console.error('Create category error:', error);
+    console.error("Create category error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Update category
 exports.updateCategory = async (req, res) => {
   try {
     const { name, description, icon, order, active } = req.body;
 
-    const category = await GalleryCategory.findById(req.params.id);
-
+    const category = await GalleryCategory.findByPk(req.params.id);
     if (!category) {
-      return res.status(404).json({ message: 'Category not found' });
+      return res.status(404).json({ message: "Category not found" });
     }
 
     if (name !== undefined) category.name = name;
@@ -76,30 +77,29 @@ exports.updateCategory = async (req, res) => {
     if (order !== undefined) category.order = order;
     if (active !== undefined) category.active = active;
 
-    const updatedCategory = await category.save();
+    await category.save();
 
     res.json({
-      message: 'Category updated successfully',
-      category: updatedCategory,
+      message: "Category updated successfully",
+      category,
     });
   } catch (error) {
-    console.error('Update category error:', error);
+    console.error("Update category error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Delete category
 exports.deleteCategory = async (req, res) => {
   try {
-    const category = await GalleryCategory.findByIdAndDelete(req.params.id);
-
+    const category = await GalleryCategory.findByPk(req.params.id);
     if (!category) {
-      return res.status(404).json({ message: 'Category not found' });
+      return res.status(404).json({ message: "Category not found" });
     }
 
-    res.json({ message: 'Category deleted successfully' });
+    await category.destroy();
+    res.json({ message: "Category deleted successfully" });
   } catch (error) {
-    console.error('Delete category error:', error);
+    console.error("Delete category error:", error);
     res.status(500).json({ message: error.message });
   }
 };

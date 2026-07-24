@@ -1,86 +1,126 @@
-const Gallery = require('../models/galleryModel');
-const GalleryCategory = require('../models/galleryCategoryModel');
-const fs = require('fs');
-const path = require('path');
+"use strict";
 
-// Get all gallery items
+const fs = require("fs");
+const path = require("path");
+const { Op } = require("sequelize");
+const { Gallery, User, sequelize } = require("../sequelize/models");
+
+// ── Helpers ─────────────────────────────────────────────────────────
+
+const SORTABLE_COLUMNS = new Set([
+  "uploadDate", "createdAt", "updatedAt", "views", "likes", "title",
+]);
+const parseSort = (raw) => {
+  if (!raw) return [["uploadDate", "DESC"]];
+  const dir = raw.startsWith("-") ? "DESC" : "ASC";
+  const col = raw.replace(/^-/, "");
+  if (!SORTABLE_COLUMNS.has(col)) return [["uploadDate", "DESC"]];
+  return [[col, dir]];
+};
+
+const UPLOADER_INCLUDE = [
+  { model: User, as: "uploader", attributes: ["id", "name", "email"] },
+];
+
+const galleryDiskPath = (item) =>
+  path.join(__dirname, "../public", item.fileUrl);
+
+const safeUnlink = (filePath) => {
+  try {
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  } catch (err) {
+    console.error("Failed to remove gallery file:", filePath, err);
+  }
+};
+
+// ── CRUD ────────────────────────────────────────────────────────────
+
 exports.getAllGallery = async (req, res) => {
   try {
-    const { category, type, visible, search, sort = '-uploadDate' } = req.query;
+    const { category, type, visible, search, sort = "-uploadDate" } = req.query;
 
-    let query = {};
-
-    if (category && category !== 'all') {
-      query.category = category;
-    }
-
-    if (type && type !== 'all') {
-      query.type = type;
-    }
-
-    if (visible !== undefined) {
-      query.visible = visible === 'true';
-    }
+    const where = {};
+    if (category && category !== "all") where.category = category;
+    if (type && type !== "all") where.type = type;
+    if (visible !== undefined) where.visible = visible === "true";
 
     if (search) {
-      query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-        { tags: { $in: [new RegExp(search, 'i')] } },
+      const escaped = String(search).replace(/[\\%_]/g, (m) => `\\${m}`);
+      const like = `%${escaped}%`;
+      where[Op.or] = [
+        { title: { [Op.like]: like } },
+        { description: { [Op.like]: like } },
+        // `tags` is a JSON array column, so a plain LIKE on it doesn't
+        // match individual elements the way Mongo's $in did. MySQL's
+        // JSON_SEARCH walks the array and returns the path of the first
+        // element that matches the pattern (or NULL if none do), so
+        // "IS NOT NULL" is our "any element matches" test. Bindings via
+        // Sequelize's parameterisation, not string interp — no injection.
+        sequelize.literal(
+          "JSON_SEARCH(tags, 'one', " +
+            sequelize.escape(like) +
+            ") IS NOT NULL",
+        ),
       ];
     }
 
-    const items = await Gallery.find(query)
-      .populate('uploadedBy', 'name email')
-      .sort(sort);
+    const items = await Gallery.findAll({
+      where,
+      include: UPLOADER_INCLUDE,
+      order: parseSort(sort),
+    });
 
     res.json(items);
   } catch (error) {
-    console.error('Get all gallery error:', error);
+    console.error("Get all gallery error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Get gallery item by ID
 exports.getGalleryById = async (req, res) => {
   try {
-    const item = await Gallery.findById(req.params.id).populate('uploadedBy', 'name email');
+    // Transactional read + view-increment so concurrent readers don't
+    // race on the counter.
+    const item = await sequelize.transaction(async (t) => {
+      const g = await Gallery.findByPk(req.params.id, {
+        include: UPLOADER_INCLUDE,
+        transaction: t,
+      });
+      if (!g) return null;
+      g.views = (g.views || 0) + 1;
+      await g.save({ transaction: t });
+      return g;
+    });
 
-    if (!item) {
-      return res.status(404).json({ message: 'Gallery item not found' });
-    }
-
-    // Increment views
-    item.views += 1;
-    await item.save();
-
+    if (!item) return res.status(404).json({ message: "Gallery item not found" });
     res.json(item);
   } catch (error) {
-    console.error('Get gallery by ID error:', error);
+    console.error("Get gallery by ID error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Create gallery item
 exports.createGallery = async (req, res) => {
   try {
     const { title, description, category, tags, visible } = req.body;
 
     if (!title || !category) {
       return res.status(400).json({
-        message: 'Missing required fields: title and category',
+        message: "Missing required fields: title and category",
       });
     }
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
-    if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
-    }
+    const { mimetype: mimeType, filename, size } = req.file;
+    const fileType = mimeType.startsWith("image") ? "image" : "video";
+    const fileUrl = `/uploads/gallery/${filename}`;
 
-    // Determine file type
-    const mimeType = req.file.mimetype;
-    const fileType = mimeType.startsWith('image') ? 'image' : 'video';
-
-    const fileUrl = `/uploads/gallery/${req.file.filename}`;
+    // Tags arrive as a comma-separated string from multipart form data
+    // (JSON can't be sent alongside a file upload cleanly). Split &
+    // trim, drop empties. Stored as a real JSON array in MySQL.
+    const parsedTags = tags
+      ? String(tags).split(",").map((t) => t.trim()).filter(Boolean)
+      : [];
 
     const gallery = await Gallery.create({
       title,
@@ -88,162 +128,156 @@ exports.createGallery = async (req, res) => {
       type: fileType,
       category,
       fileUrl,
-      fileName: req.file.filename,
-      fileSize: req.file.size,
+      fileName: filename,
+      fileSize: size,
       mimeType,
-      tags: tags ? tags.split(',').map(t => t.trim()) : [],
+      tags: parsedTags,
       visible: visible !== false,
       uploadedBy: req.user?.id,
     });
 
     res.status(201).json({
-      message: 'Gallery item uploaded successfully',
+      message: "Gallery item uploaded successfully",
       item: gallery,
     });
   } catch (error) {
-    console.error('Create gallery error:', error);
+    console.error("Create gallery error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Update gallery item
 exports.updateGallery = async (req, res) => {
   try {
     const { title, description, category, tags, visible } = req.body;
 
-    const item = await Gallery.findById(req.params.id);
-
-    if (!item) {
-      return res.status(404).json({ message: 'Gallery item not found' });
-    }
+    const item = await Gallery.findByPk(req.params.id);
+    if (!item) return res.status(404).json({ message: "Gallery item not found" });
 
     if (title !== undefined) item.title = title;
     if (description !== undefined) item.description = description;
     if (category !== undefined) item.category = category;
-    if (tags !== undefined) item.tags = tags.split(',').map(t => t.trim());
+    if (tags !== undefined) {
+      // Reassignment (not in-place push) so Sequelize's change tracker
+      // marks the JSON column as dirty and emits the UPDATE.
+      item.tags = String(tags).split(",").map((t) => t.trim()).filter(Boolean);
+    }
     if (visible !== undefined) item.visible = visible;
 
-    const updatedItem = await item.save();
+    await item.save();
 
-    res.json({
-      message: 'Gallery item updated successfully',
-      item: updatedItem,
-    });
+    res.json({ message: "Gallery item updated successfully", item });
   } catch (error) {
-    console.error('Update gallery error:', error);
+    console.error("Update gallery error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Delete gallery item
 exports.deleteGallery = async (req, res) => {
   try {
-    const item = await Gallery.findByIdAndDelete(req.params.id);
+    const item = await Gallery.findByPk(req.params.id);
+    if (!item) return res.status(404).json({ message: "Gallery item not found" });
 
-    if (!item) {
-      return res.status(404).json({ message: 'Gallery item not found' });
-    }
+    if (item.fileUrl) safeUnlink(galleryDiskPath(item));
+    await item.destroy();
 
-    // Delete file from server
-    if (item.fileUrl) {
-      const filePath = path.join(__dirname, '../public', item.fileUrl);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    }
-
-    res.json({ message: 'Gallery item deleted successfully' });
+    res.json({ message: "Gallery item deleted successfully" });
   } catch (error) {
-    console.error('Delete gallery error:', error);
+    console.error("Delete gallery error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Bulk delete
 exports.bulkDeleteGallery = async (req, res) => {
   try {
     const { ids } = req.body;
-
-    if (!ids || !Array.isArray(ids)) {
-      return res.status(400).json({ message: 'Invalid IDs provided' });
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: "Invalid IDs provided" });
     }
 
-    const items = await Gallery.find({ _id: { $in: ids } });
-
-    // Delete files
-    items.forEach(item => {
-      if (item.fileUrl) {
-        const filePath = path.join(__dirname, '../public', item.fileUrl);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
-      }
+    const items = await Gallery.findAll({ where: { id: { [Op.in]: ids } } });
+    items.forEach((item) => {
+      if (item.fileUrl) safeUnlink(galleryDiskPath(item));
     });
 
-    await Gallery.deleteMany({ _id: { $in: ids } });
+    const deleted = await Gallery.destroy({ where: { id: { [Op.in]: ids } } });
 
-    res.json({ message: `${ids.length} item(s) deleted successfully` });
+    res.json({ message: `${deleted} item(s) deleted successfully` });
   } catch (error) {
-    console.error('Bulk delete gallery error:', error);
+    console.error("Bulk delete gallery error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Toggle visibility
 exports.toggleVisibility = async (req, res) => {
   try {
-    const item = await Gallery.findById(req.params.id);
-
-    if (!item) {
-      return res.status(404).json({ message: 'Gallery item not found' });
-    }
+    const item = await Gallery.findByPk(req.params.id);
+    if (!item) return res.status(404).json({ message: "Gallery item not found" });
 
     item.visible = !item.visible;
     await item.save();
 
     res.json({
-      message: `Gallery item is now ${item.visible ? 'visible' : 'hidden'}`,
+      message: `Gallery item is now ${item.visible ? "visible" : "hidden"}`,
       item,
     });
   } catch (error) {
-    console.error('Toggle visibility error:', error);
+    console.error("Toggle visibility error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Like gallery item
 exports.likeGallery = async (req, res) => {
   try {
-    const item = await Gallery.findById(req.params.id);
+    // Atomic increment — avoids the read-modify-write race where two
+    // concurrent likes could each read likes=5 and both write 6 (a lost
+    // update). increment() emits `UPDATE ... SET likes = likes + 1`.
+    const [, affected] = await Gallery.increment(
+      { likes: 1 },
+      { where: { id: req.params.id } },
+    );
 
-    if (!item) {
-      return res.status(404).json({ message: 'Gallery item not found' });
-    }
+    // Sequelize's increment doesn't tell us in a portable way whether
+    // the row existed; refetch to both confirm existence and return the
+    // fresh count to the client.
+    const item = await Gallery.findByPk(req.params.id, {
+      attributes: ["id", "likes"],
+    });
+    if (!item) return res.status(404).json({ message: "Gallery item not found" });
 
-    item.likes += 1;
-    await item.save();
-
-    res.json({ message: 'Item liked', likes: item.likes });
+    res.json({ message: "Item liked", likes: item.likes });
   } catch (error) {
-    console.error('Like gallery error:', error);
+    console.error("Like gallery error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Get gallery stats
 exports.getGalleryStats = async (req, res) => {
   try {
-    const total = await Gallery.countDocuments();
-    const images = await Gallery.countDocuments({ type: 'image' });
-    const videos = await Gallery.countDocuments({ type: 'video' });
-    const visible = await Gallery.countDocuments({ visible: true });
-    const hidden = await Gallery.countDocuments({ visible: false });
+    // Single aggregate pull rather than N COUNT round trips.
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-    const categories = await Gallery.distinct('category');
-    const recentItems = await Gallery.find()
-      .sort({ uploadDate: -1 })
-      .limit(7)
-      .countDocuments();
+    const [
+      total, images, videos, visible, hidden, categoryRows, recentItems,
+    ] = await Promise.all([
+      Gallery.count(),
+      Gallery.count({ where: { type: "image" } }),
+      Gallery.count({ where: { type: "video" } }),
+      Gallery.count({ where: { visible: true } }),
+      Gallery.count({ where: { visible: false } }),
+      Gallery.findAll({
+        attributes: [
+          [sequelize.fn("DISTINCT", sequelize.col("category")), "category"],
+        ],
+        raw: true,
+      }),
+      // The Mongoose version was `.find().sort().limit(7).countDocuments()`
+      // — Mongoose's countDocuments ignores sort/limit, so that call
+      // effectively returned `total`, which was almost certainly a bug.
+      // Reinterpreting the intent as "items uploaded in the last 7 days"
+      // which is a common analytics metric. See MIGRATION_PLAN.md for the
+      // full audit trail on behaviour changes.
+      Gallery.count({ where: { uploadDate: { [Op.gte]: sevenDaysAgo } } }),
+    ]);
 
     res.json({
       total,
@@ -251,11 +285,11 @@ exports.getGalleryStats = async (req, res) => {
       videos,
       visible,
       hidden,
-      categories: categories.length,
+      categories: categoryRows.length,
       recentItems,
     });
   } catch (error) {
-    console.error('Get gallery stats error:', error);
+    console.error("Get gallery stats error:", error);
     res.status(500).json({ message: error.message });
   }
 };

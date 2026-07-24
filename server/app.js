@@ -1,11 +1,12 @@
-
 "use strict";
 
 require("dotenv").config();
 
+// MySQL is the primary datastore. Its config vars are validated
+// separately, and fatally, by sequelize/config/config.js at import time
+// — so we don't repeat DB_* here.
 const REQUIRED_ENV = [
   "PORT",
-  "MONGO_URI",
   "JWT_SECRET",
   "JWT_REFRESH_SECRET",
   "NODE_ENV",
@@ -23,14 +24,12 @@ const express    = require("express");
 const cors       = require("cors");
 const helmet     = require("helmet");
 const hpp        = require("hpp");
-const mongoSanitize = require("express-mongo-sanitize");
 const compression   = require("compression");
 const cookieParser  = require("cookie-parser");
 const rateLimit     = require("express-rate-limit");
 const path          = require("path");
 
 
-const connectDB          = require("./config/db");
 const { AppError, globalErrorHandler } = require("./utils/appError");
 const logger             = require("./utils/logger"); 
 
@@ -64,9 +63,7 @@ const galleryRoutes          = require("./routes/galleryRoutes");
 const noticeRoutes           = require("./routes/noticeRoutes");
 const feedbackRoutes         = require("./routes/feedbackRoutes");
 
-// Careers & Procurement
-const jobRoutes              = require("./routes/jobRoutes");
-const careerApplicationRoutes = require("./routes/careerApplicationRoutes");
+// Procurement
 const tenderRoutes           = require("./routes/tenderRoutes");
 const bidRoutes              = require("./routes/bidRoutes");
 
@@ -76,7 +73,9 @@ const paymentRoutes          = require("./routes/paymentRoute");
 const certificateRoutes      = require("./routes/certificates");
 
 
-connectDB();
+// DB connections are established in server.js before app.listen — see
+// bootstrap() there. app.js stays connection-agnostic so it can be
+// required for tests without triggering a live DB connect.
 
 
 const app = express();
@@ -168,24 +167,10 @@ const authLimiter = rateLimit({
   },
 });
 
-const sanitizeRequest = (req, res, next) => {
-  if (req.body)   req.body   = mongoSanitize.sanitize(req.body);
-  if (req.params) req.params = mongoSanitize.sanitize(req.params);
-  if (req.query) {
-    const cleaned = mongoSanitize.sanitize(req.query);
-    Object.keys(req.query).forEach((key) => delete req.query[key]);
-    Object.assign(req.query, cleaned);
-  }
-  next();
-};
-
-
-
-app.use(express.json({ limit: "10kb" }));        
+app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(cookieParser());
-app.use(compression());                            
-app.use(sanitizeRequest);
+app.use(compression());
 
 
 app.use(hpp({ whitelist: ["fields", "sort", "page", "limit", "filter"] }));
@@ -290,8 +275,9 @@ app.use("/api/gallery",       galleryRoutes);
 app.use("/api/notices",       noticeRoutes);
 app.use("/api/feedback",      feedbackRoutes);
 
-// Careers & Procurement 
-app.use("/api/applications",  careerApplicationRoutes);
+// Procurement
+// (Careers/job listings and applications are now hosted on the county
+// website; this API no longer exposes /api/jobs or /api/applications.)
 app.use("/api/tenders",       tenderRoutes);
 app.use("/api/bids",          bidRoutes);
 

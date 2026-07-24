@@ -1,5 +1,4 @@
-const User = require("../models/userModel");
-const TokenBlacklist = require("../models/tokenBlacklistModel");
+const { User, TokenBlacklist } = require("../sequelize/models");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { AppError, asyncHandler, sendSuccess } = require("../utils/appError");
@@ -23,6 +22,12 @@ const {
 
 // C3 fix: the old `console.log(req.body)` here logged plaintext passwords
 // to stdout. Deleted — never log req.body on an auth route.
+//
+// CUTOVER NOTE (Mongo -> MySQL, auth domain): `User` and `TokenBlacklist`
+// are now the Sequelize models from sequelize/models. Query shapes changed
+// (`findOne({email})` -> `findOne({ where: { email } })`, `_id` -> `id`),
+// but the auth logic itself — lockouts, email-verification gate, response
+// shape — is unchanged.
 exports.login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
@@ -30,7 +35,7 @@ exports.login = asyncHandler(async (req, res) => {
     throw new AppError("Email and password are required.", 400);
   }
 
-  const user = await User.findOne({ email: email.toLowerCase() });
+  const user = await User.findOne({ where: { email: email.toLowerCase() } });
 
   // H2: identical response for "no such user" and "wrong password" so the
   // client can't distinguish account existence. Also run a dummy bcrypt
@@ -95,7 +100,7 @@ exports.login = asyncHandler(async (req, res) => {
     token: accessToken,
     mustChangePassword: !!user.mustChangePassword,
     user: {
-      id: user._id,
+      id: user.id,
       name: user.name,
       role: user.role,
     },
@@ -106,14 +111,17 @@ exports.login = asyncHandler(async (req, res) => {
 // expiry. This blacklists the current access token's jti (and, if sent,
 // the refresh token's jti) so it's rejected by verifyToken even though it
 // hasn't technically expired yet.
+//
+// CUTOVER NOTE: Mongoose's `updateOne({ jti }, { ... }, { upsert: true })`
+// becomes Sequelize's `upsert()`, which inserts-or-updates on the unique
+// `jti` column in one call.
 exports.logout = asyncHandler(async (req, res) => {
   const decoded = req.decodedToken; // set by verifyToken
   if (decoded?.jti && decoded?.exp) {
-    await TokenBlacklist.updateOne(
-      { jti: decoded.jti },
-      { jti: decoded.jti, expiresAt: new Date(decoded.exp * 1000) },
-      { upsert: true }
-    );
+    await TokenBlacklist.upsert({
+      jti: decoded.jti,
+      expiresAt: new Date(decoded.exp * 1000),
+    });
   }
 
   const refreshToken = req.cookies?.refreshToken;
@@ -121,11 +129,10 @@ exports.logout = asyncHandler(async (req, res) => {
     try {
       const refreshDecoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
       if (refreshDecoded?.jti && refreshDecoded?.exp) {
-        await TokenBlacklist.updateOne(
-          { jti: refreshDecoded.jti },
-          { jti: refreshDecoded.jti, expiresAt: new Date(refreshDecoded.exp * 1000) },
-          { upsert: true }
-        );
+        await TokenBlacklist.upsert({
+          jti: refreshDecoded.jti,
+          expiresAt: new Date(refreshDecoded.exp * 1000),
+        });
       }
     } catch {
       // Refresh token already invalid/expired — nothing to blacklist.
@@ -154,20 +161,19 @@ exports.refresh = asyncHandler(async (req, res) => {
     throw new AppError("Invalid token type.", 401);
   }
 
-  const blacklisted = await TokenBlacklist.findOne({ jti: decoded.jti });
+  const blacklisted = await TokenBlacklist.findOne({ where: { jti: decoded.jti } });
   if (blacklisted) throw new AppError("This session has been revoked. Please log in again.", 401);
 
-  const user = await User.findById(decoded.id);
+  const user = await User.findByPk(decoded.id);
   if (!user || user.isActive === false) {
     throw new AppError("Account not found or deactivated.", 401);
   }
 
   // Rotate: blacklist the used refresh token, issue a fresh pair.
-  await TokenBlacklist.updateOne(
-    { jti: decoded.jti },
-    { jti: decoded.jti, expiresAt: new Date(decoded.exp * 1000) },
-    { upsert: true }
-  );
+  await TokenBlacklist.upsert({
+    jti: decoded.jti,
+    expiresAt: new Date(decoded.exp * 1000),
+  });
 
   const { token: accessToken } = signAccessToken(user);
   const { token: newRefreshToken } = signRefreshToken(user);

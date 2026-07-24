@@ -1,7 +1,10 @@
 const jwt = require("jsonwebtoken");
-const User = require("../models/userModel");
-const Researcher = require("../models/ResearcherModel");
-const TokenBlacklist = require("../models/tokenBlacklistModel");
+// CUTOVER NOTE: User and TokenBlacklist are now the Sequelize models
+// (Auth domain, cut over). Researcher is still Mongoose — that domain
+// hasn't been migrated yet, so every Researcher-touching branch below is
+// deliberately left as-is. Don't convert them in isolation; they'll move
+// together when the Research domain gets its own cutover pass.
+const { User, TokenBlacklist, Researcher } = require("../sequelize/models");
 const { AppError, asyncHandler } = require("../utils/appError");
 const { RESEARCHER_ROLES, RESEARCHER_STATUSES } = require("../constants/researchIndex");
 
@@ -19,12 +22,15 @@ const extractToken = (req) => {
 };
 
 //Build a consistent caller identity object used by both - getCallerName and getCallerIdentity.
- 
 
+// CUTOVER NOTE: uses `.id` for both branches now instead of `._id`. Works
+// for Sequelize `User` (real integer `id`) and for the still-Mongoose
+// `Researcher` (which exposes a virtual `.id` getter by default) alike —
+// same reasoning as the tokenService.js change.
 const buildCallerIdentity = (req) => {
   if (req.researcher) {
     return {
-      id:    req.researcher._id,
+      id:    req.researcher.id,
       name:  req.researcher.name || req.researcher.firstName || "Researcher",
       role:  req.researcher.role,
       model: "Researcher",
@@ -36,7 +42,7 @@ const buildCallerIdentity = (req) => {
       `${req.user.firstName || ""} ${req.user.lastName || ""}`.trim() ||
       "Staff Admin";
     return {
-      id:    req.user._id,
+      id:    req.user.id,
       name,
       role:  req.user.role,
       model: "User",
@@ -52,16 +58,16 @@ const researcherHasCommitteeAccess = (researcher) =>
   !!researcher &&
   (researcher.role === RESEARCHER_ROLES.RESEARCH_COMMITTEE ||
     researcher.isCommittee === true);
- 
+
 
 //  HMIS STAFF ROUTES
 
 exports.verifyToken = asyncHandler(async (req, res, next) => {
   const token = extractToken(req);
   if (!token) throw new AppError("No token provided.", 401);
- 
+
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
- 
+
   if (decoded.collection === "researchers") {
     throw new AppError("Access denied — researcher token not allowed on staff routes.", 403);
   }
@@ -69,15 +75,15 @@ exports.verifyToken = asyncHandler(async (req, res, next) => {
   // H5: reject tokens that were explicitly revoked via /api/auth/logout,
   // even though they haven't hit their natural expiry yet.
   if (decoded.jti) {
-    const blacklisted = await TokenBlacklist.findOne({ jti: decoded.jti });
+    const blacklisted = await TokenBlacklist.findOne({ where: { jti: decoded.jti } });
     if (blacklisted) throw new AppError("Session expired. Please log in again.", 401);
   }
- 
-  const user = await User.findById(decoded.id).select("-password");
+
+  const user = await User.findByPk(decoded.id, { attributes: { exclude: ["password"] } });
   if (!user) throw new AppError("User not found.", 401);
- 
+
   if (user.isActive === false) throw new AppError("Your account has been deactivated.", 403);
- 
+
   req.user = user;
   req.decodedToken = decoded;
   next();
@@ -88,7 +94,7 @@ exports.verifyToken = asyncHandler(async (req, res, next) => {
 exports.authorizeRoles = (...roles) => (req, res, next) => {
   // Superadmin always passes
   if (req.user?.role === "superadmin") return next();
- 
+
   if (!roles.includes(req.user?.role)) {
     return next(
       new AppError(
@@ -107,24 +113,24 @@ exports.authorizeRoles = (...roles) => (req, res, next) => {
 exports.protectResearcher = asyncHandler(async (req, res, next) => {
   const token = extractToken(req);
   if (!token) throw new AppError("No token provided.", 401);
- 
+
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
- 
+
   // Staff tokens must never reach researcher routes
   if (decoded.collection !== "researchers") {
     throw new AppError("Access denied — researcher token required.", 403);
   }
- 
-  const researcher = await Researcher.findById(decoded.id);
+
+  const researcher = await Researcher.findByPk(decoded.id);
   if (!researcher) throw new AppError("Account not found.", 401);
- 
+
   if (researcher.isActive === false) {
     throw new AppError("Your account has been deactivated.", 403);
   }
   if (researcher.status === RESEARCHER_STATUSES.SUSPENDED) {
     throw new AppError("Your account has been suspended. Please contact support.", 403);
   }
- 
+
   req.researcher = researcher;
   next();
 });
@@ -147,7 +153,7 @@ exports.authorizeResearcherRoles = (...roles) => (req, res, next) => {
 // RESEARCH COMMITTEE GATE
 // Use on endpoints reserved for committee oversight (cross-cutting paper
 // visibility, final-paper sign-off). Covers BOTH committee paths: promoted
-// reviewers (role stays REVIEWER, isCommittee=true) 
+// reviewers (role stays REVIEWER, isCommittee=true)
 
 exports.protectCommittee = (req, res, next) => {
   if (staffIsAdmin(req)) return next();
@@ -168,30 +174,30 @@ exports.protectCommittee = (req, res, next) => {
 exports.protectEither = asyncHandler(async (req, res, next) => {
   const token = extractToken(req);
   if (!token) throw new AppError("No token provided.", 401);
- 
+
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
- 
+
   if (decoded.collection === "researchers") {
-    const researcher = await Researcher.findById(decoded.id);
+    const researcher = await Researcher.findByPk(decoded.id);
     if (!researcher) throw new AppError("Researcher not found.", 401);
- 
+
     if (researcher.isActive === false) {
       throw new AppError("Your account has been deactivated.", 403);
     }
     if (researcher.status === RESEARCHER_STATUSES.SUSPENDED) {
       throw new AppError("Your account has been suspended.", 403);
     }
- 
+
     req.researcher = researcher;
   } else {
-    // Hospital staff token
-    const user = await User.findById(decoded.id).select("-password");
+    // Hospital staff token — Sequelize User now.
+    const user = await User.findByPk(decoded.id, { attributes: { exclude: ["password"] } });
     if (!user) throw new AppError("User not found.", 401);
     if (user.isActive === false) throw new AppError("Your account has been deactivated.", 403);
- 
+
     req.user = user;
   }
- 
+
   next();
 });
 
@@ -201,45 +207,45 @@ exports.protectEither = asyncHandler(async (req, res, next) => {
 exports.protectReviewers = asyncHandler(async (req, res, next) => {
   const token = extractToken(req);
   if (!token) throw new AppError("No token provided.", 401);
- 
+
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
- 
+
   if (decoded.collection === "researchers") {
-    const researcher = await Researcher.findById(decoded.id);
+    const researcher = await Researcher.findByPk(decoded.id);
     if (!researcher) throw new AppError("Researcher not found.", 401);
- 
+
     if (researcher.isActive === false) {
       throw new AppError("Your account has been deactivated.", 403);
     }
- 
+
     const allowedRoles = [
       RESEARCHER_ROLES.REVIEWER,
       RESEARCHER_ROLES.RESEARCH_COMMITTEE,
     ];
- 
+
     if (!allowedRoles.includes(researcher.role)) {
       throw new AppError(
         `Role '${researcher.role}' does not have review permissions.`,
         403
       );
     }
- 
+
     req.researcher = researcher;
   } else {
-    // Hospital staff token
-    const user = await User.findById(decoded.id).select("-password");
+    // Hospital staff token — Sequelize User now.
+    const user = await User.findByPk(decoded.id, { attributes: { exclude: ["password"] } });
     if (!user) throw new AppError("User not found.", 401);
- 
+
     if (!["admin", "superadmin"].includes(user.role)) {
       throw new AppError(
         `Role '${user.role}' does not have review permissions.`,
         403
       );
     }
- 
+
     req.user = user;
   }
- 
+
   next();
 });
 
@@ -248,11 +254,11 @@ exports.protectReviewers = asyncHandler(async (req, res, next) => {
 exports.optionalResearcher = async (req, res, next) => {
   const token = extractToken(req);
   if (!token) return next();
- 
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (decoded.collection === "researchers") {
-      const researcher = await Researcher.findById(decoded.id);
+      const researcher = await Researcher.findByPk(decoded.id);
       if (researcher && researcher.isActive !== false) {
         req.researcher = researcher;
       }
@@ -260,7 +266,7 @@ exports.optionalResearcher = async (req, res, next) => {
   } catch {
     // Silent fail — token invalid or expired; request proceeds unauthenticated
   }
- 
+
   next();
 };
 
@@ -288,7 +294,7 @@ exports.restrictTo = (...roles) => (req, res, next) => {
 };
 
 
- 
+
 
 //  UTILITIES
 

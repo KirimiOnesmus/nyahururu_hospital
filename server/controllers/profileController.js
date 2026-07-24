@@ -1,6 +1,4 @@
-const User = require("../models/userModel");
-const Profile = require("../models/ProfileModel");
-const Doctor = require("../models/doctorModel");
+const { User, Profile, Doctor } = require("../sequelize/models");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const {
@@ -8,19 +6,25 @@ const {
   sendPasswordChangedEmail,
 } = require("../utils/emailServices");
 
+const FULL_EXCLUDE = [
+  "password",
+  "emailVerificationToken",
+  "emailVerificationExpire",
+  "passwordResetToken",
+  "passwordResetExpire",
+];
+
 exports.getProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    const user = await User.findById(userId).select(
-      "-password -emailVerificationToken -emailVerificationExpire -passwordResetToken -passwordResetExpire",
-    );
+    const user = await User.findByPk(userId, { attributes: { exclude: FULL_EXCLUDE } });
     if (!user) return res.status(404).json({ message: "User not found" });
 
     let doctorDetails = null;
     if (user.role === "doctor")
-      doctorDetails = await Doctor.findOne({ userId });
+      doctorDetails = await Doctor.findOne({ where: { userId } });
 
-    const profile = await Profile.findOne({ userId });
+    const profile = await Profile.findOne({ where: { userId } });
 
     res.status(200).json({
       success: true,
@@ -65,7 +69,7 @@ exports.updateProfile = async (req, res) => {
       profileImage,
     } = req.body;
 
-    const user = await User.findById(userId);
+    const user = await User.findByPk(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
     let emailUpdated = false;
@@ -76,7 +80,7 @@ exports.updateProfile = async (req, res) => {
         return res.status(400).json({ message: "Invalid email format" });
       }
 
-      const existingEmail = await User.findOne({ email: email.toLowerCase() });
+      const existingEmail = await User.findOne({ where: { email: email.toLowerCase() } });
       if (existingEmail) {
         return res.status(400).json({ message: "Email already in use" });
       }
@@ -103,9 +107,9 @@ exports.updateProfile = async (req, res) => {
     if (name?.trim()) user.name = name.trim();
     await user.save();
 
-    let profile = await Profile.findOne({ userId });
+    let profile = await Profile.findOne({ where: { userId } });
     if (!profile) {
-      profile = new Profile({
+      profile = await Profile.create({
         userId,
         phone,
         address,
@@ -115,35 +119,44 @@ exports.updateProfile = async (req, res) => {
       if (phone !== undefined) profile.phone = phone;
       if (address !== undefined) profile.address = address;
       if (profileImage !== undefined) profile.imageUrl = profileImage;
-      profile.updatedAt = Date.now();
+      await profile.save();
     }
-    await profile.save();
 
     // Update doctor details if applicable
     let doctorDetails = null;
     if (user.role === "doctor") {
-      let doctor = await Doctor.findOne({ userId });
-      if (!doctor) {
-        doctor = new Doctor({
-          userId,
-          speciality: speciality || "",
-          bio: bio || "",
-          education: education || "",
+      try {
+        // findOrCreate handles both branches (new profile / existing
+        // profile update) in a single MySQL transaction, closing the
+        // read-then-write race that could otherwise create two Doctor
+        // rows for the same user under concurrent edits.
+        const [doctor, created] = await Doctor.findOrCreate({
+          where: { userId },
+          defaults: {
+            userId,
+            speciality: speciality || "",
+            bio: bio || "",
+            education: education || "",
+            availability: [],
+          },
         });
-      } else {
-        if (speciality !== undefined) doctor.speciality = speciality;
-        if (bio !== undefined) doctor.bio = bio;
-        if (education !== undefined) doctor.education = education;
-        doctor.updatedAt = Date.now();
+        if (!created) {
+          if (speciality !== undefined) doctor.speciality = speciality;
+          if (bio !== undefined) doctor.bio = bio;
+          if (education !== undefined) doctor.education = education;
+          await doctor.save();
+        }
+        doctorDetails = doctor;
+      } catch (doctorErr) {
+        // Non-fatal — the user's own profile update has already
+        // committed, so a downstream Doctor sync failure gets logged
+        // and the caller sees a successful profile response.
+        console.error("Doctor profile sync failed:", doctorErr.message);
       }
-      await doctor.save();
-      doctorDetails = doctor;
     }
 
-    const updatedUser = await User.findById(userId).select(
-      "-password -emailVerificationToken -emailVerificationExpire -passwordResetToken -passwordResetExpire",
-    );
-    profile = await Profile.findOne({ userId });
+    const updatedUser = await User.findByPk(userId, { attributes: { exclude: FULL_EXCLUDE } });
+    profile = await Profile.findOne({ where: { userId } });
 
     const message = emailUpdated
       ? "Profile updated successfully! Please verify your new email address."
@@ -206,7 +219,10 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    const user = await User.findById(userId).select("+password");
+    // CUTOVER NOTE: password isn't hidden by the model's defaultScope
+    // (only the four token columns are), so a plain findByPk already
+    // returns it — no ".scope('withSecrets')" or "+password" needed here.
+    const user = await User.findByPk(userId);
 
     if (!user) {
       return res
@@ -237,7 +253,9 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    user.password = await bcrypt.hash(newPassword, 12);
+    // Left raw — the model's beforeSave hook hashes it. Do not
+    // bcrypt.hash() here, that would double-hash it.
+    user.password = newPassword;
     await user.save();
 
     try {
@@ -288,14 +306,13 @@ exports.uploadProfilePhoto = async (req, res) => {
 
     const imageUrl = `/uploads/profile/${req.file.filename}`;
 
-    let profile = await Profile.findOne({ userId });
+    let profile = await Profile.findOne({ where: { userId } });
     if (!profile) {
-      profile = new Profile({ userId, imageUrl });
+      profile = await Profile.create({ userId, imageUrl });
     } else {
       profile.imageUrl = imageUrl;
-      profile.updatedAt = Date.now();
+      await profile.save();
     }
-    await profile.save();
 
     res.status(200).json({ success: true, imageUrl });
   } catch (err) {

@@ -1,278 +1,157 @@
-const Service = require("../models/servicesModel");
+"use strict";
+
 const fs = require("fs");
 const path = require("path");
+const { Op } = require("sequelize");
+const { Service } = require("../sequelize/models");
 
-// Delete file helper function
+// ── Helpers ─────────────────────────────────────────────────────────
+
+const VALID_DIVISIONS = ["Outpatient", "Inpatient", "Specialist Clinics"];
+
 const deleteImageFile = (imagePath) => {
-  if (imagePath) {
-    const fullPath = path.join(__dirname, "..", imagePath);
-    if (fs.existsSync(fullPath)) {
-      try {
-        fs.unlinkSync(fullPath);
-      } catch (err) {
-        console.error(`Failed to delete image: ${err.message}`);
-      }
+  if (!imagePath) return;
+  const fullPath = path.join(__dirname, "..", imagePath);
+  if (fs.existsSync(fullPath)) {
+    try {
+      fs.unlinkSync(fullPath);
+    } catch (err) {
+      console.error(`Failed to delete image: ${err.message}`);
     }
   }
 };
 
-// exports.createService = async (req, res) => {
-//   try {
+// Coerce the multi-shaped `nhifCovered` client input to a boolean.
+// Multipart form data can send "true", true, "on", "yes", etc; the
+// Mongoose version only accepted "true"/true — same rule preserved.
+const toBool = (value) => value === "true" || value === true;
 
-//     const {
-//       name,
-//       division,
-//       category,
-//       description,
-//       headOfDepartment,
-//       contactInfo,
-//       serviceHours,
-//       location,
-//       tariffInfo,
-//       nhifCovered,
-//     } = req.body;
-
-//     // Validate required fields
-//     if (!name || !name.trim()) {
-//       if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
-//       return res.status(400).json({ message: "Service name is required" });
-//     }
-
-//     if (!division) {
-//       if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
-//       return res.status(400).json({ message: "Division is required" });
-//     }
-
-//     if (!category) {
-//       if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
-//       return res.status(400).json({ message: "Category is required" });
-//     }
-
-//     if (!description || !description.trim()) {
-//       if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
-//       return res.status(400).json({ message: "Description is required" });
-//     }
-
-//     // Validate division enum
-//     const validDivisions = ["Outpatient", "Inpatient", "Specialist Clinics"];
-//     // console.log('Checking division:', division, 'against:', validDivisions);
-    
-//     if (!validDivisions.includes(division)) {
-//       if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
-//       return res.status(400).json({
-//         message: "Invalid division. Must be Outpatient, Inpatient, or Specialist Clinics",
-//       });
-//     }
-
-//     // Validate file 
-//     // if (!req.file) {
-//     //   return res.status(400).json({ message: "Service image is required" });
-//     // }
-
-//     if (!req.file.mimetype.startsWith("image/")) {
-//       deleteImageFile(`/uploads/services/${req.file.filename}`);
-//       return res.status(400).json({ message: "Only image files are allowed" });
-//     }
-
-//     // Check for duplicate name
-//     const existing = await Service.findOne({ name: name.trim() });
-//     if (existing) {
-//       deleteImageFile(`/uploads/services/${req.file.filename}`);
-//       return res.status(400).json({ message: "Service with this name already exists" });
-//     }
-
-//     const imageUrl = `/uploads/services/${req.file.filename}`;
-//     const newService = new Service({
-//       name: name.trim(),
-//       division,
-//       category,
-//       description: description.trim(),
-//       headOfDepartment: headOfDepartment?.trim() || null,
-//       contactInfo: contactInfo?.trim() || null,
-//       serviceHours: serviceHours?.trim() || null,
-//       location: location?.trim() || null,
-//       tariffInfo: tariffInfo?.trim() || null,
-//       nhifCovered: nhifCovered === "true" || nhifCovered === true || false,
-//       imageUrl,
-//     });
-
-//     await newService.save();
-//     console.log('✅ Service created successfully:', newService._id);
-//     res.status(201).json({ message: "Service created successfully", service: newService });
-//   } catch (error) {
-//     if (req.file) {
-//       deleteImageFile(`/uploads/services/${req.file.filename}`);
-//     }
-
-//     res.status(500).json({ message: "Server Error", error: error.message });
-//   }
-// };
+// ── CRUD ────────────────────────────────────────────────────────────
 
 exports.createService = async (req, res) => {
   try {
     const {
-      name,
-      division,
-      category,
-      description,
-      headOfDepartment,
-      contactInfo,
-      serviceHours,
-      location,
-      tariffInfo,
-      nhifCovered,
+      name, division, category, description,
+      headOfDepartment, contactInfo, serviceHours,
+      location, tariffInfo, nhifCovered,
     } = req.body;
 
-    // Validate required fields
+    // Validation gate — if any check fails and a file was uploaded, roll
+    // back the disk write so failed 400s don't leak orphaned files.
     if (!name || !name.trim()) {
       if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
       return res.status(400).json({ message: "Service name is required" });
     }
-
     if (!division) {
       if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
       return res.status(400).json({ message: "Division is required" });
     }
-
     if (!category) {
       if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
       return res.status(400).json({ message: "Category is required" });
     }
-
     if (!description || !description.trim()) {
       if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
       return res.status(400).json({ message: "Description is required" });
     }
-
-    // Validate division enum
-    const validDivisions = ["Outpatient", "Inpatient", "Specialist Clinics"];
-    
-    if (!validDivisions.includes(division)) {
+    if (!VALID_DIVISIONS.includes(division)) {
       if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
       return res.status(400).json({
         message: "Invalid division. Must be Outpatient, Inpatient, or Specialist Clinics",
       });
     }
-
-    // Validate file type only if a file was uploaded
     if (req.file && !req.file.mimetype.startsWith("image/")) {
       deleteImageFile(`/uploads/services/${req.file.filename}`);
       return res.status(400).json({ message: "Only image files are allowed" });
     }
 
-    // Check for duplicate name
-    const existing = await Service.findOne({ name: name.trim() });
+    // Explicit duplicate-name guard for a clean 400. The Service model's
+    // unique index catches races.
+    const existing = await Service.findOne({ where: { name: name.trim() } });
     if (existing) {
       if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
       return res.status(400).json({ message: "Service with this name already exists" });
     }
 
-    // Set imageUrl only if file was uploaded
     const imageUrl = req.file ? `/uploads/services/${req.file.filename}` : null;
-    
-    const newService = new Service({
+
+    const newService = await Service.create({
       name: name.trim(),
       division,
       category,
       description: description.trim(),
       headOfDepartment: headOfDepartment?.trim() || null,
-      contactInfo: contactInfo?.trim() || null,
-      serviceHours: serviceHours?.trim() || null,
-      location: location?.trim() || null,
-      tariffInfo: tariffInfo?.trim() || null,
-      nhifCovered: nhifCovered === "true" || nhifCovered === true || false,
+      contactInfo:      contactInfo?.trim()      || null,
+      serviceHours:     serviceHours?.trim()     || null,
+      location:         location?.trim()         || null,
+      tariffInfo:       tariffInfo?.trim()       || null,
+      nhifCovered:      toBool(nhifCovered),
       imageUrl,
     });
 
-    await newService.save();
-    console.log('✅ Service created successfully:', newService._id);
+    console.log("✅ Service created successfully:", newService.id);
     res.status(201).json({ message: "Service created successfully", service: newService });
   } catch (error) {
-    if (req.file) {
-      deleteImageFile(`/uploads/services/${req.file.filename}`);
-    }
-
+    if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
+
 exports.updateService = async (req, res) => {
   try {
-    
     const {
-      name,
-      division,
-      category,
-      description,
-      headOfDepartment,
-      contactInfo,
-      serviceHours,
-      location,
-      tariffInfo,
-      nhifCovered,
+      name, division, category, description,
+      headOfDepartment, contactInfo, serviceHours,
+      location, tariffInfo, nhifCovered,
     } = req.body;
 
- 
-
-
-    const service = await Service.findById(req.params.id);
+    const service = await Service.findByPk(req.params.id);
     if (!service) {
       if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
       return res.status(404).json({ message: "Service not found" });
     }
 
-    // Validate required fields if provided
-    if (name && !name.trim()) {
+    if (name !== undefined && !name.trim()) {
       if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
-      
       return res.status(400).json({ message: "Service name cannot be empty" });
     }
-
-    if (description && !description.trim()) {
+    if (description !== undefined && !description.trim()) {
       if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
-      
       return res.status(400).json({ message: "Description cannot be empty" });
     }
-
-    const validDivisions = ["Outpatient", "Inpatient", "Specialist Clinics"];
-    console.log('Checking division:', division, 'against:', validDivisions);
-    
-    if (division && !validDivisions.includes(division)) {
+    if (division && !VALID_DIVISIONS.includes(division)) {
       if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
-      
       return res.status(400).json({
         message: "Invalid division. Must be Outpatient, Inpatient, or Specialist Clinics",
       });
     }
 
-    // Check for duplicate name (excluding current service)
+    // Duplicate-name guard — excludes the current row so a save without
+    // a name change doesn't false-positive against itself.
     if (name && name.trim() !== service.name) {
-      const existing = await Service.findOne({ name: name.trim() });
+      const existing = await Service.findOne({
+        where: { name: name.trim(), id: { [Op.ne]: service.id } },
+      });
       if (existing) {
         if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
-       
         return res.status(400).json({ message: "Service with this name already exists" });
       }
     }
 
-    // Update fields
     if (name) service.name = name.trim();
     if (division) service.division = division;
     if (category) service.category = category;
     if (description) service.description = description.trim();
-    if (headOfDepartment !== undefined)
-      service.headOfDepartment = headOfDepartment?.trim() || null;
-    if (contactInfo !== undefined)
-      service.contactInfo = contactInfo?.trim() || null;
-    if (serviceHours !== undefined)
-      service.serviceHours = serviceHours?.trim() || null;
-    if (location !== undefined)
-      service.location = location?.trim() || null;
-    if (tariffInfo !== undefined)
-      service.tariffInfo = tariffInfo?.trim() || null;
-    if (nhifCovered !== undefined)
-      service.nhifCovered = nhifCovered === "true" || nhifCovered === true || false;
+    if (headOfDepartment !== undefined) service.headOfDepartment = headOfDepartment?.trim() || null;
+    if (contactInfo !== undefined)      service.contactInfo      = contactInfo?.trim()      || null;
+    if (serviceHours !== undefined)     service.serviceHours     = serviceHours?.trim()     || null;
+    if (location !== undefined)         service.location         = location?.trim()         || null;
+    if (tariffInfo !== undefined)       service.tariffInfo       = tariffInfo?.trim()       || null;
+    if (nhifCovered !== undefined)      service.nhifCovered      = toBool(nhifCovered);
 
-    // Handle image update
+    // Image swap: remove the old file BEFORE assigning the new path, so
+    // a failed save leaves us with the old file still on disk rather
+    // than orphaning both.
     if (req.file) {
       deleteImageFile(service.imageUrl);
       service.imageUrl = `/uploads/services/${req.file.filename}`;
@@ -283,49 +162,47 @@ exports.updateService = async (req, res) => {
     res.json({ message: "Service updated successfully", service });
   } catch (error) {
     if (req.file) deleteImageFile(`/uploads/services/${req.file.filename}`);
-   
-;
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
 
 exports.getAllServices = async (req, res) => {
   try {
-    const services = await Service.find().sort({ createdAt: -1 });
+    const services = await Service.findAll({ order: [["createdAt", "DESC"]] });
     res.json(services);
   } catch (error) {
-    console.error('Error fetching services:', error.message);
+    console.error("Error fetching services:", error.message);
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
 
 exports.getServiceById = async (req, res) => {
   try {
-    const service = await Service.findById(req.params.id);
+    const service = await Service.findByPk(req.params.id);
     if (!service) return res.status(404).json({ message: "Service not found" });
     res.json(service);
   } catch (error) {
-    console.error('Error fetching service:', error.message);
+    console.error("Error fetching service:", error.message);
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
 
 exports.deleteService = async (req, res) => {
   try {
-    const service = await Service.findByIdAndDelete(req.params.id);
-    if (!service) {
-      return res.status(404).json({ message: "Service not found" });
-    }
+    const service = await Service.findByPk(req.params.id);
+    if (!service) return res.status(404).json({ message: "Service not found" });
 
-    // Delete associated image file
-    if (service.imageUrl) {
-      deleteImageFile(service.imageUrl);
-    }
+    // Capture imageUrl before destroy since the row is gone after.
+    const imageUrl = service.imageUrl;
+    const serviceId = service.id;
+    await service.destroy();
 
-    console.log('✅ Service deleted successfully:', service._id);
+    if (imageUrl) deleteImageFile(imageUrl);
+
+    console.log("✅ Service deleted successfully:", serviceId);
     res.json({ message: "Service deleted successfully" });
   } catch (error) {
-    console.error('Error deleting service:', error.message);
+    console.error("Error deleting service:", error.message);
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 };

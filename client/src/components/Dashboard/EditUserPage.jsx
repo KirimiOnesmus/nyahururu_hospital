@@ -894,7 +894,6 @@ const EditUserPage = () => {
                       </div>
                     </div>
 
-                    {/* Footer */}
                     <div className="absolute bottom-0 left-0 right-0 bg-blue-600 h-6"></div>
                   </div>
                 </div>
