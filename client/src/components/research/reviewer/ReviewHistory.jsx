@@ -418,10 +418,10 @@ const ReviewHistory = () => {
                     const displayDate = item.reviewedAt || item.assignedAt || item.createdAt;
                     return (
                       <tr
-                        key={item._id}
+                        key={item.id}
                         onClick={() =>
                           navigate(
-                            `/research/dashboard/review/${item._id}?mode=edit`,
+                            `/research/dashboard/review/${item.id}?mode=edit`,
                           )
                         }
                         className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60

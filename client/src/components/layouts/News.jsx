@@ -71,8 +71,8 @@ const News = () => {
       <div className="grid md:grid-cols-2 gap-5 mb-8">
         {visibleNews.map((item) => (
           <div
-            key={item._id}
-            onClick={() => navigate(`/news/${item._id}`)}
+            key={item.id}
+            onClick={() => navigate(`/news/${item.id}`)}
             className="bg-white border border-slate-200 rounded-2xl overflow-hidden cursor-pointer
                        hover:border-blue-400 transition-colors duration-200 flex flex-col"
           >
@@ -98,7 +98,7 @@ const News = () => {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigate(`/news/${item._id}`);
+                  navigate(`/news/${item.id}`);
                 }}
                 className="flex items-center gap-1.5 text-sm font-semibold text-blue-600
                            hover:text-blue-800 transition-colors duration-200 self-start mt-2"

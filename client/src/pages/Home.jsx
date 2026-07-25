@@ -82,8 +82,8 @@ const Home = () => {
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
               {serviceLimit.map((service) => (
                 <Card
-                  key={service._id}
-                  id={service._id}
+                  key={service.id}
+                  id={service.id}
                   image={`${BACKEND_URL}${service.imageUrl}`}
                   title={service.name}
                   description={service.description}

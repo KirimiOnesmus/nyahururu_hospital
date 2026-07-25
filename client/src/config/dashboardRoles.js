@@ -30,7 +30,7 @@ export const DASHBOARD_NAV = [
       {
         title: "Dashboard",
         path: "/dashboard",
-        roles: ["superadmin", "admin", "it", "doctor", "communication", "research"],
+        roles: ["superadmin", "admin", "it", "doctor", "communication", "research", "staff"],
         icon: FaTh,
       },
       { title: "Hospitals", path: "/dashboard/hospitals", roles: ["superadmin"], icon: FaHospital },

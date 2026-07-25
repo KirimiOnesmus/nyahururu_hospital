@@ -7,11 +7,9 @@ const Dashboard = () => {
   const [role, setRole] = useState(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
     const storedRole = localStorage.getItem("role");
 
     if (
-      !token ||
       !storedRole ||
       ![
         "admin",

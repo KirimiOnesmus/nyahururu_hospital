@@ -40,8 +40,8 @@ export const getResearchById = async (id) => {
   try {
     const response = await api.get(`/research/${id}`);
     const d = response.data?.data;
-    if (d?.paper?._id) return d.paper;
-    if (d?._id) return d;
+    if (d?.paper?.id) return d.paper;
+    if (d?.id) return d;
     return null;
   } catch (error) {
     const msg =
@@ -56,8 +56,8 @@ export const getResearchDetail = async (id) => {
   try {
     const response = await api.get(`/research/${id}`);
     const d = response.data?.data;
-    if (d?.paper?._id) return { paper: d.paper };
-    if (d?._id) return { paper: d };
+    if (d?.paper?.id) return { paper: d.paper };
+    if (d?.id) return { paper: d };
   
 
     return { paper: response.data };

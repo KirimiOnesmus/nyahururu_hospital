@@ -182,7 +182,7 @@ const AllResearch = () => {
 
 
   const handleView = (paper) => {
-    const recordId = paper._id || paper.id;
+    const recordId = paper.id;
     navigate(`../committee-research-detail/${recordId}`, { state: { record: paper } });
   };
 
@@ -271,7 +271,7 @@ const AllResearch = () => {
               </thead>
               <tbody>
                 {paginated.map((paper) => (
-                  <ResearchRow key={paper._id} paper={paper} onView={handleView} onVerify={handleVerify} onDownload={handleDownload} />
+                  <ResearchRow key={paper.id} paper={paper} onView={handleView} onVerify={handleVerify} onDownload={handleDownload} />
                 ))}
               </tbody>
             </table>

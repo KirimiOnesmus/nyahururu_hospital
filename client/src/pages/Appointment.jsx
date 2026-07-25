@@ -67,6 +67,9 @@ const Appointment = () => {
   const [selectedService, setSelectedService] = useState(null);
   const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
 
+  const [bookedSlots, setBookedSlots] = useState([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+
   useEffect(() => {
     const fetchServices = async () => {
       try {
@@ -109,9 +112,10 @@ const Appointment = () => {
 
   useEffect(() => {
     if (formData.service) {
-      const service = services.find((s) => s._id === formData.service);
+      const service = services.find((s) => String(s.id) === String(formData.service));
       setSelectedService(service);
-      if (service?.serviceHours) generateTimeSlots(service.serviceHours);
+      if (service) generateTimeSlots(service.serviceHours);
+      else setAvailableTimeSlots([]);
     } else {
       setSelectedService(null);
       setAvailableTimeSlots([]);
@@ -121,57 +125,73 @@ const Appointment = () => {
 
 
   const generateTimeSlots = (serviceHours) => {
-    if (!serviceHours) { setAvailableTimeSlots([]); return; }
+    let startHour = 8;
+    let endHour = 17;
 
-    if (
-      serviceHours.toLowerCase().includes("24/7") ||
-      serviceHours.toLowerCase().includes("24 hours") ||
-      serviceHours.toLowerCase().includes("24-hour")
-    ) {
-      const slots = [];
-      for (let hour = 0; hour < 24; hour++) {
-        for (let minute of [0, 30]) { 
-          slots.push(
-            `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`
-          );
+    if (serviceHours) {
+      if (
+        serviceHours.toLowerCase().includes("24/7") ||
+        serviceHours.toLowerCase().includes("24 hours") ||
+        serviceHours.toLowerCase().includes("24-hour")
+      ) {
+        startHour = 0;
+        endHour = 24;
+      } else {
+        const timeMatch = serviceHours.match(/(\d+)\s*(?::?\d*)?\s*(am|pm)\s*(?:to|-|–)\s*(\d+)\s*(?::?\d*)?\s*(am|pm)/i);
+        if (timeMatch) {
+          startHour = parseInt(timeMatch[1]);
+          endHour = parseInt(timeMatch[3]);
+          if (timeMatch[2].toLowerCase() === "pm" && startHour !== 12) startHour += 12;
+          if (timeMatch[4].toLowerCase() === "pm" && endHour !== 12) endHour += 12;
+          if (timeMatch[2].toLowerCase() === "am" && startHour === 12) startHour = 0;
+          if (timeMatch[4].toLowerCase() === "am" && endHour === 12) endHour = 0;
         }
+        // else: no parseable hours — keep defaults (8–17)
       }
-      setAvailableTimeSlots(slots);
-      return;
     }
+    // else: no serviceHours at all — keep defaults (8am–5pm)
 
-    const timeMatch = serviceHours.match(/(\d+)(am|pm)\s*to\s*(\d+)(am|pm)/i);
-    if (timeMatch) {
-      let startHour = parseInt(timeMatch[1]);
-      let endHour = parseInt(timeMatch[3]);
-      if (timeMatch[2].toLowerCase() === "pm" && startHour !== 12) startHour += 12;
-      if (timeMatch[4].toLowerCase() === "pm" && endHour !== 12) endHour += 12;
-      if (timeMatch[2].toLowerCase() === "am" && startHour === 12) startHour = 0;
-      if (timeMatch[4].toLowerCase() === "am" && endHour === 12) endHour = 0;
-      const slots = [];
-      for (let hour = startHour; hour < endHour; hour++) {
-        for (let minute of [0, 30]) {
-          slots.push(
-            `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`
-          );
-        }
-      }
-      setAvailableTimeSlots(slots);
-    } else {
-      const slots = [];
-      for (let hour = 8; hour < 17; hour++) {
-        for (let minute of [0, 30]) {
-          slots.push(
-            `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`
-          );
-        }
-      }
-      setAvailableTimeSlots(slots);
+    // Generate 1-hour windows
+    const slots = [];
+    for (let hour = startHour; hour < endHour; hour++) {
+      const from = `${hour.toString().padStart(2, "0")}:00`;
+      const to = `${(hour + 1).toString().padStart(2, "0")}:00`;
+      slots.push({ value: from, label: `${from} – ${to}` });
     }
+    setAvailableTimeSlots(slots);
   };
 
-  const handleChange = (e) =>
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  // Fetch booked slots whenever date or service changes
+  useEffect(() => {
+    const fetchBookedSlots = async () => {
+      if (!formData.date || !selectedService?.name) {
+        setBookedSlots([]);
+        return;
+      }
+      try {
+        setLoadingSlots(true);
+        const res = await api.get("/appointments/booked-slots", {
+          params: { date: formData.date, service: selectedService.name },
+        });
+        setBookedSlots(res.data?.bookedSlots || []);
+      } catch {
+        setBookedSlots([]);
+      } finally {
+        setLoadingSlots(false);
+      }
+    };
+    fetchBookedSlots();
+  }, [formData.date, selectedService]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+      // Clear time selection when date changes so user must re-pick
+      ...(name === "date" ? { time: "" } : {}),
+    }));
+  };
 
   const validateNormalForm = () => {
     const { name, email, phone, category, service, date, time } = formData;
@@ -424,7 +444,7 @@ const Appointment = () => {
                     {formData.category ? "Select a service" : "Select a category first"}
                   </option>
                   {filteredServices.map((s) => (
-                    <option key={s._id} value={s._id}>
+                    <option key={s.id} value={s.id}>
                       {s.name} ({s.division})
                     </option>
                   ))}
@@ -463,19 +483,32 @@ const Appointment = () => {
                     required
                     value={formData.time}
                     onChange={handleChange}
-                    disabled={!formData.service}
+                    disabled={!formData.service || !formData.date || loadingSlots}
                     className={selectClass}
                   >
                     <option value="">
-                      {formData.service ? "Select a time slot" : "Select a service first"}
+                      {!formData.service
+                        ? "Select a service first"
+                        : !formData.date
+                        ? "Select a date first"
+                        : loadingSlots
+                        ? "Loading available slots…"
+                        : availableTimeSlots.length === 0
+                        ? "No slots available"
+                        : "Select a time slot"}
                     </option>
-                    {availableTimeSlots.map((slot) => (
-                      <option key={slot} value={slot}>{slot}</option>
-                    ))}
+                    {availableTimeSlots.map((slot) => {
+                      const isBooked = bookedSlots.includes(slot.value);
+                      return (
+                        <option key={slot.value} value={slot.value} disabled={isBooked}>
+                          {slot.label}{isBooked ? " (Booked)" : ""}
+                        </option>
+                      );
+                    })}
                   </select>
-                  {availableTimeSlots.length > 0 && (
+                  {formData.date && formData.service && availableTimeSlots.length > 0 && (
                     <p className="text-xs text-slate-400 mt-1">
-                      {availableTimeSlots.length} slots available based on service hours
+                      {availableTimeSlots.length - bookedSlots.length} of {availableTimeSlots.length} slots available
                     </p>
                   )}
                 </Field>

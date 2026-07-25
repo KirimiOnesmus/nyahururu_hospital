@@ -197,10 +197,10 @@ const InventoryPage = () => {
     setSubmitting(true);
     try {
       if (editingItem) {
-        await api.put(`/inventory/${editingItem._id}`, formData);
+        await api.put(`/inventory/${editingItem.id}`, formData);
         toast.success("Item updated");
     
-        setItems(prev => prev.map(i => i._id === editingItem._id ? { ...i, ...formData } : i));
+        setItems(prev => prev.map(i => i.id === editingItem.id ? { ...i, ...formData } : i));
       } else {
         const res = await api.post("/inventory", formData);
         const newItem = res.data.data || res.data;
@@ -219,7 +219,7 @@ const InventoryPage = () => {
     if (!window.confirm("Delete this item?")) return;
     try {
       await api.delete(`/inventory/${id}`);
-      setItems(prev => prev.filter(i => i._id !== id));
+      setItems(prev => prev.filter(i => i.id !== id));
       toast.success("Item deleted");
     } catch (err) {
       toast.error(err.response?.data?.message || "Error deleting item");
@@ -338,7 +338,7 @@ const InventoryPage = () => {
                   {filtered.map(item => {
                     const rowHighlight = isExpired(item) ? "bg-rose-50/30" : isLowStock(item) ? "bg-amber-50/30" : "";
                     return (
-                      <tr key={item._id} className={`hover:bg-gray-50/80 transition-colors group ${rowHighlight}`}>
+                      <tr key={item.id} className={`hover:bg-gray-50/80 transition-colors group ${rowHighlight}`}>
 
                        
                         <td className="px-5 py-4">
@@ -385,7 +385,7 @@ const InventoryPage = () => {
                               className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 cursor-pointer transition-colors" title="Edit">
                               <MdEdit className="text-base" />
                             </button>
-                            <button onClick={() => handleDelete(item._id)}
+                            <button onClick={() => handleDelete(item.id)}
                               className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer transition-colors" title="Delete">
                               <MdDelete className="text-base" />
                             </button>

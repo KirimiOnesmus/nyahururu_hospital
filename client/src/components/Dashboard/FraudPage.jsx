@@ -167,8 +167,8 @@ const FraudPage = () => {
     try {
       await api.delete(`/fraud/${id}`);
 
-      setReports((prev) => prev.filter((r) => r._id !== id));
-      if (selectedReport?._id === id) setModalOpen(false);
+      setReports((prev) => prev.filter((r) => r.id !== id));
+      if (selectedReport?.id === id) setModalOpen(false);
       toast.success("Report deleted");
     } catch (err) {
       toast.error(err.response?.data?.message || "Error deleting report");
@@ -184,9 +184,9 @@ const FraudPage = () => {
         reviewedAt: new Date().toISOString(),
       };
       setReports((prev) =>
-        prev.map((r) => (r._id === id ? { ...r, ...updated } : r)),
+        prev.map((r) => (r.id === id ? { ...r, ...updated } : r)),
       );
-      if (selectedReport?._id === id)
+      if (selectedReport?.id === id)
         setSelectedReport((p) => ({ ...p, ...updated }));
       toast.success("Marked as reviewed");
     } catch (err) {
@@ -342,7 +342,7 @@ const FraudPage = () => {
                 <tbody className="divide-y divide-gray-50">
                   {filtered.map((r) => (
                     <tr
-                      key={r._id}
+                      key={r.id}
                       className="hover:bg-gray-50/80 transition-colors group"
                     >
                       <td className="px-5 py-4 max-w-xs">
@@ -385,7 +385,7 @@ const FraudPage = () => {
                           </button>
                           {r.status !== "reviewed" && (
                             <button
-                              onClick={() => handleMarkReviewed(r._id)}
+                              onClick={() => handleMarkReviewed(r.id)}
                               className="p-2 rounded-xl text-emerald-500 hover:bg-emerald-50 cursor-pointer transition-colors"
                               title="Mark as Reviewed"
                             >
@@ -393,7 +393,7 @@ const FraudPage = () => {
                             </button>
                           )}
                           <button
-                            onClick={() => handleDelete(r._id)}
+                            onClick={() => handleDelete(r.id)}
                             className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer transition-colors"
                             title="Delete"
                           >
@@ -521,14 +521,14 @@ const FraudPage = () => {
                   Close
                 </button>
                 <button
-                  onClick={() => handleDelete(selectedReport._id)}
+                  onClick={() => handleDelete(selectedReport.id)}
                   className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl cursor-pointer transition-colors"
                 >
                   <MdDelete /> Delete
                 </button>
                 {selectedReport.status !== "reviewed" && (
                   <button
-                    onClick={() => handleMarkReviewed(selectedReport._id)}
+                    onClick={() => handleMarkReviewed(selectedReport.id)}
                     className="flex items-center gap-2 px-5 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 cursor-pointer transition-colors shadow-sm"
                   >
                     <MdCheckCircle /> Mark Reviewed

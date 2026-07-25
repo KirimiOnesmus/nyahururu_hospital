@@ -135,7 +135,7 @@ const Payments = () => {
           id:
             p.submissionPayment?.mpesaReceiptNumber ||
             p.submissionPayment?.checkoutRequestId ||
-            p._id,
+            p.id,
           receiptNumber: p.submissionPayment?.mpesaReceiptNumber,
           title: p.title,
           researchId: p.researchId,
@@ -145,7 +145,7 @@ const Payments = () => {
             p.createdAt,
           amount: p.submissionPayment?.amount,
           status: p.submissionPayment?.status || "pending",
-          researchItemId: p._id,
+          researchItemId: p.id,
         })),
     [papers],
   );

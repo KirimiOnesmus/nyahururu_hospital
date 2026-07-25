@@ -361,7 +361,7 @@ const PapersPanel = () => {
 
 const handleDownload = async (item) => {
   try {
-    setDownloadingId(item._id);
+    setDownloadingId(item.id);
     const fileUrl = item.fileUrl || item.proposalFile;
     if (!fileUrl) {
       toast.error("No PDF available for download");
@@ -390,8 +390,8 @@ const handleDownload = async (item) => {
     )
       return;
     try {
-      setPublishingId(item._id);
-      await research.publishResearch(item._id);
+      setPublishingId(item.id);
+      await research.publishResearch(item.id);
       toast.success("Research published successfully!");
       fetchResearch();
     } catch (err) {
@@ -405,7 +405,7 @@ const handleDownload = async (item) => {
     e.preventDefault();
     setAssignLoading(true);
     try {
-      await research.assignReviewer(assignTarget._id, assignReviewerEmail);
+      await research.assignReviewer(assignTarget.id, assignReviewerEmail);
       toast.success("Reviewer assigned successfully!");
       setAssignReviewerOpen(false);
       setAssignReviewerEmail("");
@@ -727,11 +727,11 @@ const handleDownload = async (item) => {
                       ? item.assignedReviewer
                       : null;
 
-                  const itemRevenue = revenueByResearch[item._id];
+                  const itemRevenue = revenueByResearch[item.id];
 
                   return (
                     <tr
-                      key={item._id}
+                      key={item.id}
                       className="hover:bg-gray-50 transition-colors"
                     >
                       <td className="px-5 py-4">
@@ -850,11 +850,11 @@ const handleDownload = async (item) => {
                           {hasFile && (
                             <button
                               onClick={() => handleDownload(item)}
-                              disabled={downloadingId === item._id}
+                              disabled={downloadingId === item.id}
                               className="p-2 rounded-lg text-green-600 hover:bg-green-50 cursor-pointer transition-colors disabled:opacity-50"
                               title="Download PDF"
                             >
-                              {downloadingId === item._id ? (
+                              {downloadingId === item.id ? (
                                 <div className="w-4 h-4 border-2 border-green-400 border-t-green-600 rounded-full animate-spin" />
                               ) : (
                                 <FaDownload className="text-sm" />
@@ -894,11 +894,11 @@ const handleDownload = async (item) => {
                           {canPublish && (
                             <button
                               onClick={() => handlePublish(item)}
-                              disabled={publishingId === item._id}
+                              disabled={publishingId === item.id}
                               className="p-2 rounded-lg text-emerald-600 hover:bg-emerald-50 cursor-pointer transition-colors disabled:opacity-50"
                               title="Publish paper"
                             >
-                              {publishingId === item._id ? (
+                              {publishingId === item.id ? (
                                 <div className="w-4 h-4 border-2 border-emerald-400 border-t-emerald-600 rounded-full animate-spin" />
                               ) : (
                                 <FaGlobe className="text-sm" />
@@ -928,7 +928,7 @@ const handleDownload = async (item) => {
             typeof selectedResearch.assignedReviewer === "object"
               ? selectedResearch.assignedReviewer
               : null;
-          const modalRevenue = revenueByResearch[selectedResearch._id];
+          const modalRevenue = revenueByResearch[selectedResearch.id];
 
           return (
             <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
@@ -1040,10 +1040,10 @@ const handleDownload = async (item) => {
                       </div>
                       <button
                         onClick={() => handleDownload(selectedResearch)}
-                        disabled={downloadingId === selectedResearch._id}
+                        disabled={downloadingId === selectedResearch.id}
                         className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white cursor-pointer rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
                       >
-                        {downloadingId === selectedResearch._id ? (
+                        {downloadingId === selectedResearch.id ? (
                           <>
                             <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                             Downloading…
@@ -1672,9 +1672,9 @@ const ReviewersPanel = () => {
   const handleRevoke = async (member) => {
     if (!window.confirm(`Revoke reviewer access for ${member.name}?`)) return;
     try {
-      const result = await research.revokeReviewer(member._id);
+      const result = await research.revokeReviewer(member.id);
       toast.success(result.message);
-      if (drawer?._id === member._id) setDrawer(null);
+      if (drawer?.id === member.id) setDrawer(null);
       refreshAll();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to revoke reviewer");
@@ -1685,9 +1685,9 @@ const ReviewersPanel = () => {
     if (!window.confirm(`Promote ${member.name} to Research Committee?`))
       return;
     try {
-      const result = await research.promoteToAdmin(member._id, member.email);
+      const result = await research.promoteToAdmin(member.id, member.email);
       toast.success(result.message);
-      if (drawer?._id === member._id) setDrawer({ ...drawer });
+      if (drawer?.id === member.id) setDrawer({ ...drawer });
       refreshAll();
     } catch (err) {
       toast.error(err.response?.data?.message || "Promotion failed");
@@ -1696,7 +1696,7 @@ const ReviewersPanel = () => {
 
   const handleResend = async (member) => {
     try {
-      const result = await research.resendInvite(member._id);
+      const result = await research.resendInvite(member.id);
       toast.success(result.message);
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to resend invite");
@@ -1973,7 +1973,7 @@ const ReviewersPanel = () => {
               <tbody className="divide-y divide-gray-50">
                 {filtered.map((member) => (
                   <tr
-                    key={member._id}
+                    key={member.id}
                     className="hover:bg-gray-50 transition-colors"
                   >
                     <td className="px-5 py-4">

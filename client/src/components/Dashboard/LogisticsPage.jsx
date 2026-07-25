@@ -244,9 +244,9 @@ const LogisticsPage = () => {
     setSubmitting(true);
     try {
       if (editingVehicle) {
-        await api.put(`/vehicles/${editingVehicle._id}`, vehicleForm);
+        await api.put(`/vehicles/${editingVehicle.id}`, vehicleForm);
 
-        setVehicles(prev => prev.map(v => v._id === editingVehicle._id ? { ...v, ...vehicleForm } : v));
+        setVehicles(prev => prev.map(v => v.id === editingVehicle.id ? { ...v, ...vehicleForm } : v));
         toast.success("Vehicle updated");
       } else {
         const res = await api.post("/vehicles", vehicleForm);
@@ -267,7 +267,7 @@ const LogisticsPage = () => {
     try {
       await api.delete(`/vehicles/${id}`);
 
-      setVehicles(prev => prev.filter(v => v._id !== id));
+      setVehicles(prev => prev.filter(v => v.id !== id));
       toast.success("Vehicle deleted");
     } catch (err) {
       toast.error(err.response?.data?.message || "Error deleting vehicle");
@@ -286,9 +286,9 @@ const LogisticsPage = () => {
     if (!editingBooking) return;
     setSubmitting(true);
     try {
-      await api.put(`/ambulance-bookings/${editingBooking._id}/status`, { status: bookingStatus });
+      await api.put(`/ambulance-bookings/${editingBooking.id}/status`, { status: bookingStatus });
    
-      setBookings(prev => prev.map(b => b._id === editingBooking._id ? { ...b, status: bookingStatus } : b));
+      setBookings(prev => prev.map(b => b.id === editingBooking.id ? { ...b, status: bookingStatus } : b));
       toast.success("Booking status updated");
       setBookingModal(false);
     } catch (err) {
@@ -302,7 +302,7 @@ const LogisticsPage = () => {
     if (!window.confirm("Cancel this booking?")) return;
     try {
       await api.put(`/ambulance-bookings/${id}/cancel`, { reason: "Cancelled by admin" });
-      setBookings(prev => prev.map(b => b._id === id ? { ...b, status: "Cancelled" } : b));
+      setBookings(prev => prev.map(b => b.id === id ? { ...b, status: "Cancelled" } : b));
       toast.success("Booking cancelled");
     } catch (err) {
       toast.error(err.response?.data?.message || "Error cancelling booking");
@@ -409,7 +409,7 @@ const LogisticsPage = () => {
                       {filteredVehicles.map(v => {
                         const serviceDue = v.nextService && new Date(v.nextService) <= new Date();
                         return (
-                          <tr key={v._id} className="hover:bg-gray-50/80 transition-colors group">
+                          <tr key={v.id} className="hover:bg-gray-50/80 transition-colors group">
                             <td className="px-5 py-4">
                               <p className="font-black text-gray-900 font-mono">{v.plate}</p>
                               {v.make && <p className="text-[10px] text-gray-400">{v.make} {v.model} {v.year}</p>}
@@ -433,7 +433,7 @@ const LogisticsPage = () => {
                                   className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 cursor-pointer transition-colors" title="Edit">
                                   <FaEdit className="text-sm" />
                                 </button>
-                                <button onClick={() => handleDeleteVehicle(v._id)}
+                                <button onClick={() => handleDeleteVehicle(v.id)}
                                   className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer transition-colors" title="Delete">
                                   <FaTrash className="text-sm" />
                                 </button>
@@ -477,23 +477,23 @@ const LogisticsPage = () => {
               ) : (
                 <div className="space-y-3">
                   {filteredBookings.map(b => (
-                    <div key={b._id} className="bg-gray-50 border border-gray-100 rounded-2xl overflow-hidden">
+                    <div key={b.id} className="bg-gray-50 border border-gray-100 rounded-2xl overflow-hidden">
                 
                       <button
                         className="w-full text-left p-4 grid grid-cols-2 md:grid-cols-5 gap-4 items-center hover:bg-gray-100/60 transition-colors cursor-pointer"
-                        onClick={() => setExpandedBooking(expandedBooking === b._id ? null : b._id)}
+                        onClick={() => setExpandedBooking(expandedBooking === b.id ? null : b.id)}
                       >
                 
                         <div>
                           <p className="font-semibold text-gray-900 text-sm">{b.patientName}</p>
-                          <p className="text-[10px] text-gray-400 font-mono">#{b._id?.slice(-6)}</p>
+                          <p className="text-[10px] text-gray-400 font-mono">#{String(b.id ?? "").slice(-6)}</p>
                         </div>
 
                         <EmergencyBadge level={b.emergencyLevel} />
 
                         <div className="hidden md:block text-xs">
-                          {b.vehicleId
-                            ? <><p className="font-semibold text-gray-800 font-mono">{b.vehicleId?.plate || "—"}</p><p className="text-gray-400">{b.vehicleId?.driver || "—"}</p></>
+                          {(b.vehicle || b.vehicleId)
+                            ? <><p className="font-semibold text-gray-800 font-mono">{(b.vehicle || b.vehicleId)?.plate || "—"}</p><p className="text-gray-400">{(b.vehicle || b.vehicleId)?.driver || "—"}</p></>
                             : <span className="text-gray-400 italic">Unassigned</span>
                           }
                         </div>
@@ -502,12 +502,12 @@ const LogisticsPage = () => {
 
                         <div className="flex items-center gap-1.5 text-xs text-gray-600">
                           <FaPhone className="text-gray-300 shrink-0" />{b.phone}
-                          <FaChevronDown className={`ml-auto text-gray-300 text-xs transition-transform ${expandedBooking === b._id ? "rotate-180" : ""}`} />
+                          <FaChevronDown className={`ml-auto text-gray-300 text-xs transition-transform ${expandedBooking === b.id ? "rotate-180" : ""}`} />
                         </div>
                       </button>
 
           
-                      {expandedBooking === b._id && (
+                      {expandedBooking === b.id && (
                         <div className="border-t border-gray-200 bg-white p-5">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                    
@@ -541,7 +541,7 @@ const LogisticsPage = () => {
                               <FaEdit className="text-xs" /> Update Status
                             </button>
                             {b.status !== "Completed" && b.status !== "Cancelled" && (
-                              <button onClick={() => handleCancelBooking(b._id)}
+                              <button onClick={() => handleCancelBooking(b.id)}
                                 className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl cursor-pointer transition-colors">
                                 <FaTimes className="text-xs" /> Cancel
                               </button>

@@ -140,7 +140,7 @@ const ServiceCard = ({ service, onView, onEdit, onDelete }) => {
           <button onClick={() => onEdit(service)} className="p-2.5 bg-white rounded-xl text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer shadow" title="Edit">
             <FaEdit />
           </button>
-          <button onClick={() => onDelete(service._id)} className="p-2.5 bg-white rounded-xl text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer shadow" title="Delete">
+          <button onClick={() => onDelete(service.id)} className="p-2.5 bg-white rounded-xl text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer shadow" title="Delete">
             <FaTrash />
           </button>
         </div>
@@ -292,7 +292,7 @@ const ServicesPage = () => {
       const cfg = { headers: { "Content-Type": "multipart/form-data" } };
 
       if (isEditing) {
-        await api.put(`/services/${selectedService._id}`, payload, cfg);
+        await api.put(`/services/${selectedService.id}`, payload, cfg);
         toast.success("Service updated successfully");
       } else {
         await api.post("/services", payload, cfg);
@@ -423,7 +423,7 @@ const ServicesPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {filteredServices.map(service => (
               <ServiceCard
-                key={service._id}
+                key={service.id}
                 service={service}
                 onView={handleViewService}
                 onEdit={openModal}

@@ -1,25 +1,22 @@
 // Centralized session storage.
 //
-// Security note (FC1 in the security review): the token, role, collection
-// and cached profile are still readable by any script on the page because
-// they live in localStorage, and a real fix requires the backend to start
-// issuing an httpOnly, Secure, SameSite cookie on login (the middleware
-// already reads req.cookies.jwt, but no controller sets it yet — that's a
-// backend change, out of scope for this frontend-only pass).
+// Security note (M-1, resolved): the backend now issues an httpOnly,
+// Secure (in prod), SameSite=lax `jwt` cookie on login (see
+// utils/tokenService.js's setAuthCookies / authController.login), and
+// client/src/api/axios.js sends `withCredentials: true`. The staff auth
+// token itself is therefore no longer stored here — only the non-sensitive
+// `role`/`collection` UI cache is. Researcher auth still returns a plain
+// bearer token (no cookie equivalent issued yet), so `token` is kept for
+// that flow only.
 //
-// What this module *does* fix today:
+// What this module fixes:
 //   - every read/write of these keys goes through one place instead of
 //     being duplicated ad-hoc across auth.js, axios.js, Sidebar.jsx, etc.
-//   - axios.js is already sending withCredentials so cookie auth will work
-//     the moment the backend starts setting the cookie, with no further
-//     frontend changes needed.
-//   - once cookies land, only this file needs to change.
 
-const STAFF_KEYS = ["token", "role", "collection"];
+const STAFF_KEYS = ["role", "collection"];
 const RESEARCHER_KEYS = ["token", "role", "collection", "researcher"];
 
-export const setStaffSession = ({ token, role }) => {
-  if (token) localStorage.setItem("token", token);
+export const setStaffSession = ({ role }) => {
   if (role) localStorage.setItem("role", role);
   localStorage.setItem("collection", "users");
 };
@@ -50,7 +47,10 @@ export const clearAllSessions = () => {
 
 export const getToken = () => localStorage.getItem("token");
 export const getRole = () => localStorage.getItem("role");
-export const isAuthenticated = () => !!getToken();
+// Staff sessions live in an httpOnly cookie now, so "role present" is the
+// best client-readable signal of "a session was established" — same
+// reasoning as api/auth.js's isAuthenticated().
+export const isAuthenticated = () => !!getRole();
 export const isResearcherSession = () => localStorage.getItem("collection") === "researchers";
 export const getCachedResearcher = () => {
   const cached = localStorage.getItem("researcher");

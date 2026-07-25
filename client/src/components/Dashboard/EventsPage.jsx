@@ -206,7 +206,7 @@ const EventsPage = () => {
       const cfg = { headers: { "Content-Type": "multipart/form-data" } };
 
       if (editingEvent) {
-        await api.put(`/events/${editingEvent._id}`, payload, cfg);
+        await api.put(`/events/${editingEvent.id}`, payload, cfg);
         toast.success("Event updated");
       } else {
         await api.post("/events", payload, cfg);
@@ -226,7 +226,7 @@ const EventsPage = () => {
     try {
       await api.delete(`/events/${id}`);
       toast.success("Event deleted");
-      setEvents(prev => prev.filter(e => e._id !== id));
+      setEvents(prev => prev.filter(e => e.id !== id));
     } catch (err) {
       toast.error(err.response?.data?.message || "Error deleting event");
     }
@@ -322,7 +322,7 @@ const EventsPage = () => {
   
                       const venue = ev.venue || ev.location || "—";
                       return (
-                        <tr key={ev._id} className="hover:bg-gray-50/80 transition-colors group">
+                        <tr key={ev.id} className="hover:bg-gray-50/80 transition-colors group">
 
                      
                           <td className="px-5 py-4"><Thumb url={ev.imageUrl} title={ev.title} /></td>
@@ -361,7 +361,7 @@ const EventsPage = () => {
                                 className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 cursor-pointer transition-colors" title="Edit">
                                 <MdEdit className="text-sm" />
                               </button>
-                              <button onClick={() => handleDelete(ev._id)}
+                              <button onClick={() => handleDelete(ev.id)}
                                 className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer transition-colors" title="Delete">
                                 <MdDelete className="text-sm" />
                               </button>
@@ -386,7 +386,7 @@ const EventsPage = () => {
                   const venue = ev.venue || ev.location || "—";
                   const upcoming = isUpcoming(ev.date);
                   return (
-                    <div key={ev._id} className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex gap-4">
+                    <div key={ev.id} className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex gap-4">
                       <Thumb url={ev.imageUrl} title={ev.title} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
@@ -407,7 +407,7 @@ const EventsPage = () => {
                       <div className="flex flex-col gap-1 shrink-0">
                         <button onClick={() => openView(ev)} className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 cursor-pointer"><FaEye /></button>
                         <button onClick={() => openModal(ev)} className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 cursor-pointer"><MdEdit /></button>
-                        <button onClick={() => handleDelete(ev._id)} className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer"><MdDelete /></button>
+                        <button onClick={() => handleDelete(ev.id)} className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer"><MdDelete /></button>
                       </div>
                     </div>
                   );

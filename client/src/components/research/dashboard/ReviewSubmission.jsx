@@ -228,7 +228,7 @@ const ReviewSubmission = () => {
 
     setSubmitting(true);
     try {
-      await submitReview(item._id, {
+      await submitReview(item.id, {
         decision,
         comment: feedback,
         scores,

@@ -194,7 +194,7 @@ const NewsPage = () => {
       const cfg = { headers: { "Content-Type": "multipart/form-data" } };
 
       if (editingNews) {
-        await api.put(`/news/${editingNews._id}`, payload, cfg);
+        await api.put(`/news/${editingNews.id}`, payload, cfg);
         toast.success("News updated");
       } else {
         await api.post("/news", payload, cfg);
@@ -214,7 +214,7 @@ const NewsPage = () => {
     try {
       await api.delete(`/news/${id}`);
       toast.success("News deleted");
-      setNewsList(prev => prev.filter(n => n._id !== id));
+      setNewsList(prev => prev.filter(n => n.id !== id));
     } catch (err) {
       toast.error(err.response?.data?.message || "Error deleting news");
     }
@@ -306,7 +306,7 @@ const NewsPage = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {filtered.map(n => (
-                      <tr key={n._id} className="hover:bg-gray-50/80 transition-colors group">
+                      <tr key={n.id} className="hover:bg-gray-50/80 transition-colors group">
 
                         
                         <td className="px-5 py-4">
@@ -341,7 +341,7 @@ const NewsPage = () => {
                               className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 cursor-pointer transition-colors" title="Edit">
                               <MdEdit className="text-sm" />
                             </button>
-                            <button onClick={() => handleDelete(n._id)}
+                            <button onClick={() => handleDelete(n.id)}
                               className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer transition-colors" title="Delete">
                               <MdDelete className="text-sm" />
                             </button>
@@ -361,7 +361,7 @@ const NewsPage = () => {
 
               <div className="md:hidden space-y-3 p-4">
                 {filtered.map(n => (
-                  <div key={n._id} className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex gap-4">
+                  <div key={n.id} className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex gap-4">
                     <Thumb url={n.imageUrl} title={n.title} />
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-gray-900 text-sm line-clamp-2">{n.title}</p>
@@ -378,7 +378,7 @@ const NewsPage = () => {
                     <div className="flex flex-col gap-1 shrink-0">
                       <button onClick={() => openView(n)} className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 cursor-pointer"><FaEye /></button>
                       <button onClick={() => openModal(n)} className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 cursor-pointer"><MdEdit /></button>
-                      <button onClick={() => handleDelete(n._id)} className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer"><MdDelete /></button>
+                      <button onClick={() => handleDelete(n.id)} className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer"><MdDelete /></button>
                     </div>
                   </div>
                 ))}

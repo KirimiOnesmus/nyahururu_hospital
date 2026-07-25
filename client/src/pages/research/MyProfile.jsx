@@ -636,7 +636,7 @@ const MyProfile = ({ onBack }) => {
 
                     return (
                       <div
-                        key={paper._id}
+                        key={paper.id}
                         className="flex items-start gap-3 p-4 rounded-lg border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 transition-all"
                       >
                         <div

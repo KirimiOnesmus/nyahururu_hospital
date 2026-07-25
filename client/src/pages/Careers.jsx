@@ -366,7 +366,7 @@ const Careers = () => {
                 const expired = isExpired(career.deadline);
                 return (
                   <div
-                    key={career._id ?? career.id}
+                    key={career.id}
                     className="px-8 py-5 flex flex-col sm:flex-row sm:items-center gap-4 hover:bg-slate-50 transition-colors"
                   >
                     {/* left: info */}

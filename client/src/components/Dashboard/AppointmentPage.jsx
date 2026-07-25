@@ -134,10 +134,10 @@ const AppointmentPage = () => {
       await api.put(`/appointments/${id}`, { status: status.toLowerCase() });
 
       setAppointments(prev =>
-        prev.map(a => a._id === id ? { ...a, status: status.toLowerCase() } : a)
+        prev.map(a => a.id === id ? { ...a, status: status.toLowerCase() } : a)
       );
    
-      if (selectedAppointment?._id === id) {
+      if (selectedAppointment?.id === id) {
         setSelectedAppointment(p => ({ ...p, status: status.toLowerCase() }));
       }
       toast.success(`Appointment ${status.toLowerCase()}`);
@@ -159,7 +159,7 @@ const AppointmentPage = () => {
       <>
         {status !== "confirmed" && (
           <button
-            onClick={() => updateStatus(appt._id, "confirmed")}
+            onClick={() => updateStatus(appt.id, "confirmed")}
             className={`${btnCls} text-emerald-600 hover:bg-emerald-50`}
             title="Confirm"
           >
@@ -169,7 +169,7 @@ const AppointmentPage = () => {
         )}
         {status !== "completed" && status !== "cancelled" && (
           <button
-            onClick={() => updateStatus(appt._id, "completed")}
+            onClick={() => updateStatus(appt.id, "completed")}
             className={`${btnCls} text-sky-600 hover:bg-sky-50`}
             title="Mark completed"
           >
@@ -179,7 +179,7 @@ const AppointmentPage = () => {
         )}
         {status !== "cancelled" && (
           <button
-            onClick={() => { if (window.confirm("Cancel this appointment?")) updateStatus(appt._id, "cancelled"); }}
+            onClick={() => { if (window.confirm("Cancel this appointment?")) updateStatus(appt.id, "cancelled"); }}
             className={`${btnCls} text-rose-500 hover:bg-rose-50`}
             title="Cancel"
           >
@@ -308,7 +308,7 @@ const AppointmentPage = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {filtered.map(appt => (
-                    <tr key={appt._id} className="hover:bg-gray-50/80 transition-colors group">
+                    <tr key={appt.id} className="hover:bg-gray-50/80 transition-colors group">
 
                       {/* Patient */}
                       <td className="px-5 py-4">

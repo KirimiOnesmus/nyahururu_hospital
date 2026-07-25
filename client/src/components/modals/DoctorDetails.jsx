@@ -84,15 +84,15 @@ const DoctorDetails = () => {
 
 
   const fullName =
-    doctor?.userId?.firstName && doctor?.userId?.lastName
-      ? `Dr. ${doctor.userId.firstName} ${doctor.userId.lastName}`
-      : doctor?.userId?.firstName
-      ? `Dr. ${doctor.userId.firstName}`
+    (doctor?.user?.firstName || doctor?.userId?.firstName) && (doctor?.user?.lastName || doctor?.userId?.lastName)
+      ? `Dr. ${doctor.user?.firstName || doctor.userId?.firstName} ${doctor.user?.lastName || doctor.userId?.lastName}`
+      : (doctor?.user?.firstName || doctor?.userId?.firstName)
+      ? `Dr. ${doctor.user?.firstName || doctor.userId?.firstName}`
       : "Doctor";
 
   const education = doctor.education || doctor.profile?.educationalQualification;
-  const avatarSrc = doctor.profile?.imageUrl
-    ? `${BACKEND_URL}${doctor.profile.imageUrl}`
+  const avatarSrc = (doctor.user?.profile?.imageUrl || doctor.profile?.imageUrl)
+    ? `${BACKEND_URL}${doctor.user?.profile?.imageUrl || doctor.profile?.imageUrl}`
     : null;
 
   return (
@@ -193,9 +193,9 @@ const DoctorDetails = () => {
               </h2>
             </div>
 
-            {doctor.availability?.length > 0 ? (
+            {(() => { const avail = typeof doctor.availability === "string" ? JSON.parse(doctor.availability) : (doctor.availability || []); return avail.length > 0 ? (
               <div className="divide-y divide-slate-100">
-                {doctor.availability.map((slot, i) => (
+                {avail.map((slot, i) => (
                   <div key={i} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
                     <FaClock className="text-blue-400 text-xs mt-1 shrink-0" />
                     <div>
@@ -212,7 +212,7 @@ const DoctorDetails = () => {
                 <FaClock className="text-3xl text-slate-300" />
                 <p className="text-slate-400 text-sm">Schedule not available.</p>
               </div>
-            )}
+            ); })()}
 
             <button
               onClick={() => navigate("/appointment")}

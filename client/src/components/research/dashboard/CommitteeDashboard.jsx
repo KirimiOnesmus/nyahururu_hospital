@@ -167,7 +167,7 @@ const CommitteeDashboard = ({ user }) => {
     return () => clearTimeout(t); 
   }, [tab, loadAll]);
 
- const handleOpen = (item) => navigate(`/research/dashboard/committee-sign-off/${item._id}`);
+ const handleOpen = (item) => navigate(`/research/dashboard/committee-sign-off/${item.id}`);
 
   const STAGE_FILTERS = [
     { id: "all",         label: "All"          },
@@ -265,7 +265,7 @@ const CommitteeDashboard = ({ user }) => {
           ) : (
             <div className="divide-y divide-slate-50">
               {pending.map((item) => (
-                <ResearchRow key={item._id} item={item} onOpen={handleOpen} variant="pending" />
+                <ResearchRow key={item.id} item={item} onOpen={handleOpen} variant="pending" />
               ))}
             </div>
           )}
@@ -325,7 +325,7 @@ const CommitteeDashboard = ({ user }) => {
           ) : (
             <div className="divide-y divide-slate-50">
               {allResearch.map((item) => (
-                <ResearchRow key={item._id} item={item} onOpen={handleOpen} variant="all" />
+                <ResearchRow key={item.id} item={item} onOpen={handleOpen} variant="all" />
               ))}
             </div>
           )}

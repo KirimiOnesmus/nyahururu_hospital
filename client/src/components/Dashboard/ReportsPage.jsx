@@ -265,7 +265,7 @@ const ReportsPage = () => {
     setFormData(
       report
         ? {
-            _id: report._id,
+            id: report.id,
             title: report.title,
             category: report.category,
             type: report.type,
@@ -294,7 +294,7 @@ const ReportsPage = () => {
       toast.error("Period is required");
       return;
     }
-    if (!formData._id && !formData.file) {
+    if (!formData.id && !formData.file) {
       toast.error("Please upload a file");
       return;
     }
@@ -322,13 +322,13 @@ const ReportsPage = () => {
       if (formData.file) fd.append("file", formData.file);
 
       const cfg = { headers: { "Content-Type": "multipart/form-data" } };
-      const res = formData._id
-        ? await api.put(`/reports/${formData._id}`, fd, cfg)
+      const res = formData.id
+        ? await api.put(`/reports/${formData.id}`, fd, cfg)
         : await api.post("/reports", fd, cfg);
 
       if (res.data.success || res.status === 200 || res.status === 201) {
         toast.success(
-          `Report ${formData._id ? "updated" : "created"} successfully`,
+          `Report ${formData.id ? "updated" : "created"} successfully`,
         );
         setCreateModal(false);
         setFormData(EMPTY_FORM);
@@ -345,7 +345,7 @@ const ReportsPage = () => {
     if (!window.confirm("Delete this report?")) return;
     try {
       await api.delete(`/reports/${id}`);
-      setReports((prev) => prev.filter((r) => r._id !== id));
+      setReports((prev) => prev.filter((r) => r.id !== id));
       toast.success("Report deleted");
     } catch (err) {
       toast.error(err.response?.data?.message || "Error deleting report");
@@ -373,7 +373,7 @@ const ReportsPage = () => {
 
   const handleViewReport = async (report) => {
     try {
-      const res = await api.get(`/reports/${report._id}`);
+      const res = await api.get(`/reports/${report.id}`);
       setSelectedReport(res.data.success ? res.data.data : res.data);
       setViewModal(true);
     } catch (err) {
@@ -623,7 +623,7 @@ const ReportsPage = () => {
                                 } = typeMeta(report.type);
                                 return (
                                   <tr
-                                    key={report._id}
+                                    key={report.id}
                                     className="hover:bg-gray-50/80 transition-colors group"
                                   >
                                     <td className="px-5 py-4 max-w-xs">
@@ -676,7 +676,7 @@ const ReportsPage = () => {
                                         <button
                                           onClick={() =>
                                             handleDownloadReport(
-                                              report._id,
+                                              report.id,
                                               report.fileName,
                                             )
                                           }
@@ -694,7 +694,7 @@ const ReportsPage = () => {
                                         </button>
                                         <button
                                           onClick={() =>
-                                            handleDeleteReport(report._id)
+                                            handleDeleteReport(report.id)
                                           }
                                           className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer transition-colors"
                                           title="Delete"
@@ -805,7 +805,7 @@ const ReportsPage = () => {
                   <button
                     onClick={() =>
                       handleDownloadReport(
-                        selectedReport._id,
+                        selectedReport.id,
                         selectedReport.fileName,
                       )
                     }
@@ -825,9 +825,9 @@ const ReportsPage = () => {
           setCreateModal(false);
           setFormData(EMPTY_FORM);
         }}
-        title={formData._id ? "Edit Report" : "Add New Report"}
+        title={formData.id ? "Edit Report" : "Add New Report"}
         subtitle={
-          formData._id
+          formData.id
             ? "Update report details"
             : "Upload a new report document"
         }
@@ -920,8 +920,8 @@ const ReportsPage = () => {
           </Field>
 
           <Field
-            label={formData._id ? "Replace File (optional)" : "Upload File"}
-            required={!formData._id}
+            label={formData.id ? "Replace File (optional)" : "Upload File"}
+            required={!formData.id}
           >
             <label
               className={`flex flex-col items-center gap-2 px-6 py-7 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${
@@ -998,7 +998,7 @@ const ReportsPage = () => {
               ) : (
                 <>
                   <FaSave className="text-xs" />
-                  {formData._id ? "Update Report" : "Save Report"}
+                  {formData.id ? "Update Report" : "Save Report"}
                 </>
               )}
             </button>

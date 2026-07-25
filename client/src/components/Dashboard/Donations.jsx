@@ -118,7 +118,7 @@ const StatCard = ({ label, value, sub, accent, icon: Icon }) => (
 // ── Blood group distribution bar ───────────────────────────────────────────────
 const BloodDistribution = ({ stats }) => {
   const max = Math.max(
-    ...BLOOD_GROUPS.map((bg) => stats.find((s) => s._id === bg)?.count || 0),
+    ...BLOOD_GROUPS.map((bg) => stats.find((s) => s.id === bg)?.count || 0),
     1,
   );
   return (
@@ -131,7 +131,7 @@ const BloodDistribution = ({ stats }) => {
       </div>
       <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
         {BLOOD_GROUPS.map((bg) => {
-          const count = stats.find((s) => s._id === bg)?.count || 0;
+          const count = stats.find((s) => s.id === bg)?.count || 0;
 
           return (
             <div
@@ -446,7 +446,7 @@ const Donations = () => {
     setUrgentForm(
       req
         ? {
-            bloodGroups: req.bloodGroups || [],
+            bloodGroups: typeof req.bloodGroups === "string" ? JSON.parse(req.bloodGroups) : (req.bloodGroups || []),
             message: req.message || "",
             contactNumber: req.contactNumber || "",
             isActive: req.isActive ?? true,
@@ -484,7 +484,7 @@ const Donations = () => {
     }
     try {
       if (editingUrgent) {
-        await api.put(`/urgent-request/${editingUrgent._id}`, urgentForm);
+        await api.put(`/urgent-request/${editingUrgent.id}`, urgentForm);
         toast.success("Urgent request updated");
       } else {
         await api.post("/urgent-request", urgentForm);
@@ -527,9 +527,9 @@ const Donations = () => {
   ];
 
   const completedCount =
-    calculatedStats.byStatus.find((s) => s._id === "completed")?.count || 0;
+    calculatedStats.byStatus.find((s) => s.id === "completed")?.count || 0;
   const registeredCount =
-    calculatedStats.byStatus.find((s) => s._id === "registered")?.count || 0;
+    calculatedStats.byStatus.find((s) => s.id === "registered")?.count || 0;
 
   return (
     <div className="min-h-screen bg-[#f8f7f5]">
@@ -691,12 +691,12 @@ const Donations = () => {
                 <div className="space-y-3">
                   {filteredDonors.map((donor) => (
                     <DonorRow
-                      key={donor._id}
+                      key={donor.id}
                       donor={donor}
-                      expanded={expandedDonor === donor._id}
+                      expanded={expandedDonor === donor.id}
                       onToggle={() =>
                         setExpandedDonor(
-                          expandedDonor === donor._id ? null : donor._id,
+                          expandedDonor === donor.id ? null : donor.id,
                         )
                       }
                       onEdit={openStatusModal}
@@ -722,7 +722,7 @@ const Donations = () => {
                 <div className="space-y-3">
                   {upcoming.map((d) => (
                     <div
-                      key={d._id}
+                      key={d.id}
                       className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow"
                     >
                       <div className="w-11 h-11 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
@@ -787,7 +787,7 @@ const Donations = () => {
                 <div className="space-y-4">
                   {urgentRequests.map((req) => (
                     <div
-                      key={req._id}
+                      key={req.id}
                       className={`rounded-2xl border p-5 transition-all ${req.isActive ? "border-red-200 bg-red-50/60" : "border-gray-200 bg-gray-50"}`}
                     >
                       <div className="flex items-start gap-4">
@@ -808,7 +808,7 @@ const Donations = () => {
                             </span>
                           </div>
                           <div className="flex flex-wrap gap-2 mb-3">
-                            {req.bloodGroups.map((bg) => (
+                            {(typeof req.bloodGroups === "string" ? JSON.parse(req.bloodGroups) : (req.bloodGroups || [])).map((bg) => (
                               <BloodBadge key={bg} group={bg} />
                             ))}
                           </div>
@@ -823,7 +823,7 @@ const Donations = () => {
                         <div className="flex flex-col gap-2 shrink-0">
                           <button
                             onClick={() =>
-                              toggleUrgentStatus(req._id, req.isActive)
+                              toggleUrgentStatus(req.id, req.isActive)
                             }
                             className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${req.isActive ? "bg-gray-200 text-gray-700 hover:bg-gray-300" : "bg-emerald-500 text-white hover:bg-emerald-600"}`}
                           >
@@ -837,7 +837,7 @@ const Donations = () => {
                             Edit
                           </button>
                           <button
-                            onClick={() => handleDeleteUrgent(req._id)}
+                            onClick={() => handleDeleteUrgent(req.id)}
                             className="px-3 py-1.5 bg-red-500 text-white rounded-xl text-xs font-semibold hover:bg-red-600 transition-colors cursor-pointer"
                           >
                             <FaTrash className="inline mr-1" />

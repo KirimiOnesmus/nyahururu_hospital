@@ -225,7 +225,7 @@ const TenderPage = () => {
     if (tender) {
 
       setFormData({
-        _id:                tender._id,
+        id:                tender.id,
         title:              tender.title              || "",
         tenderNumber:       tender.tenderNumber       || "",
         category:           tender.category           || "",
@@ -259,7 +259,7 @@ const TenderPage = () => {
     try {
       const fd = new FormData();
 
-      const skip = new Set(["_id", "attachments"]);
+      const skip = new Set(["id", "attachments"]);
       Object.entries(formData).forEach(([k, v]) => {
         if (!skip.has(k) && v !== null && v !== undefined) fd.append(k, v);
       });
@@ -268,12 +268,12 @@ const TenderPage = () => {
       }
 
       const cfg = { headers: { "Content-Type": "multipart/form-data" } };
-      const res = formData._id
-        ? await api.put(`/tenders/${formData._id}`, fd, cfg)
+      const res = formData.id
+        ? await api.put(`/tenders/${formData.id}`, fd, cfg)
         : await api.post("/tenders", fd, cfg);
 
       if (res.data.success || res.status === 200 || res.status === 201) {
-        toast.success(`Tender ${formData._id ? "updated" : "created"} successfully`);
+        toast.success(`Tender ${formData.id ? "updated" : "created"} successfully`);
         setCreateModal(false);
         resetForm();
         fetchTenders();
@@ -290,7 +290,7 @@ const TenderPage = () => {
     try {
       await api.delete(`/tenders/${id}`);
   
-      setTenders(prev => prev.filter(t => t._id !== id));
+      setTenders(prev => prev.filter(t => t.id !== id));
       setSelectedTenders(prev => prev.filter(i => i !== id));
       toast.success("Tender deleted");
     } catch (err) {
@@ -313,11 +313,11 @@ const TenderPage = () => {
   const handleCloseTender = async (tender) => {
     if (!window.confirm(`Close tender: "${tender.title}"?`)) return;
     try {
-      await api.patch(`/tenders/${tender._id}/close`);
+      await api.patch(`/tenders/${tender.id}/close`);
       toast.success("Tender closed");
       setDetailsModal(false);
   
-      setTenders(prev => prev.map(t => t._id === tender._id ? { ...t, status:"closed" } : t));
+      setTenders(prev => prev.map(t => t.id === tender.id ? { ...t, status:"closed" } : t));
     } catch (err) {
       toast.error("Error closing tender");
     }
@@ -329,10 +329,10 @@ const TenderPage = () => {
     if (!newDeadline) return;
     if (isNaN(Date.parse(newDeadline))) { toast.error("Invalid date format. Use YYYY-MM-DD."); return; }
     try {
-      await api.patch(`/tenders/${tender._id}/extend-deadline`, { newDeadline });
+      await api.patch(`/tenders/${tender.id}/extend-deadline`, { newDeadline });
       toast.success("Deadline extended");
-      setTenders(prev => prev.map(t => t._id === tender._id ? { ...t, submissionDeadline: newDeadline } : t));
-      if (selectedTender?._id === tender._id) setSelectedTender(p => ({ ...p, submissionDeadline: newDeadline }));
+      setTenders(prev => prev.map(t => t.id === tender.id ? { ...t, submissionDeadline: newDeadline } : t));
+      if (selectedTender?.id === tender.id) setSelectedTender(p => ({ ...p, submissionDeadline: newDeadline }));
     } catch (err) {
       toast.error("Error extending deadline");
     }
@@ -341,10 +341,10 @@ const TenderPage = () => {
   const handleAwardTender = async (tender, vendorId) => {
     if (!window.confirm("Award this tender to the selected vendor?")) return;
     try {
-      await api.patch(`/tenders/${tender._id}/award`, { awardedTo: vendorId });
+      await api.patch(`/tenders/${tender.id}/award`, { awardedTo: vendorId });
       toast.success("Tender awarded");
       setBidsModal(false);
-      setTenders(prev => prev.map(t => t._id === tender._id ? { ...t, status:"awarded" } : t));
+      setTenders(prev => prev.map(t => t.id === tender.id ? { ...t, status:"awarded" } : t));
     } catch (err) {
       toast.error("Error awarding tender");
     }
@@ -375,7 +375,7 @@ const TenderPage = () => {
   };
 
   const toggleSelection  = (id) => setSelectedTenders(prev => prev.includes(id) ? prev.filter(i=>i!==id) : [...prev, id]);
-  const selectAll        = ()   => setSelectedTenders(selectedTenders.length === tenders.length ? [] : tenders.map(t=>t._id));
+  const selectAll        = ()   => setSelectedTenders(selectedTenders.length === tenders.length ? [] : tenders.map(t=>t.id));
 
   return (
     <div className="min-h-screen bg-[#f8f7f5]">
@@ -492,12 +492,12 @@ const TenderPage = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {tenders.map(tender => (
-                    <tr key={tender._id} className={`hover:bg-gray-50/80 transition-colors group ${selectedTenders.includes(tender._id) ? "bg-blue-50/30" : ""}`}>
+                    <tr key={tender.id} className={`hover:bg-gray-50/80 transition-colors group ${selectedTenders.includes(tender.id) ? "bg-blue-50/30" : ""}`}>
 
                       <td className="px-5 py-4">
                         <input type="checkbox"
-                          checked={selectedTenders.includes(tender._id)}
-                          onChange={() => toggleSelection(tender._id)}
+                          checked={selectedTenders.includes(tender.id)}
+                          onChange={() => toggleSelection(tender.id)}
                           className="w-4 h-4 rounded cursor-pointer" />
                       </td>
 
@@ -527,7 +527,7 @@ const TenderPage = () => {
                   
                       <td className="px-5 py-4">
                         <button
-                          onClick={() => { setSelectedTender(tender); fetchBids(tender._id); setBidsModal(true); }}
+                          onClick={() => { setSelectedTender(tender); fetchBids(tender.id); setBidsModal(true); }}
                           disabled={tender.status === "draft"}
                           className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 disabled:text-gray-400 disabled:cursor-not-allowed cursor-pointer"
                         >
@@ -563,7 +563,7 @@ const TenderPage = () => {
                               </button>
                             </>
                           )}
-                          <button onClick={() => handleDeleteTender(tender._id)}
+                          <button onClick={() => handleDeleteTender(tender.id)}
                             className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer transition-colors" title="Delete">
                             <FaTrash className="text-sm" />
                           </button>
@@ -587,7 +587,7 @@ const TenderPage = () => {
       <Modal
         open={createModal}
         onClose={() => { setCreateModal(false); resetForm(); }}
-        title={formData._id ? "Edit Tender" : "Create New Tender"}
+        title={formData.id ? "Edit Tender" : "Create New Tender"}
         maxW="max-w-4xl"
       >
         <form onSubmit={handleSaveTender} className="space-y-4">
@@ -601,8 +601,8 @@ const TenderPage = () => {
           <div className="grid grid-cols-2 gap-4">
             <Field label="Tender Number">
               <input value={formData.tenderNumber} onChange={e => setField("tenderNumber", e.target.value)}
-                disabled={!!formData._id}
-                className={`${inputCls} ${formData._id ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""}`} />
+                disabled={!!formData.id}
+                className={`${inputCls} ${formData.id ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""}`} />
             </Field>
             <Field label="Category" required>
               <select value={formData.category} onChange={e => setField("category", e.target.value)} className={inputCls} required>
@@ -681,7 +681,7 @@ const TenderPage = () => {
               className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 cursor-pointer shadow-sm shadow-blue-200 transition-colors">
               {submitting
                 ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Saving…</>
-                : <><FaSave className="text-xs" />{formData._id ? "Save Changes" : "Create Tender"}</>
+                : <><FaSave className="text-xs" />{formData.id ? "Save Changes" : "Create Tender"}</>
               }
             </button>
           </div>
@@ -719,12 +719,14 @@ const TenderPage = () => {
 
             {/* Attachments */}
             <div className="bg-gray-50 rounded-xl p-4 mb-4">
+              {(() => { const atts = typeof selectedTender.attachments === "string" ? JSON.parse(selectedTender.attachments) : (selectedTender.attachments || []); return (
+              <>
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <FaPaperclip className="text-[10px]" />Attachments ({selectedTender.attachments?.length || 0})
+                <FaPaperclip className="text-[10px]" />Attachments ({atts.length})
               </p>
-              {selectedTender.attachments?.length > 0 ? (
+              {atts.length > 0 ? (
                 <div className="space-y-1.5">
-                  {selectedTender.attachments.map((f, i) => (
+                  {atts.map((f, i) => (
                     <a key={i} href={f.url} target="_blank" rel="noopener noreferrer"
                       className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline">
                       <FaFileDownload className="text-[10px]" />{f.filename}
@@ -732,6 +734,7 @@ const TenderPage = () => {
                   ))}
                 </div>
               ) : <p className="text-xs text-gray-400">No documents attached.</p>}
+              </>); })()}
             </div>
 
             <div className="flex justify-end pt-2 border-t border-gray-100">
@@ -772,7 +775,7 @@ const TenderPage = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {bids.map(bid => (
-                    <tr key={bid._id} className="hover:bg-gray-50/80 transition-colors group">
+                    <tr key={bid.id} className="hover:bg-gray-50/80 transition-colors group">
                       <td className="px-5 py-4 font-semibold text-gray-900">{bid.vendorName || "Anonymous"}</td>
                       <td className="px-5 py-4 font-bold text-gray-800">{fmtCurrency(bid.bidAmount)}</td>
                       <td className="px-5 py-4 text-xs text-gray-500">{fmtDate(bid.createdAt)}</td>

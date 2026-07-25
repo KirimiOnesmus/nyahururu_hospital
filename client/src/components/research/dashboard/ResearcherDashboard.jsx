@@ -162,11 +162,11 @@ const ResubmitModal = ({ item, onClose, onResubmitted }) => {
         fd.append(fileField, file);
       }
       const res = await fetch(
-        `${API_BASE_URL}/research/${item._id}/resubmit`,
+        `${API_BASE_URL}/research/${item.id}/resubmit`,
         {
           method: "PATCH",
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("researcher_token")}`,
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
           body: fd,
         },
@@ -494,9 +494,9 @@ const ResearcherDashboard = ({ user }) => {
   const handleNewProposal = () =>
     navigate("/research/dashboard/submit-proposal");
   const handleProgress = (item) =>
-    navigate(`/research/dashboard/research-progress/${item._id}`);
+    navigate(`/research/dashboard/research-progress/${item.id}`);
   const handleViewProposal = (item) =>
-    navigate(`/research/dashboard/view/${item._id}`);
+    navigate(`/research/dashboard/view/${item.id}`);
 
   return (
     <div className="space-y-6">
@@ -599,7 +599,7 @@ const ResearcherDashboard = ({ user }) => {
           <div className="grid md:grid-cols-2 gap-5">
             {filtered.map((item) => (
               <ProjectCard
-                key={item._id}
+                key={item.id}
                 item={item}
                 onSubmitProgress={handleProgress}
                 onViewProposal={handleViewProposal}

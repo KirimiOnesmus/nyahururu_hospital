@@ -9,6 +9,7 @@ import {
   FaBookOpen, FaCommentDots, FaClipboardCheck,
 } from "react-icons/fa";
 import * as research from "../../../api/research";
+import { API_BASE_URL } from "../../../config/env";
 
 //  Constants 
 const LIFECYCLE_STAGES = [
@@ -454,7 +455,7 @@ const ProgressPanel = ({ r }) => {
         ) : (
           progressFiles.map((f, i) => (
             <DocumentRow
-              key={f._id || f.id || i}
+              key={f.id || i}
               label={f.label ? f.label.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^\w/, (c) => c.toUpperCase()) : `Progress File ${i + 1}`}
               url={f.url}
               stageLabel="Stage 2 · Progress"
@@ -587,7 +588,7 @@ const CommitteePanel = ({ r, reviews, computedAvg, aggregatedScores }) => (
       <>
         <h3 className="font-bold text-slate-800 text-sm mb-3">Reviewer Assessments</h3>
         <div className="space-y-3">
-          {reviews.map((rv, i) => <ReviewerCard key={rv._id || i} review={rv} index={i} />)}
+          {reviews.map((rv, i) => <ReviewerCard key={rv.id || i} review={rv} index={i} />)}
         </div>
       </>
     )}
@@ -682,7 +683,7 @@ const CommitteeResearchDetails = () => {
 
   //  Fetch full detail + reviews 
   const load = useCallback(async () => {
-    const recordId = id || recordProp?._id || recordProp?.id;
+    const recordId = id || recordProp?.id;
     if (!recordId) { setLoading(false); return; }
     setLoading(true);
     try {
@@ -718,13 +719,13 @@ const CommitteeResearchDetails = () => {
   }, [detail, activeStage]);
 
   const goToSignOff = () => {
-    const rid = detail?._id || detail?.id;
+    const rid = detail?.id;
     if (!rid) return;
     navigate(`/research/dashboard/committee-sign-off/${rid}`);
   };
 
   const handleDecision = async (decision) => {
-    const rid = detail?._id || detail?.id;
+    const rid = detail?.id;
     if (!rid) return;
     setDecisionLoading(true);
     try {
@@ -740,12 +741,18 @@ const CommitteeResearchDetails = () => {
 
   //  Download full ZIP 
   const handleDownloadAll = async () => {
-    const rid = detail?._id || detail?.id;
+    const rid = detail?.id;
     if (!rid) return;
     setDownloading(true);
     try {
-      const response = await fetch(`/api/research/${rid}/download-zip`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_BASE_URL}/research/${rid}/download-zip`, {
+        // M-1: staff auth now lives in an httpOnly cookie, which fetch
+        // only sends with credentials included. Researcher sessions still
+        // use a bearer token (localStorage), so attach it when present —
+        // either credential will satisfy protectCommittee on the backend.
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       if (!response.ok) throw new Error("Download failed");
       const blob = await response.blob();
@@ -848,7 +855,7 @@ const CommitteeResearchDetails = () => {
         </h1>
         <div className="flex flex-wrap items-center gap-3 mt-3">
           <StatusBadge status={rawStatus} />
-          <MetaItem icon={FaShieldAlt}   value={r.projectId || r.researchId || r._id} />
+          <MetaItem icon={FaShieldAlt}   value={r.projectId || r.researchId || r.id} />
           <MetaItem icon={FaUserMd}      value={r.researcher?.displayName || r.researcher?.name || r.researcherName} />
           <MetaItem icon={FaBuilding}    value={r.discipline || r.department} />
           <MetaItem icon={FaCalendarAlt} value={r.createdAt ? `Submitted ${fmtDate(r.createdAt)}` : null} />

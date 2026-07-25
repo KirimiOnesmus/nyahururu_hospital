@@ -204,7 +204,7 @@ const GalleryPage = () => {
       const res = await api.get("/gallery/categories");
       const data = Array.isArray(res.data) ? res.data : res.data.data || [];
       const cat = data.find(c => c.name === name);
-      if (cat) { await api.delete(`/gallery/categories/${cat._id}`); toast.success("Category deleted"); fetchCategories(); }
+      if (cat) { await api.delete(`/gallery/categories/${cat.id}`); toast.success("Category deleted"); fetchCategories(); }
     } catch (err) {
       toast.error(err.response?.data?.message || "Error deleting category");
     }
@@ -214,7 +214,7 @@ const GalleryPage = () => {
     if (!window.confirm("Delete this item?")) return;
     try {
       await api.delete(`/gallery/${id}`);
-      setGalleryItems(prev => prev.filter(i => i._id !== id));
+      setGalleryItems(prev => prev.filter(i => i.id !== id));
       setSelectedItems(prev => prev.filter(i => i !== id));
       toast.success("Item deleted");
     } catch (err) {
@@ -225,7 +225,7 @@ const GalleryPage = () => {
   const handleToggleVisibility = async (id, current) => {
     try {
       await api.patch(`/gallery/${id}/toggle-visibility`);
-      setGalleryItems(prev => prev.map(i => i._id === id ? { ...i, visible: !current } : i));
+      setGalleryItems(prev => prev.map(i => i.id === id ? { ...i, visible: !current } : i));
       toast.success(`Item ${!current ? "shown" : "hidden"}`);
     } catch (err) {
       toast.error(err.response?.data?.message || "Error toggling visibility");
@@ -248,7 +248,7 @@ const GalleryPage = () => {
     setSelectedItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
 
   const selectAll = () =>
-    setSelectedItems(selectedItems.length === galleryItems.length ? [] : galleryItems.map(i => i._id));
+    setSelectedItems(selectedItems.length === galleryItems.length ? [] : galleryItems.map(i => i.id));
 
   return (
     <div className="min-h-screen bg-[#f8f7f5]">
@@ -351,15 +351,15 @@ const GalleryPage = () => {
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-5">
               {galleryItems.map(item => (
-                <div key={item._id} className={`group relative bg-gray-50 border rounded-2xl overflow-hidden transition-all ${
-                  selectedItems.includes(item._id) ? "border-blue-400 ring-2 ring-blue-300" : "border-gray-100 hover:shadow-md hover:border-gray-200"
+                <div key={item.id} className={`group relative bg-gray-50 border rounded-2xl overflow-hidden transition-all ${
+                  selectedItems.includes(item.id) ? "border-blue-400 ring-2 ring-blue-300" : "border-gray-100 hover:shadow-md hover:border-gray-200"
                 }`}>
                
-                  <div onClick={() => toggleSelection(item._id)}
+                  <div onClick={() => toggleSelection(item.id)}
                     className={`absolute top-2 left-2 z-10 w-5 h-5 rounded-md border-2 flex items-center justify-center cursor-pointer transition-all ${
-                      selectedItems.includes(item._id) ? "bg-blue-600 border-blue-600" : "bg-white/80 border-gray-300 opacity-0 group-hover:opacity-100"
+                      selectedItems.includes(item.id) ? "bg-blue-600 border-blue-600" : "bg-white/80 border-gray-300 opacity-0 group-hover:opacity-100"
                     }`}>
-                    {selectedItems.includes(item._id) && <FaCheckCircle className="text-white text-[10px]" />}
+                    {selectedItems.includes(item.id) && <FaCheckCircle className="text-white text-[10px]" />}
                   </div>
 
                   <div className="absolute top-2 right-2 z-10"><TypeBadge type={item.type} /></div>
@@ -369,11 +369,11 @@ const GalleryPage = () => {
                       className="w-full h-full object-cover"
                       onError={e => { e.target.style.display = "none"; }} />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      <button onClick={() => handleToggleVisibility(item._id, item.visible)}
+                      <button onClick={() => handleToggleVisibility(item.id, item.visible)}
                         className="p-2 bg-white/20 backdrop-blur-sm rounded-xl text-white hover:bg-white/30 cursor-pointer" title={item.visible ? "Hide" : "Show"}>
                         {item.visible ? <FaEye className="text-sm" /> : <FaEyeSlash className="text-sm" />}
                       </button>
-                      <button onClick={() => handleDeleteItem(item._id)}
+                      <button onClick={() => handleDeleteItem(item.id)}
                         className="p-2 bg-rose-500/80 backdrop-blur-sm rounded-xl text-white hover:bg-rose-600 cursor-pointer">
                         <FaTrash className="text-sm" />
                       </button>
@@ -411,10 +411,10 @@ const GalleryPage = () => {
               </div>
 
               {galleryItems.map(item => (
-                <div key={item._id} className={`px-5 py-3 grid grid-cols-12 gap-4 items-center hover:bg-gray-50/80 transition-colors group ${selectedItems.includes(item._id) ? "bg-blue-50/50" : ""}`}>
+                <div key={item.id} className={`px-5 py-3 grid grid-cols-12 gap-4 items-center hover:bg-gray-50/80 transition-colors group ${selectedItems.includes(item.id) ? "bg-blue-50/50" : ""}`}>
                   <div className="col-span-1">
-                    <input type="checkbox" checked={selectedItems.includes(item._id)}
-                      onChange={() => toggleSelection(item._id)} className="w-4 h-4 rounded cursor-pointer" />
+                    <input type="checkbox" checked={selectedItems.includes(item.id)}
+                      onChange={() => toggleSelection(item.id)} className="w-4 h-4 rounded cursor-pointer" />
                   </div>
                   <div className="col-span-5 flex items-center gap-3 min-w-0">
                     <img src={item.thumbnailUrl || item.fileUrl} alt={item.title}
@@ -431,11 +431,11 @@ const GalleryPage = () => {
                   <div className="col-span-2"><TypeBadge type={item.type} /></div>
                   <div className="col-span-1 text-xs text-gray-400">{fmtDate(item.uploadDate)}</div>
                   <div className="col-span-1 flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => handleToggleVisibility(item._id, item.visible)}
+                    <button onClick={() => handleToggleVisibility(item.id, item.visible)}
                       className={`p-1.5 rounded-xl cursor-pointer transition-colors ${item.visible ? "text-emerald-500 hover:bg-emerald-50" : "text-gray-400 hover:bg-gray-100"}`}>
                       {item.visible ? <FaEye className="text-sm" /> : <FaEyeSlash className="text-sm" />}
                     </button>
-                    <button onClick={() => handleDeleteItem(item._id)}
+                    <button onClick={() => handleDeleteItem(item.id)}
                       className="p-1.5 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer transition-colors">
                       <FaTrash className="text-sm" />
                     </button>

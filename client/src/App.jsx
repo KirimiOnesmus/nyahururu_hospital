@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import ScrollBehaviour from "./components/layouts/scrollBehaviour";
+import RequireRole from "./components/auth/RequireRole";
+import { getDashboardRoles } from "./config/dashboardRoles";
 import {
   Doctors,
   Home,
@@ -168,33 +170,167 @@ function App() {
 
           {/* //Hospital Dashboard */}
           <Route path="/dashboard" element={<Sidebar />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/dashboard/users" element={<Users />} />
+            <Route
+              path="/dashboard"
+              element={
+                <RequireRole roles={getDashboardRoles("/dashboard")}>
+                  <Dashboard />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/dashboard/users"
+              element={
+                <RequireRole roles={getDashboardRoles("/dashboard/users")}>
+                  <Users />
+                </RequireRole>
+              }
+            />
 
             <Route
               path="/dashboard/appointments"
-              element={<AppointmentPage />}
+              element={
+                <RequireRole roles={getDashboardRoles("/dashboard/appointments")}>
+                  <AppointmentPage />
+                </RequireRole>
+              }
             />
-            <Route path="/dashboard/news" element={<News />} />
-            <Route path="/dashboard/events" element={<Events />} />
-            <Route path="/dashboard/research" element={<Research />} />
-            <Route path="/dashboard/feedback" element={<FeedbackPage />} />
-            <Route path="/dashboard/fraud" element={<Fraud />} />
-            <Route path="/dashboard/careers" element={<Careers />} />
-            <Route path="/dashboard/services" element={<ServicesList />} />
-            <Route path="/dashboard/profile" element={<Profile />} />
-            <Route path="/dashboard/hospitals" element={<Hospital />} />
+            <Route
+              path="/dashboard/news"
+              element={
+                <RequireRole roles={getDashboardRoles("/dashboard/news")}>
+                  <News />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/dashboard/events"
+              element={
+                <RequireRole roles={getDashboardRoles("/dashboard/events")}>
+                  <Events />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/dashboard/research"
+              element={
+                <RequireRole roles={getDashboardRoles("/dashboard/research")}>
+                  <Research />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/dashboard/feedback"
+              element={
+                <RequireRole roles={getDashboardRoles("/dashboard/feedback")}>
+                  <FeedbackPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/dashboard/fraud"
+              element={
+                <RequireRole roles={getDashboardRoles("/dashboard/fraud")}>
+                  <Fraud />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/dashboard/careers"
+              element={
+                <RequireRole roles={getDashboardRoles("/dashboard/careers")}>
+                  <Careers />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/dashboard/services"
+              element={
+                <RequireRole roles={getDashboardRoles("/dashboard/services")}>
+                  <ServicesList />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/dashboard/profile"
+              element={
+                <RequireRole roles={getDashboardRoles("/dashboard/profile")}>
+                  <Profile />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/dashboard/hospitals"
+              element={
+                <RequireRole roles={getDashboardRoles("/dashboard/hospitals")}>
+                  <Hospital />
+                </RequireRole>
+              }
+            />
             <Route
               path="/dashboard/users/edit/:id"
-              element={<EditUserPage />}
+              element={
+                <RequireRole roles={getDashboardRoles("/dashboard/users/edit/:id")}>
+                  <EditUserPage />
+                </RequireRole>
+              }
             />
-            <Route path="/dashboard/inventory" element={<InventoryPage />} />
-            <Route path="/dashboard/logistics" element={<LogisticsPage />} />
-            <Route path="/dashboard/gallery" element={<GalleryPage />} />
-            <Route path="/dashboard/notices" element={<NoticePage />} />
-            <Route path="/dashboard/tenders" element={<TenderPage />} />
-            <Route path="/dashboard/reports" element={<ReportsPage />} />
-            <Route path="/dashboard/donations" element={<Donations />} />
+            <Route
+              path="/dashboard/inventory"
+              element={
+                <RequireRole roles={getDashboardRoles("/dashboard/inventory")}>
+                  <InventoryPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/dashboard/logistics"
+              element={
+                <RequireRole roles={getDashboardRoles("/dashboard/logistics")}>
+                  <LogisticsPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/dashboard/gallery"
+              element={
+                <RequireRole roles={getDashboardRoles("/dashboard/gallery")}>
+                  <GalleryPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/dashboard/notices"
+              element={
+                <RequireRole roles={getDashboardRoles("/dashboard/notices")}>
+                  <NoticePage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/dashboard/tenders"
+              element={
+                <RequireRole roles={getDashboardRoles("/dashboard/tenders")}>
+                  <TenderPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/dashboard/reports"
+              element={
+                <RequireRole roles={getDashboardRoles("/dashboard/reports")}>
+                  <ReportsPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/dashboard/donations"
+              element={
+                <RequireRole roles={getDashboardRoles("/dashboard/donations")}>
+                  <Donations />
+                </RequireRole>
+              }
+            />
           </Route>
         </Routes>
         <ToastContainer />

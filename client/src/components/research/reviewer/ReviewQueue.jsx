@@ -269,7 +269,7 @@ const ReviewQueue = () => {
   }, [items]);
 
   const handleReview = (item) =>
-    navigate(`/research/dashboard/review/${item._id}`);
+    navigate(`/research/dashboard/review/${item.id}`);
 
   return (
     <div className="space-y-6">
@@ -422,7 +422,7 @@ const ReviewQueue = () => {
                       item.deadline && daysUntil(item.deadline) < 0;
                     return (
                       <tr
-                        key={item._id}
+                        key={item.id}
                         className={`border-b border-slate-100 last:border-0 transition-colors
                           ${overdue ? "bg-red-50/40 hover:bg-red-50/70" : "hover:bg-slate-50/60"}`}
                       >
@@ -484,7 +484,7 @@ const ReviewQueue = () => {
                                     type="button"
                                     onClick={() =>
                                       navigate(
-                                        `/research/dashboard/review/${item._id}?mode=edit`,
+                                        `/research/dashboard/review/${item.id}?mode=edit`,
                                       )
                                     }
                                     className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-700

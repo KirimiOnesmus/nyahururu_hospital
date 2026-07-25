@@ -274,7 +274,7 @@ const mapResearchToProject = (paper, reviews = []) => {
   });
 
   return {
-    id: paper.researchId || paper._id,
+    id: paper.researchId || paper.id,
     title: paper.title,
     author: paper.researcher?.name,
     institution: paper.researcher?.institution,

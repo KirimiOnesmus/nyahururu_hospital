@@ -167,7 +167,7 @@ const AmbulanceServices = () => {
         additionalNotes: formData.additionalNotes || null,
       });
 
-      setBookingId(res.data.booking._id);
+      setBookingId(res.data.booking.id);
       setSubmitted(true);
       toast.success(res.data.message || "Ambulance booked successfully!");
       setFormData({ ...INIT });

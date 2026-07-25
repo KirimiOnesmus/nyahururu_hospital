@@ -163,7 +163,7 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
     setSubmitting(true);
     try {
       const result = await research.submitCommitteeReview(
-        detail._id || detail.id,
+        detail.id,
         {
           decision,
           comment,

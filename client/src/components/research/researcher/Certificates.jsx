@@ -191,25 +191,25 @@ const Certificates = () => {
     papers.forEach((p) => {
       if (p.stage === "proposal" && p.status === "approved") {
         list.push({
-          id: `${p._id}-clearance`,
-          researchItemId: p._id,
+          id: `${p.id}-clearance`,
+          researchItemId: p.id,
           typeInfo: CERT_TYPES.clearance,
           researchId: p.researchId,
           issuedAt: p.reviewedAt || p.updatedAt,
           status: "active",
-          certificateNumber: p.clearanceCertificateNumber || `CLR-${p.researchId || p._id}`,
+          certificateNumber: p.clearanceCertificateNumber || `CLR-${p.researchId || p.id}`,
         });
       }
       if (p.stage === "final_paper") {
         const done = p.status === "approved" || p.status === "published";
         list.push({
-          id: `${p._id}-completion`,
-          researchItemId: p._id,
+          id: `${p.id}-completion`,
+          researchItemId: p.id,
           typeInfo: CERT_TYPES.completion,
           researchId: p.researchId,
           issuedAt: p.publishedAt || p.reviewedAt,
           status: done ? "active" : "pending",
-          certificateNumber: p.completionCertificateNumber || `CPL-${p.researchId || p._id}`,
+          certificateNumber: p.completionCertificateNumber || `CPL-${p.researchId || p.id}`,
         });
       }
     });

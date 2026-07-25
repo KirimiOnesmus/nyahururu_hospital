@@ -167,7 +167,7 @@ const EditUserPage = () => {
 
         toast.success("User created successfully! Employee ID and RFID have been generated.");
 
-        const newUserId = newUser._id || newUser.id;
+        const newUserId = newUser.id;
         pendingNavigateId.current = newUserId || null;
 
         if (temporaryPassword) {

@@ -81,7 +81,8 @@ const TenderPage = () => {
     try {
       setLoading(true);
       const res = await api.get("/tenders");
-      setTenders(Array.isArray(res.data) ? res.data : []);
+      const data = res.data?.data ?? res.data;
+      setTenders(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error fetching tenders:", error);
     } finally {
@@ -149,7 +150,7 @@ const TenderPage = () => {
           {[
             {
               icon: FaCheckCircle,
-              title: "Open &amp; Competitive",
+              title: "Open & Competitive",
               body: "All tenders follow a fair, transparent evaluation process in line with procurement regulations.",
             },
             {
@@ -166,10 +167,9 @@ const TenderPage = () => {
                 <Icon className="text-blue-600 text-sm" />
               </div>
               <div>
-                <p
-                  className="text-sm font-bold text-slate-800 mb-0.5"
-                  dangerouslySetInnerHTML={{ __html: title }}
-                />
+                <p className="text-sm font-bold text-slate-800 mb-0.5">
+                  {title}
+                </p>
                 <p className="text-xs text-slate-500 leading-relaxed">{body}</p>
               </div>
             </div>
@@ -208,12 +208,12 @@ const TenderPage = () => {
                 <tbody className="divide-y divide-slate-100">
                   {tenders.map((tender, index) => (
                     <tr
-                      key={tender.id ?? tender._id ?? index}
+                      key={tender.id ?? index}
                       className="hover:bg-slate-50 transition-colors"
                     >
            
                       <td className="px-6 py-4 font-mono text-xs text-slate-500 whitespace-nowrap">
-                        {tender.reference ??
+                        {tender.tenderNumber ??
                           `TND-${String(index + 1).padStart(4, "0")}`}
                       </td>
 
@@ -237,7 +237,7 @@ const TenderPage = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-slate-600">
                         <div className="flex items-center gap-1.5">
                           <FaCalendarAlt className="text-blue-400 text-xs shrink-0" />
-                          {formatDate(tender.close_date)}
+                          {formatDate(tender.submissionDeadline)}
                         </div>
                       </td>
 
@@ -252,9 +252,9 @@ const TenderPage = () => {
                             View
                           </button>
 
-                          {tender.file && (
+                          {(typeof tender.attachments === "string" ? JSON.parse(tender.attachments) : (tender.attachments || [])).length > 0 && (
                             <a
-                              href={tender.file}
+                              href={(typeof tender.attachments === "string" ? JSON.parse(tender.attachments) : (tender.attachments || []))[0]?.url}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-200
@@ -298,12 +298,12 @@ const TenderPage = () => {
               </button>
 
               <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-1">
-                {selectedTender.reference ??
+                {selectedTender.tenderNumber ??
                   `TND-${String(
                     tenders.findIndex(
                       (t) =>
-                        (t.id ?? t._id) ===
-                        (selectedTender.id ?? selectedTender._id)
+                        (t.id) ===
+                        (selectedTender.id)
                     ) + 1
                   ).padStart(4, "0")}`}
               </p>
@@ -332,7 +332,7 @@ const TenderPage = () => {
 
        
               <div className="grid sm:grid-cols-2 gap-4">
-                {selectedTender.open_date && (
+                {selectedTender.publicationDate && (
                   <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex items-center gap-3">
                     <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
                       <FaCalendarAlt className="text-blue-600 text-sm" />
@@ -340,7 +340,7 @@ const TenderPage = () => {
                     <div>
                       <p className="text-xs text-slate-400 mb-0.5">Open Date</p>
                       <p className="text-sm font-semibold text-slate-800">
-                        {formatDate(selectedTender.open_date)}
+                        {formatDate(selectedTender.publicationDate)}
                       </p>
                     </div>
                   </div>
@@ -355,7 +355,7 @@ const TenderPage = () => {
                       Closing Date
                     </p>
                     <p className="text-sm font-semibold text-slate-800">
-                      {formatDate(selectedTender.close_date)}
+                      {formatDate(selectedTender.submissionDeadline)}
                     </p>
                   </div>
                 </div>
@@ -363,9 +363,9 @@ const TenderPage = () => {
 
          
               <div className="flex flex-wrap gap-3 pt-2 border-t border-slate-100">
-                {selectedTender.file && (
+                {(typeof selectedTender.attachments === "string" ? JSON.parse(selectedTender.attachments) : (selectedTender.attachments || [])).length > 0 && (
                   <a
-                    href={selectedTender.file}
+                    href={(typeof selectedTender.attachments === "string" ? JSON.parse(selectedTender.attachments) : (selectedTender.attachments || []))[0]?.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200

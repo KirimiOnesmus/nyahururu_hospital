@@ -114,7 +114,7 @@ const FeedbackPage = () => {
     try {
       await api.delete(`/feedback/${id}`);
       toast.success("Feedback deleted");
-      if (selectedFeedback?._id === id) {
+      if (selectedFeedback?.id === id) {
         setViewModalOpen(false);
         setSelectedFeedback(null);
       }
@@ -158,7 +158,7 @@ const FeedbackPage = () => {
 
     setReplySending(true);
     try {
-      await api.put(`/feedback/${selectedFeedback._id}/respond`, {
+      await api.put(`/feedback/${selectedFeedback.id}/respond`, {
         response: replyMessage,
         status: "handled",
       });
@@ -348,7 +348,7 @@ const FeedbackPage = () => {
                 <tbody className="divide-y divide-gray-50">
                   {filtered.map((fb) => (
                     <tr
-                      key={fb._id}
+                      key={fb.id}
                       className="hover:bg-gray-50 transition-colors"
                     >
                       <td className="px-5 py-4">
@@ -399,7 +399,7 @@ const FeedbackPage = () => {
 
                           {fb.status !== "handled" && (
                             <button
-                              onClick={() => handleMarkHandled(fb._id)}
+                              onClick={() => handleMarkHandled(fb.id)}
                               className="p-2 rounded-lg text-green-600 hover:bg-green-50 cursor-pointer transition-colors"
                               title="Mark as handled"
                             >
@@ -416,7 +416,7 @@ const FeedbackPage = () => {
                           </button>
 
                           <button
-                            onClick={() => handleDelete(fb._id)}
+                            onClick={() => handleDelete(fb.id)}
                             className="p-2 rounded-lg text-red-500 hover:bg-red-50 cursor-pointer transition-colors"
                             title="Delete"
                           >
@@ -536,7 +536,7 @@ const FeedbackPage = () => {
                 {selectedFeedback.status !== "handled" && (
                   <button
                     onClick={() => {
-                      handleMarkHandled(selectedFeedback._id);
+                      handleMarkHandled(selectedFeedback.id);
                       setViewModalOpen(false);
                     }}
                     className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold cursor-pointer hover:bg-green-700 transition-colors"
@@ -557,7 +557,7 @@ const FeedbackPage = () => {
                 <button
                   onClick={() => {
                     setViewModalOpen(false);
-                    handleDelete(selectedFeedback._id);
+                    handleDelete(selectedFeedback.id);
                   }}
                   className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold cursor-pointer hover:bg-red-700 transition-colors"
                 >

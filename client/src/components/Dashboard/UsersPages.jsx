@@ -301,7 +301,7 @@ const UsersPages = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {filteredUsers.map(user => (
-                    <tr key={user._id} className="hover:bg-gray-50/80 transition-colors group">
+                    <tr key={user.id} className="hover:bg-gray-50/80 transition-colors group">
 
                       {/* User */}
                       <td className="px-5 py-4">
@@ -309,7 +309,7 @@ const UsersPages = () => {
                           <Avatar name={user.name} />
                           <div className="min-w-0">
                             <p className="font-semibold text-gray-900 truncate">{user.name}</p>
-                            <p className="text-[10px] text-gray-400 font-mono">#{user._id?.slice(-8)}</p>
+                            <p className="text-[10px] text-gray-400 font-mono">#{String(user.id ?? "").slice(-8)}</p>
                           </div>
                         </div>
                       </td>
@@ -338,14 +338,14 @@ const UsersPages = () => {
                             <FaEye className="text-sm" />
                           </button>
                           <button
-                            onClick={() => navigate(`/dashboard/users/edit/${user._id}`)}
+                            onClick={() => navigate(`/dashboard/users/edit/${user.id}`)}
                             className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors cursor-pointer"
                             title="Edit"
                           >
                             <FaEdit className="text-sm" />
                           </button>
                           <button
-                            onClick={() => handleDelete(user._id)}
+                            onClick={() => handleDelete(user.id)}
                             className="p-2 rounded-xl text-red-400 hover:bg-red-50 transition-colors cursor-pointer"
                             title="Delete"
                           >
@@ -394,7 +394,7 @@ const UsersPages = () => {
                 {[
                   { label: "Full Name",  value: selectedUser.name,  icon: FaUser     },
                   { label: "Email",      value: selectedUser.email, icon: FaEnvelope },
-                  { label: "User ID",    value: selectedUser._id,   icon: FaIdCard   },
+                  { label: "User ID",    value: selectedUser.id,   icon: FaIdCard   },
                   { label: "Role",       value: selectedUser.role?.charAt(0).toUpperCase() + selectedUser.role?.slice(1), icon: FaUserShield },
                 ].map(({ label, value, icon: Icon }) => (
                   <div key={label} className="bg-gray-50 rounded-xl p-4">
@@ -414,7 +414,7 @@ const UsersPages = () => {
                   Close
                 </button>
                 <button
-                  onClick={() => { setViewModal(false); navigate(`/dashboard/users/edit/${selectedUser._id}`); }}
+                  onClick={() => { setViewModal(false); navigate(`/dashboard/users/edit/${selectedUser.id}`); }}
                   className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors cursor-pointer"
                 >
                   <FaEdit /> Edit User

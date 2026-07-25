@@ -203,10 +203,10 @@ const FinalApprovals = ({ onOpenRecord }) => {
   useEffect(() => { load(); }, [load]);
 
   const loadTimeline = useCallback(async (record) => {
-    if (!record?._id) return;
+    if (!record?.id) return;
     setTimelineLoading(true);
     try {
-      const res = await research.getRecordTimeline(record._id);
+      const res = await research.getRecordTimeline(record.id);
       setTimeline(Array.isArray(res.timeline) ? res.timeline : []);
     } catch {
       toast.error("Failed to load discussion history for this record");
@@ -218,7 +218,7 @@ const FinalApprovals = ({ onOpenRecord }) => {
 
   const handleSelectRecord = (record) => {
 
-    if (selectedRecord?._id === record._id) {
+    if (selectedRecord?.id === record.id) {
       setSelectedRecord(null);
       setTimeline([]);
       return;
@@ -243,11 +243,11 @@ const FinalApprovals = ({ onOpenRecord }) => {
   }, [records, search]);
 
   const handlePostComment = async () => {
-    if (!draft.trim() || !selectedRecord?._id) return;
+    if (!draft.trim() || !selectedRecord?.id) return;
     setPosting(true);
     try {
       await research.postApprovalComment({
-        researchId: selectedRecord._id,
+        researchId: selectedRecord.id,
         message: draft.trim(),
       });
       setDraft("");
@@ -261,13 +261,13 @@ const FinalApprovals = ({ onOpenRecord }) => {
   };
 
 const handleView = (record) => {
-  navigate(`../committee-research-detail/${record._id || record.id}`, {
+  navigate(`../committee-research-detail/${record.id}`, {
     state: { record },
   });
 };
 
 const handleOpen = (record)=>{
- navigate(`/research/dashboard/committee-sign-off/${record._id}`)
+ navigate(`/research/dashboard/committee-sign-off/${record.id}`)
 }
 
 
@@ -383,9 +383,9 @@ const handleOpen = (record)=>{
               <tbody>
                 {filtered.map((record) => (
                   <QueueRow
-                    key={record._id || record.projectId}
+                    key={record.id || record.projectId}
                     record={record}
-                    isSelected={selectedRecord?._id === record._id}
+                    isSelected={selectedRecord?.id === record.id}
                     onSelect={handleSelectRecord}
                     onView={handleView}
                     onOpen={handleOpen} 
@@ -450,7 +450,7 @@ const handleOpen = (record)=>{
           ) : (
             <div className="px-6 py-4 flex flex-col gap-3 max-h-80 overflow-y-auto">
               {timeline.map((item) => (
-                <FeedItem key={item._id} item={item} />
+                <FeedItem key={item.id} item={item} />
               ))}
               <div ref={feedEndRef} />
             </div>

@@ -161,7 +161,7 @@ const ReviewerDashboard = ({ user }) => {
   }, [decided]);
 
   const handleReview = (item) =>
-    navigate(`/research/dashboard/review/${item._id}`);
+    navigate(`/research/dashboard/review/${item.id}`);
 
   const STAGE_FILTERS = [
     { id: "all", label: "All" },
@@ -335,7 +335,7 @@ const ReviewerDashboard = ({ user }) => {
                   <tbody>
                     {queue.map((item) => (
                       <tr
-                        key={item._id}
+                        key={item.id}
                         className="border-b border-slate-100 last:border-0
                         hover:bg-slate-50/60 transition-colors"
                       >

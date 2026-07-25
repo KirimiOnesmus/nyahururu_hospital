@@ -27,19 +27,19 @@ import {
 } from "react-icons/fa";
 import { MdMenu,MdClose } from "react-icons/md";
 import { BiSolidDonateHeart } from "react-icons/bi";
+import api from "../../api/axios";
 
 const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const role = localStorage.getItem("role");
-  const token = localStorage.getItem("token");
 
   const [collapsed, setCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (!token) navigate("/hmis");
-  }, [token, navigate]);
+    if (!role) navigate("/hmis");
+  }, [role, navigate]);
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -108,9 +108,15 @@ const Sidebar = () => {
 
   const isActive = (path) => location.pathname === path;
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
+  const handleLogout = async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch {
+      // Best-effort — still clear the local UI state and redirect even if
+      // the network call fails (e.g. offline, already-expired session).
+    }
     localStorage.removeItem("role");
+    localStorage.removeItem("collection");
     navigate("/hmis");
   };
 

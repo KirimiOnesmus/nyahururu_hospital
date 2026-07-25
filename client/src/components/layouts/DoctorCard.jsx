@@ -7,19 +7,19 @@ const BACKEND_URL = ASSET_BASE_URL;
 const DoctorCard = ({ doctor }) => {
 
   const fullName =
-    doctor.userId?.firstName && doctor.userId?.lastName
-      ? `${doctor.userId.firstName} ${doctor.userId.lastName}`
-      : doctor.userId?.firstName || doctor.userId?.lastName || "Unnamed Doctor";
+    (doctor.user?.firstName || doctor.userId?.firstName) && (doctor.user?.lastName || doctor.userId?.lastName)
+      ? `${doctor.user?.firstName || doctor.userId?.firstName} ${doctor.user?.lastName || doctor.userId?.lastName}`
+      : doctor.user?.firstName || doctor.userId?.firstName || doctor.user?.lastName || doctor.userId?.lastName || "Unnamed Doctor";
 
   return (
-    <Link to={`/doctors/${doctor._id}`} className="block h-full">
+    <Link to={`/doctors/${doctor.id}`} className="block h-full">
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden h-full flex flex-col hover:border-blue-300 hover:shadow-sm transition-all duration-150">
 
 
         <div className="w-full h-52 bg-slate-100 overflow-hidden">
-          {doctor.profile?.imageUrl ? (
+          {(doctor.user?.profile?.imageUrl || doctor.profile?.imageUrl) ? (
             <img
-              src={`${BACKEND_URL}${doctor.profile.imageUrl}`}
+              src={`${BACKEND_URL}${doctor.user?.profile?.imageUrl || doctor.profile?.imageUrl}`}
               alt={fullName}
               className="w-full h-full object-cover"
             />

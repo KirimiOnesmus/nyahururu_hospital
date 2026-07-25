@@ -171,7 +171,7 @@ const CareersPage = () => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      if (editingCareer) await api.put(`/careers/${editingCareer._id}`, formData);
+      if (editingCareer) await api.put(`/careers/${editingCareer.id}`, formData);
       else await api.post("/careers", formData);
       toast.success(`Job ${editingCareer ? "updated" : "created"} successfully`);
       closeModal();
@@ -201,7 +201,7 @@ const CareersPage = () => {
     setAppStatusFilter("all");
     setAppsLoading(true);
     try {
-      const res = await api.get(`/applications/job/${career._id}`);
+      const res = await api.get(`/applications/job/${career.id}`);
       setApplications(Array.isArray(res.data) ? res.data : res.data.data || []);
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to fetch applications");
@@ -213,7 +213,7 @@ const CareersPage = () => {
   const handleStatusChange = async (id, status) => {
     try {
       await api.put(`/applications/${id}/status`, { status });
-      setApplications(prev => prev.map(a => a._id === id ? { ...a, status } : a));
+      setApplications(prev => prev.map(a => a.id === id ? { ...a, status } : a));
       toast.success("Status updated");
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to update status");
@@ -315,7 +315,7 @@ const CareersPage = () => {
                     const expired = isExpired(job.deadline);
                     const days    = daysLeft(job.deadline);
                     return (
-                      <tr key={job._id} className="hover:bg-gray-50/80 transition-colors group">
+                      <tr key={job.id} className="hover:bg-gray-50/80 transition-colors group">
 
                         {/* Title */}
                         <td className="px-5 py-4">
@@ -379,7 +379,7 @@ const CareersPage = () => {
                               <FaEdit className="text-sm" />
                             </button>
                             <button
-                              onClick={() => handleDelete(job._id)}
+                              onClick={() => handleDelete(job.id)}
                               className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 transition-colors cursor-pointer"
                               title="Delete"
                             >
@@ -437,7 +437,7 @@ const CareersPage = () => {
         ) : (
           <div className="space-y-3">
             {filteredApps.map(app => (
-              <div key={app._id} className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center gap-4">
+              <div key={app.id} className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center gap-4">
                 {/* Avatar + info */}
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-black text-sm shrink-0">
@@ -457,7 +457,7 @@ const CareersPage = () => {
                 {/* Status changer */}
                 <select
                   value={app.status}
-                  onChange={e => handleStatusChange(app._id, e.target.value)}
+                  onChange={e => handleStatusChange(app.id, e.target.value)}
                   className="px-3 py-2 border border-gray-200 rounded-xl text-xs cursor-pointer outline-none focus:ring-2 focus:ring-blue-400 bg-white text-gray-600 shrink-0"
                 >
                   {STATUSES.map(s => (

@@ -31,7 +31,7 @@ const formatPhone = (v) => {
 
 
 const normalizeResearch = (item) => ({
-  id: item._id || item.id,
+  id: item.id,
   title: item.title,
   author:
     item.researcher?.name ||

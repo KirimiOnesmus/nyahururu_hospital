@@ -173,15 +173,6 @@ const getGreeting = () => {
 };
 
 
-const decodeToken = (token) => {
-  try {
-    const payload = token?.split(".")[1];
-    if (!payload) return null;
-    return JSON.parse(atob(payload));
-  } catch {
-    return null;
-  }
-};
 
 
 const StatCard = ({ stat, value, loading }) => {
@@ -227,7 +218,6 @@ const ActionCard = ({ action }) => {
 
 const GeneralDashboard = () => {
   const role  = localStorage.getItem("role") ?? "staff";
-  const token = localStorage.getItem("token");
 
   const [user,        setUser]        = useState(null);
   const [statsValues, setStatsValues] = useState({});
@@ -242,24 +232,19 @@ const GeneralDashboard = () => {
 
   const fetchUserInfo = useCallback(async () => {
     try {
-      const decoded = decodeToken(token);
-      const userID  = decoded?.id;
-      if (!userID) {
-       
-        setUser({ name: decoded?.name || "Staff Member", role });
-        return;
-      }
-      const res  = await api.get(`/users/${userID}`);
+      // M-1: the JWT lives in an httpOnly cookie now, so it can't be
+      // decoded client-side the way the old localStorage token could be.
+      // /auth/me reads the same cookie server-side and returns identity.
+      const res  = await api.get("/auth/me");
       const data = res.data?.data || res.data;
       setUser({
-        name: data.name || `${data.firstName || ""} ${data.lastName || ""}`.trim() || "Staff Member",
-        role: data.role ?? role,
+        name: data.user?.name || "Staff Member",
+        role: data.user?.role ?? role,
       });
     } catch {
-      
       setUser({ name: "Staff Member", role });
     }
-  }, [token, role]);
+  }, [role]);
 
 
   const fetchStats = useCallback(async () => {

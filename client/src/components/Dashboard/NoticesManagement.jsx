@@ -188,7 +188,7 @@ const NoticesManagement = () => {
 
     if (notice) {
       setFormData({
-        _id:             notice._id || notice.id,
+        id:             notice.id,
         title:           notice.title           || "",
         category:        notice.category        || "",
         audience:        notice.audience        || "",
@@ -229,7 +229,7 @@ const NoticesManagement = () => {
         sendNotification:formData.sendNotification,
       };
 
-      const id = formData._id;
+      const id = formData.id;
       if (id) {
         await api.put(`/notices/${id}`, payload);
         toast.success("Notice updated");
@@ -252,7 +252,7 @@ const NoticesManagement = () => {
     try {
       await api.delete(`/notices/${id}`);
 
-      setNotices(prev => prev.filter(n => (n._id || n.id) !== id));
+      setNotices(prev => prev.filter(n => (n.id) !== id));
       setSelectedNotices(prev => prev.filter(i => i !== id));
       toast.success("Notice deleted");
     } catch (err) {
@@ -265,7 +265,7 @@ const NoticesManagement = () => {
       await api.patch(`/notices/${id}/toggle-visibility`, {});
 
       setNotices(prev => prev.map(n => {
-        const nid = n._id || n.id;
+        const nid = n.id;
         return nid === id ? { ...n, visible: !n.visible, status: n.visible ? "hidden" : "active" } : n;
       }));
       toast.success("Visibility updated");
@@ -275,7 +275,7 @@ const NoticesManagement = () => {
   };
 
   const handleDuplicate = async (notice) => {
-    const id = notice._id || notice.id;
+    const id = notice.id;
     try {
       await api.post(`/notices/${id}/duplicate`, {});
       toast.success("Notice duplicated");
@@ -290,7 +290,7 @@ const NoticesManagement = () => {
 
     const csv = [
       ["Title","Category","Audience","Status","Start Date","End Date","Created By"],
-      ...notices.map(n => [n.title, n.category, n.audience, n.status, n.startDate, n.endDate || "", n.createdBy || ""]),
+      ...notices.map(n => [n.title, n.category, n.audience, n.status, n.startDate, n.endDate || "", n.creator?.name || n.createdBy || ""]),
     ].map(row => row.map(c => `"${String(c || "").replace(/"/g, '""')}"`).join(",")).join("\n");
 
     const blob = new Blob([csv], { type:"text/csv;charset=utf-8;" });
@@ -334,7 +334,7 @@ const NoticesManagement = () => {
     }
   };
 
-  const nid = (n) => n._id || n.id;
+  const nid = (n) => n.id;
 
   const toggleSelection = (id) =>
     setSelectedNotices(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
@@ -488,8 +488,8 @@ const NoticesManagement = () => {
                 
                         <td className="px-5 py-4 max-w-xs">
                           <p className="font-semibold text-gray-900 truncate">{notice.title}</p>
-                          {notice.createdBy && (
-                            <p className="text-[10px] text-gray-400 mt-0.5">By {notice.createdBy}</p>
+                          {(notice.creator?.name || notice.createdBy) && (
+                            <p className="text-[10px] text-gray-400 mt-0.5">By {notice.creator?.name || notice.createdBy}</p>
                           )}
                         </td>
 
@@ -554,7 +554,7 @@ const NoticesManagement = () => {
 
       <Modal open={detailsModal} onClose={() => setDetailsModal(false)}
         title={selectedNotice?.title || "Notice Details"}
-        subtitle={selectedNotice ? `By ${selectedNotice.createdBy || "Unknown"} · ${fmtDate(selectedNotice.createdAt)}` : ""}
+        subtitle={selectedNotice ? `By ${selectedNotice.creator?.name || selectedNotice.createdBy || "Unknown"} · ${fmtDate(selectedNotice.createdAt)}` : ""}
         maxW="max-w-3xl">
         {selectedNotice && (
           <>
@@ -586,13 +586,13 @@ const NoticesManagement = () => {
               <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{selectedNotice.content}</p>
             </div>
 
-            {selectedNotice.attachments?.length > 0 && (
+            {(() => { const att = typeof selectedNotice.attachments === "string" ? JSON.parse(selectedNotice.attachments) : (selectedNotice.attachments || []); return att.length > 0 ? (
               <div className="bg-gray-50 rounded-xl p-4 mb-4">
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <FaPaperclip className="text-[10px]" />Attachments
                 </p>
                 <div className="space-y-2">
-                  {selectedNotice.attachments.map((f, i) => (
+                  {att.map((f, i) => (
                     <div key={i} className="flex items-center justify-between px-3 py-2 bg-white border border-gray-100 rounded-xl">
                       <span className="text-xs text-gray-700">{f.name}</span>
                       <button className="text-xs text-blue-600 hover:underline cursor-pointer">Download</button>
@@ -600,7 +600,7 @@ const NoticesManagement = () => {
                   ))}
                 </div>
               </div>
-            )}
+            ) : null; })()}
 
             <div className="flex flex-wrap justify-end gap-2 pt-4 border-t border-gray-100">
               <button onClick={() => setDetailsModal(false)}
@@ -624,8 +624,8 @@ const NoticesManagement = () => {
       <Modal
         open={createModal}
         onClose={() => { setCreateModal(false); setFormData(EMPTY_FORM); }}
-        title={formData._id ? "Edit Notice" : "Create New Notice"}
-        subtitle={formData._id ? "Update notice details" : "Publish a new announcement"}
+        title={formData.id ? "Edit Notice" : "Create New Notice"}
+        subtitle={formData.id ? "Update notice details" : "Publish a new announcement"}
         maxW="max-w-3xl"
       >
         <div className="space-y-5">
@@ -707,7 +707,7 @@ const NoticesManagement = () => {
               className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 cursor-pointer shadow-sm shadow-blue-200 transition-colors">
               {submitting
                 ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Saving…</>
-                : <><FaSave className="text-xs" />{formData._id ? "Update Notice" : "Create Notice"}</>
+                : <><FaSave className="text-xs" />{formData.id ? "Update Notice" : "Create Notice"}</>
               }
             </button>
           </div>

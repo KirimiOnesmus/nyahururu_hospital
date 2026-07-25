@@ -7,17 +7,19 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000, 
+  timeout: 30000,
+  // M-1: send the httpOnly `jwt`/`refreshToken` cookies the backend already
+  // sets on login, instead of reading the token from localStorage and
+  // attaching it as a Bearer header. httpOnly cookies can't be read by
+  // JavaScript, so a stored/reflected XSS on this app can no longer
+  // exfiltrate a live session token the way it could with localStorage.
+  withCredentials: true,
 });
 
 
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-     if (config.data instanceof FormData) {
+    if (config.data instanceof FormData) {
       delete config.headers['Content-Type'];
     }
     return config;
@@ -40,10 +42,10 @@ api.interceptors.response.use(
 
 
     if (status === 401 && !isResearchEndpoint)  {
-      localStorage.removeItem('token');
       localStorage.removeItem('role');
       localStorage.removeItem('collection');
-    
+      localStorage.removeItem('researcher');
+
      window.location.href = '/hmis';
 
         return new Promise(() => {});

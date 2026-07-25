@@ -625,7 +625,7 @@ const ReviewSubmission = () => {
       return;
     }
 
-    if (!loaded || !loaded._id) {
+    if (!loaded || !loaded.id) {
       setLoadError("This submission could not be found.");
       setLoading(false);
       setHistoryLoading(false);
@@ -645,7 +645,7 @@ const ReviewSubmission = () => {
     setLoading(false);
 
     try {
-      reviews = await getReviewHistory(loaded._id);
+      reviews = await getReviewHistory(loaded.id);
     } catch (err) {
       setHistoryError(err.message || "Failed to load review history");
       reviews = [];
@@ -740,7 +740,7 @@ const ReviewSubmission = () => {
 
     setSubmitting(true);
     try {
-      await submitReview(item._id, {
+      await submitReview(item.id, {
         stage: item.stage,
         decision,
         comment: feedback,

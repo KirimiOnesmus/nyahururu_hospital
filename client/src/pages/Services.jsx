@@ -31,7 +31,7 @@ const ServiceSlider = ({ services }) => {
       {/* Current page grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {currentSlice.map((service) => (
-          <div key={service._id} className="relative">
+          <div key={service.id} className="relative">
             {service.nhifCovered && (
               <span
                 className="absolute top-3 right-3 z-10 text-xs px-2.5 py-0.5 rounded-full
@@ -41,7 +41,7 @@ const ServiceSlider = ({ services }) => {
               </span>
             )}
             <Card
-              id={service._id}
+              id={service.id}
               image={`${BACKEND_URL}${service.imageUrl}`}
               title={service.name}
               buttonText="Learn More"

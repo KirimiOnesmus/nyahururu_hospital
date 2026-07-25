@@ -211,9 +211,9 @@ const MySubmissions = () => {
     actionRequired: papers.filter((p) => p.status === "rejected").length,
   }), [papers]);
 
-  const handleView = (item) => navigate(`/research/dashboard/view/${item._id}`);
-  const handleResubmit = (item) => navigate(`/research/dashboard/view/${item._id}`); // resubmit modal lives on the detail page
-  const handleSubmitFinal = (item) => navigate(`/research/dashboard/submit-final/${item._id}`);
+  const handleView = (item) => navigate(`/research/dashboard/view/${item.id}`);
+  const handleResubmit = (item) => navigate(`/research/dashboard/view/${item.id}`); // resubmit modal lives on the detail page
+  const handleSubmitFinal = (item) => navigate(`/research/dashboard/submit-final/${item.id}`);
   const handleNewProposal = () => navigate("/research/dashboard/submit-proposal");
 
   const handleExport = () => {
@@ -342,7 +342,7 @@ const MySubmissions = () => {
               <tbody>
                 {pageItems.map((item) => (
                   <SubmissionRow
-                    key={item._id}
+                    key={item.id}
                     item={item}
                     onView={handleView}
                     onResubmit={handleResubmit}
