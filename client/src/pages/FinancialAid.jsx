@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Header, Footer } from "../components/layouts";
+import { Header, Footer } from "../common/layouts";
 import {
   FaHeartbeat,
   FaHandHoldingHeart,
@@ -49,7 +49,7 @@ const FinancialAid = () => {
           </p>
         </div>
 
-        {/* ── Impact tiles ── */}
+
         <div className="grid sm:grid-cols-2 gap-4 mb-8">
           {[
             {

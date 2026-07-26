@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { toast } from "react-toastify";
+import notify from "../../common/utils/notify";
 import {
   FaArrowLeft, FaArrowRight, FaCheckCircle, FaFilePdf, FaUpload, FaTrash,
   FaMobileAlt, FaPlus, FaTimes, FaInfoCircle, FaUserPlus, FaQuestionCircle,
@@ -46,7 +46,7 @@ const formatPhone = (v) => {
 
 const wordCount = (s) => s.trim().split(/\s+/).filter(Boolean).length;
 
-//  Shared field primitives 
+
 const inputCls = (err) =>
   `w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none transition-all
    bg-white placeholder-slate-400 text-slate-800
@@ -87,7 +87,7 @@ const Spinner = ({ size = 8, color = "border-t-blue-600" }) => (
     rounded-full animate-spin shrink-0`} />
 );
 
-//  Step 1 — Study Details 
+
 const StepStudyDetails = ({ form, setField, errors }) => (
   <div className="flex flex-col gap-5">
     <Field
@@ -130,7 +130,7 @@ const StepStudyDetails = ({ form, setField, errors }) => (
       </Field>
     </div>
 
-    {/* Discipline indicator — fixed per the portal's current scope */}
+  
     <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center gap-3">
       <div className="w-10 h-10 rounded-xl bg-white border border-blue-200 flex items-center
         justify-center shrink-0 font-extrabold text-sm text-blue-700">
@@ -230,7 +230,7 @@ const CoInvestigators = ({ list, onChange, error }) => {
   );
 };
 
-//  Step 2 — Methodology & Ethics 
+
 const StepMethodology = ({ form, setField, errors }) => {
   const fields = [
     { key: "background",  label: "Problem statement", hint: "2–4 sentences", rows: 3,
@@ -307,13 +307,13 @@ const StepMethodology = ({ form, setField, errors }) => {
   );
 };
 
-//  Step 3 — Documents & Budget 
+
 const StepDocuments = ({ file, onFile, onClear, error }) => {
   const handleDrop = (e) => {
     e.preventDefault();
     const f = e.dataTransfer.files[0];
     if (f?.type === "application/pdf") onFile(f);
-    else toast.error("Only PDF files are accepted");
+    else notify.error("Only PDF files are accepted");
   };
 
   return (
@@ -366,7 +366,7 @@ const StepDocuments = ({ file, onFile, onClear, error }) => {
   );
 };
 
-//  Step 4 — Review & Payment 
+ 
 const ReviewRows = ({ form, file }) => {
   const rows = [
     ["Title", form.title],
@@ -406,7 +406,7 @@ const ReviewRows = ({ form, file }) => {
 
 const StepReviewPayment = ({ form, file, onComplete, onServerError }) => {
   const [phone, setPhone] = useState("");
-  const [stage, setStage] = useState("input"); // input | initiating | waiting | submitting | success | error
+  const [stage, setStage] = useState("input"); 
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState("");
   const [pollPct, setPollPct] = useState(0);
@@ -598,7 +598,7 @@ const StepReviewPayment = ({ form, file, onComplete, onServerError }) => {
   );
 };
 
-//  Step bar 
+
 const StepBar = ({ current }) => (
   <div className="bg-white border border-slate-200 rounded-2xl px-6 py-5 flex items-center">
     {STEPS.map((s, i) => {
@@ -629,7 +629,7 @@ const StepBar = ({ current }) => (
   </div>
 );
 
-//  Submission checklist sidebar 
+
 const checklistStatus = (form, file, step) => [
   {
     label: "Basic Info",
@@ -690,7 +690,7 @@ const ChecklistSidebar = ({ form, file, step }) => {
   );
 };
  
-//  Submit Proposal 
+
 const SubmitProposal = ({ onClose, onSubmitted }) => {
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState({});
@@ -760,7 +760,7 @@ const SubmitProposal = ({ onClose, onSubmitted }) => {
   const back = () => { setErrors({}); setStep((s) => s - 1); };
 
   const handleComplete = () => {
-    toast.success("Proposal submitted successfully!");
+    notify.success("Proposal submitted successfully!");
     setTimeout(() => { onSubmitted?.(); onClose?.(); }, 2000);
   };
 
@@ -775,7 +775,7 @@ const SubmitProposal = ({ onClose, onSubmitted }) => {
 
   const handleSaveDraft = () => {
 
-    toast.success("Draft saved");
+    notify.success("Draft saved");
   };
 
   const stepContent = [

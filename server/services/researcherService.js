@@ -18,7 +18,7 @@ const signToken = (id, role) =>
     { expiresIn: process.env.JWT_EXPIRES_IN || "7d" },
   );
 
-// ── REGISTER ──────────────────────────────────────────────────────────
+//  REGISTER 
 const register = async (data) => {
   const {
     firstName, lastName, email, password,
@@ -28,16 +28,11 @@ const register = async (data) => {
   const existing = await Researcher.findByEmail(email);
   if (existing) throw new AppError("An account with this email already exists.", 409);
 
-  // Build the row + generate the verification token BEFORE the insert
-  // so the token+expire columns are set in a single INSERT. Mongoose
-  // required a save + generateToken + save dance; Sequelize's
-  // `.build().generateToken()` mutates the instance in memory, and the
-  // one subsequent save persists everything atomically.
   const researcher = Researcher.build({
     firstName,
     lastName,
     email:         email.toLowerCase(),
-    password, // model beforeSave hook hashes on save
+    password, 
     institution:   institution   || "",
     discipline:    discipline    || "",
     qualification: qualification || "",
@@ -68,12 +63,10 @@ const register = async (data) => {
   };
 };
 
-// ── VERIFY EMAIL ──────────────────────────────────────────────────────
+//  VERIFY EMAIL 
 const verifyEmail = async ({ token, email }) => {
   const hashed = crypto.createHash("sha256").update(token).digest("hex");
 
-  // Op.gt for the expire-not-in-the-past check, withSecrets scope to
-  // access the emailVerificationToken column (excluded by defaultScope).
   const researcher = await Researcher.scope("withSecrets").findOne({
     where: {
       email:                   email.toLowerCase(),
@@ -94,7 +87,7 @@ const verifyEmail = async ({ token, email }) => {
   return researcher.toSafeJSON();
 };
 
-// ── LOGIN ─────────────────────────────────────────────────────────────
+//  LOGIN 
 const login = async ({ email, password }) => {
   const researcher = await Researcher.scope("withPassword").findOne({
     where: {
@@ -131,14 +124,14 @@ const login = async ({ email, password }) => {
   return { token, researcher: researcher.toSafeJSON() };
 };
 
-// ── GET ME ────────────────────────────────────────────────────────────
+//  GET ME 
 const getMe = async (researcherId) => {
   const researcher = await Researcher.findByPk(researcherId);
   if (!researcher) throw new AppError("Researcher not found.", 404);
   return researcher;
 };
 
-// ── UPDATE PROFILE ────────────────────────────────────────────────────
+//  UPDATE PROFILE 
 const updateProfile = async (researcherId, updates) => {
   const ALLOWED = [
     "firstName", "lastName", "phone", "institution",
@@ -153,15 +146,12 @@ const updateProfile = async (researcherId, updates) => {
   const researcher = await Researcher.findByPk(researcherId);
   if (!researcher) throw new AppError("Researcher not found.", 404);
 
-  // The Researcher model's beforeSave hook derives `name` from
-  // firstName+lastName when either changes — no need to compute it
-  // here like the Mongoose version did.
   researcher.set(safeUpdates);
   await researcher.save();
   return researcher;
 };
 
-// ── CHANGE PASSWORD ───────────────────────────────────────────────────
+//  CHANGE PASSWORD 
 const changePassword = async (researcherId, { currentPassword, newPassword }) => {
   const researcher = await Researcher.scope("withPassword").findByPk(researcherId);
   if (!researcher) throw new AppError("Researcher not found.", 404);
@@ -169,15 +159,13 @@ const changePassword = async (researcherId, { currentPassword, newPassword }) =>
   const isValid = await researcher.matchPassword(currentPassword);
   if (!isValid) throw new AppError("Current password is incorrect.", 401);
 
-  // Plaintext — model beforeSave hook hashes on save().
   researcher.password = newPassword;
   await researcher.save();
 };
 
-// ── FORGOT PASSWORD ───────────────────────────────────────────────────
+//  FORGOT PASSWORD 
 const forgotPassword = async (email) => {
-  // Deliberately identical response whether the email exists or not —
-  // avoids leaking account existence via response text or timing.
+
   const safeMessage = "If that email is registered, a reset link has been sent.";
 
   const researcher = await Researcher.findByEmail(email);
@@ -197,7 +185,7 @@ const forgotPassword = async (email) => {
   return safeMessage;
 };
 
-// ── RESET PASSWORD ────────────────────────────────────────────────────
+//  RESET PASSWORD 
 const resetPassword = async ({ token, email, password }) => {
   const hashed = crypto.createHash("sha256").update(token).digest("hex");
 
@@ -219,7 +207,7 @@ const resetPassword = async ({ token, email, password }) => {
   await researcher.save();
 };
 
-// ── ADMIN CREATE RESEARCHER ───────────────────────────────────────────
+//  ADMIN CREATE RESEARCHER 
 const generateRandomPassword = () => {
   const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$!";
   return Array.from(

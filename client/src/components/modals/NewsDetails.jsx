@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Header, Footer } from "../../components/layouts";
+import { Header, Footer } from "../../common/layouts";
 import api from "../../api/axios";
 import { ASSET_BASE_URL } from "../../config/env";
 import {
@@ -20,9 +20,7 @@ const Shell = ({ children }) => (
     <div className="sticky top-0 z-50 bg-white border-b border-slate-200">
       <Header />
     </div>
-    <main className="flex-1 max-w-5xl mx-auto w-full px-6 py-10">
-      {children}
-    </main>
+    <main className="flex-1 max-w-5xl mx-auto w-full px-6 py-10">{children}</main>
     <Footer />
   </div>
 );
@@ -67,12 +65,9 @@ const NewsDetails = () => {
           <div className="w-14 h-14 rounded-full bg-red-50 border border-red-200 flex items-center justify-center">
             <FaNewspaper className="text-2xl text-red-400" />
           </div>
-          <h2 className="text-xl font-bold text-slate-800">
-            Article Not Found
-          </h2>
+          <h2 className="text-xl font-bold text-slate-800">Article Not Found</h2>
           <p className="text-slate-500 text-sm max-w-sm">
-            {error ||
-              "The article you're looking for doesn't exist or has been removed."}
+            {error || "The article you're looking for doesn't exist or has been removed."}
           </p>
           <button
             onClick={() => navigate("/")}

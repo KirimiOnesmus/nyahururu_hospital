@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { toast } from "react-toastify";
+import notify from "../../../common/utils/notify";
 import {
   FaShieldAlt,
   FaCalendarAlt,
@@ -27,7 +27,7 @@ const resolveUrl = (url) => {
   return `${ASSET_BASE_URL}${url}`;
 };
 
-//  Constants
+
 const STAGE_LABELS = {
   proposal: "Proposal",
   progress: "Progress Submission",
@@ -272,7 +272,7 @@ const TABS = [
   { id: "history", label: "Review History" },
 ];
 
-//  Local building blocks
+
 const PageSpinner = ({ label = "Loading…" }) => (
   <div className="flex flex-col items-center justify-center py-24 gap-3">
     <div className="w-10 h-10 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
@@ -312,7 +312,7 @@ const ErrorState = ({ message, onRetry, onBack }) => (
   </div>
 );
 
-// Visual-only stepper
+
 const Stepper = ({ currentStep }) => {
   const currentIndex = STEPS.findIndex((s) => s.id === currentStep);
 
@@ -356,7 +356,7 @@ const Stepper = ({ currentStep }) => {
   );
 };
 
-// Single labeled numeric score entry, 0-10, controlled
+
 const ScoreInput = ({ label, value, onChange }) => {
   const handleChange = (e) => {
     const raw = e.target.value;
@@ -392,7 +392,7 @@ const ScoreInput = ({ label, value, onChange }) => {
   );
 };
 
-//  Submission content tab (stage-cumulative)
+
 const ContentSectionGroup = ({ label, sections }) => {
   if (sections.length === 0) return null;
   return (
@@ -446,7 +446,7 @@ const SubmissionContentTab = ({ item, visibleStages }) => {
   );
 };
 
-//  Documents tab
+
 const STAGE_GROUP_LABELS = {
   proposal: "Proposal",
   progress: "Progress Submission",
@@ -507,7 +507,7 @@ const DocumentsTab = ({ documents }) => {
   );
 };
 
-//  Review history tab (grouped by stage)
+
 const HistoryTab = ({ groupedHistory, loading, error }) => {
   if (loading) {
     return (
@@ -576,7 +576,7 @@ const HistoryTab = ({ groupedHistory, loading, error }) => {
   );
 };
 
-//  Review Submission page
+
 const ReviewSubmission = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -715,15 +715,15 @@ const ReviewSubmission = () => {
 
   const handleSubmit = async () => {
     if (!decision) {
-      toast.error("Select a final decision");
+      notify.error("Select a final decision");
       return;
     }
     if (feedback.trim().length < 10) {
-      toast.error("Feedback must be at least 10 characters");
+      notify.error("Feedback must be at least 10 characters");
       return;
     }
     if (!certified) {
-      toast.error("Please certify your review before submitting");
+      notify.error("Please certify your review before submitting");
       return;
     }
     const criteriaKeys = getCriteria(item.stage).map((c) => c.key);
@@ -734,7 +734,7 @@ const ReviewSubmission = () => {
         Number.isNaN(Number(scores[k])),
     );
     if (missing.length) {
-      toast.error("Please score all criteria before submitting.");
+      notify.error("Please score all criteria before submitting.");
       return;
     }
 
@@ -746,14 +746,14 @@ const ReviewSubmission = () => {
         comment: feedback,
         criteria: scores,
       });
-      toast.success("Review submitted successfully!");
+      notify.success("Review submitted successfully!");
       navigate("/research/dashboard/review-queue");
     } catch (err) {
       const message =
         err?.message ||
         err?.error ||
         "Failed to submit review. Please try again.";
-      toast.error(message);
+      notify.error(message);
     } finally {
       setSubmitting(false);
     }

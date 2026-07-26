@@ -1,9 +1,9 @@
+const emitChange = require("../utils/emitChange");
 "use strict";
 
 const { Op } = require("sequelize");
 const { Tender, Bid, User, sequelize } = require("../sequelize/models");
 
-// ── Helpers ─────────────────────────────────────────────────────────
 
 const SORT_MAP = {
   newest:       [["createdAt", "DESC"]],
@@ -25,20 +25,15 @@ const buildActivityEntry = (req, action, description) => ({
   description,
   performedBy: req.user.id,
   performedByName: req.user.name,
-  // Timestamp matches what the Mongoose hook auto-set on the
-  // subdocument — kept explicit here because JSON columns don't get
-  // per-element timestamps.
+
   timestamp: new Date().toISOString(),
 });
 
-// JSON columns need reassignment (not push) for Sequelize's change
-// tracker to notice the update — same pattern used across the
-// Content-domain cutover.
+
 const appendActivity = (tender, entry) => {
   tender.activityLog = [...(tender.activityLog || []), entry];
 };
 
-// ── CRUD ────────────────────────────────────────────────────────────
 
 exports.getAllTenders = async (req, res) => {
   try {
@@ -54,9 +49,7 @@ exports.getAllTenders = async (req, res) => {
     const where = {};
 
     if (search) {
-      // LIKE metacharacter escape — same guard used across every list
-      // endpoint since the notice/gallery cutover. utf8mb4_unicode_ci
-      // gives case-insensitive matching for free.
+   
       const escaped = String(search).replace(/[\\%_]/g, (m) => `\\${m}`);
       const like = `%${escaped}%`;
       where[Op.or] = [
@@ -69,8 +62,7 @@ exports.getAllTenders = async (req, res) => {
     if (category && category !== "all") where.category = category;
     if (status && status !== "all") where.status = status;
 
-    // Single Promise.all for the list + all stat counters — five COUNTs
-    // + one SELECT in parallel instead of six sequential round trips.
+ 
     const [{ rows: tenders, count: total }, allTotal, active, closed, underEvaluation, awarded] =
       await Promise.all([
         Tender.findAndCountAll({
@@ -125,10 +117,7 @@ exports.getTenderById = async (req, res) => {
 
 exports.createTender = async (req, res) => {
   try {
-    // NOTE: the Tender model's beforeValidate hook generates
-    // tenderNumber atomically via the Counter model — no manual sequence
-    // computation here (the Mongoose version had none either; the model
-    // uses the Counter that the migration plan introduced).
+
     const tender = await Tender.create({
       ...req.body,
       createdBy: req.user.id,
@@ -139,11 +128,11 @@ exports.createTender = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Tender created successfully",
+    emitChange("tenders", "created", { id: tender.id });
       data: tender,
     });
   } catch (error) {
-    // Sequelize's ValidationError has the same `errors` collection shape
-    // as Mongoose's — same 400 response.
+ 
     if (error.name === "SequelizeValidationError" || error.name === "ValidationError") {
       const errors = error.errors?.map((e) => e.message) || [error.message];
       console.error("Sequelize Validation Error:", errors);
@@ -168,9 +157,6 @@ exports.updateTender = async (req, res) => {
       return res.status(404).json({ success: false, message: "Tender not found" });
     }
 
-    // findByIdAndUpdate + $push has no direct Sequelize equivalent;
-    // find + set + activity-log append + save preserves the same
-    // validator behaviour that `runValidators: true` gave us.
     const { activityLog: _ignored, ...updatable } = req.body;
     tender.set(updatable);
     tender.updatedBy = req.user.id;
@@ -184,6 +170,7 @@ exports.updateTender = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Tender updated successfully",
+    emitChange("tenders", "updated", { id: tender.id });
       data: tender,
     });
   } catch (error) {
@@ -196,10 +183,7 @@ exports.updateTender = async (req, res) => {
 
 exports.deleteTender = async (req, res) => {
   try {
-    // Wrap bid cascade + tender delete in a transaction so a partial
-    // failure doesn't leave orphaned bids behind. Also arguably a good
-    // audit-safety property — the Mongoose flow could crash between
-    // the two calls and leave bids for a non-existent tender.
+
     const deleted = await sequelize.transaction(async (t) => {
       const tender = await Tender.findByPk(req.params.id, { transaction: t });
       if (!tender) return { notFound: true };
@@ -216,6 +200,7 @@ exports.deleteTender = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Tender deleted successfully",
+    emitChange("tenders", "deleted", { id: req.params.id });
     });
   } catch (error) {
     res.status(500).json({
@@ -235,8 +220,6 @@ exports.bulkDeleteTenders = async (req, res) => {
       });
     }
 
-    // Cascade + delete in a single transaction — matches the single
-    // deleteTender pattern.
     const result = await sequelize.transaction(async (t) => {
       await Bid.destroy({
         where: { tenderId: { [Op.in]: ids } },
@@ -339,11 +322,7 @@ exports.awardTender = async (req, res) => {
       });
     }
 
-    // Award = winning bid up, all sibling bids down, tender flagged.
-    // This was three independent Mongoose calls — race-prone, especially
-    // the "reject the others" updateMany that could partially fail.
-    // Wrap the whole thing in a transaction so either every bid state
-    // update sticks or none does.
+
     const result = await sequelize.transaction(async (t) => {
       const tender = await Tender.findByPk(req.params.id, { transaction: t });
       if (!tender) return { notFound: "tender" };
@@ -361,9 +340,6 @@ exports.awardTender = async (req, res) => {
 
       bid.status = "awarded";
 
-      // Reject every other bid on this tender. Sequelize returns
-      // [affectedCount] for update — we don't need it here but the
-      // transaction guarantees atomicity.
       await Bid.update(
         { status: "rejected" },
         {
@@ -400,10 +376,7 @@ exports.awardTender = async (req, res) => {
 
 exports.getTenderStatistics = async (req, res) => {
   try {
-    // Category and monthly trends aggregates — Mongo used $group and
-    // $year/$month operators. Sequelize does the same via
-    // fn('YEAR', ...) / fn('MONTH', ...) plus a group. Empty rows are
-    // fine and MySQL just returns nothing rather than filling with 0.
+
     const [
       total, active, closed, underEvaluation, awarded, draft, cancelled,
       categoryRaw, monthlyRaw,
@@ -444,9 +417,7 @@ exports.getTenderStatistics = async (req, res) => {
       }),
     ]);
 
-    // Reshape both aggregates to the `{ _id, count }` shape the
-    // Mongoose $group output produced — keeps the frontend contract
-    // stable across the cutover.
+   
     const categories = categoryRaw.map((r) => ({
       _id: r.category,
       count: Number(r.count),

@@ -1,10 +1,10 @@
+const emitChange = require("../utils/emitChange");
 "use strict";
 
 const { FraudReport } = require("../sequelize/models");
 const logger = require("../utils/logger");
 const { getPagination, buildMeta } = require("../utils/pagination");
 
-// Submit a new fraud report — public endpoint (no auth required).
 exports.submitFraudReport = async (req, res) => {
   try {
     const { issue, dateOfIncident, location, details } = req.body;
@@ -30,7 +30,6 @@ exports.submitFraudReport = async (req, res) => {
   }
 };
 
-// Admin — list all fraud reports.
 exports.getAllFraudReports = async (req, res) => {
   try {
     const { status } = req.query;
@@ -51,7 +50,6 @@ exports.getAllFraudReports = async (req, res) => {
   }
 };
 
-// Admin — single report by id.
 exports.getFraudReportById = async (req, res) => {
   try {
     const report = await FraudReport.findByPk(req.params.id);
@@ -63,7 +61,6 @@ exports.getFraudReportById = async (req, res) => {
   }
 };
 
-// Admin — update status or investigation notes.
 exports.updateFraudStatus = async (req, res) => {
   try {
     const { status, investigationNotes } = req.body;
@@ -73,9 +70,7 @@ exports.updateFraudStatus = async (req, res) => {
     if (status) report.status = status;
     if (investigationNotes) report.investigationNotes = investigationNotes;
 
-    // Record reviewer identity. req.user is a Sequelize instance now, so
-    // it always exposes `.id` (not `._id`) — dropped the Mongoose-side
-    // fallback branch.
+ 
     if (req.user) {
       if (req.user.id) report.reviewedBy = req.user.id;
       if (req.user.name) report.reviewedByName = req.user.name;
@@ -85,6 +80,7 @@ exports.updateFraudStatus = async (req, res) => {
     await report.save();
 
     res.json({ message: "Fraud report updated successfully", report });
+    emitChange("fraud", "updated", { id: report.id });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
@@ -98,6 +94,7 @@ exports.deleteFraudReport = async (req, res) => {
 
     await report.destroy();
     res.json({ message: "Fraud report deleted successfully" });
+    emitChange("fraud", "deleted", { id: req.params.id });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });

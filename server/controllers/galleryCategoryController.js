@@ -37,10 +37,7 @@ exports.createCategory = async (req, res) => {
       return res.status(400).json({ message: "Category name is required" });
     }
 
-    // Duplicate-name check before insert. Sequelize's UNIQUE constraint
-    // would also catch this, but the explicit check gives us a clean
-    // 400 response instead of relying on catch(err.name === "SequelizeUniqueConstraintError")
-    // matching. Same behaviour as the Mongoose version.
+  
     const existing = await GalleryCategory.findOne({ where: { name } });
     if (existing) {
       return res.status(400).json({ message: "Category already exists" });

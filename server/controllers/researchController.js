@@ -4,8 +4,6 @@ const researchService = require("../services/researchService");
 const { Research, Researcher, Review } = require("../sequelize/models");
 const { asyncHandler, sendSuccess, AppError } = require("../utils/appError");
 
-// ── PUBLIC ─────────────────────────────────────────────────────────
-
 exports.getPublishedResearch = asyncHandler(async (req, res) => {
   const result = await researchService.getPublishedResearch(req.query);
   sendSuccess(res, 200, "Published research fetched successfully.", result.papers, {
@@ -29,7 +27,7 @@ exports.getResearchById = asyncHandler(async (req, res) => {
   sendSuccess(res, 200, "Research fetched successfully.", { paper });
 });
 
-// ── RESEARCHER ─────────────────────────────────────────────────────
+//  RESEARCHER 
 
 exports.getMyResearch = asyncHandler(async (req, res) => {
   const result = await researchService.getMyResearch(req.researcher.id, req.query);
@@ -170,10 +168,7 @@ exports.getAssignedResearch = asyncHandler(async (req, res) => {
 });
 
 exports.submitReview = asyncHandler(async (req, res) => {
-  // Two auth flows converge here: a Researcher-token caller (reviewer),
-  // or a staff-token caller (admin/superadmin) who happens to also
-  // have a Researcher profile with matching email. Fall through to
-  // the second path only when the first isn't available.
+
   let reviewer = req.researcher;
 
   if (!reviewer && req.user) {
@@ -231,9 +226,7 @@ exports.getReviewHistory = asyncHandler(async (req, res) => {
     const isCurrentlyAssigned =
       reviewerIdStr && String(research.assignedReviewerId) === reviewerIdStr;
 
-    // Reviewer might have authored a review previously without being
-    // the currently-assigned one (reassignment). Allow access in that
-    // case too.
+
     const hasAuthoredReview = isCurrentlyAssigned
       ? true
       : reviewerId != null

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Header, Footer } from "../components/layouts";
+import { Header, Footer } from "../common/layouts";
 import api from "../api/axios";
 import {
   FaUser,
@@ -18,7 +18,7 @@ import {
   FaLayerGroup,
   FaPaperPlane,
 } from "react-icons/fa";
-import { toast } from "react-toastify";
+import notify from "../common/utils/notify";
 import { useNavigate } from "react-router-dom";
 
 const inputClass =
@@ -90,7 +90,7 @@ const Appointment = () => {
         ].sort();
         setCategories(uniqueCategories);
       } catch {
-        toast.error("Failed to load departments. Please refresh the page.");
+        notify.error("Failed to load departments. Please refresh the page.");
         setServices([]);
       }
     };
@@ -146,12 +146,10 @@ const Appointment = () => {
           if (timeMatch[2].toLowerCase() === "am" && startHour === 12) startHour = 0;
           if (timeMatch[4].toLowerCase() === "am" && endHour === 12) endHour = 0;
         }
-        // else: no parseable hours — keep defaults (8–17)
+     
       }
     }
-    // else: no serviceHours at all — keep defaults (8am–5pm)
 
-    // Generate 1-hour windows
     const slots = [];
     for (let hour = startHour; hour < endHour; hour++) {
       const from = `${hour.toString().padStart(2, "0")}:00`;
@@ -161,7 +159,7 @@ const Appointment = () => {
     setAvailableTimeSlots(slots);
   };
 
-  // Fetch booked slots whenever date or service changes
+  
   useEffect(() => {
     const fetchBookedSlots = async () => {
       if (!formData.date || !selectedService?.name) {
@@ -188,20 +186,20 @@ const Appointment = () => {
     setFormData((prev) => ({
       ...prev,
       [name]: value,
-      // Clear time selection when date changes so user must re-pick
+  
       ...(name === "date" ? { time: "" } : {}),
     }));
   };
 
   const validateNormalForm = () => {
     const { name, email, phone, category, service, date, time } = formData;
-    if (!name.trim()) { toast.error("Please enter your name"); return false; }
-    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) { toast.error("Please enter a valid email address"); return false; }
-    if (!phone.match(/^[0-9\s\-\+\(\)]{9,}$/)) { toast.error("Please enter a valid phone number"); return false; }
-    if (!category) { toast.error("Please select a category"); return false; }
-    if (!service) { toast.error("Please select a service"); return false; }
-    if (!date) { toast.error("Please select a date"); return false; }
-    if (!time) { toast.error("Please select a time"); return false; }
+    if (!name.trim()) { notify.error("Please enter your name"); return false; }
+    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) { notify.error("Please enter a valid email address"); return false; }
+    if (!phone.match(/^[0-9\s\-\+\(\)]{9,}$/)) { notify.error("Please enter a valid phone number"); return false; }
+    if (!category) { notify.error("Please select a category"); return false; }
+    if (!service) { notify.error("Please select a service"); return false; }
+    if (!date) { notify.error("Please select a date"); return false; }
+    if (!time) { notify.error("Please select a time"); return false; }
     return true;
   };
 
@@ -221,11 +219,11 @@ const Appointment = () => {
       });
 
       setFormData(INIT_NORMAL);
-      toast.success("Appointment booked successfully!");
+      notify.success("Appointment booked successfully!");
       setTimeout(() => navigate("/"), 3000);
     } catch (error) {
 
-      toast.error(error?.response?.data?.message || "Failed to book appointment");
+      notify.error(error?.response?.data?.message || "Failed to book appointment");
     } finally {
       setLoading(false);
     }
@@ -266,9 +264,9 @@ const Appointment = () => {
     try {
       await api.post("/anonymous", anonymousForm);
       setStep(6);
-      toast.success("Anonymous appointment request submitted successfully!");
+      notify.success("Anonymous appointment request submitted successfully!");
     } catch (error) {
-      toast.error(error?.response?.data?.message || "Failed to submit request");
+      notify.error(error?.response?.data?.message || "Failed to submit request");
     } finally {
       setLoading(false);
     }
@@ -359,7 +357,7 @@ const Appointment = () => {
           })}
         </div>
 
-        {/*  NORMAL BOOKING*/}
+
 
         {bookingType === "normal" && (
           <div className="bg-white border border-slate-200 rounded-2xl p-8">
@@ -554,7 +552,7 @@ const Appointment = () => {
               </p>
             </div>
 
-            {/* Progress */}
+  
             {step < 6 && (
               <div className="mb-8">
                 <div className="flex items-center justify-between mb-2">
@@ -570,10 +568,9 @@ const Appointment = () => {
               </div>
             )}
 
-            {/* Step card */}
             <div className="bg-white border border-slate-200 rounded-2xl p-8">
 
-              {/* Step 1 – Case type */}
+       
               {step === 1 && (
                 <div className="space-y-6">
                   <div className="pb-5 border-b border-slate-100">
@@ -634,7 +631,7 @@ const Appointment = () => {
                 </div>
               )}
 
-              {/* Step 2 – Contact method */}
+  
               {step === 2 && (
                 <div className="space-y-6">
                   <div className="pb-5 border-b border-slate-100">
@@ -643,7 +640,7 @@ const Appointment = () => {
                   </div>
 
                   <div className="space-y-3">
-                    {/* Phone */}
+      
                     <button
                       type="button"
                       onClick={() => handleAnonymousChange("contact_method", "phone")}
@@ -679,7 +676,7 @@ const Appointment = () => {
                       </div>
                     )}
 
-                    {/* In-person */}
+       
                     <button
                       type="button"
                       onClick={() =>
@@ -727,7 +724,7 @@ const Appointment = () => {
                 </div>
               )}
 
-              {/* Step 3 – Timing */}
+   
               {step === 3 && (
                 <div className="space-y-6">
                   <div className="pb-5 border-b border-slate-100">
@@ -735,7 +732,7 @@ const Appointment = () => {
                     <p className="text-slate-500 text-sm mt-0.5">Select your preferred date and time.</p>
                   </div>
 
-                  {/* ASAP checkbox */}
+          
                   <label className="flex items-start gap-3 cursor-pointer bg-amber-50 border border-amber-200 rounded-2xl p-4">
                     <input
                       type="checkbox"
@@ -799,7 +796,7 @@ const Appointment = () => {
                 </div>
               )}
 
-              {/* Step 4 – Reason (optional) */}
+        
               {step === 4 && (
                 <div className="space-y-6">
                   <div className="pb-5 border-b border-slate-100">
@@ -836,7 +833,7 @@ const Appointment = () => {
                 </div>
               )}
 
-              {/* Step 5 – Safety check */}
+   
               {step === 5 && (
                 <div className="space-y-6">
                   <div className="pb-5 border-b border-slate-100">
@@ -923,7 +920,6 @@ const Appointment = () => {
                 </div>
               )}
 
-              {/* Step 6 – Confirmation */}
               {step === 6 && (
                 <div className="text-center py-6 space-y-6">
                   <div className="w-16 h-16 bg-green-50 border border-green-200 rounded-2xl flex items-center justify-center mx-auto">
@@ -940,7 +936,7 @@ const Appointment = () => {
                     </p>
                   </div>
 
-                  {/* Summary */}
+         
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-left max-w-sm mx-auto space-y-2">
                     {[
                       ["Service Type", anonymousForm.case_type],

@@ -1,3 +1,4 @@
+import { disconnectSocket } from "./socket";
 import api from './axios';
 
 
@@ -186,6 +187,7 @@ export const resetResearcherPassword = async (
 };
 
 export const logout = () => {
+  disconnectSocket();
   localStorage.removeItem('token');
   localStorage.removeItem('role');
   localStorage.removeItem('collection');

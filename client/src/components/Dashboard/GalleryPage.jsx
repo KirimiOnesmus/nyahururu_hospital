@@ -1,28 +1,23 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useSocket } from "../../api/socket";
 import api from "../../api/axios";
 import {
   FaPlus, FaSearch, FaImage, FaVideo, FaFolder, FaClock,
   FaTrash, FaEye, FaEyeSlash, FaTimes, FaUpload, FaCheckCircle,
   FaFolderPlus, FaSpinner, FaTh, FaList, FaLayerGroup,
 } from "react-icons/fa";
-import { toast } from "react-toastify";
+import notify from "../../common/utils/notify";
+import {
+  Modal, Spinner, EmptyState, StatCard, Button, SearchBox, Input, TextArea, Select, FormField, PageHeader, StatusBadge, Avatar, DataTable,
+} from "../../common/components";
+
 
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString("en-KE", { day:"2-digit", month:"short", year:"numeric" }) : "—";
 const EMPTY_UPLOAD = { files: [], title: "", description: "", category: "", tags: "", visible: true };
 
 
-const StatCard = ({ label, value, accent, icon: Icon }) => (
-  <div className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
-    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${accent.bg}`}>
-      <Icon className={`text-xl ${accent.icon}`} />
-    </div>
-    <div>
-      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{label}</p>
-      <p className={`text-2xl font-black ${accent.num}`}>{value}</p>
-    </div>
-  </div>
-);
+
 
 const TypeBadge = ({ type }) => (
   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black ${
@@ -32,56 +27,6 @@ const TypeBadge = ({ type }) => (
     {type}
   </span>
 );
-
-const Spinner = () => (
-  <div className="flex flex-col items-center justify-center py-20 gap-3">
-    <div className="w-10 h-10 border-2 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
-    <p className="text-sm text-gray-400">Loading gallery…</p>
-  </div>
-);
-
-const Empty = () => (
-  <div className="flex flex-col items-center justify-center py-20 gap-3">
-    <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center">
-      <FaImage className="text-2xl text-gray-300" />
-    </div>
-    <p className="text-sm text-gray-400">No media found</p>
-  </div>
-);
-
-const Modal = ({ open, onClose, title, subtitle, children, maxW = "max-w-2xl" }) => {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className={`bg-white rounded-2xl shadow-2xl w-full ${maxW} max-h-[90vh] overflow-y-auto`}
-        style={{ animation: "modalPop .22s cubic-bezier(.34,1.56,.64,1) both" }}
-        onClick={e => e.stopPropagation()}>
-        <div className="flex items-start justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
-          <div>
-            <h2 className="text-lg font-black text-gray-900">{title}</h2>
-            {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
-          </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100 cursor-pointer transition-colors shrink-0">
-            <FaTimes className="text-gray-400" />
-          </button>
-        </div>
-        <div className="p-6">{children}</div>
-      </div>
-    </div>
-  );
-};
-
-const Field = ({ label, required, children }) => (
-  <div>
-    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-      {label}{required && <span className="text-red-400 ml-0.5">*</span>}
-    </label>
-    {children}
-  </div>
-);
-
-const inputCls = "w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow";
-
 
 const GalleryPage = () => {
   const [galleryItems,   setGalleryItems]   = useState([]);
@@ -112,7 +57,7 @@ const GalleryPage = () => {
       const res = await api.get("/gallery", { params });
       setGalleryItems(Array.isArray(res.data) ? res.data : res.data.data || []);
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error fetching gallery");
+      notify.error(err.response?.data?.message || "Error fetching gallery");
       setGalleryItems([]);
     } finally {
       setLoading(false);
@@ -125,12 +70,17 @@ const GalleryPage = () => {
       const data = Array.isArray(res.data) ? res.data : res.data.data || [];
       setCategories(data.map(c => c.name));
     } catch {
-      toast.error("Error fetching categories");
+      notify.error("Error fetching categories");
     }
   }, []);
 
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
   useEffect(() => { fetchGallery(); }, [fetchGallery]);
+
+  // Real-time updates via Socket.IO
+  useSocket("gallery:created", fetchGallery);
+  useSocket("gallery:updated", fetchGallery);
+  useSocket("gallery:deleted", fetchGallery);
 
   const stats = useMemo(() => ({
     totalImages:    galleryItems.filter(i => i.type === "image").length,
@@ -144,16 +94,16 @@ const GalleryPage = () => {
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
     const oversized = files.filter(f => f.size > 50*1024*1024);
-    if (oversized.length) { toast.error("Some files exceed the 50 MB limit"); return; }
+    if (oversized.length) { notify.error("Some files exceed the 50 MB limit"); return; }
     setUploadData(p => ({ ...p, files }));
   };
 
   const setUploadField = (key, val) => setUploadData(p => ({ ...p, [key]: val }));
 
   const handleUploadSubmit = async () => {
-    if (!uploadData.files.length)   { toast.error("Please select at least one file"); return; }
-    if (!uploadData.title.trim())   { toast.error("Title is required"); return; }
-    if (!uploadData.category)       { toast.error("Category is required"); return; }
+    if (!uploadData.files.length)   { notify.error("Please select at least one file"); return; }
+    if (!uploadData.title.trim())   { notify.error("Title is required"); return; }
+    if (!uploadData.category)       { notify.error("Category is required"); return; }
     setSubmitting(true);
     try {
 
@@ -171,28 +121,28 @@ const GalleryPage = () => {
       );
       const failed    = results.filter(r => r.status === "rejected").length;
       const succeeded = results.length - failed;
-      if (succeeded > 0) toast.success(`${succeeded} file(s) uploaded`);
-      if (failed > 0)    toast.error(`${failed} file(s) failed`);
+      if (succeeded > 0) notify.success(`${succeeded} file(s) uploaded`);
+      if (failed > 0)    notify.error(`${failed} file(s) failed`);
       setUploadModal(false);
       setUploadData(EMPTY_UPLOAD);
       fetchGallery();
     } catch {
-      toast.error("Upload failed");
+      notify.error("Upload failed");
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleAddCategory = async () => {
-    if (!newCategory.trim()) { toast.error("Category name is required"); return; }
+    if (!newCategory.trim()) { notify.error("Category name is required"); return; }
     setSubmitting(true);
     try {
       await api.post("/gallery/categories", { name: newCategory.trim() });
-      toast.success("Category added");
+      notify.success("Category added");
       setNewCategory("");
       fetchCategories();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error adding category");
+      notify.error(err.response?.data?.message || "Error adding category");
     } finally {
       setSubmitting(false);
     }
@@ -204,9 +154,9 @@ const GalleryPage = () => {
       const res = await api.get("/gallery/categories");
       const data = Array.isArray(res.data) ? res.data : res.data.data || [];
       const cat = data.find(c => c.name === name);
-      if (cat) { await api.delete(`/gallery/categories/${cat.id}`); toast.success("Category deleted"); fetchCategories(); }
+      if (cat) { await api.delete(`/gallery/categories/${cat.id}`); notify.success("Category deleted"); fetchCategories(); }
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error deleting category");
+      notify.error(err.response?.data?.message || "Error deleting category");
     }
   };
 
@@ -216,9 +166,9 @@ const GalleryPage = () => {
       await api.delete(`/gallery/${id}`);
       setGalleryItems(prev => prev.filter(i => i.id !== id));
       setSelectedItems(prev => prev.filter(i => i !== id));
-      toast.success("Item deleted");
+      notify.success("Item deleted");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error deleting item");
+      notify.error(err.response?.data?.message || "Error deleting item");
     }
   };
 
@@ -226,9 +176,9 @@ const GalleryPage = () => {
     try {
       await api.patch(`/gallery/${id}/toggle-visibility`);
       setGalleryItems(prev => prev.map(i => i.id === id ? { ...i, visible: !current } : i));
-      toast.success(`Item ${!current ? "shown" : "hidden"}`);
+      notify.success(`Item ${!current ? "shown" : "hidden"}`);
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error toggling visibility");
+      notify.error(err.response?.data?.message || "Error toggling visibility");
     }
   };
 
@@ -236,11 +186,11 @@ const GalleryPage = () => {
     if (!selectedItems.length || !window.confirm(`Delete ${selectedItems.length} item(s)?`)) return;
     try {
       await api.post("/gallery/bulk/delete", { ids: selectedItems });
-      toast.success(`${selectedItems.length} item(s) deleted`);
+      notify.success(`${selectedItems.length} item(s) deleted`);
       setSelectedItems([]);
       fetchGallery();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error deleting items");
+      notify.error(err.response?.data?.message || "Error deleting items");
     }
   };
 
@@ -252,14 +202,6 @@ const GalleryPage = () => {
 
   return (
     <div className="min-h-screen bg-[#f8f7f5]">
-      <style>{`
-        @keyframes modalPop {
-          from { opacity:0; transform:scale(0.94) translateY(10px); }
-          to   { opacity:1; transform:scale(1)    translateY(0);    }
-        }
-        .fade-up { animation: fadeUp .3s ease both; }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-      `}</style>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
 
@@ -276,11 +218,11 @@ const GalleryPage = () => {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setCategoryModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl hover:bg-gray-50 cursor-pointer shadow-sm transition-colors">
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
               <FaFolderPlus className="text-xs" /> Categories
             </button>
             <button onClick={() => setUploadModal(true)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 cursor-pointer shadow-sm shadow-blue-200 transition-colors">
+              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 cursor-pointer  transition-colors">
               <FaPlus className="text-xs" /> Add Media
             </button>
           </div>
@@ -293,7 +235,7 @@ const GalleryPage = () => {
           <StatCard label="This Week"  value={stats.recentItems}     icon={FaClock}  accent={{ bg:"bg-amber-50",   icon:"text-amber-500",   num:"text-amber-600"   }} />
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-5">
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-5">
           <div className="flex flex-col lg:flex-row gap-3 items-center">
             <div className="relative flex-1 w-full">
               <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm" />
@@ -346,13 +288,13 @@ const GalleryPage = () => {
           )}
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          {loading ? <Spinner /> : galleryItems.length === 0 ? <Empty /> : viewMode === "grid" ? (
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          {loading ? <Spinner /> : galleryItems.length === 0 ? <EmptyState /> : viewMode === "grid" ? (
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-5">
               {galleryItems.map(item => (
                 <div key={item.id} className={`group relative bg-gray-50 border rounded-2xl overflow-hidden transition-all ${
-                  selectedItems.includes(item.id) ? "border-blue-400 ring-2 ring-blue-300" : "border-gray-100 hover:shadow-md hover:border-gray-200"
+                  selectedItems.includes(item.id) ? "border-blue-400 ring-2 ring-blue-300" : "border-gray-100 hover:border-gray-200"
                 }`}>
                
                   <div onClick={() => toggleSelection(item.id)}
@@ -455,7 +397,7 @@ const GalleryPage = () => {
       <Modal open={uploadModal} onClose={() => { setUploadModal(false); setUploadData(EMPTY_UPLOAD); }}
         title="Upload New Media" subtitle="Images and videos accepted">
         <div className="space-y-5">
-          <Field label="Files" required>
+          <FormField label="Files" required>
             <label className="flex flex-col items-center gap-3 px-6 py-8 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-blue-400 transition-colors bg-gray-50/50">
               <FaUpload className={`text-2xl ${uploadData.files.length ? "text-blue-500" : "text-gray-300"}`} />
               <div className="text-center">
@@ -473,29 +415,29 @@ const GalleryPage = () => {
               )}
               <input type="file" multiple accept="image/*,video/*" onChange={handleFileUpload} className="hidden" />
             </label>
-          </Field>
+          </FormField>
 
-          <Field label="Title" required>
+          <FormField label="Title" required>
             <input value={uploadData.title} onChange={e => setUploadField("title", e.target.value)}
-              placeholder="e.g., Staff Training Day 2025" className={inputCls} />
-          </Field>
+              placeholder="e.g., Staff Training Day 2025" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" />
+          </FormField>
 
-          <Field label="Description">
+          <FormField label="Description">
             <textarea value={uploadData.description} onChange={e => setUploadField("description", e.target.value)}
-              placeholder="Brief description…" rows={3} className={`${inputCls} resize-none`} />
-          </Field>
+              placeholder="Brief description…" rows={3} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white resize-none" />
+          </FormField>
 
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Category" required>
-              <select value={uploadData.category} onChange={e => setUploadField("category", e.target.value)} className={inputCls}>
+            <FormField label="Category" required>
+              <select value={uploadData.category} onChange={e => setUploadField("category", e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white">
                 <option value="">Select category</option>
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-            </Field>
-            <Field label="Tags">
+            </FormField>
+            <FormField label="Tags">
               <input value={uploadData.tags} onChange={e => setUploadField("tags", e.target.value)}
-                placeholder="tag1, tag2" className={inputCls} />
-            </Field>
+                placeholder="tag1, tag2" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" />
+            </FormField>
           </div>
 
           <label className="flex items-center gap-3 cursor-pointer select-none">
@@ -512,7 +454,7 @@ const GalleryPage = () => {
             <button onClick={() => { setUploadModal(false); setUploadData(EMPTY_UPLOAD); }}
               className="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">Cancel</button>
             <button onClick={handleUploadSubmit} disabled={submitting}
-              className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 cursor-pointer shadow-sm shadow-blue-200 transition-colors">
+              className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 cursor-pointer  transition-colors">
               {submitting ? <><FaSpinner className="animate-spin text-xs" />Uploading…</> : <><FaCheckCircle className="text-xs" />Upload Media</>}
             </button>
           </div>
@@ -525,7 +467,7 @@ const GalleryPage = () => {
           <div className="flex gap-2">
             <input value={newCategory} onChange={e => setNewCategory(e.target.value)}
               onKeyDown={e => e.key === "Enter" && handleAddCategory()}
-              placeholder="New category name…" className={`${inputCls} flex-1`} />
+              placeholder="New category name…" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white flex-1" />
             <button onClick={handleAddCategory} disabled={submitting}
               className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 cursor-pointer transition-colors shrink-0">
               {submitting ? <FaSpinner className="animate-spin" /> : "Add"}

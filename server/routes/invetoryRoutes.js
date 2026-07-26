@@ -15,7 +15,6 @@ const {
 
 const { verifyToken, authorizeRoles } = require('../middleware/auth');
 
-// Public routes (no auth required)
 router.get('/', getAllInventory);
 router.get('/search', searchInventory);
 router.get('/stats', getInventoryStats);
@@ -24,7 +23,7 @@ router.get('/expired', getExpiredItems);
 router.get('/expiring-soon', getExpiringItems);
 router.get('/:id', getInventoryById);
 
-// Protected routes (auth required)
+
 router.post('/', verifyToken, authorizeRoles('admin', 'it'), createInventory);
 router.put('/:id', verifyToken, authorizeRoles('admin', 'it'), updateInventory);
 router.delete('/:id', verifyToken, authorizeRoles('admin', 'it'), deleteInventory);

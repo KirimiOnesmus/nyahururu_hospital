@@ -12,11 +12,8 @@ const roleShortCodes = {
 };
 
 // Generate Employee ID: NCRH-ROLE-XXXX
-//
-// CUTOVER NOTE: `User` here is now the Sequelize model (see
-// controllers/userController.js), not the old Mongoose model — swapped
-// `User.countDocuments({ role })` for the Sequelize equivalent,
-// `User.count({ where: { role } })`.
+
+
 async function generateEmployeeId(role, User) {
   try {
     const normalizedRole = (role || "staff").toLowerCase().trim();
@@ -44,7 +41,7 @@ function generateRFID(employeeId) {
     return `RFID-${employeeId}`;
   } catch (error) {
     console.error("Error generating RFID:", error);
-    // Fallback
+    
     return `RFID-${Date.now()}`;
   }
 }

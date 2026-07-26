@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import notify from "../../../common/utils/notify";
 import {
   FaCheckCircle,
   FaClock,
@@ -64,7 +64,6 @@ const reviewerFilterCls = (active) =>
        : "bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600"
    }`;
 
-//  Local building blocks
 const Spinner = ({ size = 10, color = "border-t-indigo-600" }) => (
   <div
     className={`w-${size} h-${size} border-4 border-slate-200 ${color}
@@ -102,7 +101,6 @@ const ScoreCell = ({ value }) =>
     </span>
   );
 
-//  Reviewer Dashboard
 const ReviewerDashboard = ({ user }) => {
   const navigate = useNavigate();
 
@@ -122,7 +120,7 @@ const ReviewerDashboard = ({ user }) => {
       });
       setAllAssigned(Array.isArray(res.papers) ? res.papers : []);
     } catch (err) {
-      toast.error(err.message || "Failed to load review queue");
+      notify.error(err.message || "Failed to load review queue");
     } finally {
       setLoading(false);
     }
@@ -135,33 +133,28 @@ const ReviewerDashboard = ({ user }) => {
 
   const queue = useMemo(
     () => allAssigned.filter((q) => ACTIVE_STATUSES.includes(q.status)),
-    [allAssigned],
+    [allAssigned]
   );
 
   const decided = useMemo(
     () => allAssigned.filter((q) => !ACTIVE_STATUSES.includes(q.status)),
-    [allAssigned],
+    [allAssigned]
   );
 
   const scoringProgress =
-    allAssigned.length === 0
-      ? 0
-      : Math.round((decided.length / allAssigned.length) * 100);
+    allAssigned.length === 0 ? 0 : Math.round((decided.length / allAssigned.length) * 100);
 
   const avgTurnaroundDays = useMemo(() => {
     const withDates = decided.filter((h) => h.assignedAt && h.reviewedAt);
     if (withDates.length === 0) return null;
     const totalDays = withDates.reduce((sum, h) => {
-      const diff =
-        (new Date(h.reviewedAt) - new Date(h.assignedAt)) /
-        (1000 * 60 * 60 * 24);
+      const diff = (new Date(h.reviewedAt) - new Date(h.assignedAt)) / (1000 * 60 * 60 * 24);
       return sum + diff;
     }, 0);
     return (totalDays / withDates.length).toFixed(1);
   }, [decided]);
 
-  const handleReview = (item) =>
-    navigate(`/research/dashboard/review/${item.id}`);
+  const handleReview = (item) => navigate(`/research/dashboard/review/${item.id}`);
 
   const STAGE_FILTERS = [
     { id: "all", label: "All" },
@@ -181,9 +174,7 @@ const ReviewerDashboard = ({ user }) => {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <FaShieldAlt className="text-yellow-300 text-sm" />
-              <p className="text-indigo-200 text-sm font-medium">
-                Reviewer panel
-              </p>
+              <p className="text-indigo-200 text-sm font-medium">Reviewer panel</p>
             </div>
             <h2 className="text-2xl font-bold tracking-tight">
               {user?.firstName} {user?.lastName}
@@ -222,9 +213,7 @@ const ReviewerDashboard = ({ user }) => {
             </p>
             <FaChartBar className="text-indigo-400" />
           </div>
-          <p className="text-3xl font-bold text-slate-900 mb-2">
-            {scoringProgress}%
-          </p>
+          <p className="text-3xl font-bold text-slate-900 mb-2">{scoringProgress}%</p>
           <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
             <div
               className="h-full bg-indigo-600 rounded-full transition-all"
@@ -313,14 +302,7 @@ const ReviewerDashboard = ({ user }) => {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-100">
-                      {[
-                        "Title",
-                        "Research ID",
-                        "Stage",
-                        "Submitted",
-                        "Status",
-                        "",
-                      ].map((h, i) => (
+                      {["Title", "Research ID", "Stage", "Submitted", "Status", ""].map((h, i) => (
                         <th
                           key={h || i}
                           className={`px-6 py-3 text-xs font-bold uppercase
@@ -339,13 +321,11 @@ const ReviewerDashboard = ({ user }) => {
                         className="border-b border-slate-100 last:border-0
                         hover:bg-slate-50/60 transition-colors"
                       >
-                      
                         <td className="px-6 py-4 max-w-xs">
                           <p className="text-sm font-semibold text-slate-900 leading-snug">
                             {item.title}
                           </p>
                           <div className="flex items-center gap-2 mt-1 text-xs text-slate-400">
-            
                             {item.resubmissionCount > 0 && (
                               <span
                                 className="bg-purple-100 text-purple-700 border border-purple-200
@@ -429,7 +409,7 @@ const ReviewerDashboard = ({ user }) => {
             </div>
             <button
               type="button"
-              onClick={() => toast.info("Reviewer guidelines PDF coming soon")}
+              onClick={() => notify.info("Reviewer guidelines PDF coming soon")}
               className="w-full mt-5 flex items-center justify-center gap-2 bg-white/40
                 hover:bg-white/20 text-white text-xs font-semibold py-2.5 rounded-xl
                 transition-colors cursor-pointer"
@@ -439,15 +419,6 @@ const ReviewerDashboard = ({ user }) => {
           </div>
         </div>
       </div>
-
-      <style>{`
-        .line-clamp-2 {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-      `}</style>
     </div>
   );
 };

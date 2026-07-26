@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { toast } from "react-toastify";
+import notify from "../../common/utils/notify";
 import { getResearcherProfile, updateResearcherProfile } from "../../api/auth";
 import {
   FaUser,
@@ -59,7 +59,7 @@ const Avatar = ({ firstName, lastName, size = "lg" }) => {
   const sz = size === "lg" ? "w-24 h-24 text-2xl" : "w-10 h-10 text-sm";
   return (
     <div
-      className={`${sz} rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-bold text-white border-4 border-white shadow-md flex-shrink-0`}
+      className={`${sz} rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-bold text-white border-4 border-white flex-shrink-0`}
     >
       {initials || "?"}
     </div>
@@ -74,7 +74,7 @@ const EditProfileModal = ({ profile, onClose, onSave }) => {
 
   const handleSubmit = async () => {
     if (!formData.firstName?.trim() || !formData.lastName?.trim()) {
-      toast.error("First and last name are required");
+      notify.error("First and last name are required");
       return;
     }
 
@@ -91,14 +91,14 @@ const EditProfileModal = ({ profile, onClose, onSave }) => {
       };
 
       await updateResearcherProfile(updates);
-      toast.success("Profile updated successfully!");
+      notify.success("Profile updated successfully!");
       onSave(formData);
     } catch (err) {
       const errorMsg =
         err.response?.data?.message ||
         err.message ||
         "Failed to update profile";
-      toast.error(errorMsg);
+      notify.error(errorMsg);
     } finally {
       setSaving(false);
     }
@@ -114,10 +114,10 @@ const EditProfileModal = ({ profile, onClose, onSave }) => {
       onClick={(e) => e.target === e.currentTarget && !saving && onClose()}
     >
       <div
-        className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+        className="bg-white w-full max-w-3xl rounded-2xl flex flex-col overflow-hidden"
         style={{ maxHeight: "100vh", animation: "slideUp .25s ease" }}
       >
-        {/* Header */}
+
         <div className="bg-blue-600 px-6 py-4 flex items-center justify-between flex-shrink-0">
           <h3 className="text-white font-bold text-lg">Edit Profile</h3>
           {!saving && (
@@ -251,7 +251,7 @@ const EditProfileModal = ({ profile, onClose, onSave }) => {
             disabled={saving}
             className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700
              text-white rounded-xl font-semibold transition-all cursor-pointer 
-             hover:shadow-lg disabled:bg-blue-400 disabled:hover:bg-blue-400
+             disabled:bg-blue-400 disabled:hover:bg-blue-400
              disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {saving ? (
@@ -318,7 +318,7 @@ const MyProfile = ({ onBack }) => {
         setPapers(Array.isArray(papersRes.papers) ? papersRes.papers : []);
       } catch (err) {
         console.error("Failed to fetch profile:", err);
-        toast.error("Failed to load profile. Please try again.");
+        notify.error("Failed to load profile. Please try again.");
         setTimeout(() => onBack?.(), 2000);
       } finally {
         setLoading(false);
@@ -342,7 +342,7 @@ const MyProfile = ({ onBack }) => {
         >
           <FaArrowLeft /> Back to Dashboard
         </button>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 flex items-center justify-center">
+        <div className="bg-white rounded-2xl border border-gray-100 p-12 flex items-center justify-center">
           <div className="text-center">
             <svg
               className="animate-spin h-12 w-12 text-blue-600 mx-auto mb-4"
@@ -380,7 +380,7 @@ const MyProfile = ({ onBack }) => {
         >
           <FaArrowLeft /> Back to Dashboard
         </button>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 flex items-center justify-center">
+        <div className="bg-white rounded-2xl border border-gray-100 p-12 flex items-center justify-center">
           <div className="text-center">
             <FaUser className="text-gray-300 text-5xl mx-auto mb-4" />
             <p className="text-gray-600 font-medium">Unable to load profile</p>
@@ -404,7 +404,7 @@ const MyProfile = ({ onBack }) => {
       >
         <FaArrowLeft /> Back to Dashboard
       </button>
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col h-full">
+      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden flex flex-col h-full">
         <div className="bg-blue-500 px-8 py-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div

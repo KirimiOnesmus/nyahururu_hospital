@@ -2,21 +2,17 @@
 
 const app = require("./app");
 const logger = require("./utils/logger");
+const { init: initSocket } = require("./utils/socket");
 
-// Load the Sequelize instance + all models. Requiring the module at boot
-// exercises every model's define() call, so any model-definition error
-// (bad ENUM, typo in a hook, missing FK target) surfaces here rather
-// than on the first request that touches the offending model.
 const { sequelize } = require("./sequelize/models");
 
 const PORT = process.env.PORT || 5000;
 
-/**
- * Boot sequence:
- *   1. Authenticate against MySQL. Hard-fail on error — the app cannot
- *      serve traffic without its primary datastore.
- *   2. app.listen().
- */
+const allowedOrigins = (process.env.CORS_ORIGINS || "http://localhost:5173")
+  .split(",")
+  .map((o) => o.trim());
+
+
 const bootstrap = async () => {
   try {
     await sequelize.authenticate();
@@ -35,22 +31,19 @@ const bootstrap = async () => {
     );
   });
 
+
+  initSocket(server, allowedOrigins);
+
   return server;
 };
 
-// Kick things off. Keep the returned promise so we can attach shutdown
-// handlers to whichever server instance boot produces.
+
 let httpServer = null;
 const started = bootstrap().then((s) => {
   httpServer = s;
   return s;
 });
 
-/**
- * Graceful shutdown — drains in-flight requests before closing DB
- * connections. Force-exits after 10s if a request never resolves,
- * which keeps deploy/restart cycles bounded.
- */
 const shutdown = (signal) => {
   logger.info(`${signal} received. Shutting down gracefully...`);
 

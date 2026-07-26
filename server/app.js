@@ -2,9 +2,6 @@
 
 require("dotenv").config();
 
-// MySQL is the primary datastore. Its config vars are validated
-// separately, and fatally, by sequelize/config/config.js at import time
-// — so we don't repeat DB_* here.
 const REQUIRED_ENV = [
   "PORT",
   "JWT_SECRET",
@@ -67,15 +64,13 @@ const feedbackRoutes         = require("./routes/feedbackRoutes");
 const tenderRoutes           = require("./routes/tenderRoutes");
 const bidRoutes              = require("./routes/bidRoutes");
 
+// System
+const auditLogRoutes         = require("./routes/auditLogRoutes");
+
 // Research & Payments
 const researchRoutes         = require("./routes/researchRoutes");
 const paymentRoutes          = require("./routes/paymentRoute");
 const certificateRoutes      = require("./routes/certificates");
-
-
-// DB connections are established in server.js before app.listen — see
-// bootstrap() there. app.js stays connection-agnostic so it can be
-// required for tests without triggering a live DB connect.
 
 
 const app = express();
@@ -86,11 +81,6 @@ if (process.env.NODE_ENV === "production") {
 }
 
 
-// M4: previously `contentSecurityPolicy: production ? undefined : false`
-// meant production silently fell back to Helmet's generic default policy
-// — never verified against this app's actual origins/CDNs. Now explicit,
-// built from the same CORS_ORIGINS allowlist already configured below,
-// plus the CDNs this app is known to load from client-side.
 const buildProductionCSP = () => {
   const selfOrigins = (process.env.CORS_ORIGINS || "").split(",").map((o) => o.trim()).filter(Boolean);
   return {
@@ -176,21 +166,6 @@ app.use(compression());
 app.use(hpp({ whitelist: ["fields", "sort", "page", "limit", "filter"] }));
 
 
-// H6: uploaded files were previously served from one fully public
-// `/uploads` static mount — including research papers, bid documents,
-// reports and progress files, with randomized filenames as the *only*
-// protection (security-by-obscurity, not access control: any leaked/
-// logged/referrer-forwarded URL exposed the file to the internet
-// permanently). Split into:
-//   - genuinely public CMS assets (gallery/news/events/services/notices/
-//     tenders — the hospital's own public-facing images and procurement
-//     documents), served as before, and
-//   - everything else, which now requires a valid staff or researcher
-//     session before the file is streamed at all.
-// This is a floor, not the full fix — per-file ownership checks (e.g. "is
-// this researcher allowed to see *this* paper") still belong in a proper
-// GET /api/research/:id/file-style controller route; this closes the
-// "public to the entire internet" gap in the meantime.
 const PUBLIC_UPLOAD_FOLDERS = ["public", "gallery", "news", "events", "services", "notices", "tenders"];
 
 PUBLIC_UPLOAD_FOLDERS.forEach((folder) => {
@@ -281,6 +256,9 @@ app.use("/api/feedback",      feedbackRoutes);
 app.use("/api/tenders",       tenderRoutes);
 app.use("/api/bids",          bidRoutes);
 
+// System
+app.use("/api/audit-logs",    auditLogRoutes);
+
 //Research & Payments 
 app.use("/api/research",      researchRoutes);
 app.use("/api/payments",   paymentRoutes);
@@ -316,31 +294,31 @@ app.use((err, req, res, next) => {
   }
 
   // Mongoose: duplicate key 
-  if (err.code === 11000) {
-    const field = Object.keys(err.keyValue || {})[0] || "field";
-    return res.status(409).json({
-      success: false,
-      message: `A record with this ${field} already exists.`,
-    });
-  }
+  // if (err.code === 11000) {
+  //   const field = Object.keys(err.keyValue || {})[0] || "field";
+  //   return res.status(409).json({
+  //     success: false,
+  //     message: `A record with this ${field} already exists.`,
+  //   });
+  // }
 
   // Mongoose: validation errors 
-  if (err.name === "ValidationError") {
-    const errors = Object.values(err.errors).map((e) => e.message);
-    return res.status(422).json({
-      success: false,
-      message: "Validation failed.",
-      errors,
-    });
-  }
+  // if (err.name === "ValidationError") {
+  //   const errors = Object.values(err.errors).map((e) => e.message);
+  //   return res.status(422).json({
+  //     success: false,
+  //     message: "Validation failed.",
+  //     errors,
+  //   });
+  // }
 
   // Mongoose: invalid ObjectId 
-  if (err.name === "CastError") {
-    return res.status(400).json({
-      success: false,
-      message: `Invalid value for field '${err.path}': ${err.value}`,
-    });
-  }
+  // if (err.name === "CastError") {
+  //   return res.status(400).json({
+  //     success: false,
+  //     message: `Invalid value for field '${err.path}': ${err.value}`,
+  //   });
+  // }
 
   // JWT errors
   if (err.name === "JsonWebTokenError") {

@@ -33,14 +33,10 @@ const Card = ({ id, image, title, buttonText, description }) => {
       </div>
 
       <div className="flex flex-col flex-1 p-5">
-        <h3 className="text-base font-bold text-slate-800 mb-2 line-clamp-2">
-          {title}
-        </h3>
+        <h3 className="text-base font-bold text-slate-800 mb-2 line-clamp-2">{title}</h3>
 
         {description && (
-          <p className="text-slate-500 text-sm leading-relaxed line-clamp-3 mb-4">
-            {description}
-          </p>
+          <p className="text-slate-500 text-sm leading-relaxed line-clamp-3 mb-4">{description}</p>
         )}
 
         <div className="flex-1" />

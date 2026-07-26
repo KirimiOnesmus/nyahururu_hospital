@@ -5,9 +5,7 @@ const { AppError } = require("../utils/appError");
 const rateLimit = require("express-rate-limit");
 
 
-// Sequelize integer PK validator (this app has fully cut over from Mongo
-// ObjectIds — see MIGRATION_PLAN.md — so every :id/:researchId here is a
-// numeric Sequelize primary key, not a 24-char Mongo ObjectId).
+
 const validId = (param) => (req, res, next) => {
   const value = req.params[param];
   if (!/^\d+$/.test(String(value))) {

@@ -33,7 +33,7 @@ import {
   FaMoneyBillWave,
 } from "react-icons/fa";
 import { MdSchool } from "react-icons/md";
-import { toast } from "react-toastify";
+import notify from "../../common/utils/notify";
 import api from "../../api/axios";
 import * as research from "../../api/research";
 
@@ -139,7 +139,6 @@ const formatKES = (n) =>
     maximumFractionDigits: 0,
   }).format(n || 0);
 
-//  Shared sub-components
 const ROLE_META = {
   admin: {
     label: "Committee",
@@ -204,12 +203,9 @@ const ResearchPage = () => {
             </div>
             <div className="flex flex-col">
               {" "}
-              <h1 className="text-3xl font-bold text-gray-900 mb-1">
-                Research Management
-              </h1>
+              <h1 className="text-3xl font-bold text-gray-900 mb-1">Research Management</h1>
               <p className="text-gray-500 text-sm">
-                Manage research papers across all stages and reviewer
-                assignments
+                Manage research papers across all stages and reviewer assignments
               </p>
             </div>
           </div>
@@ -221,7 +217,7 @@ const ResearchPage = () => {
               onClick={() => setTopTab(key)}
               className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold cursor-pointer transition-all duration-200 ${
                 topTab === key
-                  ? "bg-blue-600 text-white shadow-sm"
+                  ? "bg-blue-600 text-white"
                   : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
               }`}
             >
@@ -280,9 +276,7 @@ const PapersPanel = () => {
       setCategoryColorMap(buildCategoryColorMap(papers));
     } catch (err) {
       console.error("Research Fetch error:", err);
-      toast.error(
-        err.response?.data?.message || "Error fetching research papers",
-      );
+      notify.error(err.response?.data?.message || "Error fetching research papers");
       setResearchList([]);
     } finally {
       setLoading(false);
@@ -301,7 +295,7 @@ const PapersPanel = () => {
       });
     } catch (err) {
       console.error("Revenue fetch error:", err);
-      toast.error(err.message || "Failed to fetch revenue data");
+      notify.error(err.message || "Failed to fetch revenue data");
     } finally {
       setRevenueLoading(false);
     }
@@ -319,8 +313,7 @@ const PapersPanel = () => {
       item.researcher?.name?.toLowerCase().includes(q) ||
       item.author?.toLowerCase().includes(q) ||
       item.abstract?.toLowerCase().includes(q);
-    const matchStage =
-      filterStage === "all" || (item.stage || "proposal") === filterStage;
+    const matchStage = filterStage === "all" || (item.stage || "proposal") === filterStage;
     const matchStatus = filterStatus === "all" || item.status === filterStatus;
     return matchSearch && matchStage && matchStatus;
   });
@@ -331,8 +324,7 @@ const PapersPanel = () => {
   }, {});
 
   const stageCounts = {
-    proposal: researchList.filter((r) => (r.stage || "proposal") === "proposal")
-      .length,
+    proposal: researchList.filter((r) => (r.stage || "proposal") === "proposal").length,
     progress: researchList.filter((r) => r.stage === "progress").length,
     final_paper: researchList.filter((r) => r.stage === "final_paper").length,
   };
@@ -351,51 +343,46 @@ const PapersPanel = () => {
     try {
       await api.post("/researchers/admin/create", researcherForm);
       setResearcherSubmitted(true);
-      toast.success("Researcher added! Login credentials sent via email.");
+      notify.success("Researcher added! Login credentials sent via email.");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to add researcher");
+      notify.error(err.response?.data?.message || "Failed to add researcher");
     } finally {
       setResearcherLoading(false);
     }
   };
 
-const handleDownload = async (item) => {
-  try {
-    setDownloadingId(item.id);
-    const fileUrl = item.fileUrl || item.proposalFile;
-    if (!fileUrl) {
-      toast.error("No PDF available for download");
-      return;
+  const handleDownload = async (item) => {
+    try {
+      setDownloadingId(item.id);
+      const fileUrl = item.fileUrl || item.proposalFile;
+      if (!fileUrl) {
+        notify.error("No PDF available for download");
+        return;
+      }
+      const link = document.createElement("a");
+      link.href = fileUrl;
+      link.download = `${item.title || "research"}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      notify.success("Download started");
+    } catch (err) {
+      notify.error("Download failed");
+      console.error(err);
+    } finally {
+      setDownloadingId(null);
     }
-    const link = document.createElement("a");
-    link.href = fileUrl;
-    link.download = `${item.title || "research"}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("Download started");
-  } catch (err) {
-    toast.error("Download failed");
-    console.error(err);
-  } finally {
-    setDownloadingId(null);
-  }
-};
+  };
 
   const handlePublish = async (item) => {
-    if (
-      !window.confirm(
-        `Publish "${item.title}"? This will make it publicly visible.`,
-      )
-    )
-      return;
+    if (!window.confirm(`Publish "${item.title}"? This will make it publicly visible.`)) return;
     try {
       setPublishingId(item.id);
       await research.publishResearch(item.id);
-      toast.success("Research published successfully!");
+      notify.success("Research published successfully!");
       fetchResearch();
     } catch (err) {
-      toast.error(err.message || "Failed to publish");
+      notify.error(err.message || "Failed to publish");
     } finally {
       setPublishingId(null);
     }
@@ -406,13 +393,13 @@ const handleDownload = async (item) => {
     setAssignLoading(true);
     try {
       await research.assignReviewer(assignTarget.id, assignReviewerEmail);
-      toast.success("Reviewer assigned successfully!");
+      notify.success("Reviewer assigned successfully!");
       setAssignReviewerOpen(false);
       setAssignReviewerEmail("");
       setAssignTarget(null);
       fetchResearch();
     } catch (err) {
-      toast.error(err.message || "Failed to assign reviewer");
+      notify.error(err.message || "Failed to assign reviewer");
     } finally {
       setAssignLoading(false);
     }
@@ -453,16 +440,11 @@ const handleDownload = async (item) => {
             icon: FaGlobe,
           },
         ].map(({ label, value, color, icon: Icon }) => (
-          <div
-            key={label}
-            className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm"
-          >
+          <div key={label} className="bg-white rounded-xl p-5 border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-500 mb-1">{label}</p>
-                <h3 className={`text-2xl font-bold text-${color}-600`}>
-                  {value}
-                </h3>
+                <h3 className={`text-2xl font-bold text-${color}-600`}>{value}</h3>
               </div>
               <div
                 className={`w-11 h-11 bg-${color}-50 rounded-lg flex items-center justify-center`}
@@ -474,7 +456,6 @@ const handleDownload = async (item) => {
         ))}
       </div>
 
-      {/* Revenue / income cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {[
           {
@@ -496,10 +477,7 @@ const handleDownload = async (item) => {
             icon: FaDownload,
           },
         ].map(({ label, value, color, icon: Icon }) => (
-          <div
-            key={label}
-            className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm"
-          >
+          <div key={label} className="bg-white rounded-xl p-5 border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-500 mb-1">{label}</p>
@@ -507,7 +485,7 @@ const handleDownload = async (item) => {
                   {revenueLoading ? "…" : formatKES(value)}
                 </h3>
               </div>
-              <div 
+              <div
                 className={`w-11 h-11 bg-${color}-50 rounded-lg flex items-center justify-center`}
               >
                 <Icon className={`text-lg text-${color}-600`} />
@@ -550,7 +528,7 @@ const handleDownload = async (item) => {
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border cursor-pointer transition-all
               ${
                 filterStage === key
-                  ? "ring-2 ring-offset-1 ring-blue-400 shadow-sm " + color
+                  ? "ring-2 ring-offset-1 ring-blue-400 " + color
                   : color + " opacity-70 hover:opacity-100"
               }`}
           >
@@ -562,7 +540,7 @@ const handleDownload = async (item) => {
         ))}
       </div>
 
-      <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm mb-4">
+      <div className="bg-white rounded-xl p-4 border border-gray-100 mb-4">
         <div className="flex flex-col md:flex-row gap-3">
           <div className="flex-1 relative">
             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
@@ -582,9 +560,7 @@ const handleDownload = async (item) => {
             >
               <option value="all">All Statuses</option>
               <option value="pending">Under Review</option>
-              <option value="pending_committee_review">
-                Awaiting Committee
-              </option>
+              <option value="pending_committee_review">Awaiting Committee</option>
               <option value="revision_requested">Revision Requested</option>
               <option value="suspended">Suspended</option>
               <option value="approved">Approved</option>
@@ -619,10 +595,7 @@ const handleDownload = async (item) => {
                   className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full border border-blue-100"
                 >
                   {chip.label}
-                  <button
-                    onClick={chip.clear}
-                    className="hover:text-red-500 cursor-pointer ml-0.5"
-                  >
+                  <button onClick={chip.clear} className="hover:text-red-500 cursor-pointer ml-0.5">
                     <FaTimes className="text-[9px]" />
                   </button>
                 </span>
@@ -641,20 +614,16 @@ const handleDownload = async (item) => {
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
         {loading ? (
           <div className="p-12 text-center">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto" />
-            <p className="text-gray-500 mt-3 text-sm">
-              Loading research papers…
-            </p>
+            <p className="text-gray-500 mt-3 text-sm">Loading research papers…</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="p-12 text-center">
             <FaBookOpen className="text-4xl text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-400 text-sm">
-              No research papers match your filters
-            </p>
+            <p className="text-gray-400 text-sm">No research papers match your filters</p>
             <button
               onClick={() => {
                 setFilterStage("all");
@@ -667,50 +636,156 @@ const handleDownload = async (item) => {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-left">
-                    Title
-                  </th>
-                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-left">
-                    Author
-                  </th>
-                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">
-                    Stage
-                  </th>
-                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">
-                    Status
-                  </th>
-                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-left">
-                    Assigned Reviewer
-                  </th>
-                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">
-                    Downloads
-                  </th>
-                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">
-                    Income
-                  </th>
-                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filtered.map((item) => {
-                  const stage = item.stage || "proposal";
-                  const stageMeta = STAGE_META[stage] || STAGE_META.proposal;
-                  const statusMeta =
-                    STATUS_META[item.status] || STATUS_META.pending;
+          <DataTable
+            columns={[
+              {
+                key: "title",
+                label: "Title",
+                render: (item) => (
+                  <div className="flex items-start gap-3 min-w-0">
+                    {item.thumbnailUrl && (
+                      <img
+                        src={item.thumbnailUrl}
+                        alt={item.title}
+                        className="w-10 h-10 rounded-lg object-cover shrink-0"
+                      />
+                    )}
+                    <div className="min-w-0">
+                      <p
+                        className="font-semibold text-gray-900 truncate hover:text-blue-600 cursor-pointer transition-colors"
+                        onClick={() => {
+                          setSelectedResearch(item);
+                          setViewModal(true);
+                        }}
+                      >
+                        {item.title}
+                      </p>
+                      {item.isPublished && (
+                        <span className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded bg-green-50 text-green-700 mt-0.5">
+                          Published
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                key: "author",
+                label: "Author",
+                render: (item) => (
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <FaUser className="text-gray-400 text-xs shrink-0" />
+                    <span className="truncate text-xs">
+                      {item.researcher?.name || item.author || "Unknown"}
+                    </span>
+                  </div>
+                ),
+              },
+              {
+                key: "stage",
+                label: "Stage",
+                align: "center",
+                render: (item) => {
+                  const stageMeta = STAGE_META[item.stage || "proposal"] || STAGE_META.proposal;
+                  return (
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span className={`w-2 h-2 rounded-full ${stageMeta.dotColor}`} />
+                      <span className="inline-block text-[10px] font-bold px-2 py-1 rounded-full bg-gray-100 text-gray-700 uppercase tracking-wider">
+                        {stageMeta.label}
+                      </span>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: "status",
+                label: "Status",
+                align: "center",
+                render: (item) => {
+                  const statusMeta = STATUS_META[item.status] || STATUS_META.pending;
                   const StatusIcon = statusMeta.icon;
+                  return (
+                    <div
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg ${statusMeta.color}`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${statusMeta.dot} shrink-0`} />
+                      <StatusIcon className={`text-[10px] ${statusMeta.textColor}`} />
+                      <span className={`text-[11px] font-semibold ${statusMeta.textColor}`}>
+                        {statusMeta.label}
+                      </span>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: "reviewer",
+                label: "Assigned Reviewer",
+                render: (item) => {
+                  const assignedReviewer =
+                    item.assignedReviewer && typeof item.assignedReviewer === "object"
+                      ? item.assignedReviewer
+                      : null;
+                  return assignedReviewer ? (
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-gray-800 truncate">
+                        {assignedReviewer.name ||
+                          `${assignedReviewer.firstName ?? ""} ${assignedReviewer.lastName ?? ""}`.trim() ||
+                          "—"}
+                      </p>
+                      {assignedReviewer.email && (
+                        <p className="text-[10px] text-gray-400 truncate">
+                          {assignedReviewer.email}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-xs text-gray-400 italic">
+                      <FaUserTie className="text-gray-300" /> Unassigned
+                    </span>
+                  );
+                },
+              },
+              {
+                key: "downloads",
+                label: "Downloads",
+                align: "center",
+                render: (item) => (
+                  <span className="text-gray-600 font-semibold text-xs">{item.downloads ?? 0}</span>
+                ),
+              },
+              {
+                key: "income",
+                label: "Income",
+                align: "right",
+                render: (item) => {
+                  const itemRevenue = revenueByResearch[item.id];
+                  return !itemRevenue || itemRevenue.totalIncome === 0 ? (
+                    <span className="text-xs text-gray-300">—</span>
+                  ) : (
+                    <div className="flex flex-col items-end">
+                      <span className="text-xs font-bold text-gray-800">
+                        {formatKES(itemRevenue.totalIncome)}
+                      </span>
+                      <span className="text-[10px] text-gray-400">
+                        P: {formatKES(itemRevenue.proposalIncome)} · D:{" "}
+                        {formatKES(itemRevenue.downloadIncome)}
+                      </span>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: "actions",
+                label: "Actions",
+                align: "right",
+                render: (item) => {
                   const hasFile = item.fileUrl || item.proposalFile;
+                  const stage = item.stage || "proposal";
                   const canPublish =
                     stage === "final_paper" &&
                     item.status === "approved" &&
                     Boolean(item.committeeReviewedBy) &&
                     !item.isPublished;
-
                   const ASSIGNABLE_STATUSES = [
                     "pending",
                     "under_review",
@@ -718,201 +793,68 @@ const handleDownload = async (item) => {
                     "rejected",
                   ];
                   const canAssignReviewer =
-                    ASSIGNABLE_STATUSES.includes(item.status) &&
-                    !item.isPublished;
-
+                    ASSIGNABLE_STATUSES.includes(item.status) && !item.isPublished;
                   const assignedReviewer =
-                    item.assignedReviewer &&
-                    typeof item.assignedReviewer === "object"
+                    item.assignedReviewer && typeof item.assignedReviewer === "object"
                       ? item.assignedReviewer
                       : null;
-
-                  const itemRevenue = revenueByResearch[item.id];
-
                   return (
-                    <tr
-                      key={item.id}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-5 py-4">
-                        <div className="flex items-start gap-3 min-w-0">
-                          {item.thumbnailUrl && (
-                            <img
-                              src={item.thumbnailUrl}
-                              alt={item.title}
-                              className="w-10 h-10 rounded-lg object-cover shrink-0"
-                            />
-                          )}
-                          <div className="min-w-0">
-                            <p
-                              className="font-semibold text-gray-900 truncate hover:text-blue-600 cursor-pointer transition-colors"
-                              onClick={() => {
-                                setSelectedResearch(item);
-                                setViewModal(true);
-                              }}
-                            >
-                              {item.title}
-                            </p>
-                            {item.isPublished && (
-                              <span className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded bg-green-50 text-green-700 mt-0.5">
-                                Published
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-2 text-gray-600">
-                          <FaUser className="text-gray-400 text-xs shrink-0" />
-                          <span className="truncate text-xs">
-                            {item.researcher?.name || item.author || "Unknown"}
-                          </span>
-                        </div>
-                      </td>
-
-                      <td className="px-5 py-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <span
-                            className={`w-2 h-2 rounded-full ${stageMeta.dotColor}`}
-                          />
-                          <span className="inline-block text-[10px] font-bold px-2 py-1 rounded-full bg-gray-100 text-gray-700 uppercase tracking-wider">
-                            {stageMeta.label}
-                          </span>
-                        </div>
-                      </td>
-
-                      <td className="px-5 py-4 text-center">
-                        <div
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg ${statusMeta.color}`}
+                    <div className="flex items-center justify-end gap-1">
+                      {hasFile && (
+                        <button
+                          onClick={() => handleDownload(item)}
+                          disabled={downloadingId === item.id}
+                          className="p-2 rounded-xl text-green-600 hover:bg-green-50 cursor-pointer transition-colors disabled:opacity-50"
+                          title="Download PDF"
                         >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${statusMeta.dot} shrink-0`}
-                          />
-                          <StatusIcon
-                            className={`text-[10px] ${statusMeta.textColor}`}
-                          />
-                          <span
-                            className={`text-[11px] font-semibold ${statusMeta.textColor}`}
-                          >
-                            {statusMeta.label}
-                          </span>
-                        </div>
-                      </td>
-
-                      <td className="px-5 py-4">
-                        {assignedReviewer ? (
-                          <div className="flex items-center gap-2">
-                            <div className="min-w-0">
-                              <p className="text-xs font-semibold text-gray-800 truncate">
-                                {assignedReviewer.name ||
-                                  `${assignedReviewer.firstName ?? ""} ${assignedReviewer.lastName ?? ""}`.trim() ||
-                                  "—"}
-                              </p>
-                              {assignedReviewer.email && (
-                                <p className="text-[10px] text-gray-400 truncate">
-                                  {assignedReviewer.email}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs text-gray-400 italic">
-                            <FaUserTie className="text-gray-300" /> Unassigned
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="px-5 py-4 text-center">
-                        <span className="text-gray-600 font-semibold text-xs">
-                          {item.downloads ?? 0}
-                        </span>
-                      </td>
-
-                      <td className="px-5 py-4 text-right">
-                        {!itemRevenue || itemRevenue.totalIncome === 0 ? (
-                          <span className="text-xs text-gray-300">—</span>
-                        ) : (
-                          <div className="flex flex-col items-end">
-                            <span className="text-xs font-bold text-gray-800">
-                              {formatKES(itemRevenue.totalIncome)}
-                            </span>
-                            <span className="text-[10px] text-gray-400">
-                              P: {formatKES(itemRevenue.proposalIncome)} · D:{" "}
-                              {formatKES(itemRevenue.downloadIncome)}
-                            </span>
-                          </div>
-                        )}
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <div className="flex items-center justify-end gap-1">
-                          {hasFile && (
-                            <button
-                              onClick={() => handleDownload(item)}
-                              disabled={downloadingId === item.id}
-                              className="p-2 rounded-lg text-green-600 hover:bg-green-50 cursor-pointer transition-colors disabled:opacity-50"
-                              title="Download PDF"
-                            >
-                              {downloadingId === item.id ? (
-                                <div className="w-4 h-4 border-2 border-green-400 border-t-green-600 rounded-full animate-spin" />
-                              ) : (
-                                <FaDownload className="text-sm" />
-                              )}
-                            </button>
+                          {downloadingId === item.id ? (
+                            <div className="w-4 h-4 border-2 border-green-400 border-t-green-600 rounded-full animate-spin" />
+                          ) : (
+                            <FaDownload className="text-sm" />
                           )}
-
-                          <button
-                            onClick={() => {
-                              setSelectedResearch(item);
-                              setViewModal(true);
-                            }}
-                            className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 cursor-pointer transition-colors"
-                            title="View details"
-                          >
-                            <FaEye className="text-sm" />
-                          </button>
-
-                          {canAssignReviewer && (
-                            <button
-                              onClick={() => openAssignModal(item)}
-                              className={`p-2 rounded-lg cursor-pointer transition-colors ${
-                                assignedReviewer
-                                  ? "text-purple-500 hover:bg-purple-50 ring-1 ring-purple-200"
-                                  : "text-purple-600 hover:bg-purple-50"
-                              }`}
-                              title={
-                                assignedReviewer
-                                  ? "Re-assign reviewer"
-                                  : "Assign reviewer"
-                              }
-                            >
-                              <FaUserTie className="text-sm" />
-                            </button>
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          setSelectedResearch(item);
+                          setViewModal(true);
+                        }}
+                        className="p-2 rounded-xl text-blue-600 hover:bg-blue-50 cursor-pointer transition-colors"
+                        title="View details"
+                      >
+                        <FaEye className="text-sm" />
+                      </button>
+                      {canAssignReviewer && (
+                        <button
+                          onClick={() => openAssignModal(item)}
+                          className={`p-2 rounded-xl cursor-pointer transition-colors ${assignedReviewer ? "text-purple-500 hover:bg-purple-50 ring-1 ring-purple-200" : "text-purple-600 hover:bg-purple-50"}`}
+                          title={assignedReviewer ? "Re-assign reviewer" : "Assign reviewer"}
+                        >
+                          <FaUserTie className="text-sm" />
+                        </button>
+                      )}
+                      {canPublish && (
+                        <button
+                          onClick={() => handlePublish(item)}
+                          disabled={publishingId === item.id}
+                          className="p-2 rounded-xl text-emerald-600 hover:bg-emerald-50 cursor-pointer transition-colors disabled:opacity-50"
+                          title="Publish paper"
+                        >
+                          {publishingId === item.id ? (
+                            <div className="w-4 h-4 border-2 border-emerald-400 border-t-emerald-600 rounded-full animate-spin" />
+                          ) : (
+                            <FaGlobe className="text-sm" />
                           )}
-
-                          {canPublish && (
-                            <button
-                              onClick={() => handlePublish(item)}
-                              disabled={publishingId === item.id}
-                              className="p-2 rounded-lg text-emerald-600 hover:bg-emerald-50 cursor-pointer transition-colors disabled:opacity-50"
-                              title="Publish paper"
-                            >
-                              {publishingId === item.id ? (
-                                <div className="w-4 h-4 border-2 border-emerald-400 border-t-emerald-600 rounded-full animate-spin" />
-                              ) : (
-                                <FaGlobe className="text-sm" />
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                        </button>
+                      )}
+                    </div>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
+                },
+              },
+            ]}
+            data={filtered}
+            rowKey={(item) => item.id}
+          />
         )}
       </div>
 
@@ -921,8 +863,7 @@ const handleDownload = async (item) => {
         (() => {
           const stage = selectedResearch.stage || "proposal";
           const stageMeta = STAGE_META[stage] || STAGE_META.proposal;
-          const statusMeta =
-            STATUS_META[selectedResearch.status] || STATUS_META.pending;
+          const statusMeta = STATUS_META[selectedResearch.status] || STATUS_META.pending;
           const assignedReviewer =
             selectedResearch.assignedReviewer &&
             typeof selectedResearch.assignedReviewer === "object"
@@ -932,7 +873,7 @@ const handleDownload = async (item) => {
 
           return (
             <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
                 <div className={`${stageMeta.color} px-6 py-4 rounded-t-2xl`}>
                   <div className="flex items-start justify-between">
                     <div>
@@ -962,8 +903,7 @@ const handleDownload = async (item) => {
 
                         {selectedResearch.researcher?.institution && (
                           <p className="text-sm text-white flex items-center gap-1">
-                            <FaUniversity />{" "}
-                            {selectedResearch.researcher.institution}
+                            <FaUniversity /> {selectedResearch.researcher.institution}
                           </p>
                         )}
                         {selectedResearch.researcher?.email && (
@@ -1022,15 +962,12 @@ const handleDownload = async (item) => {
                     </div>
                   )}
 
-                  {(selectedResearch.fileUrl ||
-                    selectedResearch.proposalFile) && (
+                  {(selectedResearch.fileUrl || selectedResearch.proposalFile) && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <FaFilePdf className="text-2xl text-green-600" />
                         <div>
-                          <p className="font-semibold text-gray-900 text-sm">
-                            PDF Document
-                          </p>
+                          <p className="font-semibold text-gray-900 text-sm">PDF Document</p>
                           <p className="text-xs text-gray-500">
                             {selectedResearch.isPublished
                               ? `Price: KES ${selectedResearch.downloadPrice}`
@@ -1064,9 +1001,7 @@ const handleDownload = async (item) => {
                       </p>
                       <div className="grid grid-cols-3 gap-3 text-center">
                         <div>
-                          <p className="text-[10px] text-gray-500 uppercase">
-                            Proposal Fee
-                          </p>
+                          <p className="text-[10px] text-gray-500 uppercase">Proposal Fee</p>
                           <p className="text-sm font-bold text-amber-700">
                             {formatKES(modalRevenue.proposalIncome)}
                           </p>
@@ -1074,18 +1009,14 @@ const handleDownload = async (item) => {
                         <div>
                           <p className="text-[10px] text-gray-500 uppercase">
                             Download Sales
-                            {modalRevenue.downloadCount
-                              ? ` (${modalRevenue.downloadCount})`
-                              : ""}
+                            {modalRevenue.downloadCount ? ` (${modalRevenue.downloadCount})` : ""}
                           </p>
                           <p className="text-sm font-bold text-blue-700">
                             {formatKES(modalRevenue.downloadIncome)}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[10px] text-gray-500 uppercase">
-                            Total
-                          </p>
+                          <p className="text-[10px] text-gray-500 uppercase">Total</p>
                           <p className="text-sm font-bold text-emerald-700">
                             {formatKES(modalRevenue.totalIncome)}
                           </p>
@@ -1101,11 +1032,7 @@ const handleDownload = async (item) => {
                       </p>
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                          {(
-                            assignedReviewer.name ||
-                            assignedReviewer.firstName ||
-                            "?"
-                          )
+                          {(assignedReviewer.name || assignedReviewer.firstName || "?")
                             .charAt(0)
                             .toUpperCase()}
                         </div>
@@ -1116,8 +1043,7 @@ const handleDownload = async (item) => {
                           </p>
                           {assignedReviewer.email && (
                             <p className="text-xs text-gray-500 flex items-center gap-1 truncate">
-                              <FaEnvelope className="text-[10px]" />{" "}
-                              {assignedReviewer.email}
+                              <FaEnvelope className="text-[10px]" /> {assignedReviewer.email}
                             </p>
                           )}
                           {assignedReviewer.institution && (
@@ -1135,9 +1061,7 @@ const handleDownload = async (item) => {
                       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
                         Reviewer Comment
                       </p>
-                      <p className="text-sm text-gray-700">
-                        {selectedResearch.reviewComment}
-                      </p>
+                      <p className="text-sm text-gray-700">{selectedResearch.reviewComment}</p>
                     </div>
                   )}
 
@@ -1145,9 +1069,8 @@ const handleDownload = async (item) => {
                     <div className="bg-violet-50 border border-violet-200 rounded-lg p-4 flex items-start gap-3">
                       <FaUserTie className="text-violet-500 text-sm mt-0.5 shrink-0" />
                       <p className="text-sm text-violet-700">
-                        The assigned reviewer has approved this final paper. It
-                        is now awaiting sign-off from the Research Committee
-                        before it can be published.
+                        The assigned reviewer has approved this final paper. It is now awaiting
+                        sign-off from the Research Committee before it can be published.
                       </p>
                     </div>
                   )}
@@ -1157,9 +1080,7 @@ const handleDownload = async (item) => {
                       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
                         Research Committee Comment
                       </p>
-                      <p className="text-sm text-gray-700">
-                        {selectedResearch.committeeComment}
-                      </p>
+                      <p className="text-sm text-gray-700">{selectedResearch.committeeComment}</p>
                     </div>
                   )}
 
@@ -1180,7 +1101,7 @@ const handleDownload = async (item) => {
       {addResearcherOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden"
+            className="bg-white rounded-2xl w-full max-w-xl overflow-hidden"
             style={{
               animation: "modalPop .25s cubic-bezier(.34,1.56,.64,1) both",
             }}
@@ -1197,12 +1118,8 @@ const handleDownload = async (item) => {
                   <FaUserPlus className="text-white text-base" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white leading-tight">
-                    Add Researcher
-                  </h3>
-                  <p className="text-blue-200 text-xs">
-                    Account created by admin
-                  </p>
+                  <h3 className="text-lg font-bold text-white leading-tight">Add Researcher</h3>
+                  <p className="text-blue-200 text-xs">Account created by admin</p>
                 </div>
               </div>
             </div>
@@ -1211,17 +1128,12 @@ const handleDownload = async (item) => {
             </div>
 
             {!researcherSubmitted ? (
-              <form
-                onSubmit={handleAddResearcher}
-                className="px-6 pb-6 pt-2 space-y-4"
-              >
+              <form onSubmit={handleAddResearcher} className="px-6 pb-6 pt-2 space-y-4">
                 <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
                   <FaKey className="text-amber-500 text-sm mt-0.5 flex-shrink-0" />
                   <p className="text-xs text-amber-700 leading-relaxed">
-                    A secure password will be{" "}
-                    <span className="font-semibold">auto-generated</span> and
-                    sent to the researcher's email along with their login
-                    credentials.
+                    A secure password will be <span className="font-semibold">auto-generated</span>{" "}
+                    and sent to the researcher's email along with their login credentials.
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -1313,19 +1225,13 @@ const handleDownload = async (item) => {
                 <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-2">
                   <FaCheckCircle className="text-green-500 text-3xl" />
                 </div>
-                <h4 className="text-lg font-bold text-gray-900">
-                  Account Created!
-                </h4>
+                <h4 className="text-lg font-bold text-gray-900">Account Created!</h4>
                 <p className="text-sm text-gray-500 leading-relaxed max-w-xs">
                   <span className="font-semibold text-gray-700">
                     {researcherForm.firstName} {researcherForm.lastName}
                   </span>{" "}
-                  has been added as a researcher. Login instructions have been
-                  sent to{" "}
-                  <span className="font-semibold text-blue-600">
-                    {researcherForm.email}
-                  </span>
-                  .
+                  has been added as a researcher. Login instructions have been sent to{" "}
+                  <span className="font-semibold text-blue-600">{researcherForm.email}</span>.
                 </p>
                 <div className="flex gap-2 mt-3">
                   <button
@@ -1353,7 +1259,7 @@ const handleDownload = async (item) => {
       {assignReviewerOpen && assignTarget && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+            className="bg-white rounded-2xl w-full max-w-md overflow-hidden"
             style={{
               animation: "modalPop .25s cubic-bezier(.34,1.56,.64,1) both",
             }}
@@ -1380,9 +1286,7 @@ const handleDownload = async (item) => {
                       ? "Re-assign Reviewer"
                       : "Assign Reviewer"}
                   </h3>
-                  <p className="text-purple-200 text-xs truncate">
-                    {assignTarget.title}
-                  </p>
+                  <p className="text-purple-200 text-xs truncate">{assignTarget.title}</p>
                 </div>
               </div>
             </div>
@@ -1390,10 +1294,7 @@ const handleDownload = async (item) => {
               <div className="absolute inset-x-0 bottom-0 h-3 bg-white rounded-t-2xl" />
             </div>
 
-            <form
-              onSubmit={handleAssignReviewer}
-              className="px-6 pb-6 pt-2 space-y-4"
-            >
+            <form onSubmit={handleAssignReviewer} className="px-6 pb-6 pt-2 space-y-4">
               {assignTarget.assignedReviewer &&
                 typeof assignTarget.assignedReviewer === "object" && (
                   <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
@@ -1420,8 +1321,8 @@ const handleDownload = async (item) => {
                 <FaShieldAlt className="text-purple-500 text-sm mt-0.5 flex-shrink-0" />
                 <p className="text-xs text-purple-700 leading-relaxed">
                   Enter the email of an existing{" "}
-                  <span className="font-semibold">reviewer or admin</span>. They
-                  will receive a notification to review this paper.
+                  <span className="font-semibold">reviewer or admin</span>. They will receive a
+                  notification to review this paper.
                 </p>
               </div>
 
@@ -1449,17 +1350,13 @@ const handleDownload = async (item) => {
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                   Paper being assigned
                 </p>
-                <p className="text-sm font-semibold text-gray-900 truncate">
-                  {assignTarget.title}
-                </p>
+                <p className="text-sm font-semibold text-gray-900 truncate">{assignTarget.title}</p>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-200 text-gray-700 uppercase tracking-wider">
                     {STAGE_META[assignTarget.stage || "proposal"]?.label}
                   </span>
                   <span className="text-[10px] text-gray-500">
-                    {assignTarget.researcher?.name ||
-                      assignTarget.author ||
-                      "Unknown author"}
+                    {assignTarget.researcher?.name || assignTarget.author || "Unknown author"}
                   </span>
                 </div>
               </div>
@@ -1501,13 +1398,6 @@ const handleDownload = async (item) => {
           </div>
         </div>
       )}
-
-      <style>{`
-        @keyframes modalPop {
-          from { opacity: 0; transform: scale(0.93) translateY(12px); }
-          to   { opacity: 1; transform: scale(1)    translateY(0);    }
-        }
-      `}</style>
     </>
   );
 };
@@ -1543,7 +1433,7 @@ const ReviewersPanel = () => {
       const data = await research.listReviewers();
       setReviewers(data.reviewers ?? []);
     } catch {
-      toast.error("Failed to load reviewers");
+      notify.error("Failed to load reviewers");
     }
   };
 
@@ -1555,7 +1445,7 @@ const ReviewersPanel = () => {
       });
       setResearchers(data.researchers ?? []);
     } catch {
-      toast.error("Failed to load researchers");
+      notify.error("Failed to load researchers");
     }
   };
 
@@ -1564,7 +1454,7 @@ const ReviewersPanel = () => {
       const data = await research.listAllResearchers({ limit: 200 });
       setAllMembers(data.researchers ?? []);
     } catch {
-      toast.error("Failed to load all members");
+      notify.error("Failed to load all members");
     }
   };
 
@@ -1579,11 +1469,9 @@ const ReviewersPanel = () => {
   }, []);
 
   const committeeMembers = reviewers.filter(
-    (r) => r.role === "research_committee" || r.isCommittee === true,
+    (r) => r.role === "research_committee" || r.isCommittee === true
   );
-  const activeReviewers = reviewers.filter(
-    (r) => r.role === "reviewer" && !r.isCommittee,
-  );
+  const activeReviewers = reviewers.filter((r) => r.role === "reviewer" && !r.isCommittee);
 
   const SOURCE_MAP = {
     reviewers: activeReviewers,
@@ -1628,12 +1516,12 @@ const ReviewersPanel = () => {
     setInviteLoading(true);
     try {
       const result = await research.inviteReviewer(inviteForm);
-      toast.success(result.message);
+      notify.success(result.message);
       setInviteOpen(false);
       setInviteForm(EMPTY_INVITE);
       refreshAll();
     } catch (err) {
-      toast.error(err.message || "Failed to invite reviewer");
+      notify.error(err.message || "Failed to invite reviewer");
     } finally {
       setInviteLoading(false);
     }
@@ -1644,12 +1532,12 @@ const ReviewersPanel = () => {
     setCommitteeInviteLoading(true);
     try {
       const result = await research.inviteCommitteeMember(committeeInviteForm);
-      toast.success(result.message);
+      notify.success(result.message);
       setCommitteeInviteOpen(false);
       setCommitteeInviteForm(EMPTY_INVITE);
       refreshAll();
     } catch (err) {
-      toast.error(err.message || "Failed to invite committee member");
+      notify.error(err.message || "Failed to invite committee member");
     } finally {
       setCommitteeInviteLoading(false);
     }
@@ -1661,9 +1549,9 @@ const ReviewersPanel = () => {
     try {
       await api.post("/researchers/admin/create", researcherForm);
       setResearcherSubmitted(true);
-      toast.success("Researcher added! Login credentials sent via email.");
+      notify.success("Researcher added! Login credentials sent via email.");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to add researcher");
+      notify.error(err.response?.data?.message || "Failed to add researcher");
     } finally {
       setResearcherLoading(false);
     }
@@ -1673,43 +1561,42 @@ const ReviewersPanel = () => {
     if (!window.confirm(`Revoke reviewer access for ${member.name}?`)) return;
     try {
       const result = await research.revokeReviewer(member.id);
-      toast.success(result.message);
+      notify.success(result.message);
       if (drawer?.id === member.id) setDrawer(null);
       refreshAll();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to revoke reviewer");
+      notify.error(err.response?.data?.message || "Failed to revoke reviewer");
     }
   };
 
   const handlePromote = async (member) => {
-    if (!window.confirm(`Promote ${member.name} to Research Committee?`))
-      return;
+    if (!window.confirm(`Promote ${member.name} to Research Committee?`)) return;
     try {
       const result = await research.promoteToAdmin(member.id, member.email);
-      toast.success(result.message);
+      notify.success(result.message);
       if (drawer?.id === member.id) setDrawer({ ...drawer });
       refreshAll();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Promotion failed");
+      notify.error(err.response?.data?.message || "Promotion failed");
     }
   };
 
   const handleResend = async (member) => {
     try {
       const result = await research.resendInvite(member.id);
-      toast.success(result.message);
+      notify.success(result.message);
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to resend invite");
+      notify.error(err.response?.data?.message || "Failed to resend invite");
     }
   };
 
   const handleAssignAsReviewer = async (member) => {
     try {
       const result = await research.inviteReviewer({ email: member.email });
-      toast.success(result.message);
+      notify.success(result.message);
       refreshAll();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed");
+      notify.error(err.response?.data?.message || "Failed");
     }
   };
 
@@ -1748,16 +1635,11 @@ const ReviewersPanel = () => {
             icon: FaUser,
           },
         ].map(({ label, value, color, icon: Icon }) => (
-          <div
-            key={label}
-            className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm"
-          >
+          <div key={label} className="bg-white rounded-xl p-5 border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-500 mb-1">{label}</p>
-                <h3 className={`text-2xl font-bold text-${color}-600`}>
-                  {value}
-                </h3>
+                <h3 className={`text-2xl font-bold text-${color}-600`}>{value}</h3>
               </div>
               <div
                 className={`w-11 h-11 bg-${color}-50 rounded-lg flex items-center justify-center`}
@@ -1781,17 +1663,13 @@ const ReviewersPanel = () => {
               key={key}
               onClick={() => switchTab(key)}
               className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-                memberTab === key
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-500 hover:bg-gray-50"
+                memberTab === key ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-50"
               }`}
             >
               {label}
               <span
                 className={`ml-1.5 text-xs font-bold px-1.5 py-0.5 rounded-full ${
-                  memberTab === key
-                    ? "bg-white/20 text-white"
-                    : "bg-gray-100 text-gray-500"
+                  memberTab === key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
                 }`}
               >
                 {SOURCE_MAP[key]?.length ?? 0}
@@ -1803,17 +1681,14 @@ const ReviewersPanel = () => {
         <div className="relative">
           <button
             onClick={() => setActionMenuOpen((p) => !p)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 shadow-sm cursor-pointer transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 cursor-pointer transition-colors"
           >
             <FaPlus /> Add Member <FaChevronDown className="text-xs ml-1" />
           </button>
           {actionMenuOpen && (
             <>
-              <div
-                className="fixed inset-0 z-10"
-                onClick={() => setActionMenuOpen(false)}
-              />
-              <div className="absolute right-0 mt-2 w-52 bg-white border border-gray-100 rounded-xl shadow-lg z-20 overflow-hidden">
+              <div className="fixed inset-0 z-10" onClick={() => setActionMenuOpen(false)} />
+              <div className="absolute right-0 mt-2 w-52 bg-white border border-gray-100 rounded-xl z-20 overflow-hidden">
                 <button
                   onClick={() => {
                     setInviteOpen(true);
@@ -1854,7 +1729,7 @@ const ReviewersPanel = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm mb-4">
+      <div className="bg-white rounded-xl p-4 border border-gray-100 mb-4">
         <div className="flex flex-col md:flex-row gap-3">
           <div className="flex-1 relative">
             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
@@ -1905,10 +1780,7 @@ const ReviewersPanel = () => {
                   className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full border border-blue-100"
                 >
                   {chip.label}
-                  <button
-                    onClick={chip.clear}
-                    className="hover:text-red-500 cursor-pointer ml-0.5"
-                  >
+                  <button onClick={chip.clear} className="hover:text-red-500 cursor-pointer ml-0.5">
                     <FaTimes className="text-[9px]" />
                   </button>
                 </span>
@@ -1926,7 +1798,7 @@ const ReviewersPanel = () => {
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
         {loading ? (
           <div className="p-12 text-center">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto" />
@@ -1953,14 +1825,7 @@ const ReviewersPanel = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  {[
-                    "Member",
-                    "Institution",
-                    "Discipline",
-                    "Role",
-                    "Status",
-                    "",
-                  ].map((h) => (
+                  {["Member", "Institution", "Discipline", "Role", "Status", ""].map((h) => (
                     <th
                       key={h}
                       className={`px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider ${h ? "text-left" : "text-right"}`}
@@ -1972,36 +1837,22 @@ const ReviewersPanel = () => {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filtered.map((member) => (
-                  <tr
-                    key={member.id}
-                    className="hover:bg-gray-50 transition-colors"
-                  >
+                  <tr key={member.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
                           {member.name?.charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0">
-                          <p className="font-semibold text-gray-900 truncate">
-                            {member.name}
-                          </p>
-                          <p className="text-xs text-gray-400 truncate">
-                            {member.email}
-                          </p>
+                          <p className="font-semibold text-gray-900 truncate">{member.name}</p>
+                          <p className="text-xs text-gray-400 truncate">{member.email}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-4 text-gray-600 text-xs">
-                      {member.institution || "—"}
-                    </td>
-                    <td className="px-5 py-4 text-gray-600 text-xs">
-                      {member.discipline || "—"}
-                    </td>
+                    <td className="px-5 py-4 text-gray-600 text-xs">{member.institution || "—"}</td>
+                    <td className="px-5 py-4 text-gray-600 text-xs">{member.discipline || "—"}</td>
                     <td className="px-5 py-4">
-                      <RoleBadge
-                        role={member.role}
-                        isCommittee={member.isCommittee}
-                      />
+                      <RoleBadge role={member.role} isCommittee={member.isCommittee} />
                     </td>
                     <td className="px-5 py-4">
                       {member.emailVerified ? (
@@ -2074,15 +1925,13 @@ const ReviewersPanel = () => {
 
       {inviteOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl">
+          <div className="bg-white rounded-2xl w-full max-w-xl">
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">
-                  Invite Reviewer
-                </h3>
+                <h3 className="text-lg font-bold text-gray-900">Invite Reviewer</h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Enter an existing researcher's email to promote them, or fill
-                  all fields to create a new account.
+                  Enter an existing researcher's email to promote them, or fill all fields to create
+                  a new account.
                 </p>
               </div>
               <button
@@ -2106,16 +1955,13 @@ const ReviewersPanel = () => {
                     type="email"
                     required
                     value={inviteForm.email}
-                    onChange={(e) =>
-                      setInviteForm((p) => ({ ...p, email: e.target.value }))
-                    }
+                    onChange={(e) => setInviteForm((p) => ({ ...p, email: e.target.value }))}
                     placeholder="reviewer@institution.ac.ke"
                     className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
                 <p className="text-xs text-gray-400 mt-1">
-                  If this email belongs to an existing researcher they'll be
-                  promoted automatically.
+                  If this email belongs to an existing researcher they'll be promoted automatically.
                 </p>
               </div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider pt-1">
@@ -2133,9 +1979,7 @@ const ReviewersPanel = () => {
                     <input
                       type="text"
                       value={inviteForm[name]}
-                      onChange={(e) =>
-                        setInviteForm((p) => ({ ...p, [name]: e.target.value }))
-                      }
+                      onChange={(e) => setInviteForm((p) => ({ ...p, [name]: e.target.value }))}
                       placeholder={ph}
                       className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring focus:ring-blue-500 focus:border-transparent"
                     />
@@ -2172,9 +2016,7 @@ const ReviewersPanel = () => {
                     <input
                       type="text"
                       value={inviteForm[name]}
-                      onChange={(e) =>
-                        setInviteForm((p) => ({ ...p, [name]: e.target.value }))
-                      }
+                      onChange={(e) => setInviteForm((p) => ({ ...p, [name]: e.target.value }))}
                       placeholder={ph}
                       className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring focus:ring-blue-500 focus:border-transparent"
                     />
@@ -2216,15 +2058,13 @@ const ReviewersPanel = () => {
 
       {committeeInviteOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl">
+          <div className="bg-white rounded-2xl w-full max-w-xl">
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">
-                  Invite Committee Member
-                </h3>
+                <h3 className="text-lg font-bold text-gray-900">Invite Committee Member</h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Enter an existing member's email to grant committee access, or
-                  fill all fields to create a new account.
+                  Enter an existing member's email to grant committee access, or fill all fields to
+                  create a new account.
                 </p>
               </div>
               <button
@@ -2259,8 +2099,8 @@ const ReviewersPanel = () => {
                   />
                 </div>
                 <p className="text-xs text-gray-400 mt-1">
-                  Existing researchers or reviewers will be promoted to the
-                  Research Committee automatically.
+                  Existing researchers or reviewers will be promoted to the Research Committee
+                  automatically.
                 </p>
               </div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider pt-1">
@@ -2368,7 +2208,7 @@ const ReviewersPanel = () => {
       {addResearcherOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden"
+            className="bg-white rounded-2xl w-full max-w-xl overflow-hidden"
             style={{
               animation: "modalPop .25s cubic-bezier(.34,1.56,.64,1) both",
             }}
@@ -2389,12 +2229,8 @@ const ReviewersPanel = () => {
                   <FaUserPlus className="text-white text-base" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white leading-tight">
-                    Add Researcher
-                  </h3>
-                  <p className="text-blue-200 text-xs">
-                    Account created by admin
-                  </p>
+                  <h3 className="text-lg font-bold text-white leading-tight">Add Researcher</h3>
+                  <p className="text-blue-200 text-xs">Account created by admin</p>
                 </div>
               </div>
             </div>
@@ -2402,17 +2238,12 @@ const ReviewersPanel = () => {
               <div className="absolute inset-x-0 bottom-0 h-3 bg-white rounded-t-2xl" />
             </div>
             {!researcherSubmitted ? (
-              <form
-                onSubmit={handleAddResearcher}
-                className="px-6 pb-6 pt-2 space-y-4"
-              >
+              <form onSubmit={handleAddResearcher} className="px-6 pb-6 pt-2 space-y-4">
                 <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
                   <FaKey className="text-amber-500 text-sm mt-0.5 flex-shrink-0" />
                   <p className="text-xs text-amber-700 leading-relaxed">
-                    A secure password will be{" "}
-                    <span className="font-semibold">auto-generated</span> and
-                    sent to the researcher's email along with their login
-                    credentials.
+                    A secure password will be <span className="font-semibold">auto-generated</span>{" "}
+                    and sent to the researcher's email along with their login credentials.
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -2523,19 +2354,13 @@ const ReviewersPanel = () => {
                 <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-2">
                   <FaCheckCircle className="text-green-500 text-3xl" />
                 </div>
-                <h4 className="text-lg font-bold text-gray-900">
-                  Account Created!
-                </h4>
+                <h4 className="text-lg font-bold text-gray-900">Account Created!</h4>
                 <p className="text-sm text-gray-500 leading-relaxed max-w-xs">
                   <span className="font-semibold text-gray-700">
                     {researcherForm.firstName} {researcherForm.lastName}
                   </span>{" "}
-                  has been added as a researcher. Login instructions have been
-                  sent to{" "}
-                  <span className="font-semibold text-blue-600">
-                    {researcherForm.email}
-                  </span>
-                  .
+                  has been added as a researcher. Login instructions have been sent to{" "}
+                  <span className="font-semibold text-blue-600">{researcherForm.email}</span>.
                 </p>
                 <div className="flex gap-2 mt-3">
                   <button
@@ -2575,10 +2400,7 @@ const ReviewersPanel = () => {
           >
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
               <h3 className="font-bold text-gray-900">Member Details</h3>
-              <button
-                onClick={() => setDrawer(null)}
-                className="p-1.5 rounded-lg cursor-pointer"
-              >
+              <button onClick={() => setDrawer(null)} className="p-1.5 rounded-lg cursor-pointer">
                 <FaTimes className="text-gray-400 hover:text-red-500 text-xl" />
               </button>
             </div>
@@ -2589,10 +2411,7 @@ const ReviewersPanel = () => {
                 </div>
                 <p className="font-bold text-gray-900 text-lg">{drawer.name}</p>
                 <p className="text-sm text-gray-400">{drawer.email}</p>
-                <RoleBadge
-                  role={drawer.role}
-                  isCommittee={drawer.isCommittee}
-                />
+                <RoleBadge role={drawer.role} isCommittee={drawer.isCommittee} />
                 {drawer.emailVerified ? (
                   <span className="text-xs text-green-600 flex items-center gap-1">
                     <FaCheckCircle /> Account active
@@ -2669,13 +2488,6 @@ const ReviewersPanel = () => {
           </div>
         </div>
       )}
-
-      <style>{`
-        @keyframes modalPop {
-          from { opacity: 0; transform: scale(0.93) translateY(12px); }
-          to   { opacity: 1; transform: scale(1) translateY(0); }
-        }
-      `}</style>
     </>
   );
 };

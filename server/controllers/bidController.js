@@ -4,7 +4,7 @@ const { Op } = require("sequelize");
 const { Bid, Tender, User, sequelize } = require("../sequelize/models");
 const { AppError, asyncHandler, sendSuccess } = require("../utils/appError");
 
-// ── Helpers ─────────────────────────────────────────────────────────
+
 
 const isOwnerOrAdmin = (req, bid) =>
   String(bid.vendorId) === String(req.user.id) ||
@@ -15,8 +15,7 @@ const VENDOR_INCLUDE = [
   { model: User, as: "evaluator", attributes: ["id", "name", "email"] },
 ];
 
-// JSON columns: reassign, don't push. Same pattern used across
-// notice/gallery/report cutovers.
+
 const appendActivity = (tender, entry) => {
   tender.activityLog = [...(tender.activityLog || []), entry];
 };
@@ -29,7 +28,7 @@ const buildActivityEntry = (req, action, description) => ({
   timestamp: new Date().toISOString(),
 });
 
-// ── Endpoints ───────────────────────────────────────────────────────
+
 
 exports.getBidsByTender = asyncHandler(async (req, res) => {
   const { tenderId } = req.params;
@@ -40,9 +39,7 @@ exports.getBidsByTender = asyncHandler(async (req, res) => {
     order: [["submissionDate", "DESC"]],
   });
 
-  // Compute the summary in JS after the fetch — same as Mongoose. The
-  // alternative (a separate grouped SELECT) would double the round trip
-  // for no real gain since we already have the rows in memory.
+
   const summary = {
     total:       bids.length,
     submitted:   bids.filter((b) => b.status === "submitted").length,
@@ -55,9 +52,7 @@ exports.getBidsByTender = asyncHandler(async (req, res) => {
   return sendSuccess(res, 200, "Bids fetched", bids, { summary });
 });
 
-// C5 preserved: this endpoint requires auth (route-level middleware) and
-// only the owning vendor or an admin gets the full record — same
-// isOwnerOrAdmin gate as before.
+
 exports.getBidById = asyncHandler(async (req, res) => {
   const bid = await Bid.findByPk(req.params.id, {
     include: [{ model: Tender, as: "tender" }, ...VENDOR_INCLUDE],
@@ -72,15 +67,9 @@ exports.getBidById = asyncHandler(async (req, res) => {
 });
 
 exports.createBid = asyncHandler(async (req, res) => {
-  // Wrap the whole "check tender + create bid + log activity" in a
-  // transaction. The Mongoose version had a race: two concurrent
-  // requests from the same vendor could both pass the "no existing bid"
-  // check and both insert, leaving duplicate bids. Row locks via
-  // FOR UPDATE on the tender prevent that.
+
   const bid = await sequelize.transaction(async (t) => {
-    // The client sends the tender ID as req.body.tender (Mongoose-side
-    // field name). Accept both aliases so a frontend that already
-    // migrated to req.body.tenderId also works.
+
     const tenderIdInput = req.body.tenderId ?? req.body.tender;
     if (!tenderIdInput) throw new AppError("Please provide tender ID", 400);
 
@@ -105,9 +94,7 @@ exports.createBid = asyncHandler(async (req, res) => {
       throw new AppError("You have already submitted a bid for this tender", 400);
     }
 
-    // Strip identity/auth fields off the payload — vendor identity comes
-    // from the authenticated session, not the client body.
-    // eslint-disable-next-line no-unused-vars
+
     const { tender: _t, tenderId: _tid, vendorId: _vid, vendorName: _vn, vendorEmail: _ve, ...safeBody } = req.body;
 
     const b = await Bid.create(
@@ -146,8 +133,7 @@ exports.updateBid = asyncHandler(async (req, res) => {
     throw new AppError("Cannot update bid after evaluation has started", 400);
   }
 
-  // Strip fields the vendor should never be able to overwrite via edit.
-  // eslint-disable-next-line no-unused-vars
+
   const {
     id: _id, tenderId: _tid, tender: _t, vendorId: _vid, vendorName: _vn,
     vendorEmail: _ve, tenderNumber: _tn, status: _s, score: _score,
@@ -166,9 +152,7 @@ exports.updateBidStatus = asyncHandler(async (req, res) => {
   const { status } = req.body;
   if (!status) throw new AppError("Please provide status", 400);
 
-  // Coupled state change: setting a bid to under_review flips the
-  // parent tender to under_evaluation. Wrap both in one transaction so
-  // partial writes are impossible.
+
   const bid = await sequelize.transaction(async (t) => {
     const b = await Bid.findByPk(req.params.id, { transaction: t });
     if (!b) return { notFound: true };
@@ -205,23 +189,7 @@ exports.scoreBid = asyncHandler(async (req, res) => {
   const bid = await Bid.findByPk(req.params.id);
   if (!bid) throw new AppError("Bid not found", 404);
 
-  // CUTOVER NOTE: the Mongoose version stored score as a subdocument
-  // { technical, financial, overall } and computed overall as
-  // technical*0.6 + financial*0.4. My Bid model flattened those into
-  // real columns (score_technical/financial/compliance/experience/overall,
-  // DECIMAL for indexable ranking) and the beforeSave hook re-derives
-  // scoreOverall from a 4-component weighted formula
-  // (0.4/0.3/0.2/0.1 — see SCORE_WEIGHTS in sequelize/models/bid.js).
-  //
-  // What this means on the wire: if the frontend still sends only
-  // technical + financial, compliance and experience default to 0 and
-  // overall = 0.4*t + 0.3*f — LOWER numerically than the old
-  // 0.6*t + 0.4*f, but the RANKING between bids is preserved as long
-  // as the same score components are populated across all bids.
-  //
-  // To restore the exact old overall values, submit compliance +
-  // experience alongside technical + financial (the model now
-  // supports all four).
+
   bid.scoreTechnical  = technical;
   bid.scoreFinancial  = financial;
   if (compliance !== undefined) bid.scoreCompliance = compliance;
@@ -231,7 +199,7 @@ exports.scoreBid = asyncHandler(async (req, res) => {
   bid.evaluatedAt     = new Date();
   bid.status          = "under_review";
 
-  // save() triggers the beforeSave hook which recomputes scoreOverall.
+
   await bid.save();
 
   return sendSuccess(res, 200, "Bid scored successfully", bid);
@@ -244,7 +212,7 @@ exports.addComment = asyncHandler(async (req, res) => {
   const bid = await Bid.findByPk(req.params.id);
   if (!bid) throw new AppError("Bid not found", 404);
 
-  // Reassignment, not push — JSON change tracker.
+
   bid.comments = [
     ...(bid.comments || []),
     {

@@ -232,9 +232,7 @@ const GeneralDashboard = () => {
 
   const fetchUserInfo = useCallback(async () => {
     try {
-      // M-1: the JWT lives in an httpOnly cookie now, so it can't be
-      // decoded client-side the way the old localStorage token could be.
-      // /auth/me reads the same cookie server-side and returns identity.
+
       const res  = await api.get("/auth/me");
       const data = res.data?.data || res.data;
       setUser({
@@ -287,13 +285,6 @@ const GeneralDashboard = () => {
 
   return (
     <div className="min-h-screen bg-[#f8f7f5]">
-      <style>{`
-        .fade-up { animation: fadeUp .4s ease both; }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-        .stagger-1 { animation-delay:.05s; }
-        .stagger-2 { animation-delay:.1s;  }
-        .stagger-3 { animation-delay:.15s; }
-      `}</style>
 
       {error && (
         <div className="bg-rose-50 border-l-4 border-rose-500 px-6 py-3 flex items-center gap-2">

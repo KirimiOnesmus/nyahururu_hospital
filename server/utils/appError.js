@@ -40,15 +40,11 @@ class AppError extends Error {
 }
 
 
- // 2. asyncHandler — Eliminates try/catch boilerplate in controllers
- 
 const asyncHandler = (fn) => (req, res, next) => {
 
   Promise.resolve(fn(req, res, next)).catch(next);
 };
 
-
- // 3. sendSuccess — Standardised Success Response
 
 const sendSuccess = (res, statusCode, message, data = null, meta = null) => {
   if (typeof statusCode !== "number" || !Number.isInteger(statusCode)) {
@@ -62,7 +58,7 @@ const sendSuccess = (res, statusCode, message, data = null, meta = null) => {
     body.data = data;
   }
 
-  // Enforce consistent pagination meta shape.
+
   if (meta !== null && typeof meta === "object") {
     body.meta = {
       ...(meta.page    !== undefined && { page:    Number(meta.page) }),
@@ -79,7 +75,6 @@ const sendSuccess = (res, statusCode, message, data = null, meta = null) => {
   return res.status(statusCode).json(body);
 };
 
-// 4. sendError — Standardised Error Response
 
 const sendError = (res, statusCode, message, errors = []) => {
   if (typeof statusCode !== "number" || !Number.isInteger(statusCode)) {
@@ -94,27 +89,10 @@ const sendError = (res, statusCode, message, errors = []) => {
   });
 };
 
-// 5. normalizeFrameworkError — Normalises framework errors → AppError
-//
-// Handles:
-//   • Sequelize errors (primary datastore)
-//   • Legacy Mongoose error shapes (kept during transition; can be
-//     deleted once the Mongoose deps are uninstalled and it's clear
-//     nothing raises them any more)
-//   • JWT errors
-//   • express-body-parser JSON errors
-//   • Multer upload errors
-//
-// Anything not matched is passed through unchanged and turned into a
-// generic 500 by the caller.
+
 
 const normalizeFrameworkError = (err) => {
 
-  // ── Sequelize (primary datastore) ────────────────────────────────
-
-  // UNIQUE constraint (e.g. duplicate email). err.errors is an array
-  // of per-column detail; we surface the first column name in the
-  // message so the frontend can highlight the right field.
   if (err.name === "SequelizeUniqueConstraintError") {
     const first = err.errors?.[0];
     const field   = first?.path || Object.keys(err.fields || {})[0] || "field";
@@ -126,9 +104,6 @@ const normalizeFrameworkError = (err) => {
     );
   }
 
-  // Validation errors from model-level validators (allowNull, isEmail,
-  // custom validate: functions). Preserve the per-field errors array
-  // so the frontend can render field-scoped messages.
   if (err.name === "SequelizeValidationError") {
     const errors = (err.errors || []).map((e) => ({
       field: e.path,
@@ -137,10 +112,6 @@ const normalizeFrameworkError = (err) => {
     return new AppError("Validation failed. Please check your input.", 422, errors);
   }
 
-  // Foreign-key violation — trying to reference a row that doesn't
-  // exist, or deleting a row still referenced by others. Return 409
-  // (conflict) rather than 400 because the request itself is
-  // syntactically valid; it just conflicts with current DB state.
   if (err.name === "SequelizeForeignKeyConstraintError") {
     return new AppError(
       "Referenced record is missing, or this record is still in use by other data.",
@@ -148,7 +119,7 @@ const normalizeFrameworkError = (err) => {
     );
   }
 
-  // Timeouts — DB is slow / overloaded. 504 signals "try again".
+
   if (err.name === "SequelizeTimeoutError") {
     return new AppError(
       "The database took too long to respond. Please try again shortly.",
@@ -156,9 +127,7 @@ const normalizeFrameworkError = (err) => {
     );
   }
 
-  // Connection-layer failures — DB down, refused, host lookup
-  // failed. 503 says "service temporarily unavailable" so a client
-  // knows to retry with backoff rather than treat it as a 4xx.
+
   if (
     err.name === "SequelizeConnectionError" ||
     err.name === "SequelizeConnectionRefusedError" ||
@@ -175,9 +144,6 @@ const normalizeFrameworkError = (err) => {
     );
   }
 
-  // Base database error (bad SQL, unknown column, invalid ENUM
-  // value, etc.). Don't leak the DB message to clients — it can
-  // reveal schema details. Log server-side, return generic 500.
   if (err.name === "SequelizeDatabaseError") {
     logger.error(
       { err, sql: err.sql, original: err.original?.message },
@@ -186,18 +152,10 @@ const normalizeFrameworkError = (err) => {
     return new AppError("An unexpected database error occurred.", 500);
   }
 
-  // Any remaining Sequelize base-class error we haven't handled
-  // explicitly. Same "log server, generic response" policy.
   if (err.name?.startsWith("Sequelize")) {
     logger.error({ err }, "Unhandled Sequelize error");
     return new AppError("An unexpected database error occurred.", 500);
   }
-
-  // ── Legacy Mongoose (transitional) ───────────────────────────────
-  //
-  // These branches don't fire once Mongoose is uninstalled — they're
-  // preserved during the transition window and can be deleted with
-  // the final cleanup pass.
 
   if (err.code === 11000) {
     const field   = Object.keys(err.keyValue || {})[0] || "field";
@@ -231,8 +189,6 @@ const normalizeFrameworkError = (err) => {
     );
   }
 
-  // ── JWT ──────────────────────────────────────────────────────────
-
   if (err.name === "JsonWebTokenError") {
     return new AppError("Invalid token. Please log in again.", 401);
   }
@@ -243,17 +199,12 @@ const normalizeFrameworkError = (err) => {
     return new AppError("Token is not yet valid. Please try again shortly.", 401);
   }
 
-  // ── Express body parsers ────────────────────────────────────────
-
   if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
     return new AppError(
       "Malformed JSON in request body. Please check your request format.",
       400,
     );
   }
-
-  // ── Multer ──────────────────────────────────────────────────────
-
   if (err.name === "MulterError") {
     const messages = {
       LIMIT_FILE_SIZE:      "File is too large. Please upload a smaller file.",
@@ -268,21 +219,15 @@ const normalizeFrameworkError = (err) => {
   return err;
 };
 
-// Back-compat alias — nothing else in the codebase currently calls
-// handleMongooseErrors, but keeping the export path in case anything
-// external does.
 const handleMongooseErrors = normalizeFrameworkError;
 
 
 const globalErrorHandler = (err, req, res, next) => { 
 
-  //  Step 1: Normalise known framework errors  AppError 
-  
+
   if (!err.isOperational) {
     err = handleMongooseErrors(err);
   }
-
-  // Step 2: Defensive statusCode normalisation 
 
   err.statusCode = typeof err.statusCode === "number" && Number.isInteger(err.statusCode)
     ? err.statusCode
@@ -290,8 +235,7 @@ const globalErrorHandler = (err, req, res, next) => {
 
   err.status = err.status || (err.statusCode >= 500 ? "error" : "fail");
 
-  //  Step 3: Structured logging with full request context 
-
+ 
   const logContext = {
     method:     req.method,
     path:       req.originalUrl,
@@ -306,7 +250,6 @@ const globalErrorHandler = (err, req, res, next) => {
     logger.warn({ ...logContext, message: err.message }, `[${err.statusCode}] ${err.message}`);
   }
 
-  //  Step 4: Development — full error details 
   if (process.env.NODE_ENV === "development") {
     return res.status(err.statusCode).json({
       success:    false,
@@ -317,7 +260,6 @@ const globalErrorHandler = (err, req, res, next) => {
     });
   }
 
-  //Step 5: Production — operational errors (safe to expose)
 
   if (err.isOperational) {
     return res.status(err.statusCode).json({
@@ -326,8 +268,6 @@ const globalErrorHandler = (err, req, res, next) => {
       ...(err.errors?.length > 0 && { errors: err.errors }),
     });
   }
-
-  //  Step 6: Production — unknown/programming errors
 
   return res.status(500).json({
     success: false,

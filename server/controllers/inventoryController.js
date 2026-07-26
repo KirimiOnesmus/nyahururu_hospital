@@ -1,3 +1,4 @@
+const emitChange = require("../utils/emitChange");
 "use strict";
 
 const { Op } = require("sequelize");
@@ -5,25 +6,19 @@ const logger = require("../utils/logger");
 const { Inventory, User, sequelize } = require("../sequelize/models");
 const { getPagination, buildMeta } = require("../utils/pagination");
 
-// ── Helpers ─────────────────────────────────────────────────────────
-
 const AUTHOR_INCLUDE = [
   { model: User, as: "creator", attributes: ["id", "name", "email"] },
   { model: User, as: "updater", attributes: ["id", "name", "email"] },
 ];
 
-// Mongo's `$expr: { $lt: ['$quantity', '$minThreshold'] }` was a
-// column-vs-column comparison. Sequelize supports the same via
-// sequelize.where + col references, which compiles to a plain SQL
-// `quantity < min_threshold`. Reused across getLowStockItems and
-// getInventoryStats.
+
 const LOW_STOCK_WHERE = sequelize.where(
   sequelize.col("quantity"),
   Op.lt,
   sequelize.col("min_threshold"),
 );
 
-// ── CRUD ────────────────────────────────────────────────────────────
+
 
 exports.getAllInventory = async (req, res) => {
   try {
@@ -68,10 +63,7 @@ exports.createInventory = async (req, res) => {
       });
     }
 
-    // Explicit SKU-duplicate guard for a clean 400. The model's sparse
-    // unique index still catches races. (SKU is nullable, MySQL allows
-    // multiple NULLs on a unique index — same "sparse unique" semantics
-    // the Mongoose schema had.)
+  
     if (sku) {
       const existingSku = await Inventory.findOne({ where: { sku } });
       if (existingSku) return res.status(400).json({ message: "SKU already exists" });
@@ -95,6 +87,7 @@ exports.createInventory = async (req, res) => {
 
     res.status(201).json({
       message: "Inventory item created successfully",
+    emitChange("inventory", "created", { id: item.id });
       item: newItem,
     });
   } catch (error) {
@@ -133,16 +126,13 @@ exports.updateInventory = async (req, res) => {
     if (description !== undefined) item.description = description;
 
     item.updatedBy = req.user?.id;
-    // NOTE: preserved the Mongoose behaviour of stamping lastRestocked
-    // on every update. That's arguably too broad (only a quantity
-    // increase is a real restock), but tightening it would be a
-    // semantic change and belongs in a separate follow-up — cutover is
-    // supposed to preserve behaviour, not refactor it.
+
     item.lastRestocked = new Date();
 
     await item.save();
 
     res.json({ message: "Inventory item updated successfully", item });
+    emitChange("inventory", "updated", { id: item.id });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
@@ -156,13 +146,14 @@ exports.deleteInventory = async (req, res) => {
 
     await item.destroy();
     res.json({ message: "Inventory item deleted successfully" });
+    emitChange("inventory", "deleted", { id: req.params.id });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
-// ── Reports ─────────────────────────────────────────────────────────
+
 
 exports.getLowStockItems = async (req, res) => {
   try {
@@ -208,8 +199,7 @@ exports.getExpiringItems = async (req, res) => {
 
 exports.getInventoryStats = async (req, res) => {
   try {
-    // All four counts / aggregates in parallel — four round trips
-    // become one wall-clock window on the connection pool.
+
     const [total, byCategoryRaw, lowStock, expired] = await Promise.all([
       Inventory.count(),
       Inventory.findAll({
@@ -224,9 +214,7 @@ exports.getInventoryStats = async (req, res) => {
       Inventory.count({ where: { expiry: { [Op.lte]: new Date() } } }),
     ]);
 
-    // Reshape byCategory to the { _id, count } shape the frontend
-    // received from the Mongo `$group` output. Kept intentionally to
-    // avoid changing the client contract during cutover.
+
     const byCategory = byCategoryRaw.map((r) => ({
       _id: r.category,
       count: Number(r.count),
@@ -244,11 +232,7 @@ exports.searchInventory = async (req, res) => {
     const { query } = req.query;
     if (!query) return res.status(400).json({ message: "Search query is required" });
 
-    // Escape LIKE metacharacters so a search for "50%" doesn't become
-    // a runaway wildcard. utf8mb4_unicode_ci is already
-    // case-insensitive so no explicit flag needed. `category` is an
-    // ENUM column here but MySQL treats ENUMs as strings for LIKE
-    // comparison — the Mongoose behaviour is preserved.
+
     const escaped = String(query).replace(/[\\%_]/g, (m) => `\\${m}`);
     const like = `%${escaped}%`;
 

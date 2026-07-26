@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { toast } from "react-toastify";
+import notify from "../../../common/utils/notify";
 import {
   FaArrowLeft,
   FaCheckCircle,
@@ -48,7 +48,7 @@ const MetricCell = ({ label, children, border }) => (
   </div>
 );
 
-// Compliance item now driven by a real boolean/undefined value, not a hardcoded label
+
 const ComplianceItem = ({ label, met }) => {
   const cfg =
     met === true
@@ -118,7 +118,7 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
   const [comment, setComment] = useState("");
   const [authorized, setAuthorized] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [voteStatus, setVoteStatus] = useState(null); // { finalized, votesReceived, votesRequired, votesMax }
+  const [voteStatus, setVoteStatus] = useState(null); 
 
   const { id } = useParams();
   const navigate = useNavigate();
@@ -139,7 +139,7 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
       setDetail(detailRes.paper || detailRes);
       setTimeline(timelineRes.timeline || []);
     } catch {
-      toast.error("Failed to load sign-off details");
+      notify.error("Failed to load sign-off details");
     } finally {
       setLoading(false);
     }
@@ -151,13 +151,13 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
 
   const handleSubmitVote = async () => {
     if (!authorized) {
-      toast.error(
+      notify.error(
         "Please confirm formal authorization before casting your vote",
       );
       return;
     }
     if (!comment.trim()) {
-      toast.error("Please add a remark explaining your decision");
+      notify.error("Please add a remark explaining your decision");
       return;
     }
     setSubmitting(true);
@@ -171,21 +171,21 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
       );
 
       if (result?.finalized) {
-        toast.success(
+        notify.success(
           `Quorum reached (${result.votesReceived}/${result.votesMax}). Final outcome recorded.`,
         );
         if (onBack) onBack();
       } else {
         setVoteStatus(result);
-        toast.success(
+        notify.success(
           `Vote recorded — ${result?.votesReceived ?? "?"} of ${result?.votesRequired ?? "?"} required votes cast so far.`,
         );
         setAuthorized(false);
         setComment("");
-        load(); // refresh timeline with the new vote
+        load(); 
       }
     } catch (err) {
-      toast.error(err?.message || "Failed to submit committee vote");
+      notify.error(err?.message || "Failed to submit committee vote");
     } finally {
       setSubmitting(false);
     }
@@ -206,7 +206,7 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
   const r = detail || {};
   const submission = r.finalPaperSubmission || {};
 
-  // Prefer snapshot; fall back to flat fields (guaranteed when stage === "final_paper")
+
   const snapshot = r.finalPaperReview || {};
   const isFinalPaperStage = r.stage === "final_paper";
 

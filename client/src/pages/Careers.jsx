@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Header, Footer } from "../components/layouts";
+import { Header, Footer } from "../common/layouts";
 import api from "../api/axios";
 import {
   FaUserPlus,
@@ -120,7 +120,7 @@ const JobModal = ({ career, onClose }) => {
       className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white w-full max-w-2xl rounded-2xl max-h-[90vh] overflow-y-auto">
 
   
         <div className="sticky top-0 bg-white border-b border-slate-100 px-8 py-6 rounded-t-2xl">
@@ -231,7 +231,7 @@ const JobModal = ({ career, onClose }) => {
   );
 };
 
-// ── main component ────────────────────────────────────────────────────────────
+
 
 const Careers = () => {
   const [careers, setCareers] = useState([]);

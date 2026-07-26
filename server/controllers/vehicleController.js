@@ -1,27 +1,15 @@
+const emitChange = require("../utils/emitChange");
 "use strict";
-
 const { Op } = require("sequelize");
 const logger = require("../utils/logger");
 const { Vehicle, User } = require("../sequelize/models");
 const { getPagination, buildMeta } = require("../utils/pagination");
-
-// The Mongoose vehicleController also required AmbulanceBooking but
-// never referenced it — dead import, dropped on cutover.
-
-// ── Helpers ─────────────────────────────────────────────────────────
-
 const AUTHOR_INCLUDE = [
   { model: User, as: "creator", attributes: ["id", "name", "email"] },
   { model: User, as: "updater", attributes: ["id", "name", "email"] },
 ];
 
-// The Vehicle model already trims + uppercases `plate` in its setter,
-// so downstream comparisons don't need to normalise. The uppercase
-// call in the controller is kept for symmetry with the incoming payload
-// but is a belt-and-braces safeguard, not a functional requirement.
 const normalizePlate = (raw) => (raw ? String(raw).trim().toUpperCase() : raw);
-
-// ── CRUD ────────────────────────────────────────────────────────────
 
 exports.getAllVehicles = async (req, res) => {
   try {
@@ -68,10 +56,6 @@ exports.createVehicle = async (req, res) => {
 
     const normalizedPlate = normalizePlate(plate);
 
-    // Explicit duplicate check gives a clean 400 rather than a 500 from
-    // catching a UniqueConstraintError. Same behaviour the Mongoose
-    // version had. The Vehicle model's unique index still protects
-    // against races where two concurrent creates slip past this check.
     const existingPlate = await Vehicle.findOne({ where: { plate: normalizedPlate } });
     if (existingPlate) {
       return res.status(400).json({ message: "Vehicle plate already registered" });
@@ -97,6 +81,7 @@ exports.createVehicle = async (req, res) => {
     });
 
     res.status(201).json({ message: "Vehicle registered successfully", vehicle });
+    emitChange("vehicles", "created", { id: vehicle.id });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
@@ -116,8 +101,7 @@ exports.updateVehicle = async (req, res) => {
     if (plate) {
       const normalized = normalizePlate(plate);
       if (normalized !== vehicle.plate) {
-        // Duplicate-plate guard — exclude the current row so re-saving
-        // an unchanged plate can't false-positive.
+  
         const existingPlate = await Vehicle.findOne({
           where: { plate: normalized, id: { [Op.ne]: vehicle.id } },
         });
@@ -151,6 +135,7 @@ exports.updateVehicle = async (req, res) => {
     await vehicle.save();
 
     res.json({ message: "Vehicle updated successfully", vehicle });
+    emitChange("vehicles", "updated", { id: vehicle.id });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
@@ -162,15 +147,10 @@ exports.deleteVehicle = async (req, res) => {
     const vehicle = await Vehicle.findByPk(req.params.id);
     if (!vehicle) return res.status(404).json({ message: "Vehicle not found" });
 
-    // NOTE: ambulance_bookings.vehicle_id → vehicles(id) uses ON DELETE
-    // RESTRICT (an ambulance can't be dispatched to a nonexistent
-    // vehicle). If the vehicle has active dispatches, the DELETE below
-    // will fail with a ForeignKeyConstraintError — caught by the outer
-    // try/catch and reported to the client with a 500. If we later
-    // want a cleaner 409 here, catch that specific error name.
     await vehicle.destroy();
 
     res.json({ message: "Vehicle deleted successfully" });
+    emitChange("vehicles", "deleted", { id: req.params.id });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });

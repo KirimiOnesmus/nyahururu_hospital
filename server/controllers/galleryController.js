@@ -1,3 +1,4 @@
+const emitChange = require("../utils/emitChange");
 "use strict";
 
 const fs = require("fs");
@@ -6,7 +7,7 @@ const path = require("path");
 const { Op } = require("sequelize");
 const { Gallery, User, sequelize } = require("../sequelize/models");
 
-// ── Helpers ─────────────────────────────────────────────────────────
+
 
 const SORTABLE_COLUMNS = new Set([
   "uploadDate", "createdAt", "updatedAt", "views", "likes", "title",
@@ -34,7 +35,7 @@ const safeUnlink = (filePath) => {
   }
 };
 
-// ── CRUD ────────────────────────────────────────────────────────────
+
 
 exports.getAllGallery = async (req, res) => {
   try {
@@ -51,12 +52,7 @@ exports.getAllGallery = async (req, res) => {
       where[Op.or] = [
         { title: { [Op.like]: like } },
         { description: { [Op.like]: like } },
-        // `tags` is a JSON array column, so a plain LIKE on it doesn't
-        // match individual elements the way Mongo's $in did. MySQL's
-        // JSON_SEARCH walks the array and returns the path of the first
-        // element that matches the pattern (or NULL if none do), so
-        // "IS NOT NULL" is our "any element matches" test. Bindings via
-        // Sequelize's parameterisation, not string interp — no injection.
+ 
         sequelize.literal(
           "JSON_SEARCH(tags, 'one', " +
             sequelize.escape(like) +
@@ -80,8 +76,7 @@ exports.getAllGallery = async (req, res) => {
 
 exports.getGalleryById = async (req, res) => {
   try {
-    // Transactional read + view-increment so concurrent readers don't
-    // race on the counter.
+
     const item = await sequelize.transaction(async (t) => {
       const g = await Gallery.findByPk(req.params.id, {
         include: UPLOADER_INCLUDE,
@@ -116,9 +111,6 @@ exports.createGallery = async (req, res) => {
     const fileType = mimeType.startsWith("image") ? "image" : "video";
     const fileUrl = `/uploads/gallery/${filename}`;
 
-    // Tags arrive as a comma-separated string from multipart form data
-    // (JSON can't be sent alongside a file upload cleanly). Split &
-    // trim, drop empties. Stored as a real JSON array in MySQL.
     const parsedTags = tags
       ? String(tags).split(",").map((t) => t.trim()).filter(Boolean)
       : [];
@@ -139,6 +131,7 @@ exports.createGallery = async (req, res) => {
 
     res.status(201).json({
       message: "Gallery item uploaded successfully",
+    emitChange("gallery", "created", { id: gallery.id });
       item: gallery,
     });
   } catch (error) {
@@ -158,8 +151,7 @@ exports.updateGallery = async (req, res) => {
     if (description !== undefined) item.description = description;
     if (category !== undefined) item.category = category;
     if (tags !== undefined) {
-      // Reassignment (not in-place push) so Sequelize's change tracker
-      // marks the JSON column as dirty and emits the UPDATE.
+
       item.tags = String(tags).split(",").map((t) => t.trim()).filter(Boolean);
     }
     if (visible !== undefined) item.visible = visible;
@@ -167,6 +159,7 @@ exports.updateGallery = async (req, res) => {
     await item.save();
 
     res.json({ message: "Gallery item updated successfully", item });
+    emitChange("gallery", "updated", { id: item.id });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
@@ -182,6 +175,7 @@ exports.deleteGallery = async (req, res) => {
     await item.destroy();
 
     res.json({ message: "Gallery item deleted successfully" });
+    emitChange("gallery", "deleted", { id: req.params.id });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
@@ -229,17 +223,13 @@ exports.toggleVisibility = async (req, res) => {
 
 exports.likeGallery = async (req, res) => {
   try {
-    // Atomic increment — avoids the read-modify-write race where two
-    // concurrent likes could each read likes=5 and both write 6 (a lost
-    // update). increment() emits `UPDATE ... SET likes = likes + 1`.
+
     const [, affected] = await Gallery.increment(
       { likes: 1 },
       { where: { id: req.params.id } },
     );
 
-    // Sequelize's increment doesn't tell us in a portable way whether
-    // the row existed; refetch to both confirm existence and return the
-    // fresh count to the client.
+  
     const item = await Gallery.findByPk(req.params.id, {
       attributes: ["id", "likes"],
     });
@@ -254,7 +244,7 @@ exports.likeGallery = async (req, res) => {
 
 exports.getGalleryStats = async (req, res) => {
   try {
-    // Single aggregate pull rather than N COUNT round trips.
+
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
     const [
@@ -271,12 +261,7 @@ exports.getGalleryStats = async (req, res) => {
         ],
         raw: true,
       }),
-      // The Mongoose version was `.find().sort().limit(7).countDocuments()`
-      // — Mongoose's countDocuments ignores sort/limit, so that call
-      // effectively returned `total`, which was almost certainly a bug.
-      // Reinterpreting the intent as "items uploaded in the last 7 days"
-      // which is a common analytics metric. See MIGRATION_PLAN.md for the
-      // full audit trail on behaviour changes.
+ 
       Gallery.count({ where: { uploadDate: { [Op.gte]: sevenDaysAgo } } }),
     ]);
 

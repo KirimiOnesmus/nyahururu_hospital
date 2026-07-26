@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Outlet } from "react-router-dom";
-import { toast } from "react-toastify";
+import notify from "../common/utils/notify";
 import SideMenu from "../components/research/SideMenu";
 import { FaFlask } from "react-icons/fa";
 import { getResearcherProfile } from "../api/auth";
@@ -39,11 +39,11 @@ const ResearchDashboard = () => {
           try {
             setUser(JSON.parse(cached));
           } catch {
-            toast.error("Failed to load profile");
+            notify.error("Failed to load profile");
             navigate("/hmis");
           }
         } else {
-          toast.error("Failed to load profile");
+          notify.error("Failed to load profile");
           navigate("/hmis");
         }
       } finally {

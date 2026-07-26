@@ -19,10 +19,7 @@ import {
 } from "react-icons/fa";
 import { BiSolidDonateHeart } from "react-icons/bi";
 
-// Single source of truth for which staff roles can see/access each
-// /dashboard/* route. Sidebar.jsx uses this to decide what to render;
-// RequireRole (src/components/auth/RequireRole.jsx) uses the same list to
-// guard the route itself, so the nav and the guard can never drift apart.
+
 export const DASHBOARD_NAV = [
   {
     category: "Management",
@@ -152,7 +149,7 @@ export const DASHBOARD_NAV = [
       {
         title: "Audit Logs",
         path: "/dashboard/audit-logs",
-        roles: ["superadmin"],
+        roles: ["superadmin","it"],
         icon: FaClipboardCheck,
       },
       {

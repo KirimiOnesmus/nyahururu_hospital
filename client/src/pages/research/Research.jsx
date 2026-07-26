@@ -142,7 +142,7 @@ const Research = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-      <div className="sticky top-0 z-50 bg-white/60 backdrop-blur-md shadow-sm">
+      <div className="sticky top-0 z-50 bg-white/60 backdrop-blur-md">
         <Header />
       </div>
 
@@ -175,7 +175,7 @@ const Research = () => {
                 onMouseLeave={() => setHoveredCta(null)}
                 className="flex items-center justify-center gap-2 
                 bg-white text-blue-700 font-bold px-8 py-4 rounded-xl 
-                shadow-lg hover:bg-blue-50 transition-all duration-200
+                hover:bg-blue-50 transition-all duration-200
                  hover:-translate-y-0.5 cursor-pointer"
               >
                 <FaSearch />
@@ -187,7 +187,7 @@ const Research = () => {
                 onMouseEnter={() => setHoveredCta("register")}
                 onMouseLeave={() => setHoveredCta(null)}
                 className="flex items-center justify-center gap-2 bg-green-300 text-gray-900 
-                font-bold px-8 py-4 rounded-xl shadow-lg hover:bg-green-400 
+                font-bold px-8 py-4 rounded-xl hover:bg-green-400 
                 transition-all duration-200 hover:-translate-y-0.5 cursor-pointer"
               >
                 <FaUserCheck />
@@ -255,7 +255,7 @@ const Research = () => {
               {FEATURES.map(({ icon: Icon, title, desc, color, bg }) => (
                 <div
                   key={title}
-                  className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow"
+                  className="bg-white rounded-xl border border-gray-100 p-5 transition-shadow"
                 >
                   <div
                     className={`w-10 h-10 ${bg} rounded-lg flex items-center justify-center mb-3`}
@@ -302,7 +302,7 @@ const Research = () => {
                 }) => (
                   <div
                     key={title}
-                    className={`bg-gradient-to-br ${bg} rounded-xl  p-6 shadow-sm hover:shadow-md transition-shadow`}
+                    className={`bg-gradient-to-br ${bg} rounded-xl  p-6 transition-shadow`}
                   >
                     <Icon
                       className={`text-2xl mb-3 ${border.replace("border-", "text-")}`}
@@ -353,7 +353,7 @@ const Research = () => {
               return (
                 <div
                   key={step}
-                  className="bg-white rounded-xl border border-gray-100 shadow-sm p-6
+                  className="bg-white rounded-xl border border-gray-100 p-6
                    hover:shadow-sm transition-shadow relative"
                 >
                   <span

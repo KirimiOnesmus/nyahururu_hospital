@@ -21,7 +21,7 @@ const {
   COMMITTEE_QUORUM,
 } = require("../constants/researchIndex");
 
-// ── Pure helpers (no DB) ────────────────────────────────────────────
+ 
 
 const CRITERIA_KEYS_BY_STAGE = {
   [RESEARCH_STAGES.PROPOSAL]: ["originality", "relevance", "feasibility", "ethics", "expectedImpact"],
@@ -124,12 +124,10 @@ const fmtRelativeTime = (date) => {
   return `${days}d ago`;
 };
 
-// Snake-case string escape for LIKE queries — same pattern used across
-// all previous cutover steps.
+
 const likeEscape = (s) => String(s).replace(/[\\%_]/g, (m) => `\\${m}`);
 
-// Sequelize-safe order clause with a stable default. Used in a couple
-// of "sort by createdAt DESC" hot paths.
+
 const SORT_MAPS = {
   publishedResearch: {
     newest:    [["createdAt", "DESC"]],
@@ -138,8 +136,6 @@ const SORT_MAPS = {
     price:     [["downloadPrice", "ASC"]],
   },
 };
-
-// ── Include shapes (frequent) ───────────────────────────────────────
 
 const RESEARCHER_LIST_INCLUDE = [
   { model: Researcher, as: "researcher", attributes: ["id", "name", "institution"] },
@@ -160,8 +156,6 @@ const RESEARCHER_FULL_INCLUDE = [
   },
 ];
 
-// ── PUBLIC — Published research listing ────────────────────────────
-
 const getPublishedResearch = async (query) => {
   const {
     page = PAGINATION.DEFAULT_PAGE,
@@ -181,10 +175,7 @@ const getPublishedResearch = async (query) => {
     if (priceMax !== undefined) where.downloadPrice[Op.lte] = Number(priceMax);
   }
   if (search) {
-    // Mongo's $text: {$search} → MySQL FULLTEXT. The Research model
-    // has a FULLTEXT index on (title, abstract, final_abstract) per
-    // the migration plan. Bindings via replacements so the search
-    // string is parameterised.
+
     where[Op.and] = [
       sequelize.literal(
         "MATCH(title, abstract, final_abstract) AGAINST(:searchTerm IN NATURAL LANGUAGE MODE)",
@@ -224,8 +215,6 @@ const getPublishedResearch = async (query) => {
   };
 };
 
-// ── PUBLIC — Single published paper ────────────────────────────────
-
 const getPublishedPaperById = async (id) => {
   const paper = await Research.findOne({
     where: { id, isPublished: true },
@@ -237,25 +226,13 @@ const getPublishedPaperById = async (id) => {
 
   if (!paper) throw new AppError("Research paper not found.", 404);
 
-  // Atomic view bump — avoids the read-modify-write race the Mongoose
-  // findByIdAndUpdate + $inc had.
   await Research.increment("views", { by: 1, where: { id } });
 
   return paper;
 };
 
-// ── Any authorised reader — Detail view ────────────────────────────
-
 const getResearchById = async (id, caller = {}) => {
-  // CUTOVER NOTE: the Mongoose version populated the nested snapshot
-  // refs — proposalReview.reviewedBy, progressReview.reviewedBy,
-  // finalPaperReview.reviewedBy. Those snapshots are JSON columns on
-  // the Sequelize model, which Sequelize can't include-populate. To
-  // preserve the "who signed the review" display without an extra
-  // round-trip per snapshot, submitReview now denormalises the
-  // reviewer's name into the snapshot (as `reviewedByName`) at write
-  // time. The reviewer id is still in the snapshot (`reviewedBy`) if
-  // the caller wants to make a followup fetch.
+
   const paper = await Research.findByPk(id, {
     include: [
       ...RESEARCHER_FULL_INCLUDE,
@@ -285,8 +262,6 @@ const getResearchById = async (id, caller = {}) => {
   return paper;
 };
 
-// ── RESEARCHER — Own research listing ──────────────────────────────
-
 const getMyResearch = async (researcherId, { page, limit }) => {
   const safePage  = Math.max(1, Number(page) || PAGINATION.DEFAULT_PAGE);
   const safeLimit = Math.min(Number(limit) || PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
@@ -310,8 +285,6 @@ const getMyResearch = async (researcherId, { page, limit }) => {
     order: [["createdAt", "DESC"]],
     offset: (safePage - 1) * safeLimit,
     limit: safeLimit,
-    // findAndCountAll counts rows accurately when there are no
-    // one-to-many joins — submissionPayment is 1:1 so this is safe.
     distinct: true,
   });
 
@@ -323,8 +296,6 @@ const getMyResearch = async (researcherId, { page, limit }) => {
     papers,
   };
 };
-
-// ── RESEARCHER — Initiate proposal STK push ────────────────────────
 
 const initiateProposalPayment = async ({ phone, researcherId }) => {
   const amount = FEES.PROPOSAL_SUBMISSION;
@@ -358,7 +329,6 @@ const initiateProposalPayment = async ({ phone, researcherId }) => {
   };
 };
 
-// ── RESEARCHER — Confirm proposal submission after payment ─────────
 
 const confirmProposalSubmission = async (researcher, body, file) => {
   const {
@@ -375,9 +345,6 @@ const confirmProposalSubmission = async (researcher, body, file) => {
     );
   }
 
-  // Payment + research write are chained through a single transaction
-  // so a mid-flow crash can't leave a research row referencing a
-  // payment id that isn't consistent with what payment.research points to.
   return sequelize.transaction(async (t) => {
     const payment = await Payment.findByPk(paymentId, { transaction: t });
     if (!payment) throw new AppError("Payment record not found.", 404);
@@ -414,8 +381,6 @@ const confirmProposalSubmission = async (researcher, body, file) => {
     payment.researchId = newResearch.id;
     await payment.save({ transaction: t });
 
-    // Email is best-effort — fire after commit rather than inside the
-    // transaction so a mail failure doesn't roll back the submission.
     setImmediate(() => {
       email.sendProposalSubmitted({
         email: researcher.email,
@@ -431,8 +396,6 @@ const confirmProposalSubmission = async (researcher, body, file) => {
     return newResearch;
   });
 };
-
-// ── RESEARCHER — Submit progress report ────────────────────────────
 
 const submitProgress = async (researcher, researchId, body, files) => {
   const research = await Research.findOne({
@@ -471,8 +434,6 @@ const submitProgress = async (researcher, researchId, body, files) => {
     }
   }
 
-  // Reassign whole JSON — Sequelize's change tracker doesn't see
-  // in-place mutation on JSON columns.
   research.progressData = {
     ...(research.progressData || {}),
     methodology, studyDesign, samplingMethod,
@@ -539,8 +500,6 @@ const submitProgress = async (researcher, researchId, body, files) => {
 
   return research;
 };
-
-// ── RESEARCHER — Submit final paper ────────────────────────────────
 
 const submitFinalPaper = async (researcher, researchId, body, file, supportingFiles = {}) => {
   const {
@@ -635,7 +594,6 @@ const submitFinalPaper = async (researcher, researchId, body, file, supportingFi
   return research;
 };
 
-// ── RESEARCHER — Resubmit after revision (free) ────────────────────
 
 const resubmit = async (researcher, researchId, body, file) => {
   const research = await Research.findOne({
@@ -675,9 +633,7 @@ const resubmit = async (researcher, researchId, body, file) => {
   let routedToCommittee = false;
 
   if (research.stage === RESEARCH_STAGES.FINAL_PAPER) {
-    // With quorum voting, `committeeReviewedAt` being set means at
-    // least one committee round has concluded for this submission —
-    // the reliable signal to route straight back to the committee.
+
     if (research.committeeReviewedAt) {
       research.status = RESEARCH_STATUSES.PENDING_COMMITTEE_REVIEW;
       routedToCommittee = true;
@@ -736,7 +692,6 @@ const resubmit = async (researcher, researchId, body, file) => {
   return research;
 };
 
-// ── REVIEWER — Assigned submissions listing ────────────────────────
 
 const getAssignedResearch = async (reviewerId, { page, limit, stage, includeCompleted }) => {
   const safePage  = Math.max(1, Number(page) || PAGINATION.DEFAULT_PAGE);
@@ -792,8 +747,6 @@ const getAssignedResearch = async (reviewerId, { page, limit, stage, includeComp
   };
 };
 
-// ── REVIEWER — Submit review (proposal / progress / final_paper) ───
-
 const submitReview = async (reviewer, { researchId, stage, decision, comment, criteria }) => {
   const research = await Research.findByPk(researchId, {
     include: [
@@ -838,10 +791,7 @@ const submitReview = async (reviewer, { researchId, stage, decision, comment, cr
     ? Number((criteriaValues.reduce((s, v) => s + v, 0) / criteriaValues.length).toFixed(1))
     : null;
 
-  // Determine the new round number by looking up the latest review
-  // for this (research, stage, reviewer-role). The Review model's
-  // beforeCreate hook auto-unsets prior isLatest for reviewer-role
-  // records, so an explicit updateMany isn't needed here.
+
   const latestReview = await Review.findOne({
     where: {
       researchId, stage, isLatest: true, reviewerRole: "reviewer",
@@ -863,7 +813,6 @@ const submitReview = async (reviewer, { researchId, stage, decision, comment, cr
     submittedAt: new Date(),
   });
 
-  // Final-paper approvals go to committee review, not straight to APPROVED.
   const isFinalPaperApproval =
     stage === RESEARCH_STAGES.FINAL_PAPER && decision === REVIEW_DECISIONS.APPROVED;
 
@@ -883,10 +832,6 @@ const submitReview = async (reviewer, { researchId, stage, decision, comment, cr
   research.aggregateScore = aggregateScore;
   research.reviewDecision = REVIEW_DECISION_DISPLAY[decision] || decision;
 
-  // Stage-separated snapshot. Denormalise the reviewer's name into the
-  // JSON here so getResearchById can render "reviewed by X" without a
-  // second query per snapshot (Sequelize can't populate nested refs
-  // inside JSON columns — see CUTOVER NOTE in getResearchById).
   const snapshotField = STAGE_SNAPSHOT_FIELD[stage];
   if (snapshotField) {
     research[snapshotField] = {
@@ -914,12 +859,11 @@ const submitReview = async (reviewer, { researchId, stage, decision, comment, cr
     decision === REVIEW_DECISIONS.APPROVED &&
     stage === RESEARCH_STAGES.PROPOSAL
   ) {
-    // Lazy require to avoid a service-layer circular import.
+    
     const certificateService = require("./certificateService");
     await certificateService.issueClearanceCertificate(research.id, reviewer.id);
   }
 
-  // Update reviewer's rolling stats — reviewCount++ and acceptanceRate.
   const stats = await Review.getReviewerStats(reviewer.id);
   await Researcher.increment("reviewCount", { by: 1, where: { id: reviewer.id } });
   await Researcher.update(
@@ -966,7 +910,6 @@ const submitReview = async (reviewer, { researchId, stage, decision, comment, cr
   return { review, research };
 };
 
-// ── COMMITTEE — Queue + listing ────────────────────────────────────
 
 const getCommitteeQueue = async ({ page, limit }) => {
   const safePage  = Math.max(1, Number(page) || PAGINATION.DEFAULT_PAGE);
@@ -1041,7 +984,6 @@ const getAllResearchCommittee = async ({ stage, status, search, page, limit }) =
   };
 };
 
-// ── COMMITTEE — Submit a vote (quorum voting) ──────────────────────
 
 const submitCommitteeReview = async (
   committeeMember,
@@ -1076,9 +1018,7 @@ const submitCommitteeReview = async (
 
   const currentRound = research.committeeRound || 1;
 
-  // Friendly pre-check. The STORED GENERATED committee_vote_key
-  // column's UNIQUE index is the actual race guard — see the CUTOVER
-  // NOTE below for how the collision surfaces on Sequelize.
+  
   const alreadyVoted = await Review.findOne({
     where: {
       researchId,
@@ -1126,15 +1066,11 @@ const submitCommitteeReview = async (
       decision,
       comment,
       criteria: validatedCriteria,
-      isLatest: false, // not tracked for committee entries
+      isLatest: false, 
       submittedAt: new Date(),
     });
   } catch (err) {
-    // CUTOVER NOTE: on Mongoose the dup-key error surfaced as
-    // err.code === 11000 on the compound partial index. On Sequelize,
-    // the equivalent is a UniqueConstraintError raised by the DB's
-    // UNIQUE index on the `committee_vote_key` STORED GENERATED
-    // column. Same race, cleaner catch.
+
     if (err instanceof UniqueConstraintError) {
       throw new AppError(
         "You have already cast your committee vote for this submission's current round.",
@@ -1218,7 +1154,6 @@ const submitCommitteeReview = async (
   };
 };
 
-// ── COMMITTEE — Individual votes for a given round ─────────────────
 
 const getCommitteeVotes = async (researchId, round) => {
   const research = await Research.findByPk(researchId, {
@@ -1257,8 +1192,6 @@ const getCommitteeVotes = async (researchId, round) => {
   }));
 };
 
-// ── COMMITTEE — Final approval queue with vote rollups ─────────────
-
 const getFinalApprovalQueue = async ({ page, limit } = {}) => {
   const safePage  = Math.max(1, Number(page) || PAGINATION.DEFAULT_PAGE);
   const safeLimit = Math.min(Number(limit) || PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
@@ -1295,8 +1228,7 @@ const getFinalApprovalQueue = async ({ page, limit } = {}) => {
     };
   }
 
-  // Pull every committee vote so far for this batch's current rounds,
-  // then filter down to each record's current round on the JS side.
+
   const roundByResearch = {};
   papers.forEach((p) => {
     roundByResearch[String(p.id)] = p.committeeRound || 1;
@@ -1342,8 +1274,6 @@ const getFinalApprovalQueue = async ({ page, limit } = {}) => {
     records,
   };
 };
-
-// ── COMMITTEE — Approval-stage stats ───────────────────────────────
 
 const getFinalApprovalStats = async () => {
   const startOfMonth = new Date();
@@ -1423,7 +1353,6 @@ const getFinalApprovalStats = async () => {
   };
 };
 
-// ── COMMITTEE — Approval feed ──────────────────────────────────────
 
 const getApprovalFeed = async ({ limit = 50 } = {}) => {
   const votes = await Review.findAll({
@@ -1443,7 +1372,7 @@ const getApprovalFeed = async ({ limit = 50 } = {}) => {
   const toneOf = (decision) => {
     if (decision === REVIEW_DECISIONS.APPROVED) return "success";
     if (decision === REVIEW_DECISIONS.REJECTED) return "warning";
-    return "neutral"; // covers REVISION, SUSPENDED, and NOTED
+    return "neutral"; 
   };
 
   return votes.map((v) => {
@@ -1460,8 +1389,6 @@ const getApprovalFeed = async ({ limit = 50 } = {}) => {
     };
   });
 };
-
-// ── COMMITTEE — Post note (freestanding comment) ───────────────────
 
 const postApprovalComment = async (committeeMember, { researchId, message }) => {
   if (!researchId) {
@@ -1498,7 +1425,6 @@ const postApprovalComment = async (committeeMember, { researchId, message }) => 
   };
 };
 
-// ── COMMITTEE — Timeline for a record ──────────────────────────────
 
 const getRecordTimeline = async (researchId) => {
   const researchDoc = await Research.findByPk(researchId, {
@@ -1530,7 +1456,6 @@ const getRecordTimeline = async (researchId) => {
   });
 };
 
-// ── ADMIN — All research listing ───────────────────────────────────
 
 const getAllResearchAdmin = async ({ stage, status, search, page, limit }) => {
   const safePage  = Math.max(1, Number(page) || PAGINATION.DEFAULT_PAGE);
@@ -1574,7 +1499,6 @@ const getAllResearchAdmin = async ({ stage, status, search, page, limit }) => {
   };
 };
 
-// ── ADMIN — Assign / reassign reviewer ─────────────────────────────
 
 const assignReviewer = async (researchId, reviewerEmail) => {
   const research = await Research.findByPk(researchId);
@@ -1641,8 +1565,6 @@ const assignReviewer = async (researchId, reviewerEmail) => {
   return { research, reviewer, isReassignment };
 };
 
-// ── ADMIN — Publish research ───────────────────────────────────────
-
 const publishResearch = async (researchId) => {
   const research = await Research.findByPk(researchId);
   if (!research) throw new AppError("Research not found.", 404);
@@ -1670,7 +1592,7 @@ const publishResearch = async (researchId) => {
   research.publishedAt = new Date();
   await research.save();
 
-  // Lazy require to avoid a service-layer circular import.
+
   const certificateService = require("./certificateService");
   await certificateService.issueCompletionCertificate(
     research.id,
@@ -1695,7 +1617,6 @@ const publishResearch = async (researchId) => {
   return research;
 };
 
-// ── ADMIN — Update download price ──────────────────────────────────
 
 const updateDownloadPrice = async (researchId, downloadPrice) => {
   const research = await Research.findByPk(researchId);
@@ -1707,7 +1628,6 @@ const updateDownloadPrice = async (researchId, downloadPrice) => {
   return research;
 };
 
-// ── ADMIN — Reactivate suspended study ─────────────────────────────
 
 const reactivateResearch = async (researchId, adminId, reason) => {
   if (!reason || !reason.trim()) {
@@ -1765,18 +1685,12 @@ const reactivateResearch = async (researchId, adminId, reason) => {
   return research;
 };
 
-// ── ADMIN — Soft-delete ────────────────────────────────────────────
-
 const deleteResearch = async (researchId, deletedBy) => {
-  // The Research model's defaultScope filters out is_deleted=true, so
-  // findByPk here only matches rows that aren't already deleted —
-  // matching the Mongoose setOptions({ includeDeleted: false }) intent.
+
   const research = await Research.findByPk(researchId);
   if (!research) throw new AppError("Research not found.", 404);
   await research.softDelete(deletedBy);
 };
-
-// ── RESEARCHER — Revenue for own paper ─────────────────────────────
 
 const getResearcherRevenue = async (researcher, researchId) => {
   const research = await Research.findOne({
@@ -1799,8 +1713,6 @@ const getResearcherRevenue = async (researcher, researchId) => {
     revenue: revenueData,
   };
 };
-
-// ── ADMIN — Dashboard stats ────────────────────────────────────────
 
 const getDashboardStats = async () => {
   const [

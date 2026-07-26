@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Header, Footer } from "../components/layouts";
+import { Header, Footer } from "../common/layouts";
 import api from "../api/axios";
-import { toast } from "react-toastify";
+import notify from "../common/utils/notify";
 import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaPaperPlane } from "react-icons/fa";
 
 const CONTACT_INFO = [
@@ -22,17 +22,17 @@ const Feedback = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) {
-      toast.error("Please fill in all required fields.");
+      notify.error("Please fill in all required fields.");
       return;
     }
     setLoading(true);
     try {
       await api.post("/feedback", formData);
-      toast.success("Feedback submitted successfully.");
+      notify.success("Feedback submitted successfully.");
       setFormData(INIT);
     } catch (error) {
       console.error("Error submitting feedback:", error);
-      toast.error(error?.response?.data?.message || "Error submitting feedback.");
+      notify.error(error?.response?.data?.message || "Error submitting feedback.");
     } finally {
       setLoading(false);
     }
@@ -155,7 +155,7 @@ const Feedback = () => {
                 </select>
               </div>
 
-              {/* Message */}
+        
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-bold uppercase tracking-widest text-slate-500">
                   Message <span className="text-red-400">*</span>

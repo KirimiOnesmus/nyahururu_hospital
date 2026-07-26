@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
+import { useSocket } from "../../api/socket";
 import api from "../../api/axios";
 import { MdEdit, MdDelete, MdInventory2 } from "react-icons/md";
 import {
@@ -6,7 +7,11 @@ import {
   FaExclamationTriangle, FaBoxes, FaPills, FaThermometerHalf,
   FaFilter, FaCalendarAlt,
 } from "react-icons/fa";
-import { toast } from "react-toastify";
+import notify from "../../common/utils/notify";
+import {
+  Modal, Spinner, EmptyState, StatCard, Button, SearchBox, Input, TextArea, Select, FormField, PageHeader, StatusBadge, Avatar, DataTable,
+} from "../../common/components";
+
 
 const CATEGORIES = ["Medicine", "Equipment", "Consumable", "Other"];
 
@@ -31,17 +36,7 @@ const isExpired  = (item) => item.expiry && new Date(item.expiry) < new Date();
 const isLowStock = (item) => item.quantity < (item.minThreshold ?? 5);
 
 
-const StatCard = ({ label, value, accent, icon: Icon }) => (
-  <div className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
-    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${accent.bg}`}>
-      <Icon className={`text-xl ${accent.icon}`} />
-    </div>
-    <div>
-      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{label}</p>
-      <p className={`text-2xl font-black ${accent.num}`}>{value ?? 0}</p>
-    </div>
-  </div>
-);
+
 
 const StockBadge = ({ item }) => {
   if (isExpired(item))
@@ -50,56 +45,6 @@ const StockBadge = ({ item }) => {
     return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Low Stock</span>;
   return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Available</span>;
 };
-
-const Spinner = () => (
-  <div className="flex flex-col items-center justify-center py-20 gap-3">
-    <div className="w-10 h-10 border-2 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
-    <p className="text-sm text-gray-400">Loading inventory…</p>
-  </div>
-);
-
-const Empty = ({ text }) => (
-  <div className="flex flex-col items-center justify-center py-20 gap-3">
-    <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center">
-      <MdInventory2 className="text-2xl text-gray-300" />
-    </div>
-    <p className="text-sm text-gray-400">{text}</p>
-  </div>
-);
-
-
-const Modal = ({ open, onClose, title, children }) => {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-        style={{ animation: "modalPop .22s cubic-bezier(.34,1.56,.64,1) both" }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
-          <h2 className="text-lg font-black text-gray-900">{title}</h2>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100 cursor-pointer transition-colors">
-            <FaTimes className="text-gray-400" />
-          </button>
-        </div>
-        <div className="p-6">{children}</div>
-      </div>
-    </div>
-  );
-};
-
-const Field = ({ label, required, children }) => (
-  <div>
-    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-      {label}{required && <span className="text-red-400 ml-0.5">*</span>}
-    </label>
-    {children}
-  </div>
-);
-
-const inputCls = "w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white";
-
 
 const InventoryPage = () => {
   const [items,       setItems]       = useState([]);
@@ -119,7 +64,7 @@ const InventoryPage = () => {
       const res = await api.get("/inventory");
       setItems(Array.isArray(res.data) ? res.data : res.data.data || []);
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error fetching inventory");
+      notify.error(err.response?.data?.message || "Error fetching inventory");
       setItems([]);
     } finally {
       setLoading(false);
@@ -127,6 +72,11 @@ const InventoryPage = () => {
   }, []);
 
   useEffect(() => { fetchInventory(); }, [fetchInventory]);
+
+  // Real-time updates via Socket.IO
+  useSocket("inventory:created", fetchInventory);
+  useSocket("inventory:updated", fetchInventory);
+  useSocket("inventory:deleted", fetchInventory);
 
   const stats = useMemo(() => ({
     total:      items.length,
@@ -188,28 +138,28 @@ const InventoryPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim())     { toast.error("Name is required"); return; }
-    if (!formData.category)        { toast.error("Category is required"); return; }
-    if (formData.quantity === "")  { toast.error("Quantity is required"); return; }
-    if (!formData.unit.trim())     { toast.error("Unit is required"); return; }
-    if (formData.price === "")     { toast.error("Price is required"); return; }
+    if (!formData.name.trim())     { notify.error("Name is required"); return; }
+    if (!formData.category)        { notify.error("Category is required"); return; }
+    if (formData.quantity === "")  { notify.error("Quantity is required"); return; }
+    if (!formData.unit.trim())     { notify.error("Unit is required"); return; }
+    if (formData.price === "")     { notify.error("Price is required"); return; }
 
     setSubmitting(true);
     try {
       if (editingItem) {
         await api.put(`/inventory/${editingItem.id}`, formData);
-        toast.success("Item updated");
+        notify.success("Item updated");
     
         setItems(prev => prev.map(i => i.id === editingItem.id ? { ...i, ...formData } : i));
       } else {
         const res = await api.post("/inventory", formData);
         const newItem = res.data.data || res.data;
-        toast.success("Item added");
+        notify.success("Item added");
           setItems(prev => [newItem, ...prev]);
       }
       closeModal();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error saving item");
+      notify.error(err.response?.data?.message || "Error saving item");
     } finally {
       setSubmitting(false);
     }
@@ -220,22 +170,63 @@ const InventoryPage = () => {
     try {
       await api.delete(`/inventory/${id}`);
       setItems(prev => prev.filter(i => i.id !== id));
-      toast.success("Item deleted");
+      notify.success("Item deleted");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error deleting item");
+      notify.error(err.response?.data?.message || "Error deleting item");
     }
   };
 
+  const inventoryColumns = [
+    {
+      key: "name", label: "Name",
+      render: (item) => (
+        <>
+          <p className="font-semibold text-gray-900">{item.name}</p>
+          {item.description && <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-1">{item.description}</p>}
+        </>
+      ),
+    },
+    {
+      key: "category", label: "Category",
+      render: (item) => (
+        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${CAT_COLORS[item.category] || CAT_COLORS.Other}`}>{item.category}</span>
+      ),
+    },
+    {
+      key: "quantity", label: "Qty",
+      render: (item) => (
+        <>
+          <span className={`font-bold text-sm ${isLowStock(item) ? "text-amber-600" : "text-gray-800"}`}>{item.quantity}</span>
+          {isLowStock(item) && <p className="text-[10px] text-amber-500">min: {item.minThreshold ?? 5}</p>}
+        </>
+      ),
+    },
+    { key: "unit", label: "Unit", render: (item) => <span className="text-xs text-gray-600">{item.unit}</span> },
+    { key: "price", label: "Price", render: (item) => <span className="text-xs text-gray-700 font-medium">{fmtPrice(item.price)}</span> },
+    { key: "supplier", label: "Supplier", render: (item) => <span className="text-xs text-gray-500">{item.supplier || "—"}</span> },
+    { key: "batch", label: "Batch", render: (item) => <span className="text-xs text-gray-500 font-mono">{item.batch || "—"}</span> },
+    {
+      key: "expiry", label: "Expiry",
+      render: (item) => <span className={`text-xs ${isExpired(item) ? "text-rose-600 font-semibold" : "text-gray-500"}`}>{fmtDate(item.expiry)}</span>,
+    },
+    { key: "status", label: "Status", render: (item) => <StockBadge item={item} /> },
+    {
+      key: "actions", label: "Actions", align: "right",
+      render: (item) => (
+        <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+          <button onClick={() => openModal(item)} className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 cursor-pointer transition-colors" title="Edit">
+            <MdEdit className="text-base" />
+          </button>
+          <button onClick={() => handleDelete(item.id)} className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer transition-colors" title="Delete">
+            <MdDelete className="text-base" />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-[#f8f7f5]">
-      <style>{`
-        @keyframes modalPop {
-          from { opacity:0; transform:scale(0.94) translateY(10px); }
-          to   { opacity:1; transform:scale(1) translateY(0); }
-        }
-        .fade-up { animation: fadeUp .3s ease both; }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-      `}</style>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
 
@@ -252,7 +243,7 @@ const InventoryPage = () => {
           </div>
           <button
             onClick={() => openModal()}
-            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 cursor-pointer shadow-sm shadow-blue-200 transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 cursor-pointer  transition-colors"
           >
             <FaPlus className="text-xs" /> Add Item
           </button>
@@ -286,7 +277,7 @@ const InventoryPage = () => {
         )}
 
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-5 flex flex-col md:flex-row gap-3">
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-5 flex flex-col md:flex-row gap-3">
           <div className="relative flex-1">
             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm" />
             <input
@@ -319,92 +310,24 @@ const InventoryPage = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          {loading ? <Spinner /> : filtered.length === 0 ? (
-            <Empty text={items.length === 0 ? "No inventory items yet — add one to get started!" : "No items match your filters"} />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
-                    {["Name", "Category", "Qty", "Unit", "Price", "Supplier", "Batch", "Expiry", "Status", ""].map((h, i) => (
-                      <th key={i} className={`px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider ${i === 9 ? "text-right" : "text-left"}`}>
-                        {h || "Actions"}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {filtered.map(item => {
-                    const rowHighlight = isExpired(item) ? "bg-rose-50/30" : isLowStock(item) ? "bg-amber-50/30" : "";
-                    return (
-                      <tr key={item.id} className={`hover:bg-gray-50/80 transition-colors group ${rowHighlight}`}>
-
-                       
-                        <td className="px-5 py-4">
-                          <p className="font-semibold text-gray-900">{item.name}</p>
-                          {item.description && (
-                            <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-1">{item.description}</p>
-                          )}
-                        </td>
-
-                   
-                        <td className="px-5 py-4">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${CAT_COLORS[item.category] || CAT_COLORS.Other}`}>
-                            {item.category}
-                          </span>
-                        </td>
-
-                        <td className="px-5 py-4">
-                          <span className={`font-bold text-sm ${isLowStock(item) ? "text-amber-600" : "text-gray-800"}`}>
-                            {item.quantity}
-                          </span>
-                          {isLowStock(item) && (
-                            <p className="text-[10px] text-amber-500">min: {item.minThreshold ?? 5}</p>
-                          )}
-                        </td>
-
-                        <td className="px-5 py-4 text-xs text-gray-600">{item.unit}</td>
-                        <td className="px-5 py-4 text-xs text-gray-700 font-medium">{fmtPrice(item.price)}</td>
-                        <td className="px-5 py-4 text-xs text-gray-500">{item.supplier || "—"}</td>
-                        <td className="px-5 py-4 text-xs text-gray-500 font-mono">{item.batch || "—"}</td>
-
-                  
-                        <td className="px-5 py-4">
-                          <span className={`text-xs ${isExpired(item) ? "text-rose-600 font-semibold" : "text-gray-500"}`}>
-                            {fmtDate(item.expiry)}
-                          </span>
-                        </td>
-
-                        <td className="px-5 py-4"><StockBadge item={item} /></td>
-
-                        
-                        <td className="px-5 py-4">
-                          <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => openModal(item)}
-                              className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 cursor-pointer transition-colors" title="Edit">
-                              <MdEdit className="text-base" />
-                            </button>
-                            <button onClick={() => handleDelete(item.id)}
-                              className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer transition-colors" title="Delete">
-                              <MdDelete className="text-base" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-
-              <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/60">
-                <p className="text-xs text-gray-400">
-                  Showing <span className="font-semibold text-gray-600">{filtered.length}</span> of <span className="font-semibold text-gray-600">{items.length}</span> items
-                </p>
-              </div>
+        {loading ? (
+          <Spinner text="Loading inventory…" />
+        ) : filtered.length === 0 ? (
+          <EmptyState text={items.length === 0 ? "No inventory items yet — add one to get started!" : "No items match your filters"} icon={FaBoxes} />
+        ) : (
+          <>
+            <DataTable
+              columns={inventoryColumns}
+              data={filtered}
+              rowKey={(item) => item.id}
+            />
+            <div className="px-5 py-3 border-t border-gray-100 bg-white rounded-b-2xl">
+              <p className="text-xs text-gray-400">
+                Showing <span className="font-semibold text-gray-600">{filtered.length}</span> of <span className="font-semibold text-gray-600">{items.length}</span> items
+              </p>
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
 
       <Modal
@@ -414,50 +337,50 @@ const InventoryPage = () => {
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Item Name" required>
+            <FormField label="Item Name" required>
               <input name="name" value={formData.name} onChange={handleChange}
-                placeholder="e.g., Paracetamol 500mg" className={inputCls} required />
-            </Field>
-            <Field label="Category" required>
-              <select name="category" value={formData.category} onChange={handleChange} className={inputCls} required>
+                placeholder="e.g., Paracetamol 500mg" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" required />
+            </FormField>
+            <FormField label="Category" required>
+              <select name="category" value={formData.category} onChange={handleChange} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" required>
                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-            </Field>
-            <Field label="Quantity" required>
+            </FormField>
+            <FormField label="Quantity" required>
               <input type="number" name="quantity" value={formData.quantity} onChange={handleChange}
-                placeholder="0" min="0" className={inputCls} required />
-            </Field>
-            <Field label="Unit" required>
+                placeholder="0" min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" required />
+            </FormField>
+            <FormField label="Unit" required>
               <input name="unit" value={formData.unit} onChange={handleChange}
-                placeholder="e.g., tablets, boxes, ml" className={inputCls} required />
-            </Field>
-            <Field label="Price per Unit (KSh)" required>
+                placeholder="e.g., tablets, boxes, ml" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" required />
+            </FormField>
+            <FormField label="Price per Unit (KSh)" required>
               <input type="number" name="price" value={formData.price} onChange={handleChange}
-                placeholder="0.00" min="0" step="0.01" className={inputCls} required />
-            </Field>
-            <Field label="Min Threshold">
+                placeholder="0.00" min="0" step="0.01" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" required />
+            </FormField>
+            <FormField label="Min Threshold">
               <input type="number" name="minThreshold" value={formData.minThreshold} onChange={handleChange}
-                placeholder="5" min="0" className={inputCls} />
-            </Field>
-            <Field label="Supplier">
+                placeholder="5" min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" />
+            </FormField>
+            <FormField label="Supplier">
               <input name="supplier" value={formData.supplier} onChange={handleChange}
-                placeholder="Supplier name" className={inputCls} />
-            </Field>
-            <Field label="Batch Number">
+                placeholder="Supplier name" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" />
+            </FormField>
+            <FormField label="Batch Number">
               <input name="batch" value={formData.batch} onChange={handleChange}
-                placeholder="e.g., BT-2024-001" className={inputCls} />
-            </Field>
+                placeholder="e.g., BT-2024-001" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" />
+            </FormField>
           </div>
 
-          <Field label="Expiry Date">
-            <input type="date" name="expiry" value={formData.expiry} onChange={handleChange} className={inputCls} />
-          </Field>
+          <FormField label="Expiry Date">
+            <input type="date" name="expiry" value={formData.expiry} onChange={handleChange} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" />
+          </FormField>
 
-          <Field label="Description">
+          <FormField label="Description">
             <textarea name="description" value={formData.description} onChange={handleChange}
               placeholder="Additional notes about this item…" rows={3}
-              className={`${inputCls} resize-none`} />
-          </Field>
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white resize-none" />
+          </FormField>
 
           <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
             <button type="button" onClick={closeModal} disabled={submitting}
@@ -465,7 +388,7 @@ const InventoryPage = () => {
               Cancel
             </button>
             <button type="submit" disabled={submitting}
-              className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 cursor-pointer shadow-sm shadow-blue-200 transition-colors">
+              className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 cursor-pointer  transition-colors">
               {submitting
                 ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Saving…</>
                 : <><FaSave className="text-xs" />{editingItem ? "Update Item" : "Save Item"}</>

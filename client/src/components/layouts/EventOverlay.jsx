@@ -20,30 +20,25 @@ const EventOverlay = () => {
         console.log("Fetched events:", res.data);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const active = res.data.filter(
-          (e) => new Date(e.date) >= today
-        );
+        const active = res.data.filter((e) => new Date(e.date) >= today);
         if (active.length > 0) {
           setEvents(active);
           setVisible(true);
         }
-      } catch  {
+      } catch {
         // silently fail — overlay is non-critical
       }
     };
     fetchEvents();
   }, []);
 
-  const goTo = useCallback(
-    (idx) => {
-      setFading(true);
-      setTimeout(() => {
-        setCurrent(idx);
-        setFading(false);
-      }, 300);
-    },
-    []
-  );
+  const goTo = useCallback((idx) => {
+    setFading(true);
+    setTimeout(() => {
+      setCurrent(idx);
+      setFading(false);
+    }, 300);
+  }, []);
 
   useEffect(() => {
     if (events.length <= 1) return;
@@ -73,7 +68,6 @@ const EventOverlay = () => {
         className="relative w-full max-w-fit mx-4 h-60vh md:h-[90vh] rounded-2xl overflow-hidden bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-   
         <button
           type="button"
           aria-label="Close events overlay"
@@ -83,7 +77,6 @@ const EventOverlay = () => {
         >
           <FaTimes className="text-md" />
         </button>
-
 
         <div
           className={`relative  overflow-hidden transition-opacity duration-300 h-full w-fit m-0.5 ${
@@ -97,12 +90,10 @@ const EventOverlay = () => {
               className="w-fit h-full object-cover"
             />
           )}
-         
+
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
         </div>
 
-
-      
         {events.length > 1 && (
           <div className="flex items-center justify-center gap-2 pb-4">
             {events.map((_, i) => (
@@ -112,9 +103,7 @@ const EventOverlay = () => {
                 aria-label={`Go to event ${i + 1}`}
                 onClick={() => goTo(i)}
                 className={`rounded-full transition-all duration-300 ${
-                  i === current
-                    ? "w-5 h-2 bg-blue-600"
-                    : "w-2 h-2 bg-slate-300 hover:bg-slate-400"
+                  i === current ? "w-5 h-2 bg-blue-600" : "w-2 h-2 bg-slate-300 hover:bg-slate-400"
                 }`}
               />
             ))}

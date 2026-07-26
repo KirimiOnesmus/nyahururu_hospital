@@ -10,22 +10,21 @@ const {
 
 const { verifyToken, authorizeRoles } = require('../middleware/auth');
 
-// Public — submit feedback
+
 router.post('/', submitFeedback);
 
-// Admin / Communication — view all feedback
-router.get('/', verifyToken, authorizeRoles('admin', 'communication'), getAllFeedback);
+router.get('/', verifyToken, authorizeRoles('admin', 'communication', 'it'), getAllFeedback);
 
-// Admin / Communication — view single feedback
-router.get('/:id', verifyToken, authorizeRoles('admin', 'communication'), getFeedbackById);
 
-// Admin / Communication — respond or mark handled
-router.put('/:id/respond', verifyToken, authorizeRoles('admin', 'communication'), respondToFeedback);
+router.get('/:id', verifyToken, authorizeRoles('admin', 'communication', 'it'), getFeedbackById);
 
-// Optional alias to support frontends that used POST /reply/:id
-router.post('/reply/:id', verifyToken, authorizeRoles('admin', 'communication'), respondToFeedback);
 
-// Admin — delete feedback
+router.put('/:id/respond', verifyToken, authorizeRoles('admin', 'communication', 'it'), respondToFeedback);
+
+
+router.post('/reply/:id', verifyToken, authorizeRoles('admin', 'communication', 'it'), respondToFeedback);
+
+
 router.delete('/:id', verifyToken, authorizeRoles('admin'), deleteFeedback);
 
 module.exports = router;

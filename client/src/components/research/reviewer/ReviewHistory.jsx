@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import notify from "../../../common/utils/notify";
 import {
   FaHistory,
   FaSearch,
@@ -10,7 +10,6 @@ import {
 } from "react-icons/fa";
 import * as research from "../../../api/research";
 
-//  Constants 
 
 const STAGE_LABELS = {
   proposal: "Proposal",
@@ -66,7 +65,6 @@ const fmt = (d) =>
       })
     : "—";
 
-//  Maps a paper's status/reviewDecision to a display key 
 
 const decisionKeyFor = (item) => {
   const rd = (item.reviewDecision || "").toLowerCase().trim();
@@ -136,7 +134,6 @@ const TABLE_HEADERS = [
   "Score",
 ];
 
-//  Main component 
 
 const ReviewHistory = () => {
   const navigate = useNavigate();
@@ -150,7 +147,6 @@ const ReviewHistory = () => {
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
 
-  //  Single fetch — gets ALL papers assigned to this reviewer regardless of
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -163,7 +159,7 @@ const ReviewHistory = () => {
       });
       setItems(Array.isArray(res.papers) ? res.papers : []);
     } catch (err) {
-      toast.error(err.message || "Failed to load review history");
+      notify.error(err.message || "Failed to load review history");
       setItems([]);
     } finally {
       setLoading(false);
@@ -216,7 +212,7 @@ const ReviewHistory = () => {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  //  Stats — computed over ALL fetched items (not just the current page) 
+
   const stats = useMemo(() => {
     const total = items.length;
     const withScore = items.filter(
@@ -239,7 +235,7 @@ const ReviewHistory = () => {
     return { total, avgScore, approvalPct, revisionPct };
   }, [items]);
 
-  //  Page number buttons (capped at 7 visible) 
+
   const pageNumbers = useMemo(() => {
     if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
     const delta = 2;

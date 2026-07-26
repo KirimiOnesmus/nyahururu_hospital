@@ -1,3 +1,4 @@
+const emitChange = require("../utils/emitChange");
 "use strict";
 
 const { Op } = require("sequelize");
@@ -6,9 +7,7 @@ const logger = require("../utils/logger");
 const emailService = require("../utils/emailServices");
 
 const smsServices = null; // Africa's Talking SMS integration removed.
-                          // If SMS notifications are re-introduced, plug
-                          // the new provider in here — the appointment
-                          // callsites remain in place (commented out).
+                          
 
 exports.bookAppointment = async (req, res) => {
   try {
@@ -53,6 +52,7 @@ exports.bookAppointment = async (req, res) => {
       message: "Appointment booked successfully. Await confirmation.",
       appointment,
     });
+    emitChange("appointments", "created", { id: appointment.id });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
@@ -64,11 +64,7 @@ exports.getAllAppointments = async (req, res) => {
     const where = {};
 
     if (req.user.role === "doctor") {
-      // For doctors, scope the list to their own department. The Doctor
-      // row is the source of truth for department assignment — it may
-      // legitimately differ from user.department in edge cases (a
-      // doctor whose user.department was set but doctor row was never
-      // synced), and the doctor row is what appointment intake uses.
+
       const doctorProfile = await Doctor.findOne({ where: { userId: req.user.id } });
       if (!doctorProfile || !doctorProfile.department) {
         return res.status(400).json({ message: "No department assigned to this doctor" });
@@ -87,12 +83,8 @@ exports.getAllAppointments = async (req, res) => {
   }
 };
 
-// GET /api/appointments/pending
-// Same department-scoping as getAllAppointments, but filtered to
-// status=Pending. Was previously implemented inline in
-// routes/appointmentRoutes.js as a Mongoose call — moved here so all
-// data access goes through the Sequelize controller layer and can be
-// unit-tested + reused. The route file now just delegates.
+
+
 exports.getPendingAppointments = async (req, res) => {
   try {
     const where = { status: "Pending" };
@@ -120,8 +112,7 @@ exports.getDoctorAppointments = async (req, res) => {
   try {
     const doctorId = req.params.doctorId;
 
-    // req.user.id is a numeric primary key now, not an ObjectId — String()
-    // coerces both sides for a safe equality check without .toString().
+
     if (req.user.role === "doctor" && String(req.user.id) !== String(doctorId)) {
       return res.status(403).json({ message: "Not authorized to view these appointments" });
     }
@@ -200,6 +191,7 @@ exports.updateAppointmentStatus = async (req, res) => {
     // }
 
     res.json({ message: `Appointment ${status}`, appointment });
+    emitChange("appointments", "updated", { id: appointment.id, status });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
@@ -213,16 +205,14 @@ exports.deleteAppointment = async (req, res) => {
 
     await appointment.destroy();
     res.json({ message: "Appointment deleted successfully" });
+    emitChange("appointments", "deleted", { id: req.params.id });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
-// GET /api/appointments/booked-slots?date=YYYY-MM-DD&service=ServiceName
-// Public endpoint — returns the list of time strings that are already
-// booked (Pending or Confirmed) for a given date + service so the
-// booking form can grey them out.
+
 exports.getBookedSlots = async (req, res) => {
   try {
     const { date, service } = req.query;

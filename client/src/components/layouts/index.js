@@ -1,12 +1,7 @@
-export {default as Header} from "./Header"
-export {default as Footer} from "./Footer"
-export{default as Slider} from "./Slider"
-export {default as Card} from "./Card"
-export {default as TimeRibbon}  from "./TimeRibbon"
-export {default as Partners} from "./Partners"
-export{default as Management} from "./Management"
-export {default as News} from "./News"
-export{ default as LoginForm} from "./LoginForm"
-export {default as SuperAdmin} from "./SuperAdmin"
-export{ default as GeneralDashboard} from "./GeneralDashboard"
-export {default as EventOverlay} from "./EventOverlay"
+export { default as Slider } from "./Slider";
+export { default as Card } from "./Card";
+export { default as TimeRibbon } from "./TimeRibbon";
+export { default as Management } from "./Management";
+export { default as News } from "./News";
+export { default as GeneralDashboard } from "./GeneralDashboard";
+export { default as EventOverlay } from "./EventOverlay";

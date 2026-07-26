@@ -2,29 +2,7 @@ import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { getUserRole, isAuthenticated } from "../../api/auth";
 
-/**
- * Wraps a single route's element and checks the logged-in user's role
- * against an allow-list before rendering its children.
- *
- * FH1 (security review): previously Sidebar.jsx only checked "is there a
- * token at all" — any authenticated staff role could load the React
- * component tree for every /dashboard/* and /research/dashboard/* route,
- * relying entirely on the backend to reject the underlying API calls.
- * This adds a client-side fail-closed check that mirrors each route's
- * backend authorizeRoles(...) list (see src/config/dashboardRoles.js),
- * so the UI itself refuses to render for the wrong role instead of
- * quietly leaking a partial/broken screen.
- *
- * Usage:
- *   <Route
- *     path="/dashboard/users"
- *     element={
- *       <RequireRole roles={getDashboardRoles("/dashboard/users")}>
- *         <Users />
- *       </RequireRole>
- *     }
- *   />
- */
+
 const RequireRole = ({ roles, children, loginPath = "/hmis", deniedPath }) => {
   const location = useLocation();
 

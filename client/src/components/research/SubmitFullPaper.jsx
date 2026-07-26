@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import notify from "../../common/utils/notify";
 import {
   FaArrowLeft,
   FaCheckCircle,
@@ -134,7 +134,7 @@ const StageStepper = () => (
   </div>
 );
 
-//  Section card
+
 const SectionCard = ({
   icon: Icon,
   title,
@@ -158,7 +158,7 @@ const SectionCard = ({
   </div>
 );
 
-//  Manuscript upload zone
+
 const ManuscriptUpload = ({ file, onChange, onRemove, error }) => {
   const inputRef = useRef();
   const [dragging, setDragging] = useState(false);
@@ -171,7 +171,7 @@ const ManuscriptUpload = ({ file, onChange, onRemove, error }) => {
       if (f && (f.type === "application/pdf" || f.name.endsWith(".docx"))) {
         onChange(f);
       } else {
-        toast.error("Only PDF or DOCX files are accepted");
+        notify.error("Only PDF or DOCX files are accepted");
       }
     },
     [onChange],
@@ -232,7 +232,7 @@ const ManuscriptUpload = ({ file, onChange, onRemove, error }) => {
             if (f) onChange(f);
           }}
         />
-        <div className="w-14 h-14 bg-white border border-slate-200 rounded-2xl flex items-center justify-center shadow-sm">
+        <div className="w-14 h-14 bg-white border border-slate-200 rounded-2xl flex items-center justify-center">
           <FaCloudUploadAlt className="text-slate-400 text-2xl" />
         </div>
         <div className="text-center">
@@ -255,7 +255,7 @@ const ManuscriptUpload = ({ file, onChange, onRemove, error }) => {
   );
 };
 
-//  Supporting document slot
+
 const SupportSlot = ({ slot, file, onChange, onRemove }) => {
   const { icon: Icon, label, subLabel, accept, required, carriedOver } = slot;
   const inputRef = useRef();
@@ -340,7 +340,7 @@ const SupportSlot = ({ slot, file, onChange, onRemove }) => {
   );
 };
 
-//  Checklist item
+
 const DeclarationItem = ({
   item,
   checked,
@@ -381,7 +381,7 @@ const DeclarationItem = ({
   </div>
 );
 
-//  Required items list (sidebar)
+
 const RequiredItem = ({ label, done }) => (
   <div className="flex items-center gap-2">
     {done ? (
@@ -397,7 +397,7 @@ const RequiredItem = ({ label, done }) => (
   </div>
 );
 
-//  Main component
+
 const SubmitFinalPaper = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -440,7 +440,7 @@ const SubmitFinalPaper = () => {
   const allRequiredDone = requiredItems.every((i) => i.done);
   const completedCount = requiredItems.filter((i) => i.done).length;
 
-  //  Validate
+ 
   const validate = () => {
     const e = {};
     if (!manuscript) e.manuscript = "Final manuscript is required";
@@ -452,7 +452,7 @@ const SubmitFinalPaper = () => {
     return Object.keys(e).length === 0;
   };
 
-  //  Build FormData
+
   const buildFormData = (isDraft = false) => {
     const fd = new FormData();
     fd.append("isDraft", isDraft);
@@ -504,10 +504,10 @@ const SubmitFinalPaper = () => {
     load();
   }, [load]);
 
-  //  Submit
+
  const handleSubmit = async () => {
   if (!validate()) {
-    toast.error("Please complete all required fields before submitting.");
+    notify.error("Please complete all required fields before submitting.");
     return;
   }
   setSubmitting(true);
@@ -528,10 +528,10 @@ const SubmitFinalPaper = () => {
       fundingSource,
       noteToCommittee,
     });
-    toast.success("Final paper submitted for review!");
+    notify.success("Final paper submitted for review!");
     navigate("/research/dashboard");
   } catch (err) {
-    toast.error(err.message || "Submission failed");
+    notify.error(err.message || "Submission failed");
   } finally {
     setSubmitting(false);
   }
@@ -886,7 +886,7 @@ const SubmitFinalPaper = () => {
             </div>
           </div>
 
-          {/* Warning if not all complete on attempt */}
+          
           {Object.keys(errors).length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex gap-2 items-start">
               <FaExclamationTriangle className="text-red-500 shrink-0 mt-0.5 text-xs" />

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
+import { useSocket } from "../../api/socket";
 import api from "../../api/axios";
 import {
   FaTint,
@@ -22,7 +23,10 @@ import {
   FaTimes,
   FaPlus,
 } from "react-icons/fa";
-import { toast } from "react-toastify";
+import notify from "../../common/utils/notify";
+import {
+  Modal, Spinner, EmptyState, StatCard, Button, SearchBox, Input, TextArea, Select, FormField, PageHeader, StatusBadge as SharedStatusBadge, Avatar, DataTable,
+} from "../../common/components";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
@@ -59,7 +63,7 @@ const STATUS_CONFIG = {
   },
 };
 
-const StatusBadge = ({ status }) => {
+const LocalStatusBadge = ({ status }) => {
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.registered;
   return (
     <span
@@ -81,48 +85,14 @@ const BloodBadge = ({ group }) =>
     <span className="text-gray-400 text-xs italic">Unknown</span>
   );
 
-const Spinner = () => (
-  <div className="flex flex-col items-center justify-center py-20 gap-4">
-    <div className="w-10 h-10 border-2 border-red-200 border-t-red-600 rounded-full animate-spin" />
-    <p className="text-sm text-gray-400 font-medium">Loading…</p>
-  </div>
-);
 
-const Empty = ({ icon: Icon, text }) => (
-  <div className="flex flex-col items-center justify-center py-20 gap-3">
-    <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center">
-      <Icon className="text-2xl text-gray-300" />
-    </div>
-    <p className="text-sm text-gray-400">{text}</p>
-  </div>
-);
-
-// ── Stat card ──────────────────────────────────────────────────────────────────
-const StatCard = ({ label, value, sub, accent, icon: Icon }) => (
-  <div className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
-    <div
-      className={`w-12 h-12 rounded-xl flex items-center justify-center ${accent.bg}`}
-    >
-      <Icon className={`text-xl ${accent.icon}`} />
-    </div>
-    <div>
-      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-        {label}
-      </p>
-      <p className={`text-2xl font-black ${accent.num}`}>{value ?? 0}</p>
-      {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
-    </div>
-  </div>
-);
-
-// ── Blood group distribution bar ───────────────────────────────────────────────
 const BloodDistribution = ({ stats }) => {
   const max = Math.max(
     ...BLOOD_GROUPS.map((bg) => stats.find((s) => s.id === bg)?.count || 0),
     1,
   );
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+    <div className="bg-white rounded-2xl border border-gray-100 p-6">
       <div className="flex items-center gap-2 mb-5">
         <FaTint className="text-red-500" />
         <h3 className="font-bold text-gray-800 text-sm uppercase tracking-wider">
@@ -183,7 +153,6 @@ const DonorRow = ({ donor, expanded, onToggle, onEdit, onDelete }) => (
         </span>
       </div>
 
-      {/* Demographics */}
       <div className="hidden md:flex flex-col gap-1">
         <span className="flex items-center gap-1.5 text-xs text-gray-600 capitalize">
           {donor.gender === "male" ? (
@@ -199,7 +168,7 @@ const DonorRow = ({ donor, expanded, onToggle, onEdit, onDelete }) => (
         </span>
       </div>
 
-      {/* Date */}
+
       <div className="hidden md:block">
         <p className="text-xs font-semibold text-gray-800">
           {new Date(donor.donationDate).toLocaleDateString("en-KE", {
@@ -212,7 +181,7 @@ const DonorRow = ({ donor, expanded, onToggle, onEdit, onDelete }) => (
       </div>
 
       <div className="flex items-center justify-between md:justify-start gap-3">
-        <StatusBadge status={donor.status} />
+        <LocalStatusBadge status={donor.status} />
         <FaChevronDown
           className={`text-gray-300 text-xs transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
         />
@@ -282,47 +251,7 @@ const DonorRow = ({ donor, expanded, onToggle, onEdit, onDelete }) => (
   </div>
 );
 
-// ── Modal shell ────────────────────────────────────────────────────────────────
-const Modal = ({
-  open,
-  onClose,
-  title,
-  subtitle,
-  children,
-  maxW = "max-w-lg",
-}) => {
-  if (!open) return null;
-  return (
-    <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      onClick={onClose}
-    >
-      <div
-        className={`bg-white rounded-2xl shadow-2xl w-full ${maxW} max-h-[90vh] overflow-y-auto`}
-        style={{ animation: "modalPop .22s cubic-bezier(.34,1.56,.64,1) both" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between p-6 border-b border-gray-100">
-          <div>
-            <h2 className="text-lg font-black text-gray-900">{title}</h2>
-            {subtitle && (
-              <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
-          >
-            <FaTimes className="text-gray-400" />
-          </button>
-        </div>
-        <div className="p-6">{children}</div>
-      </div>
-    </div>
-  );
-};
 
-// ── Main component ─────────────────────────────────────────────────────────────
 const Donations = () => {
   const [donors, setDonors] = useState([]);
   const [upcoming, setUpcoming] = useState([]);
@@ -336,7 +265,6 @@ const Donations = () => {
   const [filterBG, setFilterBG] = useState("");
   const [filterGender, setFilterGender] = useState("");
 
-  // Status modal
   const [statusModal, setStatusModal] = useState(false);
   const [editingDonor, setEditingDonor] = useState(null);
   const [statusForm, setStatusForm] = useState({
@@ -344,7 +272,6 @@ const Donations = () => {
     registrationStatus: "",
   });
 
-  // Urgent modal
   const [urgentModal, setUrgentModal] = useState(false);
   const [editingUrgent, setEditingUrgent] = useState(null);
   const [urgentForm, setUrgentForm] = useState({
@@ -374,7 +301,7 @@ const Donations = () => {
       setStats(statsRes.data.data || {});
       setUrgentRequests(urgentRes.data.data || []);
     } catch {
-      toast.error("Failed to load donation data");
+      notify.error("Failed to load donation data");
     } finally {
       setLoading(false);
     }
@@ -422,11 +349,11 @@ const Donations = () => {
         `/blood-donation/${editingDonor.donorId}/status`,
         statusForm,
       );
-      toast.success("Status updated");
+      notify.success("Status updated");
       setStatusModal(false);
       fetchData();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to update status");
+      notify.error(err.response?.data?.message || "Failed to update status");
     }
   };
 
@@ -434,10 +361,10 @@ const Donations = () => {
     if (!window.confirm("Delete this donor?")) return;
     try {
       await api.delete(`/blood-donation/${donorId}`);
-      toast.success("Donor deleted");
+      notify.success("Donor deleted");
       fetchData();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to delete donor");
+      notify.error(err.response?.data?.message || "Failed to delete donor");
     }
   };
 
@@ -471,29 +398,29 @@ const Donations = () => {
 
   const handleUrgentSubmit = async () => {
     if (!urgentForm.bloodGroups.length) {
-      toast.error("Select at least one blood group");
+      notify.error("Select at least one blood group");
       return;
     }
     if (!urgentForm.message.trim()) {
-      toast.error("Message is required");
+      notify.error("Message is required");
       return;
     }
     if (!urgentForm.contactNumber.trim()) {
-      toast.error("Contact number is required");
+      notify.error("Contact number is required");
       return;
     }
     try {
       if (editingUrgent) {
         await api.put(`/urgent-request/${editingUrgent.id}`, urgentForm);
-        toast.success("Urgent request updated");
+        notify.success("Urgent request updated");
       } else {
         await api.post("/urgent-request", urgentForm);
-        toast.success("Urgent request created");
+        notify.success("Urgent request created");
       }
       setUrgentModal(false);
       fetchData();
     } catch (err) {
-      toast.error(
+      notify.error(
         err.response?.data?.message || "Failed to save urgent request",
       );
     }
@@ -503,20 +430,20 @@ const Donations = () => {
     if (!window.confirm("Delete this urgent request?")) return;
     try {
       await api.delete(`/urgent-request/${id}`);
-      toast.success("Deleted");
+      notify.success("Deleted");
       fetchData();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to delete");
+      notify.error(err.response?.data?.message || "Failed to delete");
     }
   };
 
   const toggleUrgentStatus = async (id, current) => {
     try {
       await api.patch(`/urgent-request/${id}/toggle`, { isActive: !current });
-      toast.success(`Request ${!current ? "activated" : "deactivated"}`);
+      notify.success(`Request ${!current ? "activated" : "deactivated"}`);
       fetchData();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to toggle");
+      notify.error(err.response?.data?.message || "Failed to toggle");
     }
   };
 
@@ -533,22 +460,11 @@ const Donations = () => {
 
   return (
     <div className="min-h-screen bg-[#f8f7f5]">
-      <style>{`
-        @keyframes modalPop {
-          from { opacity:0; transform:scale(0.94) translateY(10px); }
-          to   { opacity:1; transform:scale(1)    translateY(0);    }
-        }
-        @keyframes fadeUp {
-          from { opacity:0; transform:translateY(8px); }
-          to   { opacity:1; transform:translateY(0);   }
-        }
-        .fade-up { animation: fadeUp .3s ease both; }
-      `}</style>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
         <div className="mb-8 fade-up">
           <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center shadow-lg shadow-red-200">
+            <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center shadow-red-200">
               <FaTint className="text-white text-lg" />
             </div>
             <h1 className="text-2xl font-black text-gray-900 tracking-tight">
@@ -607,7 +523,7 @@ const Donations = () => {
           <BloodDistribution stats={calculatedStats.byBloodGroup} />
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           <div className="flex border-b border-gray-100 px-2 pt-2">
             {TABS.map(({ key, label, icon: Icon }) => (
               <button
@@ -615,7 +531,7 @@ const Donations = () => {
                 onClick={() => setActiveTab(key)}
                 className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold rounded-t-xl transition-all cursor-pointer ${
                   activeTab === key
-                    ? "bg-red-600 text-white shadow-sm"
+                    ? "bg-red-600 text-white"
                     : "text-gray-400 hover:text-gray-700 hover:bg-gray-50"
                 }`}
               >
@@ -665,7 +581,7 @@ const Donations = () => {
                         ...BLOOD_GROUPS.map((b) => [b, b]),
                       ],
                     },
-                    // { val: filterGender, set: setFilterGender, opts: [["","All Genders"],["male","Male"],["female","Female"],["other","Other"]] },
+                   
                   ].map(({ val, set, opts }, i) => (
                     <select
                       key={i}
@@ -686,7 +602,7 @@ const Donations = () => {
               {loading ? (
                 <Spinner />
               ) : filteredDonors.length === 0 ? (
-                <Empty icon={FaUsers} text="No donors found" />
+                <EmptyState icon={FaUsers} text="No donors found" />
               ) : (
                 <div className="space-y-3">
                   {filteredDonors.map((donor) => (
@@ -708,7 +624,7 @@ const Donations = () => {
             </div>
           )}
 
-          {/* ── UPCOMING TAB ── */}
+
           {activeTab === "upcoming" && (
             <div className="p-6">
               {loading ? (
@@ -723,7 +639,7 @@ const Donations = () => {
                   {upcoming.map((d) => (
                     <div
                       key={d.id}
-                      className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow"
+                      className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center gap-4 transition-shadow"
                     >
                       <div className="w-11 h-11 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
                         <FaTint className="text-red-500" />
@@ -759,7 +675,7 @@ const Donations = () => {
             </div>
           )}
 
-          {/* ── URGENT TAB ── */}
+
           {activeTab === "urgent" && (
             <div className="p-6">
               <div className="flex items-center justify-between mb-5">
@@ -773,7 +689,7 @@ const Donations = () => {
                 </div>
                 <button
                   onClick={() => openUrgentModal()}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition-colors shadow-sm shadow-red-200 cursor-pointer"
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition-colors shadow-red-200 cursor-pointer"
                 >
                   <FaPlus className="text-xs" /> New Request
                 </button>
@@ -782,7 +698,7 @@ const Donations = () => {
               {loading ? (
                 <Spinner />
               ) : urgentRequests.length === 0 ? (
-                <Empty icon={FaExclamationTriangle} text="No urgent requests" />
+                <EmptyState icon={FaExclamationTriangle} text="No urgent requests" />
               ) : (
                 <div className="space-y-4">
                   {urgentRequests.map((req) => (
@@ -854,7 +770,7 @@ const Donations = () => {
         </div>
       </div>
 
-      {/* ── Status Modal ── */}
+
       <Modal
         open={statusModal}
         onClose={() => setStatusModal(false)}
@@ -921,16 +837,15 @@ const Donations = () => {
         </form>
       </Modal>
 
-      {/* ── Urgent Modal ── */}
       <Modal
         open={urgentModal}
         onClose={() => setUrgentModal(false)}
         title={editingUrgent ? "Edit Urgent Request" : "Create Urgent Request"}
         subtitle="Displayed live on the public donation page"
-        maxW="max-w-2xl"
+        size="lg"
       >
         <div className="space-y-5">
-          {/* Blood group picker */}
+
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wider">
               Blood Groups Needed *
@@ -943,7 +858,7 @@ const Donations = () => {
                   onClick={() => toggleBloodGroup(bg)}
                   className={`py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer border-2 flex items-center justify-center gap-1 ${
                     urgentForm.bloodGroups.includes(bg)
-                      ? "bg-red-600 border-red-600 text-white shadow-md shadow-red-200"
+                      ? "bg-red-600 border-red-600 text-white shadow-red-200"
                       : "bg-white border-gray-200 text-gray-600 hover:border-red-300"
                   }`}
                 >
@@ -1017,7 +932,7 @@ const Donations = () => {
             <button
               type="button"
               onClick={handleUrgentSubmit}
-              className="flex items-center gap-2 px-5 py-2 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition-colors cursor-pointer shadow-sm shadow-red-200"
+              className="flex items-center gap-2 px-5 py-2 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition-colors cursor-pointer shadow-red-200"
             >
               <FaSave />
               {editingUrgent ? "Update Request" : "Create Request"}

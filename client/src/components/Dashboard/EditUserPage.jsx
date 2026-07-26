@@ -21,7 +21,7 @@ import {
   FaCheckCircle,
   FaKey,
 } from "react-icons/fa";
-import { toast } from "react-toastify";
+import notify from "../../common/utils/notify";
 
 const defaultUser = {
   firstName: "",
@@ -95,7 +95,7 @@ const EditUserPage = () => {
         setUser({ ...defaultUser, ...normalizeUser(payload) });
       } catch (err) {
         console.error("Failed to fetch user:", err.response?.data?.message || err.message);
-        toast.error("Failed to load user. Redirecting to users list.");
+        notify.error("Failed to load user. Redirecting to users list.");
         navigate("/dashboard/users");
       } finally {
         setLoading(false);
@@ -165,7 +165,7 @@ const EditUserPage = () => {
         const newUser = payload?.user || {};
         const temporaryPassword = payload?.temporaryPassword;
 
-        toast.success("User created successfully! Employee ID and RFID have been generated.");
+        notify.success("User created successfully! Employee ID and RFID have been generated.");
 
         const newUserId = newUser.id;
         pendingNavigateId.current = newUserId || null;
@@ -180,7 +180,7 @@ const EditUserPage = () => {
           navigate(`/dashboard/users/edit/${newUserId}`);
         } else {
           console.error("No user ID returned:", res.data);
-          toast.error("User created but couldn't load edit page. Please check users list.");
+          notify.error("User created but couldn't load edit page. Please check users list.");
           navigate("/dashboard/users");
         }
       } else {
@@ -189,13 +189,13 @@ const EditUserPage = () => {
         const payload = res.data?.data || res.data;
         const updatedUser = payload?.user || payload;
         setUser({ ...defaultUser, ...normalizeUser(updatedUser) });
-        toast.success("User updated successfully!");
+        notify.success("User updated successfully!");
       }
     } catch (err) {
       console.error("Save error:", err);
       const errorMessage = err.response?.data?.message || err.message || "Error saving user";
       console.error("Save error details:", errorMessage);
-      toast.error(err.response?.data?.message || "Failed to save user");
+      notify.error(err.response?.data?.message || "Failed to save user");
 
       if (err.response?.data?.error) {
         console.error("Server error details:", err.response.data.error);
@@ -210,7 +210,7 @@ const EditUserPage = () => {
       setExporting(true);
 
       if (!frontRef.current || !backRef.current) {
-        toast.error("Card preview not ready. Please wait a moment and try again.");
+        notify.error("Card preview not ready. Please wait a moment and try again.");
         return;
       }
 
@@ -233,7 +233,7 @@ const EditUserPage = () => {
       const height = frontCanvas.height / 2;
 
       if (!width || !height || width <= 0 || height <= 0) {
-        toast.error("Invalid card dimensions. Please try again.");
+        notify.error("Invalid card dimensions. Please try again.");
         return;
       }
 
@@ -249,10 +249,10 @@ const EditUserPage = () => {
       pdf.addImage(backCanvas.toDataURL("image/png"), "PNG", 0, 0, width, height);
 
       pdf.save(`${user.firstName || "user"}_ID_Card.pdf`);
-      toast.success("PDF exported successfully!");
+      notify.success("PDF exported successfully!");
     } catch (err) {
       console.error("PDF export error:", err);
-      toast.error("Failed to export PDF: " + err.message);
+      notify.error("Failed to export PDF: " + err.message);
     } finally {
       setExporting(false);
     }
@@ -263,7 +263,7 @@ const EditUserPage = () => {
       setExporting(true);
 
       if (!frontRef.current) {
-        toast.error("Card preview not ready. Please wait a moment and try again.");
+        notify.error("Card preview not ready. Please wait a moment and try again.");
         return;
       }
 
@@ -279,10 +279,10 @@ const EditUserPage = () => {
       a.href = url;
       a.download = `${user.firstName || "user"}_ID_Front.png`;
       a.click();
-      toast.success("Front card exported successfully!");
+      notify.success("Front card exported successfully!");
     } catch (err) {
       console.error("PNG export error:", err);
-      toast.error("Failed to export PNG: " + err.message);
+      notify.error("Failed to export PNG: " + err.message);
     } finally {
       setExporting(false);
     }
@@ -293,7 +293,7 @@ const EditUserPage = () => {
       setExporting(true);
 
       if (!backRef.current) {
-        toast.error("Card preview not ready. Please wait a moment and try again.");
+        notify.error("Card preview not ready. Please wait a moment and try again.");
         return;
       }
 
@@ -309,10 +309,10 @@ const EditUserPage = () => {
       a.href = url;
       a.download = `${user.firstName || "user"}_ID_Back.png`;
       a.click();
-      toast.success("Back card exported successfully!");
+      notify.success("Back card exported successfully!");
     } catch (err) {
       console.error("PNG export error:", err);
-      toast.error("Failed to export PNG: " + err.message);
+      notify.error("Failed to export PNG: " + err.message);
     } finally {
       setExporting(false);
     }
@@ -324,7 +324,7 @@ const EditUserPage = () => {
       setExporting(true);
 
       if (!frontRef.current || !backRef.current) {
-        toast.error("Card preview not ready. Please wait a moment and try again.");
+        notify.error("Card preview not ready. Please wait a moment and try again.");
         return;
       }
 
@@ -345,10 +345,10 @@ const EditUserPage = () => {
       await exportSide(frontRef, "Front");
       await exportSide(backRef, "Back");
 
-      toast.success("Front and back exported successfully!");
+      notify.success("Front and back exported successfully!");
     } catch (err) {
       console.error("PNG export error:", err);
-      toast.error("Failed to export PNG: " + err.message);
+      notify.error("Failed to export PNG: " + err.message);
     } finally {
       setExporting(false);
     }
@@ -362,7 +362,7 @@ const EditUserPage = () => {
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error("Clipboard copy failed:", err);
-      toast.error("Couldn't copy automatically — please select and copy manually.");
+      notify.error("Couldn't copy automatically — please select and copy manually.");
     }
   };
 
@@ -399,7 +399,7 @@ const EditUserPage = () => {
                 <button
                   onClick={downloadBothPNG}
                   disabled={exporting}
-                  className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-sm disabled:opacity-50"
+                  className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
                 >
                   <FaImage className="mr-2" />
                   {exporting ? "Exporting..." : "Export PNG (Front & Back)"}
@@ -407,7 +407,7 @@ const EditUserPage = () => {
                 <button
                   onClick={handleExportPDF}
                   disabled={exporting}
-                  className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm disabled:opacity-50"
+                  className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
                 >
                   <FaFilePdf className="mr-2" />
                   {exporting ? "Exporting..." : "Export PDF"}
@@ -427,7 +427,7 @@ const EditUserPage = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
     
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+          <div className="bg-white rounded-xl border border-gray-100">
             <div className="p-6 border-b border-gray-100">
               <h2 className="text-xl font-bold text-gray-900 flex items-center">
                 <FaUser className="mr-2 text-blue-600" />
@@ -700,7 +700,7 @@ const EditUserPage = () => {
                     <button
                       onClick={handleSave}
                       disabled={saving}
-                      className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50"
+                      className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                     >
                       <FaSave className="mr-2" />
                       {saving ? "Saving..." : id === "new" ? "Create User" : "Save Changes"}
@@ -712,7 +712,7 @@ const EditUserPage = () => {
           </div>
 
 
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+          <div className="bg-white rounded-xl border border-gray-100">
             <div className="p-6 border-b border-gray-100">
               <h2 className="text-xl font-bold text-gray-900 flex items-center">
                 <FaIdCard className="mr-2 text-blue-600" />
@@ -742,7 +742,7 @@ const EditUserPage = () => {
                   </div>
                   <div
                     ref={frontRef}
-                    className="w-[340px] h-[520px] bg-white rounded-xl shadow-2xl overflow-hidden relative border border-gray-200"
+                    className="w-[340px] h-[520px] bg-white rounded-xl overflow-hidden relative border border-gray-200"
                   >
          
                     <div className="relative h-40 bg-gradient-to-br from-blue-600 to-blue-800 p-5 text-white">
@@ -752,7 +752,7 @@ const EditUserPage = () => {
                     </div>
 
                     <div className="relative -mt-16 flex justify-center">
-                      <div className="w-32 h-32 bg-white p-1 shadow-lg rounded-full border-4 border-white">
+                      <div className="w-32 h-32 bg-white p-1 rounded-full border-4 border-white">
                         {user.photo ? (
                           <img
                             src={user.photo}
@@ -778,7 +778,7 @@ const EditUserPage = () => {
                     </div>
 
                     <div className="mt-6 px-6">
-                      <div className="bg-gray-50 p-4 rounded-lg shadow-sm text-sm">
+                      <div className="bg-gray-50 p-4 rounded-lg text-sm">
                         <div className="grid grid-cols-2 gap-3">
              
                           <div>
@@ -828,7 +828,7 @@ const EditUserPage = () => {
                   </div>
                   <div
                     ref={backRef}
-                    className="w-[340px] h-[520px] bg-white rounded-xl shadow-2xl overflow-hidden relative border border-gray-200"
+                    className="w-[340px] h-[520px] bg-white rounded-xl overflow-hidden relative border border-gray-200"
                   >
           
                     <div className="h-20 bg-blue-600 text-white flex items-center justify-center">
@@ -906,7 +906,7 @@ const EditUserPage = () => {
   
       {credentialsModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+          <div className="bg-white rounded-xl max-w-md w-full">
             <div className="p-6 border-b border-gray-100">
               <h2 className="text-xl font-bold text-gray-900 flex items-center">
                 <FaKey className="mr-2 text-blue-600" />
@@ -956,7 +956,7 @@ const EditUserPage = () => {
               <button
                 type="button"
                 onClick={closeCredentialsModal}
-                className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Continue
               </button>

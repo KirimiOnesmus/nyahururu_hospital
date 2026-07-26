@@ -104,7 +104,7 @@ const PaymentModal = ({ research, onClose, onSuccess }) => {
       }
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md 
+        className="bg-white rounded-2xl w-full max-w-md 
       p-8 relative animate-slideUp"
       >
         {step === "form" && (
@@ -200,7 +200,7 @@ const PaymentModal = ({ research, onClose, onSuccess }) => {
               onClick={handlePay}
               className="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700
                text-white font-bold py-3.5 rounded-xl transition-all duration-200
-                hover:-translate-y-0.5 shadow-sm hover:shadow-md flex items-center 
+                hover:-translate-y-0.5 flex items-center 
                 justify-center gap-2 text-base cursor-pointer"
             >
               <FaMobileAlt />
@@ -225,7 +225,7 @@ const ResearchCard = ({ item, onDownload }) => {
   return (
     <div
       className="bg-white rounded-xl border border-gray-100
-     shadow-sm hover:shadow-md transition-all duration-200
+     transition-all duration-200
       flex flex-col"
     >
       <div className="p-6 flex flex-col gap-3 flex-grow">
@@ -297,7 +297,7 @@ const ResearchCard = ({ item, onDownload }) => {
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700
            active:bg-blue-800 text-white text-sm font-bold px-6 py-2 cursor-pointer
            rounded-lg transition-all duration-200 hover:-translate-y-0.5 
-           shadow-sm hover:shadow-md"
+          "
         >
           <FaDownload className="text-xs" />
           KES {item.downloadPrice}
@@ -308,7 +308,7 @@ const ResearchCard = ({ item, onDownload }) => {
 };
 
 const SkeletonCard = () => (
-  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-3 animate-pulse">
+  <div className="bg-white rounded-xl border border-gray-100 p-6 space-y-3 animate-pulse">
     <div className="flex justify-between">
       <div className="h-5 w-24 bg-gray-100 rounded-full" />
       <div className="h-4 w-10 bg-gray-100 rounded" />
@@ -402,7 +402,7 @@ const PublicResearch = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-      <div className="sticky top-0 z-50 bg-white/60 backdrop-blur-md shadow-sm">
+      <div className="sticky top-0 z-50 bg-white/60 backdrop-blur-md">
         <Header />
       </div>
 
@@ -441,13 +441,13 @@ const PublicResearch = () => {
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-11 pr-4 py-4 rounded-xl bg-white text-gray-800
                  placeholder-gray-400 text-base focus:outline-none focus:ring-2 
-                 focus:ring-green-300 shadow-md transition-all duration-200"
+                 focus:ring-green-300 transition-all duration-200"
               />
             </div>
           </div>
         </section>
 
-        <section className="bg-white border-b border-gray-100 shadow-sm">
+        <section className="bg-white border-b border-gray-100">
           <div
             className="max-w-6xl mx-auto py-4 md:flex 
            items-center gap-6 justify-end px-6 "

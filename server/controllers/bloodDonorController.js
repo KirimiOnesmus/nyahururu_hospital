@@ -5,7 +5,7 @@ const logger = require("../utils/logger");
 const { BloodDonor, sequelize } = require("../sequelize/models");
 const emailService = require("../utils/emailServices");
 
-// Register donor (public)
+
 exports.registerDonor = async (req, res) => {
   try {
     const {
@@ -21,9 +21,6 @@ exports.registerDonor = async (req, res) => {
       });
     }
 
-    // Duplicate check against email OR nationalId. Explicit "which one
-    // matched" branch preserves the specific 400 message the frontend
-    // relies on to know which field to highlight.
     const existingDonor = await BloodDonor.findOne({
       where: {
         [Op.or]: [{ email }, { nationalId }],
@@ -40,10 +37,7 @@ exports.registerDonor = async (req, res) => {
       });
     }
 
-    // Use the model's static helper — retries donorId generation up to
-    // 5× on the astronomically-rare collision with an existing donor
-    // ID. The beforeCreate hook that assigns the ID is idempotent, so
-    // the retry is safe.
+
     const donor = await BloodDonor.createWithUniqueId({
       fullName,
       email,
@@ -150,22 +144,19 @@ exports.updateDonor = async (req, res) => {
     const { donorId } = req.params;
     const updates = { ...req.body };
 
-    // Immutable-post-registration fields — dropping before applying keeps
-    // consent audit fields and IDs stable even if the frontend
-    // accidentally sends them.
+
     delete updates.donorId;
     delete updates.createdAt;
     delete updates.nationalId;
     delete updates.email;
-    delete updates.id; // never allow PK overwrite
+    delete updates.id; 
 
     const donor = await BloodDonor.findOne({ where: { donorId } });
     if (!donor) {
       return res.status(404).json({ success: false, message: "Donor not found" });
     }
 
-    // .set + .save so model validators + hooks fire like Mongoose's
-    // `runValidators: true`.
+
     donor.set(updates);
     await donor.save();
 
@@ -270,10 +261,7 @@ exports.getUpcomingDonations = async (req, res) => {
 
 exports.getDonationStats = async (req, res) => {
   try {
-    // Mongo's `aggregate + $group + $sort` becomes Sequelize's
-    // findAll + attributes + group + order. The response shape from the
-    // Mongoose version used `_id` as the grouped-key column; keeping
-    // that mapping so the frontend contract doesn't change.
+
     const [byBloodGroup, byStatus, byGender, totalDonors] = await Promise.all([
       BloodDonor.findAll({
         attributes: [
@@ -303,7 +291,7 @@ exports.getDonationStats = async (req, res) => {
       BloodDonor.count(),
     ]);
 
-    // Reshape to preserve the { _id, count } contract from Mongoose.
+
     const mapRows = (rows, groupField) =>
       rows.map((r) => ({ _id: r[groupField], count: Number(r.count) }));
 

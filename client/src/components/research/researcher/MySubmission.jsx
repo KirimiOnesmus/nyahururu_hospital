@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import notify from "../../../common/utils/notify";
 import {
   FaFlask, FaFileAlt, FaClipboardCheck, FaCertificate, FaExclamationTriangle,
   FaEye, FaEdit, FaRedo, FaCheckCircle, FaEllipsisV, FaChevronLeft,
@@ -8,10 +8,7 @@ import {
 } from "react-icons/fa";
 import * as research from "../../../api/research";
 
-// ─── Constants & mappings ───────────────────────────────────────────────────
-// Mirrors ResearcherDashboard's STATUS_CONFIG/lifecyclePercent exactly, so a
-// paper's progress reads the same on the dashboard cards and in this table.
-// (No shared/ folder per project convention — kept in sync by hand.)
+
 const STATUS_CONFIG = {
   approved:  { label: "Approved",        cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
   pending:   { label: "Under Review",    cls: "bg-blue-50 text-blue-700 border-blue-200" },
@@ -52,7 +49,7 @@ const SORTS = [
   { id: "oldest", label: "Submission Date: Oldest" },
 ];
 
-//  Local building blocks
+
 const PageSpinner = ({ label = "Loading…" }) => (
   <div className="flex flex-col items-center justify-center py-16 gap-3">
     <div className="w-10 h-10 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
@@ -89,7 +86,6 @@ const StatCard = ({ icon: Icon, badge, badgeCls, value, label, iconBg, iconColor
   </div>
 );
 
-//  Actions cell
 
 const ActionsCell = ({ item, onView, onResubmit, onSubmitFinal }) => {
   const canSubmitFinal = item.stage === "proposal" && item.status === "approved";
@@ -118,7 +114,7 @@ const ActionsCell = ({ item, onView, onResubmit, onSubmitFinal }) => {
   );
 };
 
-// ─── Row ──────────────────────────────────────────────────────────────────────
+
 const SubmissionRow = ({ item, onView, onResubmit, onSubmitFinal }) => {
   const sc = STATUS_CONFIG[item.status] || STATUS_CONFIG.pending;
   const percent = lifecyclePercent(item);
@@ -164,7 +160,7 @@ const SubmissionRow = ({ item, onView, onResubmit, onSubmitFinal }) => {
   );
 };
 
-// ─── My Submissions page ─────────────────────────────────────────────────────
+
 const MySubmissions = () => {
   const navigate = useNavigate();
 
@@ -180,7 +176,7 @@ const MySubmissions = () => {
       const res = await research.getMyResearch();
       setPapers(Array.isArray(res.papers) ? res.papers : []);
     } catch {
-      toast.error("Failed to load your submissions");
+      notify.error("Failed to load your submissions");
     } finally {
       setLoading(false);
     }
@@ -188,7 +184,7 @@ const MySubmissions = () => {
 
   useEffect(() => { load(); }, [load]);
 
-  // Filtering + sorting happen client-side, same pattern as ResearcherDashboard.
+
   const filteredSorted = useMemo(() => {
     let list = status === "all" ? papers : papers.filter((p) => p.status === status);
     list = [...list].sort((a, b) => {
@@ -198,7 +194,7 @@ const MySubmissions = () => {
     return list;
   }, [papers, status, sort]);
 
-  // Reset to page 1 whenever the filtered set changes underneath the user.
+
   useEffect(() => { setPage(1); }, [status, sort]);
 
   const totalPages = Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE));
@@ -212,7 +208,7 @@ const MySubmissions = () => {
   }), [papers]);
 
   const handleView = (item) => navigate(`/research/dashboard/view/${item.id}`);
-  const handleResubmit = (item) => navigate(`/research/dashboard/view/${item.id}`); // resubmit modal lives on the detail page
+  const handleResubmit = (item) => navigate(`/research/dashboard/view/${item.id}`); 
   const handleSubmitFinal = (item) => navigate(`/research/dashboard/submit-final/${item.id}`);
   const handleNewProposal = () => navigate("/research/dashboard/submit-proposal");
 
@@ -236,13 +232,13 @@ const MySubmissions = () => {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
+  
       <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
         Resources <span className="text-slate-300 mx-1">/</span>
         <span className="text-blue-700">My Submissions</span>
       </p>
 
-      {/* Header */}
+
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
@@ -267,7 +263,7 @@ const MySubmissions = () => {
         </div>
       </div>
 
-      {/* Stat cards */}
+
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={FaFileAlt} value={stats.total} label="Total Submissions"
           badge="ALL TIME" badgeCls="bg-slate-100 text-slate-500"
@@ -283,7 +279,7 @@ const MySubmissions = () => {
           iconBg="bg-red-50" iconColor="text-red-500" />
       </div>
 
-      {/* Filters + table */}
+
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center gap-3 justify-between">
           <div className="flex items-center gap-3 flex-wrap">
@@ -354,7 +350,7 @@ const MySubmissions = () => {
           </div>
         )}
 
-        {/* Pagination footer */}
+   
         {!loading && filteredSorted.length > 0 && (
           <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between
             bg-slate-50 flex-wrap gap-3">

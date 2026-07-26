@@ -15,7 +15,11 @@ import {
   FaInbox,
 } from "react-icons/fa";
 import { MdDelete, MdOutlineMarkEmailRead } from "react-icons/md";
-import { toast } from "react-toastify";
+import notify from "../../common/utils/notify";
+import {
+  Avatar, DataTable, Modal, Button, SearchBox, Spinner, EmptyState,
+  StatCard, StatusBadge as SharedStatusBadge, PageHeader,
+} from "../../common/components";
 
 const truncate = (str, n = 80) =>
   str && str.length > n ? str.slice(0, n) + "…" : str;
@@ -47,7 +51,7 @@ const STATUS_META = {
   },
 };
 
-const StatusBadge = ({ status }) => {
+const LocalStatusBadge = ({ status }) => {
   const key = status === "handled" ? "handled" : "pending";
   const m = STATUS_META[key];
   return (
@@ -78,7 +82,7 @@ const FeedbackPage = () => {
       setFeedbackList(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Error fetching feedback:", err);
-      toast.error("Error fetching feedback");
+      notify.error("Error fetching feedback");
     } finally {
       setLoading(false);
     }
@@ -113,7 +117,7 @@ const FeedbackPage = () => {
     if (!window.confirm("Delete this feedback?")) return;
     try {
       await api.delete(`/feedback/${id}`);
-      toast.success("Feedback deleted");
+      notify.success("Feedback deleted");
       if (selectedFeedback?.id === id) {
         setViewModalOpen(false);
         setSelectedFeedback(null);
@@ -121,18 +125,18 @@ const FeedbackPage = () => {
       fetchFeedback();
     } catch (err) {
       console.error("Error deleting feedback:", err);
-      toast.error("Error deleting feedback");
+      notify.error("Error deleting feedback");
     }
   };
 
   const handleMarkHandled = async (id) => {
     try {
       await api.put(`/feedback/${id}/respond`, { status: "handled" });
-      toast.success("Feedback marked as handled");
+      notify.success("Feedback marked as handled");
       fetchFeedback();
     } catch (err) {
       console.error("Error updating status:", err);
-      toast.error("Error updating status");
+      notify.error("Error updating status");
     }
   };
 
@@ -152,7 +156,7 @@ const FeedbackPage = () => {
     e.preventDefault();
 
     if (!replyMessage.trim()) {
-      toast.error("Please enter a reply message");
+      notify.error("Please enter a reply message");
       return;
     }
 
@@ -165,10 +169,10 @@ const FeedbackPage = () => {
       setReplyModalOpen(false);
       setReplyMessage("");
       fetchFeedback();
-      toast.success("Reply sent successfully!");
+      notify.success("Reply sent successfully!");
     } catch (err) {
       console.error("Error sending reply:", err);
-      toast.error("Error sending reply");
+      notify.error("Error sending reply");
     } finally {
       setReplySending(false);
     }
@@ -216,7 +220,7 @@ const FeedbackPage = () => {
           ].map(({ label, value, color, icon: Icon }) => (
             <div
               key={label}
-              className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm"
+              className="bg-white rounded-xl p-5 border border-gray-100"
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -235,7 +239,7 @@ const FeedbackPage = () => {
           ))}
         </div>
 
-        <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm mb-4">
+        <div className="bg-white rounded-xl p-4 border border-gray-100 mb-4">
           <div className="flex flex-col md:flex-row gap-3">
             <div className="flex-1 relative">
               <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
@@ -301,7 +305,7 @@ const FeedbackPage = () => {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
           {loading ? (
             <div className="p-12 text-center">
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto" />
@@ -329,114 +333,59 @@ const FeedbackPage = () => {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
-                    {["User", "Message", "Status", "Date", ""].map((h) => (
-                      <th
-                        key={h}
-                        className={`px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider ${
-                          h ? "text-left" : "text-right"
-                        }`}
-                      >
-                        {h || "Actions"}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {filtered.map((fb) => (
-                    <tr
-                      key={fb.id}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                            {(fb.name || "?").charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-gray-900 truncate">
-                              {fb.name || "Anonymous"}
-                            </p>
-                            <p className="text-xs text-gray-400 truncate">
-                              {fb.email}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="px-5 py-4 max-w-xs">
-                        <p className="text-gray-700 text-xs leading-relaxed">
-                          {truncate(fb.message, 90)}
+            <DataTable
+              columns={[
+                {
+                  key: "user", label: "User",
+                  render: (fb) => (
+                    <div className="flex items-center gap-3">
+                      <Avatar name={fb.name || "?"} />
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900 truncate">{fb.name || "Anonymous"}</p>
+                        <p className="text-xs text-gray-400 truncate">{fb.email}</p>
+                      </div>
+                    </div>
+                  ),
+                },
+                {
+                  key: "message", label: "Message",
+                  render: (fb) => (
+                    <div className="max-w-xs">
+                      <p className="text-gray-700 text-xs leading-relaxed">{truncate(fb.message, 90)}</p>
+                      {fb.response && (
+                        <p className="text-xs text-blue-600 mt-1 truncate">
+                          <span className="font-semibold">Reply:</span> {truncate(fb.response, 60)}
                         </p>
-                        {fb.response && (
-                          <p className="text-xs text-blue-600 mt-1 truncate">
-                            <span className="font-semibold">Reply:</span>{" "}
-                            {truncate(fb.response, 60)}
-                          </p>
-                        )}
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <StatusBadge status={fb.status} />
-                      </td>
-
-                      <td className="px-5 py-4 text-xs text-gray-500 whitespace-nowrap">
-                        {formatDate(fb.createdAt)}
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => openViewModal(fb)}
-                            className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 cursor-pointer transition-colors"
-                            title="View details"
-                          >
-                            <FaEye className="text-sm" />
-                          </button>
-
-                          {fb.status !== "handled" && (
-                            <button
-                              onClick={() => handleMarkHandled(fb.id)}
-                              className="p-2 rounded-lg text-green-600 hover:bg-green-50 cursor-pointer transition-colors"
-                              title="Mark as handled"
-                            >
-                              <FaCheckCircle className="text-sm" />
-                            </button>
-                          )}
-
-                          <button
-                            onClick={() => openReplyModal(fb)}
-                            className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 cursor-pointer transition-colors"
-                            title={fb.response ? "Update reply" : "Send reply"}
-                          >
-                            <MdOutlineMarkEmailRead className="text-base" />
-                          </button>
-
-                          <button
-                            onClick={() => handleDelete(fb.id)}
-                            className="p-2 rounded-lg text-red-500 hover:bg-red-50 cursor-pointer transition-colors"
-                            title="Delete"
-                          >
-                            <MdDelete className="text-base" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      )}
+                    </div>
+                  ),
+                },
+                { key: "status", label: "Status", render: (fb) => <LocalStatusBadge status={fb.status} /> },
+                { key: "date", label: "Date", render: (fb) => <span className="text-xs text-gray-500 whitespace-nowrap">{formatDate(fb.createdAt)}</span> },
+                {
+                  key: "actions", label: "Actions", align: "right",
+                  render: (fb) => (
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => openViewModal(fb)} className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 cursor-pointer transition-colors" title="View details"><FaEye className="text-sm" /></button>
+                      {fb.status !== "handled" && (
+                        <button onClick={() => handleMarkHandled(fb.id)} className="p-2 rounded-xl text-green-600 hover:bg-green-50 cursor-pointer transition-colors" title="Mark as handled"><FaCheckCircle className="text-sm" /></button>
+                      )}
+                      <button onClick={() => openReplyModal(fb)} className="p-2 rounded-xl text-blue-600 hover:bg-blue-50 cursor-pointer transition-colors" title={fb.response ? "Update reply" : "Send reply"}><MdOutlineMarkEmailRead className="text-base" /></button>
+                      <button onClick={() => handleDelete(fb.id)} className="p-2 rounded-xl text-red-500 hover:bg-red-50 cursor-pointer transition-colors" title="Delete"><MdDelete className="text-base" /></button>
+                    </div>
+                  ),
+                },
+              ]}
+              data={filtered}
+              rowKey={(fb) => fb.id}
+            />
           )}
         </div>
       </div>
 
-      {/* ── VIEW MODAL ── */}
       {viewModalOpen && selectedFeedback && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="bg-blue-700 px-6 py-5 rounded-t-2xl">
               <div className="flex items-start justify-between">
                 <div>
@@ -480,12 +429,11 @@ const FeedbackPage = () => {
                     </p>
                   </div>
                   <div className="ml-auto">
-                    <StatusBadge status={selectedFeedback.status} />
+                    <LocalStatusBadge status={selectedFeedback.status} />
                   </div>
                 </div>
               </div>
 
-              {/* subject */}
               {selectedFeedback.subject && (
                 <div>
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
@@ -575,11 +523,11 @@ const FeedbackPage = () => {
         </div>
       )}
 
-      {/* ── REPLY MODAL ── */}
+   
       {replyModalOpen && selectedFeedback && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+            className="bg-white rounded-2xl w-full max-w-lg overflow-hidden"
             style={{
               animation: "modalPop .25s cubic-bezier(.34,1.56,.64,1) both",
             }}
@@ -667,19 +615,6 @@ const FeedbackPage = () => {
           </div>
         </div>
       )}
-
-      <style>{`
-        @keyframes modalPop {
-          from { opacity: 0; transform: scale(0.93) translateY(12px); }
-          to   { opacity: 1; transform: scale(1)    translateY(0);    }
-        }
-        .line-clamp-3 {
-          display: -webkit-box;
-          -webkit-line-clamp: 3;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-      `}</style>
     </div>
   );
 };

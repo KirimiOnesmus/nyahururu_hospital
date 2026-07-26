@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
+import { useSocket } from "../../api/socket";
 import api from "../../api/axios";
 import { MdDelete, MdCheckCircle, MdVisibility } from "react-icons/md";
 import {
@@ -13,7 +14,10 @@ import {
   FaFileAlt,
   FaStickyNote,
 } from "react-icons/fa";
-import { toast } from "react-toastify";
+import notify from "../../common/utils/notify";
+import {
+  Modal, Spinner, EmptyState, StatCard, Button, SearchBox, Input, TextArea, Select, FormField, PageHeader, StatusBadge as SharedStatusBadge, Avatar, DataTable,
+} from "../../common/components";
 
 const STATUS_CONFIG = {
   reviewed: {
@@ -46,23 +50,9 @@ const fmtDate = (
   opts = { day: "2-digit", month: "short", year: "numeric" },
 ) => (d ? new Date(d).toLocaleDateString("en-KE", opts) : "—");
 
-const StatCard = ({ label, value, accent, icon: Icon }) => (
-  <div className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
-    <div
-      className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${accent.bg}`}
-    >
-      <Icon className={`text-xl ${accent.icon}`} />
-    </div>
-    <div>
-      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-        {label}
-      </p>
-      <p className={`text-2xl font-black ${accent.num}`}>{value ?? 0}</p>
-    </div>
-  </div>
-);
 
-const StatusBadge = ({ status }) => {
+
+const LocalStatusBadge = ({ status }) => {
   const c = scfg(status);
   const Icon = c.icon;
   return (
@@ -75,41 +65,6 @@ const StatusBadge = ({ status }) => {
     </span>
   );
 };
-
-const Spinner = () => (
-  <div className="flex flex-col items-center justify-center py-20 gap-3">
-    <div className="w-10 h-10 border-2 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
-    <p className="text-sm text-gray-400">Loading reports…</p>
-  </div>
-);
-
-const Empty = ({ text }) => (
-  <div className="flex flex-col items-center justify-center py-20 gap-3">
-    <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center">
-      <FaShieldAlt className="text-2xl text-gray-300" />
-    </div>
-    <p className="text-sm text-gray-400">{text}</p>
-  </div>
-);
-
-const Modal = ({ open, onClose, children, maxW = "max-w-3xl" }) => {
-  if (!open) return null;
-  return (
-    <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      onClick={onClose}
-    >
-      <div
-        className={`bg-white rounded-2xl shadow-2xl w-full ${maxW} max-h-[90vh] overflow-y-auto`}
-        style={{ animation: "modalPop .22s cubic-bezier(.34,1.56,.64,1) both" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {children}
-      </div>
-    </div>
-  );
-};
-
 const FraudPage = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -124,7 +79,7 @@ const FraudPage = () => {
       const res = await api.get("/fraud");
       setReports(Array.isArray(res.data) ? res.data : res.data.data || []);
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error fetching reports");
+      notify.error(err.response?.data?.message || "Error fetching reports");
       setReports([]);
     } finally {
       setLoading(false);
@@ -169,9 +124,9 @@ const FraudPage = () => {
 
       setReports((prev) => prev.filter((r) => r.id !== id));
       if (selectedReport?.id === id) setModalOpen(false);
-      toast.success("Report deleted");
+      notify.success("Report deleted");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error deleting report");
+      notify.error(err.response?.data?.message || "Error deleting report");
     }
   };
 
@@ -188,9 +143,9 @@ const FraudPage = () => {
       );
       if (selectedReport?.id === id)
         setSelectedReport((p) => ({ ...p, ...updated }));
-      toast.success("Marked as reviewed");
+      notify.success("Marked as reviewed");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error updating report");
+      notify.error(err.response?.data?.message || "Error updating report");
     }
   };
 
@@ -201,14 +156,6 @@ const FraudPage = () => {
 
   return (
     <div className="min-h-screen bg-[#f8f7f5]">
-      <style>{`
-        @keyframes modalPop {
-          from { opacity:0; transform:scale(0.94) translateY(10px); }
-          to   { opacity:1; transform:scale(1)    translateY(0);    }
-        }
-        .fade-up { animation: fadeUp .3s ease both; }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-      `}</style>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
         <div className="flex items-center gap-3 mb-8 fade-up">
@@ -268,7 +215,7 @@ const FraudPage = () => {
           />
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-5 flex flex-col md:flex-row gap-3">
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-5 flex flex-col md:flex-row gap-3">
           <div className="relative flex-1">
             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm" />
             <input
@@ -307,11 +254,11 @@ const FraudPage = () => {
           )}
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           {loading ? (
             <Spinner />
           ) : filtered.length === 0 ? (
-            <Empty
+            <EmptyState
               text={
                 search || filterStatus !== "all"
                   ? "No reports match your filters"
@@ -319,107 +266,49 @@ const FraudPage = () => {
               }
             />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
-                    {[
-                      "Issue",
-                      "Location",
-                      "Date Reported",
-                      "Status",
-                      "Actions",
-                    ].map((h, i) => (
-                      <th
-                        key={h}
-                        className={`px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider ${i === 4 ? "text-right" : "text-left"}`}
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {filtered.map((r) => (
-                    <tr
-                      key={r.id}
-                      className="hover:bg-gray-50/80 transition-colors group"
-                    >
-                      <td className="px-5 py-4 max-w-xs">
-                        <p className="font-semibold text-gray-900 truncate">
-                          {r.issue || "—"}
-                        </p>
-                        {r.details && (
-                          <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-1">
-                            {r.details}
-                          </p>
+            <>
+              <DataTable
+                columns={[
+                  {
+                    key: "issue", label: "Issue",
+                    render: (r) => (
+                      <div className="max-w-xs">
+                        <p className="font-semibold text-gray-900 truncate">{r.issue || "—"}</p>
+                        {r.details && <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-1">{r.details}</p>}
+                      </div>
+                    ),
+                  },
+                  {
+                    key: "location", label: "Location",
+                    render: (r) => <span className="flex items-center gap-1.5 text-xs text-gray-600"><FaMapMarkerAlt className="text-gray-300 shrink-0" />{r.location || "—"}</span>,
+                  },
+                  {
+                    key: "date", label: "Date Reported",
+                    render: (r) => <span className="flex items-center gap-1.5 text-xs text-gray-600"><FaCalendarAlt className="text-gray-300 shrink-0" />{fmtDate(r.createdAt)}</span>,
+                  },
+                  { key: "status", label: "Status", render: (r) => <LocalStatusBadge status={r.status || "pending"} /> },
+                  {
+                    key: "actions", label: "Actions", align: "right",
+                    render: (r) => (
+                      <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => openModal(r)} className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 cursor-pointer transition-colors" title="View Details"><MdVisibility className="text-base" /></button>
+                        {r.status !== "reviewed" && (
+                          <button onClick={() => handleMarkReviewed(r.id)} className="p-2 rounded-xl text-emerald-500 hover:bg-emerald-50 cursor-pointer transition-colors" title="Mark as Reviewed"><MdCheckCircle className="text-base" /></button>
                         )}
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <span className="flex items-center gap-1.5 text-xs text-gray-600">
-                          <FaMapMarkerAlt className="text-gray-300 shrink-0" />
-                          {r.location || "—"}
-                        </span>
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <span className="flex items-center gap-1.5 text-xs text-gray-600">
-                          <FaCalendarAlt className="text-gray-300 shrink-0" />
-                          {fmtDate(r.createdAt)}
-                        </span>
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <StatusBadge status={r.status || "pending"} />
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => openModal(r)}
-                            className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 cursor-pointer transition-colors"
-                            title="View Details"
-                          >
-                            <MdVisibility className="text-base" />
-                          </button>
-                          {r.status !== "reviewed" && (
-                            <button
-                              onClick={() => handleMarkReviewed(r.id)}
-                              className="p-2 rounded-xl text-emerald-500 hover:bg-emerald-50 cursor-pointer transition-colors"
-                              title="Mark as Reviewed"
-                            >
-                              <MdCheckCircle className="text-base" />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleDelete(r.id)}
-                            className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer transition-colors"
-                            title="Delete"
-                          >
-                            <MdDelete className="text-base" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/60">
+                        <button onClick={() => handleDelete(r.id)} className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer transition-colors" title="Delete"><MdDelete className="text-base" /></button>
+                      </div>
+                    ),
+                  },
+                ]}
+                data={filtered}
+                rowKey={(r) => r.id}
+              />
+              <div className="px-5 py-3 border-t border-gray-100 bg-white rounded-b-2xl">
                 <p className="text-xs text-gray-400">
-                  Showing{" "}
-                  <span className="font-semibold text-gray-600">
-                    {filtered.length}
-                  </span>{" "}
-                  of{" "}
-                  <span className="font-semibold text-gray-600">
-                    {reports.length}
-                  </span>{" "}
-                  reports
+                  Showing <span className="font-semibold text-gray-600">{filtered.length}</span> of <span className="font-semibold text-gray-600">{reports.length}</span> reports
                 </p>
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>
@@ -439,7 +328,7 @@ const FraudPage = () => {
                     {selectedReport.issue || "Untitled Report"}
                   </h3>
                   <div className="mt-2">
-                    <StatusBadge status={selectedReport.status || "pending"} />
+                    <LocalStatusBadge status={selectedReport.status || "pending"} />
                   </div>
                 </div>
                 <button
@@ -529,7 +418,7 @@ const FraudPage = () => {
                 {selectedReport.status !== "reviewed" && (
                   <button
                     onClick={() => handleMarkReviewed(selectedReport.id)}
-                    className="flex items-center gap-2 px-5 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 cursor-pointer transition-colors shadow-sm"
+                    className="flex items-center gap-2 px-5 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 cursor-pointer transition-colors"
                   >
                     <MdCheckCircle /> Mark Reviewed
                   </button>

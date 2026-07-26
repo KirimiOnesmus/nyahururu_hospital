@@ -2,14 +2,7 @@
 
 const { UrgentBloodRequest, User, sequelize } = require("../sequelize/models");
 
-// ── Helpers ─────────────────────────────────────────────────────────
 
-// Mongo could match a single value against an array field (`{ bloodGroups: bloodGroup }`)
-// because it does the "any element equals" test transparently. MySQL
-// stores bloodGroups as a JSON array column, so we express the same
-// "contains this element" via JSON_CONTAINS. The blood group is a
-// tightly-controlled enum ("O+" etc), but we still funnel through
-// sequelize.escape as a safety net rather than string-concatenating.
 const jsonContainsBloodGroup = (bloodGroup) =>
   sequelize.literal(
     `JSON_CONTAINS(blood_groups, ${sequelize.escape(JSON.stringify(bloodGroup))})`,
@@ -18,8 +11,6 @@ const jsonContainsBloodGroup = (bloodGroup) =>
 const CREATOR_INCLUDE = [
   { model: User, as: "creator", attributes: ["id", "name", "email"] },
 ];
-
-// ── Endpoints ───────────────────────────────────────────────────────
 
 const createUrgentRequest = async (req, res) => {
   try {
@@ -66,9 +57,7 @@ const getAllUrgentRequests = async (req, res) => {
     const { isActive, bloodGroup } = req.query;
     const { Op } = require("sequelize");
 
-    // JSON_CONTAINS is a raw literal that can't participate in the
-    // ordinary field-lookup shape, so we AND-combine everything under
-    // Op.and — one predicate per query param that was actually passed.
+
     const clauses = [];
     if (isActive !== undefined) clauses.push({ isActive: isActive === "true" });
     if (bloodGroup) clauses.push(jsonContainsBloodGroup(bloodGroup));
@@ -108,8 +97,6 @@ const getActiveUrgentRequests = async (req, res) => {
     const urgentRequests = await UrgentBloodRequest.findAll({
       where: { [Op.and]: clauses },
       order: [["createdAt", "DESC"]],
-      // Public endpoint — hide creator/updater FKs like Mongoose's
-      // .select("-createdBy -updatedBy") did.
       attributes: { exclude: ["createdBy", "updatedBy"] },
     });
 
@@ -147,9 +134,7 @@ const updateUrgentRequest = async (req, res) => {
       });
     }
 
-    // JSON column reassignment (never in-place mutation) so Sequelize's
-    // change tracker sees the update. Same pattern applied throughout
-    // the Content-domain cutover.
+
     if (bloodGroups) urgentRequest.bloodGroups = bloodGroups;
     if (message) urgentRequest.message = message;
     if (contactNumber) urgentRequest.contactNumber = contactNumber;

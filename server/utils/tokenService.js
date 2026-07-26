@@ -6,8 +6,7 @@ const crypto = require("crypto");
 const ACCESS_TOKEN_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "1d";
 const REFRESH_TOKEN_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || "7d";
 
-// Cookie options shared between login (set) and logout (clear). `secure`
-// only in production so local http:// dev keeps working.
+
 const cookieOptions = (maxAgeMs) => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
@@ -15,14 +14,10 @@ const cookieOptions = (maxAgeMs) => ({
   maxAge: maxAgeMs,
 });
 
-const ACCESS_COOKIE_MAX_AGE = 24 * 60 * 60 * 1000; // 1d
-const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7d
+const ACCESS_COOKIE_MAX_AGE = 24 * 60 * 60 * 1000; 
+const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; 
 
-// This file signs tokens for both `User` (staff) and `Researcher` — both
-// are Sequelize models with a real numeric `id`, so `user.id` works
-// uniformly for both without a separate branch. (An earlier version of
-// this comment described Researcher as still-Mongoose; that was stale
-// documentation — see audit L-4. The migration for that domain is done.)
+
 const signAccessToken = (user) => {
   const jti = crypto.randomUUID();
   const token = jwt.sign(
@@ -43,7 +38,6 @@ const signRefreshToken = (user) => {
   return { token, jti };
 };
 
-/** Sets the `jwt` (access) and `refreshToken` httpOnly cookies on login. */
 const setAuthCookies = (res, accessToken, refreshToken) => {
   res.cookie("jwt", accessToken, cookieOptions(ACCESS_COOKIE_MAX_AGE));
   res.cookie("refreshToken", refreshToken, cookieOptions(REFRESH_COOKIE_MAX_AGE));

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { toast } from "react-toastify";
+import notify from "../../../common/utils/notify";
 import {
   FaFileInvoiceDollar,
   FaReceipt,
@@ -14,7 +14,7 @@ import {
 } from "react-icons/fa";
 import * as research from "../../../api/research";
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+
 // Payment status is read straight off each research item's payment fields
 
 const PAY_STATUS_CONFIG = {
@@ -50,7 +50,7 @@ const STATUS_FILTERS = [
   { id: "failed", label: "Failed" },
 ];
 
-// ─── Local building blocks ───────────────────────────────────────────────────
+
 const PageSpinner = ({ label = "Loading…" }) => (
   <div className="flex flex-col items-center justify-center py-16 gap-3">
     <div className="w-10 h-10 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
@@ -102,7 +102,7 @@ const StatCard = ({
   </div>
 );
 
-// ─── Payments & Financials page ──────────────────────────────────────────────
+
 const Payments = () => {
   const [papers, setPapers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -115,7 +115,7 @@ const Payments = () => {
       const res = await research.getMyResearch();
       setPapers(Array.isArray(res.papers) ? res.papers : []);
     } catch {
-      toast.error("Failed to load your payment records");
+      notify.error("Failed to load your payment records");
     } finally {
       setLoading(false);
     }
@@ -125,7 +125,6 @@ const Payments = () => {
     load();
   }, [load]);
 
-  // Each paper carries its own one-time payment (per the spec doc, fee is
 
   const transactions = useMemo(
     () =>
@@ -177,17 +176,17 @@ const Payments = () => {
 
   const handleDownloadReceipt = (txn) => {
     if (!txn.receiptNumber) {
-      toast.error("No receipt available for this transaction yet");
+      notify.error("No receipt available for this transaction yet");
       return;
     }
-    toast.success(
+    notify.success(
       `Receipt ${txn.receiptNumber} — check your email for the official PDF`,
     );
   };
 
   const handleDownloadStatement = () => {
     if (transactions.length === 0) {
-      toast.error("No transactions to export yet");
+      notify.error("No transactions to export yet");
       return;
     }
     const rows = transactions.map((t) => ({
@@ -236,7 +235,7 @@ const Payments = () => {
         </button>
       </div>
 
-      {/* Stat cards */}
+
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard
           icon={FaFileInvoiceDollar}
@@ -264,7 +263,7 @@ const Payments = () => {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Transaction history */}
+
         <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
             <h3 className="font-bold text-slate-900 text-base">
@@ -414,7 +413,7 @@ const Payments = () => {
           )}
         </div>
 
-        {/* Sidebar */}
+    
         <div className="space-y-5">
           <div className="bg-white rounded-2xl border border-slate-200 p-5">
             <div className="flex items-center gap-2 mb-3">

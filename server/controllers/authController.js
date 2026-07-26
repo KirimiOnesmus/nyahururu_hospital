@@ -2,6 +2,7 @@ const { User, TokenBlacklist } = require("../sequelize/models");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { AppError, asyncHandler, sendSuccess } = require("../utils/appError");
+const audit = require("../services/auditService");
 const {
   MAX_FAILED_LOGIN_ATTEMPTS,
   LOCK_DURATION_MS,
@@ -13,21 +14,7 @@ const {
   clearAuthCookies,
 } = require("../utils/tokenService");
 
-// C2: authController.register used to be a second, much weaker path to
-// create staff accounts (no role ceiling, no email verification, weaker
-// hashing). It has been removed entirely — POST /api/auth/register now
-// routes straight to the hardened userController.createUser (see
-// routes/authRoutes.js), so there is exactly one code path for account
-// creation.
 
-// C3 fix: the old `console.log(req.body)` here logged plaintext passwords
-// to stdout. Deleted — never log req.body on an auth route.
-//
-// CUTOVER NOTE (Mongo -> MySQL, auth domain): `User` and `TokenBlacklist`
-// are now the Sequelize models from sequelize/models. Query shapes changed
-// (`findOne({email})` -> `findOne({ where: { email } })`, `_id` -> `id`),
-// but the auth logic itself — lockouts, email-verification gate, response
-// shape — is unchanged.
 exports.login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
@@ -37,18 +24,22 @@ exports.login = asyncHandler(async (req, res) => {
 
   const user = await User.findOne({ where: { email: email.toLowerCase() } });
 
-  // H2: identical response for "no such user" and "wrong password" so the
-  // client can't distinguish account existence. Also run a dummy bcrypt
-  // compare when the user doesn't exist so both branches take a similar
-  // amount of time (mitigates timing-based enumeration).
   const genericError = () => new AppError("Invalid email or password.", 401);
 
   if (!user) {
     await bcrypt.compare(password, "$2a$12$invalidsaltinvalidsaltinvalidsal");
+    audit.log({
+      req,
+      action: "login_failed",
+      resource: "User",
+      description: "Authentication failed — unknown email",
+      severity: "high",
+      actor: { userId: null, userName: null, userEmail: email, userRole: null },
+    });
     throw genericError();
   }
 
-  // H3: per-account lockout after repeated failed attempts.
+
   if (user.lockUntil && user.lockUntil > Date.now()) {
     const minutesLeft = Math.ceil((user.lockUntil - Date.now()) / 60000);
     throw new AppError(
@@ -60,18 +51,27 @@ exports.login = asyncHandler(async (req, res) => {
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) {
     user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
-    if (user.failedLoginAttempts >= MAX_FAILED_LOGIN_ATTEMPTS) {
+    const locked = user.failedLoginAttempts >= MAX_FAILED_LOGIN_ATTEMPTS;
+    if (locked) {
       user.lockUntil = new Date(Date.now() + LOCK_DURATION_MS);
       user.failedLoginAttempts = 0;
     }
     await user.save();
+    audit.log({
+      req,
+      action: "login_failed",
+      resource: "User",
+      resourceId: user.id,
+      description: locked
+        ? `Account locked after repeated failures — ${user.email}`
+        : `Invalid password — ${user.email}`,
+      severity: locked ? "critical" : "high",
+      actor: { userId: user.id, userName: user.name, userEmail: user.email, userRole: user.role },
+    });
     throw genericError();
   }
 
-  // C1: login now requires a verified email, closing the window where a
-  // newly-created account (system-generated temp password, see
-  // userController.createUser) could be logged into by anyone who guessed
-  // the old hardcoded default before the real owner ever verified.
+
   if (!user.emailVerified) {
     throw new AppError(
       "Please verify your email before logging in. Check your inbox for the verification link.",
@@ -83,7 +83,6 @@ exports.login = asyncHandler(async (req, res) => {
     throw new AppError("Your account has been deactivated. Contact an administrator.", 403);
   }
 
-  // Successful login: reset lockout counters.
   user.failedLoginAttempts = 0;
   user.lockUntil = null;
   await user.save();
@@ -91,10 +90,17 @@ exports.login = asyncHandler(async (req, res) => {
   const { token: accessToken } = signAccessToken(user);
   const { token: refreshToken } = signRefreshToken(user);
 
-  // Issue both a bearer token (for the existing frontend Authorization
-  // header flow) and httpOnly cookies (so the frontend can migrate off
-  // localStorage — see the frontend security review, FC1).
+
   setAuthCookies(res, accessToken, refreshToken);
+
+  audit.log({
+    req,
+    action: "login",
+    resource: "User",
+    resourceId: user.id,
+    description: `${user.name || user.email} logged in`,
+    severity: "info",
+  });
 
   return sendSuccess(res, 200, "Login successful", {
     token: accessToken,
@@ -107,9 +113,7 @@ exports.login = asyncHandler(async (req, res) => {
   });
 });
 
-// M-1: lets the frontend confirm "am I logged in, and as whom" using the
-// httpOnly `jwt` cookie alone — no need to keep the raw token readable in
-// localStorage just to answer that question client-side.
+
 exports.me = asyncHandler(async (req, res) => {
   return sendSuccess(res, 200, "OK", {
     user: {
@@ -121,16 +125,9 @@ exports.me = asyncHandler(async (req, res) => {
   });
 });
 
-// H5: staff previously had no way to revoke a token before its natural
-// expiry. This blacklists the current access token's jti (and, if sent,
-// the refresh token's jti) so it's rejected by verifyToken even though it
-// hasn't technically expired yet.
-//
-// CUTOVER NOTE: Mongoose's `updateOne({ jti }, { ... }, { upsert: true })`
-// becomes Sequelize's `upsert()`, which inserts-or-updates on the unique
-// `jti` column in one call.
+
 exports.logout = asyncHandler(async (req, res) => {
-  const decoded = req.decodedToken; // set by verifyToken
+  const decoded = req.decodedToken; 
   if (decoded?.jti && decoded?.exp) {
     await TokenBlacklist.upsert({
       jti: decoded.jti,
@@ -154,12 +151,19 @@ exports.logout = asyncHandler(async (req, res) => {
   }
 
   clearAuthCookies(res);
+
+  audit.log({
+    req,
+    action: "logout",
+    resource: "User",
+    description: "User session ended",
+    severity: "info",
+  });
+
   return sendSuccess(res, 200, "Logged out successfully");
 });
 
-// H5: refresh-token rotation. Issues a new access token (and a new
-// refresh token, invalidating the old one) from a valid, non-blacklisted
-// refresh token.
+
 exports.refresh = asyncHandler(async (req, res) => {
   const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
   if (!refreshToken) throw new AppError("No refresh token provided.", 401);
@@ -183,7 +187,7 @@ exports.refresh = asyncHandler(async (req, res) => {
     throw new AppError("Account not found or deactivated.", 401);
   }
 
-  // Rotate: blacklist the used refresh token, issue a fresh pair.
+
   await TokenBlacklist.upsert({
     jti: decoded.jti,
     expiresAt: new Date(decoded.exp * 1000),

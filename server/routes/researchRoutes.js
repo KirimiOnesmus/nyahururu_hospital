@@ -63,7 +63,7 @@ const requireReviewerOrCommittee = [
   },
 ];
 
-// ── File upload config ────────────────────────────────────────────────────────
+//  File upload config 
 const uploadProposal   = upload("proposal").any();
 const uploadProgress   = upload("progress").any();
 const uploadFinalPaper = upload("final_paper").any();

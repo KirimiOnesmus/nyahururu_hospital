@@ -1,3 +1,4 @@
+const emitChange = require("../utils/emitChange");
 "use strict";
 
 const { Op } = require("sequelize");
@@ -34,8 +35,7 @@ exports.getEventById = async (req, res) => {
 
 exports.getUpcomingEvents = async (req, res) => {
   try {
-    // $gte → Op.gte; ascending order preserved so callers can render a
-    // "next event" ribbon by taking the first result.
+
     const events = await Event.findAll({
       where: { date: { [Op.gte]: new Date() } },
       order: [["date", "ASC"]],
@@ -54,9 +54,7 @@ exports.createEvent = async (req, res) => {
     if (!title) return res.status(400).json({ message: "Title is required" });
 
     const imageUrl = req.file ? `/uploads/events/${req.file.filename}` : null;
-    // Frontend sends `venue`, model stores `location` — same field, kept
-    // the rename here rather than in the model to preserve the API
-    // contract for the client.
+
     const newEvent = await Event.create({
       title,
       description,
@@ -65,6 +63,7 @@ exports.createEvent = async (req, res) => {
       imageUrl,
     });
     res.status(201).json({ message: "Event created successfully", newEvent });
+    emitChange("events", "created", { id: newEvent.id });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
@@ -79,9 +78,6 @@ exports.updateEvent = async (req, res) => {
     const updateData = { title, description, date, location: venue };
     if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
 
-    // Sequelize has no `findByIdAndUpdate` — the equivalent is find → set
-    // → save, which lets model-level validators + hooks fire the same
-    // way they did under Mongoose's { runValidators: true }.
     const event = await Event.findByPk(req.params.id);
     if (!event) return res.status(404).json({ message: "Event not found" });
 
@@ -89,6 +85,7 @@ exports.updateEvent = async (req, res) => {
     await event.save();
 
     res.json({ message: "Event updated successfully", updatedEvent: event });
+    emitChange("events", "updated", { id: event.id });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
@@ -102,6 +99,7 @@ exports.deleteEvent = async (req, res) => {
 
     await event.destroy();
     res.json({ message: "Event deleted successfully" });
+    emitChange("events", "deleted", { id: req.params.id });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });

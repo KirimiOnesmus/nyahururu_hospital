@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Header, Footer } from "../components/layouts";
+import { Header, Footer } from "../common/layouts";
 import api from "../api/axios";
 import {
   FaFileAlt,
@@ -15,7 +15,7 @@ import {
   FaSpinner,
   FaExclamationTriangle,
 } from "react-icons/fa";
-import { toast } from "react-toastify";
+import notify from "../common/utils/notify";
 
 const EXT_ICONS = {
   pdf: <FaFilePdf className="text-red-500 text-3xl" />,
@@ -215,9 +215,9 @@ const Downloads = () => {
       link.remove();
       window.URL.revokeObjectURL(url);
 
-      toast.success(`"${report.title}" downloaded.`);
+      notify.success(`"${report.title}" downloaded.`);
     } catch {
-      toast.error("Download failed. Please try again.");
+      notify.error("Download failed. Please try again.");
     } finally {
       setDownloading((prev) => ({ ...prev, [report.id]: false }));
     }

@@ -16,7 +16,6 @@ const uploadServices = createUploader("services");
 router.get("/", getAllServices);
 router.get("/:id", getServiceById);
 
-// Protected routes (Admin/IT only)
 router.post(
   "/",
   verifyToken,

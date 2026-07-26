@@ -1,15 +1,10 @@
 const jwt = require("jsonwebtoken");
-// Auth domain: User, TokenBlacklist, and Researcher are all Sequelize
-// models. The Mongo→MySQL cutover for the Researcher domain is complete —
-// see sequelize/models/researcher.js and services/researcherService.js,
-// both pure Sequelize (BIGINT.UNSIGNED PK, Op.*, .scope(), .build()). An
-// earlier version of this comment described Researcher as still-Mongoose;
-// that was stale documentation, not current fact (see audit L-4).
+
 const { User, TokenBlacklist, Researcher } = require("../sequelize/models");
 const { AppError, asyncHandler } = require("../utils/appError");
 const { RESEARCHER_ROLES, RESEARCHER_STATUSES } = require("../constants/researchIndex");
 
-//  INTERNAL HELPERS-  Extract Bearer token from Authorization header or jwt cookie.
+
 
 const extractToken = (req) => {
   const authHeader = req.headers.authorization;
@@ -22,10 +17,6 @@ const extractToken = (req) => {
   return null;
 };
 
-//Build a consistent caller identity object used by both - getCallerName and getCallerIdentity.
-
-// Uses `.id` for both branches — the real Sequelize integer PK for both
-// `User` and `Researcher` (both fully migrated; see the note above).
 const buildCallerIdentity = (req) => {
   if (req.researcher) {
     return {
@@ -71,8 +62,6 @@ exports.verifyToken = asyncHandler(async (req, res, next) => {
     throw new AppError("Access denied — researcher token not allowed on staff routes.", 403);
   }
 
-  // H5: reject tokens that were explicitly revoked via /api/auth/logout,
-  // even though they haven't hit their natural expiry yet.
   if (decoded.jti) {
     const blacklisted = await TokenBlacklist.findOne({ where: { jti: decoded.jti } });
     if (blacklisted) throw new AppError("Session expired. Please log in again.", 401);
@@ -83,12 +72,7 @@ exports.verifyToken = asyncHandler(async (req, res, next) => {
 
   if (user.isActive === false) throw new AppError("Your account has been deactivated.", 403);
 
-  // H-3: `mustChangePassword` was previously only honored by the frontend
-  // (redirecting to a change-password screen). That's trivially bypassable
-  // by calling the API directly with the temp/default credentials, so a
-  // never-rotated account (including the seeded superadmin) stayed a fully
-  // valid, unrestricted login forever. Enforce it here instead, allowing
-  // only the endpoints needed to actually change the password or log out.
+
   const MUST_CHANGE_PASSWORD_ALLOWLIST = [
     { method: "POST", path: "/api/profile/change-password" },
     { method: "POST", path: "/api/auth/logout" },
@@ -111,7 +95,7 @@ exports.verifyToken = asyncHandler(async (req, res, next) => {
 // STAFF ROLE GATE
 
 exports.authorizeRoles = (...roles) => (req, res, next) => {
-  // Superadmin always passes
+ 
   if (req.user?.role === "superadmin") return next();
 
   if (!roles.includes(req.user?.role)) {
@@ -135,7 +119,7 @@ exports.protectResearcher = asyncHandler(async (req, res, next) => {
 
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-  // Staff tokens must never reach researcher routes
+ 
   if (decoded.collection !== "researchers") {
     throw new AppError("Access denied — researcher token required.", 403);
   }
@@ -156,7 +140,7 @@ exports.protectResearcher = asyncHandler(async (req, res, next) => {
 
 
 //  RESEARCHER ROLE GATE
-// NOTE: no implicit bypass anymore — Researcher collection no longer has an
+
 exports.authorizeResearcherRoles = (...roles) => (req, res, next) => {
   if (!roles.includes(req.researcher?.role)) {
     return next(
@@ -170,9 +154,7 @@ exports.authorizeResearcherRoles = (...roles) => (req, res, next) => {
 };
 
 // RESEARCH COMMITTEE GATE
-// Use on endpoints reserved for committee oversight (cross-cutting paper
-// visibility, final-paper sign-off). Covers BOTH committee paths: promoted
-// reviewers (role stays REVIEWER, isCommittee=true)
+
 
 exports.protectCommittee = (req, res, next) => {
   if (staffIsAdmin(req)) return next();
@@ -209,7 +191,7 @@ exports.protectEither = asyncHandler(async (req, res, next) => {
 
     req.researcher = researcher;
   } else {
-    // Hospital staff token — Sequelize User now.
+
     const user = await User.findByPk(decoded.id, { attributes: { exclude: ["password"] } });
     if (!user) throw new AppError("User not found.", 401);
     if (user.isActive === false) throw new AppError("Your account has been deactivated.", 403);
@@ -251,7 +233,7 @@ exports.protectReviewers = asyncHandler(async (req, res, next) => {
 
     req.researcher = researcher;
   } else {
-    // Hospital staff token — Sequelize User now.
+   
     const user = await User.findByPk(decoded.id, { attributes: { exclude: ["password"] } });
     if (!user) throw new AppError("User not found.", 401);
 
@@ -289,7 +271,7 @@ exports.optionalResearcher = async (req, res, next) => {
   next();
 };
 
-//RESEARCH ADMIN GUARD- Accepts BOTH hospital staff admins (req.user) AND research admins (req.researcher).
+//RESEARCH ADMIN GUARD
 
 exports.protectResearchAdmin = (req, res, next) => {
   if (staffIsAdmin(req)) return next();
@@ -315,7 +297,7 @@ exports.restrictTo = (...roles) => (req, res, next) => {
 
 
 
-//  UTILITIES
+
 
 exports.getCallerName = (req) => {
   const identity = buildCallerIdentity(req);

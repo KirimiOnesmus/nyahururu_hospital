@@ -114,15 +114,15 @@ const makeShell = (portalName, subTitle, content) => `
 </table>
 </body></html>`;
 
-/** Research Portal emails */
+
 const shell = (content) =>
   makeShell(PORTAL_NAME, "Research Management System", content);
 
-/** HMIS / general emails */
+
 const hmisShell = (content) =>
   makeShell(HMIS_NAME, "Healthcare Management System", content);
 
-//  SHARED COMPONENT HELPERS 
+
 
 const btn = (url, label, color = "#3B82F6") => `
 <div style="margin:28px 0;text-align:center;">

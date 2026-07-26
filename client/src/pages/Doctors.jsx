@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Header, TimeRibbon, Footer } from "../components/layouts";
+import { TimeRibbon } from "../components/layouts";
+import{Header, Footer} from "../common/layouts"
 import DoctorCard from "../components/layouts/DoctorCard";
 import api from "../api/axios";
 import { useSearchParams } from "react-router-dom";

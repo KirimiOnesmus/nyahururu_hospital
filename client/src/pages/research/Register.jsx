@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import notify from "../../common/utils/notify";
 import { registerResearcher } from "../../api/auth"; 
 
 const INSTITUTIONS = [
@@ -140,7 +140,7 @@ const Register = () => {
 
       const response = await registerResearcher(payload);
 
-      toast.success("Account created! Redirecting to login...");
+      notify.success("Account created! Redirecting to login...");
 
       setTimeout(() => {
         navigate("/hmis");
@@ -152,9 +152,9 @@ const Register = () => {
       
       if (err.response?.status === 409) {
         setErrors({ email: "Email already registered. Please log in instead." });
-        toast.error("Email already registered");
+        notify.error("Email already registered");
       } else {
-        toast.error(errorMessage);
+        notify.error(errorMessage);
       }
     } finally {
       setLoading(false);
@@ -184,11 +184,11 @@ const Register = () => {
     <div className="min-h-screen flex items-center justify-center 
     bg-gradient-to-br from-blue-50 via-white to-blue-50 p-4 py-5">
       <div className="w-full max-w-5xl">
-        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+        <div className="bg-white rounded-2xl overflow-hidden">
 
      
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-4 text-center">
-            <div className="w-20 h-20 bg-white rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg">
+            <div className="w-20 h-20 bg-white rounded-full mx-auto mb-4 flex items-center justify-center">
               <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -508,18 +508,7 @@ const Register = () => {
                 </div>
 
           
-                {/* <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
-                  <p className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-2">
-                    Registration Summary
-                  </p>
-                  <div className="space-y-1 text-sm text-gray-600">
-                    <p><span className="font-medium text-gray-800">Name:</span> {form.firstName} {form.lastName}</p>
-                    <p><span className="font-medium text-gray-800">Email:</span> {form.email}</p>
-                    <p><span className="font-medium text-gray-800">Institution:</span> {form.institution === "Other" ? form.otherInstitution : form.institution}</p>
-                    <p><span className="font-medium text-gray-800">Discipline:</span> {form.discipline === "Other" ? form.otherDiscipline : form.discipline}</p>
-                    <p><span className="font-medium text-gray-800">Qualification:</span> {form.qualification}</p>
-                  </div>
-                </div> */}
+     
               </>
             )}
 
@@ -539,7 +528,7 @@ const Register = () => {
                 <button
                   type="button" onClick={nextStep}
                   className="flex-1 bg-blue-500 text-white py-3 rounded-lg font-semibold hover:bg-blue-700
-                   transform hover:scale-[1.02] transition duration-200 shadow-lg cursor-pointer "
+                   transform hover:scale-[1.02] transition duration-200 cursor-pointer "
                 >
                   Continue 
                 </button>
@@ -547,7 +536,7 @@ const Register = () => {
                 <button
                   type="submit" disabled={loading}
                   className="flex-1 bg-blue-500 text-white py-3 rounded-lg font-semibold hover:bg-blue-700
-                   transform hover:scale-[1.02] transition duration-200 shadow-lg hover:shadow-md 
+                   transform hover:scale-[1.02] transition duration-200 
                    disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {loading ? (

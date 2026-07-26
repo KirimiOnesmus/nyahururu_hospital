@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import api from "../api/axios";
-import { Header, Footer } from "../components/layouts";
+import { Header, Footer } from "../common/layouts";
 import {
   FaCalendarAlt,
   FaClock,
@@ -13,7 +13,6 @@ import {
   FaTimes,
   FaTrophy,
 } from "react-icons/fa";
-
 
 const formatDate = (date) => {
   if (!date) return "—";
@@ -53,8 +52,6 @@ const getStatus = (status) =>
     dot: "bg-slate-400",
   };
 
-
-
 const StatusBadge = ({ status }) => {
   const meta = getStatus(status);
   return (
@@ -66,7 +63,6 @@ const StatusBadge = ({ status }) => {
     </span>
   );
 };
-
 
 const TenderPage = () => {
   const [tenders, setTenders] = useState([]);
@@ -90,8 +86,6 @@ const TenderPage = () => {
     }
   };
 
-  // ── loading state ───────────────────────────────────────────────────────────
-
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col bg-slate-50">
@@ -101,9 +95,7 @@ const TenderPage = () => {
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <div className="animate-spin rounded-full h-10 w-10 border-2 border-slate-200 border-t-blue-600" />
-            <p className="text-slate-500 text-sm font-medium">
-              Loading tenders…
-            </p>
+            <p className="text-slate-500 text-sm font-medium">Loading tenders…</p>
           </div>
         </div>
         <Footer />
@@ -111,26 +103,19 @@ const TenderPage = () => {
     );
   }
 
-
-
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
-  
       <div className="sticky top-0 z-50 bg-white border-b border-slate-200">
         <Header />
       </div>
 
       <main className="flex-1 max-w-6xl mx-auto w-full px-6 md:px-10 py-12">
-
         <div className="mb-8">
           <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-1">
             Procurement
           </p>
-          <h2 className="text-2xl md:text-3xl font-bold text-slate-800">
-            Tenders &amp; Proposals
-          </h2>
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-800">Tenders &amp; Proposals</h2>
         </div>
-
 
         {/* <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 flex gap-4 mb-8">
           <div className="shrink-0 w-9 h-9 rounded-lg bg-blue-100 border border-blue-200 flex items-center justify-center">
@@ -167,16 +152,13 @@ const TenderPage = () => {
                 <Icon className="text-blue-600 text-sm" />
               </div>
               <div>
-                <p className="text-sm font-bold text-slate-800 mb-0.5">
-                  {title}
-                </p>
+                <p className="text-sm font-bold text-slate-800 mb-0.5">{title}</p>
                 <p className="text-xs text-slate-500 leading-relaxed">{body}</p>
               </div>
             </div>
           ))}
         </div>
 
- 
         <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
           {tenders.length === 0 ? (
             <div className="py-20 flex flex-col items-center gap-3 text-slate-400">
@@ -207,20 +189,13 @@ const TenderPage = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {tenders.map((tender, index) => (
-                    <tr
-                      key={tender.id ?? index}
-                      className="hover:bg-slate-50 transition-colors"
-                    >
-           
+                    <tr key={tender.id ?? index} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4 font-mono text-xs text-slate-500 whitespace-nowrap">
-                        {tender.tenderNumber ??
-                          `TND-${String(index + 1).padStart(4, "0")}`}
+                        {tender.tenderNumber ?? `TND-${String(index + 1).padStart(4, "0")}`}
                       </td>
 
                       <td className="px-6 py-4">
-                        <p className="font-semibold text-slate-800 leading-snug">
-                          {tender.title}
-                        </p>
+                        <p className="font-semibold text-slate-800 leading-snug">{tender.title}</p>
                         {tender.description && (
                           <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">
                             {tender.description}
@@ -228,12 +203,10 @@ const TenderPage = () => {
                         )}
                       </td>
 
-
                       <td className="px-6 py-4 whitespace-nowrap">
                         <StatusBadge status={tender.status} />
                       </td>
 
-           
                       <td className="px-6 py-4 whitespace-nowrap text-slate-600">
                         <div className="flex items-center gap-1.5">
                           <FaCalendarAlt className="text-blue-400 text-xs shrink-0" />
@@ -252,9 +225,16 @@ const TenderPage = () => {
                             View
                           </button>
 
-                          {(typeof tender.attachments === "string" ? JSON.parse(tender.attachments) : (tender.attachments || [])).length > 0 && (
+                          {(typeof tender.attachments === "string"
+                            ? JSON.parse(tender.attachments)
+                            : tender.attachments || []
+                          ).length > 0 && (
                             <a
-                              href={(typeof tender.attachments === "string" ? JSON.parse(tender.attachments) : (tender.attachments || []))[0]?.url}
+                              href={
+                                (typeof tender.attachments === "string"
+                                  ? JSON.parse(tender.attachments)
+                                  : tender.attachments || [])[0]?.url
+                              }
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-200
@@ -278,15 +258,12 @@ const TenderPage = () => {
 
       <Footer />
 
-      {/* ── detail modal ─────────────────────────────────────────────────────── */}
       {selectedTender && (
         <div
           className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={(e) => e.target === e.currentTarget && setSelectedTender(null)}
         >
-          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
-
-    
+          <div className="bg-white w-full max-w-2xl rounded-2xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-slate-100 px-8 py-6 rounded-t-2xl">
               <button
                 onClick={() => setSelectedTender(null)}
@@ -299,13 +276,10 @@ const TenderPage = () => {
 
               <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-1">
                 {selectedTender.tenderNumber ??
-                  `TND-${String(
-                    tenders.findIndex(
-                      (t) =>
-                        (t.id) ===
-                        (selectedTender.id)
-                    ) + 1
-                  ).padStart(4, "0")}`}
+                  `TND-${String(tenders.findIndex((t) => t.id === selectedTender.id) + 1).padStart(
+                    4,
+                    "0"
+                  )}`}
               </p>
               <h3 className="text-xl font-bold text-slate-800 pr-8 leading-snug">
                 {selectedTender.title}
@@ -315,10 +289,7 @@ const TenderPage = () => {
               </div>
             </div>
 
-
             <div className="px-8 py-6 space-y-6">
-
-
               {selectedTender.description && (
                 <div>
                   <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">
@@ -330,7 +301,6 @@ const TenderPage = () => {
                 </div>
               )}
 
-       
               <div className="grid sm:grid-cols-2 gap-4">
                 {selectedTender.publicationDate && (
                   <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex items-center gap-3">
@@ -351,9 +321,7 @@ const TenderPage = () => {
                     <FaClock className="text-blue-600 text-sm" />
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 mb-0.5">
-                      Closing Date
-                    </p>
+                    <p className="text-xs text-slate-400 mb-0.5">Closing Date</p>
                     <p className="text-sm font-semibold text-slate-800">
                       {formatDate(selectedTender.submissionDeadline)}
                     </p>
@@ -361,11 +329,17 @@ const TenderPage = () => {
                 </div>
               </div>
 
-         
               <div className="flex flex-wrap gap-3 pt-2 border-t border-slate-100">
-                {(typeof selectedTender.attachments === "string" ? JSON.parse(selectedTender.attachments) : (selectedTender.attachments || [])).length > 0 && (
+                {(typeof selectedTender.attachments === "string"
+                  ? JSON.parse(selectedTender.attachments)
+                  : selectedTender.attachments || []
+                ).length > 0 && (
                   <a
-                    href={(typeof selectedTender.attachments === "string" ? JSON.parse(selectedTender.attachments) : (selectedTender.attachments || []))[0]?.url}
+                    href={
+                      (typeof selectedTender.attachments === "string"
+                        ? JSON.parse(selectedTender.attachments)
+                        : selectedTender.attachments || [])[0]?.url
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200
@@ -387,7 +361,6 @@ const TenderPage = () => {
               </div>
             </div>
 
-        
             <div className="px-8 py-4 border-t border-slate-100 flex justify-end rounded-b-2xl">
               <button
                 onClick={() => setSelectedTender(null)}

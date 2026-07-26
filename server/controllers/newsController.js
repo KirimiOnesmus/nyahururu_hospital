@@ -1,3 +1,4 @@
+const emitChange = require("../utils/emitChange");
 "use strict";
 
 const { News } = require("../sequelize/models");
@@ -31,9 +32,7 @@ exports.getNewsById = async (req, res) => {
   }
 };
 
-// getActiveNews returns the same set as getAllNews today — kept as its
-// own export so the public/active/routes can diverge later without a
-// route-file rewrite.
+
 exports.getActiveNews = async (req, res) => {
   try {
     const { requestedPaging, page, limit, offset } = getPagination(req.query);
@@ -63,6 +62,7 @@ exports.createNews = async (req, res) => {
     const newNews = await News.create({ title, content, author, imageUrl });
 
     res.status(201).json({ message: "News created successfully", newNews });
+    emitChange("news", "created", { id: newNews.id });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
@@ -84,6 +84,7 @@ exports.updateNews = async (req, res) => {
     await news.save();
 
     res.json({ message: "News updated successfully", updatedNews: news });
+    emitChange("news", "updated", { id: news.id });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
@@ -97,6 +98,7 @@ exports.deleteNews = async (req, res) => {
 
     await news.destroy();
     res.json({ message: "News deleted successfully" });
+    emitChange("news", "deleted", { id: req.params.id });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });

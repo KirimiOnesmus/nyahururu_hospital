@@ -14,18 +14,7 @@ const getConfig = () => ({
   callbackUrl:    process.env.MPESA_CALLBACK_URL   || "https://yourdomain.com/api/v1/payments/callback",
 });
 
-// M-4: Safaricom's B2C API requires `SecurityCredential` to be the
-// initiator password encrypted with Safaricom's own public certificate
-// (RSA, PKCS1 padding, base64-encoded) — never the raw password. This was
-// previously missing entirely; sendB2CPayment just passed a plain env var
-// straight through, which Daraja would reject.
-//
-// MPESA_INITIATOR_PASSWORD: the raw initiator password (keep this secret,
-//   same handling as any other credential in .env).
-// MPESA_CERT_PATH: filesystem path to the Safaricom public certificate —
-//   download the sandbox cert ("SandboxCertificate.cer") or the
-//   production cert Safaricom issues per-shortcode from their Daraja
-//   docs/portal and place it on disk; this code does not ship a cert.
+
 let _certCache = null;
 const getSecurityCredential = () => {
   const rawPassword = process.env.MPESA_INITIATOR_PASSWORD;
@@ -52,7 +41,7 @@ const getSecurityCredential = () => {
 };
 
 
-//  ACCESS TOKEN — in-memory cache
+//  ACCESS TOKEN
 
 let _tokenCache = { token: null, expiresAt: 0 };
 
@@ -83,7 +72,6 @@ const getAccessToken = async () => {
 };
 
 
-//  HELPERS
 
 const generateTimestamp = () => {
   const d = new Date();

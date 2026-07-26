@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import notify from "../../common/utils/notify";
 import {
   FaFlask, FaTachometerAlt, FaFileAlt, FaWallet, FaCertificate,
   FaUserCircle, FaInbox, FaHistory, FaCheckDouble, FaBookOpen,
@@ -130,7 +130,7 @@ const SideMenu = ({ user }) => {
       (k) => localStorage.removeItem(k)
     );
     navigate("/hmis");
-    toast.success("Logged out successfully");
+    notify.success("Logged out successfully");
   };
 
   return (
@@ -166,7 +166,7 @@ const SideMenu = ({ user }) => {
             onClick={() => setMobileOpen(false)}
             aria-hidden="true"
           />
-          <div className="relative w-72 max-w-[80vw] bg-white h-full shadow-xl flex flex-col">
+          <div className="relative w-72 max-w-[80vw] bg-white h-full flex flex-col">
             <button
               type="button"
               onClick={() => setMobileOpen(false)}

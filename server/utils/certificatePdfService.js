@@ -14,10 +14,8 @@ const renderCertificatePdf = (cert) => {
 
     const isClearance = cert.type === "clearance";
 
-    // Border
     doc.lineWidth(2).rect(20, 20, doc.page.width - 40, doc.page.height - 40).stroke();
 
-    // Header
     doc.fontSize(22).font("Helvetica-Bold").text("NYAHURURU COUNTY REFERRAL HOSPITAL", { align: "center" });
     doc.fontSize(16).font("Helvetica").text(
       isClearance ? "Research Ethics Clearance Certificate" : "Certificate of Research Completion",
@@ -68,13 +66,13 @@ const renderCertificatePdf = (cert) => {
       doc.fontSize(10).font("Helvetica-Oblique").text(statement, { align: "center", width: 500 });
     }
 
-    // Signature + seal area (bottom)
+
     const bottomY = doc.page.height - 140;
     doc.fontSize(10).font("Helvetica");
     doc.text("_______________________", 100, bottomY, { align: "left" });
     doc.text(cert.signatureAreaLabel || "Authorized Signatory", 100, bottomY + 15);
 
-    // QR code (embed base64 PNG)
+
     if (cert.qrCodeDataUrl) {
       const base64 = cert.qrCodeDataUrl.replace(/^data:image\/png;base64,/, "");
       const qrBuffer = Buffer.from(base64, "base64");

@@ -6,7 +6,6 @@ const {
   AmbulanceBooking, Vehicle, User, sequelize,
 } = require("../sequelize/models");
 
-// ── Helpers ─────────────────────────────────────────────────────────
 
 const VALID_STATUSES = [
   "Pending", "Assigned", "In Transit", "Arrived",
@@ -21,7 +20,7 @@ const DETAIL_INCLUDE = [
   { model: User, as: "user", attributes: ["id", "name", "email"] },
 ];
 
-// Slimmer include for list endpoints (drops make/model).
+
 const LIST_INCLUDE = [
   {
     model: Vehicle, as: "vehicle",
@@ -29,8 +28,6 @@ const LIST_INCLUDE = [
   },
   { model: User, as: "user", attributes: ["id", "name", "email"] },
 ];
-
-// ── CRUD ────────────────────────────────────────────────────────────
 
 exports.createAmbulanceBooking = async (req, res) => {
   try {
@@ -49,15 +46,7 @@ exports.createAmbulanceBooking = async (req, res) => {
       return res.status(400).json({ message: "Invalid phone number format" });
     }
 
-    // The whole "book + maybe-assign-ambulance" flow runs inside a
-    // single MySQL transaction. Under Mongoose the two-step "find
-    // available ambulance then update it" was race-prone — two
-    // concurrent bookings could both find the same vehicle and both
-    // try to grab it, leaving one silently overwriting the other's
-    // assignment. Here we take a row lock on the vehicle so a second
-    // booking arriving mid-transaction waits until the first commits
-    // (or rolls back), then sees the updated `status = 'In Use'` and
-    // moves on to the next available ambulance.
+
     const { booking, ambulance } = await sequelize.transaction(async (t) => {
       const b = await AmbulanceBooking.create(
         {
@@ -76,7 +65,7 @@ exports.createAmbulanceBooking = async (req, res) => {
         { transaction: t },
       );
 
-      // FOR UPDATE lock — needs InnoDB, which is the model default.
+   
       const availableAmbulance = await Vehicle.findOne({
         where: {
           status: "Available",
@@ -136,10 +125,7 @@ exports.getAmbulanceBookingById = async (req, res) => {
     });
     if (!booking) return res.status(404).json({ message: "Booking not found" });
 
-    // H-2: bookings contain patient-identifying data (name, phone, pickup
-    // location). Only the owning user or staff may view a given booking —
-    // previously this endpoint had no auth at all, allowing IDOR by
-    // enumerating sequential booking IDs.
+
     const isOwner = booking.userId === req.user.id;
     const isStaff = ["admin", "superadmin", "staff"].includes(req.user.role);
     if (!isOwner && !isStaff) {
@@ -181,9 +167,6 @@ exports.updateBookingStatus = async (req, res) => {
       });
     }
 
-    // Status change + optional vehicle-release inside a transaction so
-    // an app crash after the booking save but before the vehicle
-    // release can't leave a phantom "in use" ambulance no one owns.
     const booking = await sequelize.transaction(async (t) => {
       const b = await AmbulanceBooking.findByPk(req.params.id, {
         transaction: t,
@@ -206,7 +189,7 @@ exports.updateBookingStatus = async (req, res) => {
 
     if (!booking) return res.status(404).json({ message: "Booking not found" });
 
-    // Refetch with vehicle include for response parity with Mongoose.
+
     const populated = await AmbulanceBooking.findByPk(booking.id, {
       include: [
         {
@@ -225,8 +208,7 @@ exports.updateBookingStatus = async (req, res) => {
 
 exports.cancelBooking = async (req, res) => {
   try {
-    // Same transactional pattern — booking cancel + vehicle release
-    // must succeed together or not at all.
+
     const booking = await sequelize.transaction(async (t) => {
       const b = await AmbulanceBooking.findByPk(req.params.id, { transaction: t });
       if (!b) return { notFound: true };

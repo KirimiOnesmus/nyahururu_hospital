@@ -15,13 +15,10 @@ const { verifyToken, authorizeRoles } = require("../middleware/auth");
 // Public routes
 router.post("/register",  registerDonor);
 
-// Get specific donor (public - for donors to check their status)
-//router.get("/donor/:donorId", donorController.getDonor);
 
-// Protected routes (admin/staff only)
-router.get("/", verifyToken, authorizeRoles('admin', 'staff'), getAllDonors);
+router.get("/", verifyToken, authorizeRoles('admin', 'staff','it'), getAllDonors);
 
-router.put("/:donorId", verifyToken, authorizeRoles('admin'), updateDonor);
+router.put("/:donorId", verifyToken, authorizeRoles('admin', 'it'), updateDonor);
 
 router.patch(
   "/:donorId/status",
@@ -30,27 +27,27 @@ router.patch(
   updateDonorStatus
 );
 
-router.delete("/:donorId", verifyToken, authorizeRoles('admin'), deleteDonor);
+router.delete("/:donorId", verifyToken, authorizeRoles('admin', 'it'), deleteDonor);
 
-// Statistics and reporting routes
+
 router.get(
   "/blood-group/:bloodGroup",
   verifyToken,
-  authorizeRoles('admin','staff'),
+  authorizeRoles('admin','staff', 'it'),
   getDonorsByBloodGroup
 );
 
 router.get(
   "/schedule/upcoming",
   verifyToken,
-  authorizeRoles('admin', 'staff'),
+  authorizeRoles('admin', 'staff', 'it'),
   getUpcomingDonations
 );
 
 router.get(
   "/reports/statistics",
   verifyToken,
- authorizeRoles('admin'),
+ authorizeRoles('admin', 'it'),
   getDonationStats
 );
 

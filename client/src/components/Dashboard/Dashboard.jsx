@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { SuperAdmin, GeneralDashboard } from "../layouts";
+import {  GeneralDashboard } from "../layouts";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -23,11 +23,11 @@ const Dashboard = () => {
     ) {
       navigate("/");
     } else {
-      setRole(storedRole); // store role in state
+      setRole(storedRole);
     }
   }, [navigate]);
 
-  if (!role) return null; // or a loading spinner while checking role
+  if (!role) return null; 
 
   return (
     <div>{role === "superadmin" ? <SuperAdmin /> : <GeneralDashboard />}</div>

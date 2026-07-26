@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import notify from "../../../common/utils/notify";
 import {
   FaArrowLeft, FaFlask, FaCalendarAlt, FaDownload, FaCheckCircle,
   FaTimesCircle, FaClock, FaCommentAlt, FaUserCircle, FaUniversity,
@@ -132,7 +132,7 @@ const fmtTime = (d) =>
       })
     : "—";
 
-// ─── Map raw Research doc + reviews → UI project shape ─────────────────────
+
 const STATUS_MAP = {
   approved: "approved",
   pending: "pending",
@@ -579,7 +579,7 @@ const StagePanel = ({ stage, stageData, onResubmit,onAdvance  }) => {
 
   if (status === "locked") {
     return (
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
         <div className="h-1.5 w-full bg-slate-200" />
         <div className="p-10 flex flex-col items-center text-center gap-3">
           <div className="w-12 h-12 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center">
@@ -603,7 +603,7 @@ const StagePanel = ({ stage, stageData, onResubmit,onAdvance  }) => {
   return (
     <div className="space-y-5">
    
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
         <div className={`h-1.5 w-full ${sc.bar}`} />
         <div className="p-6">
           <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -663,7 +663,7 @@ const StagePanel = ({ stage, stageData, onResubmit,onAdvance  }) => {
       </div>
 
    
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
         <div className="flex border-b border-slate-100 overflow-x-auto">
           {subTabs.map((tab) => (
             <button
@@ -779,7 +779,7 @@ const ProjectHeader = ({ project, onBack }) => {
         Back to My Research
       </button>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-semibold uppercase tracking-widest text-blue-600 mb-2">
@@ -864,11 +864,11 @@ const ResearchDetails = ({  onBack, onResubmit }) => {
   const handleResubmit = async (stage, fields, file) => {
     try {
       await research.resubmitResearch(id, fields, file);
-      toast.success("Resubmitted successfully!");
+      notify.success("Resubmitted successfully!");
       setResubmitTarget(null);
       load();
     } catch (err) {
-      toast.error(err.message || "Resubmission failed");
+      notify.error(err.message || "Resubmission failed");
     }
   };
 const handleAdvance = (stage) => {
@@ -923,7 +923,7 @@ const handleAdvance = (stage) => {
         <ProjectHeader project={project} onBack={() => navigate("/research/dashboard")} />
 
         
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <div className="bg-white rounded-2xl border border-slate-100 p-6">
           <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-5">
             Submission Progress
           </p>

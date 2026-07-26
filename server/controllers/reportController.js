@@ -5,7 +5,6 @@ const fs = require("fs").promises;
 const { Op } = require("sequelize");
 const { Report, User, sequelize } = require("../sequelize/models");
 
-// ── Helpers ─────────────────────────────────────────────────────────
 
 const SORT_MAP = {
   newest:        [["createdAt", "DESC"]],
@@ -28,15 +27,14 @@ const safeUnlink = async (filePath) => {
   try {
     await fs.unlink(filePath);
   } catch (err) {
-    // best-effort cleanup — ENOENT / permission errors don't fail the
-    // parent operation
+
     if (err.code !== "ENOENT") {
       console.error("Failed to remove report file:", filePath, err);
     }
   }
 };
 
-// Copied verbatim — pure JS, no DB dependency.
+
 function getFileType(filename) {
   const ext = filename.split(".").pop().toLowerCase();
   if (ext === "pdf") return "pdf";
@@ -47,7 +45,7 @@ function getFileType(filename) {
   return "pdf";
 }
 
-// ── CRUD ────────────────────────────────────────────────────────────
+
 
 exports.getAllReports = async (req, res) => {
   try {
@@ -64,8 +62,7 @@ exports.getAllReports = async (req, res) => {
       where[Op.or] = [
         { title: { [Op.like]: like } },
         { description: { [Op.like]: like } },
-        // Same JSON_SEARCH pattern as galleryController — tags is a JSON
-        // array column and can't be pattern-matched with plain LIKE.
+
         sequelize.literal(
           "JSON_SEARCH(tags, 'one', " +
             sequelize.escape(like) +
@@ -76,8 +73,6 @@ exports.getAllReports = async (req, res) => {
 
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    // Single Promise.all for the list + all stat counts — 6 queries in
-    // parallel is one round-trip window instead of six.
     const [reports, total, published, draft, archived, thisMonth] = await Promise.all([
       Report.findAll({
         where,
@@ -106,10 +101,7 @@ exports.getAllReports = async (req, res) => {
 
 exports.getReportById = async (req, res) => {
   try {
-    // NOTE: comments.commentedBy was previously populated as a nested
-    // Mongoose ref. In the Sequelize model, `comments` is a JSON array
-    // whose elements already carry a denormalised `commentedByName`
-    // string, so no join is needed to render the comment thread.
+
     const report = await sequelize.transaction(async (t) => {
       const r = await Report.findByPk(req.params.id, {
         include: UPLOADER_INCLUDE,
@@ -145,17 +137,13 @@ exports.createReport = async (req, res) => {
     } = req.body;
 
     if (!title || !category || !period) {
-      // Roll back the disk write so a failed validation doesn't leak files.
-      await safeUnlink(req.file.path);
+       await safeUnlink(req.file.path);
       return res.status(400).json({
         success: false,
         message: "Title, category, and period are required",
       });
     }
 
-    // The Report model's cross-field validator enforces that
-    // customStartDate + customEndDate are both present and ordered when
-    // period === "Custom" — no need to duplicate that check here.
     const reportData = {
       title,
       category,
@@ -209,8 +197,7 @@ exports.updateReport = async (req, res) => {
       });
     }
 
-    // Handle file replacement — swap the disk file BEFORE mutating the
-    // model, so if fs fails we haven't already dirtied the record.
+  
     if (req.file) {
       const oldPath = path.join(__dirname, "..", report.fileUrl);
       await safeUnlink(oldPath);
@@ -284,9 +271,6 @@ exports.downloadReport = async (req, res) => {
 
     const filePath = path.join(__dirname, "..", report.fileUrl.replace(/^\//, ""));
 
-    // Bump the download counter before streaming so a client that
-    // hangs up mid-download still gets counted (matches Mongoose flow).
-    // Errors on the increment shouldn't stop the download itself.
     try {
       await Report.increment("downloads", { where: { id: report.id } });
     } catch (err) {
@@ -341,9 +325,7 @@ exports.addComment = async (req, res) => {
       return res.status(404).json({ success: false, message: "Report not found" });
     }
 
-    // Delegate to the model's addComment helper — it handles the
-    // JSON-array-reassignment dance that Sequelize needs to detect the
-    // change, plus stamps the metadata consistently across reports.
+  
     await report.addComment(text, req.user);
 
     res.status(200).json({
@@ -371,8 +353,7 @@ exports.bulkDeleteReports = async (req, res) => {
 
     const reports = await Report.findAll({ where: { id: { [Op.in]: ids } } });
 
-    // Authorisation gate: reject the entire bulk operation if the caller
-    // can't touch every row. Prevents surprise partial deletes.
+
     for (const report of reports) {
       if (!canModify(report, req.user)) {
         return res.status(403).json({
@@ -382,9 +363,6 @@ exports.bulkDeleteReports = async (req, res) => {
       }
     }
 
-    // Filesystem cleanup for each report before the batched DELETE. The
-    // original path was `../../public${report.fileUrl}` which doesn't
-    // exist for this project layout — corrected to match single-delete.
     for (const report of reports) {
       await safeUnlink(path.join(__dirname, "..", report.fileUrl));
     }

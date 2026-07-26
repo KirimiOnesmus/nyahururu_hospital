@@ -1,5 +1,5 @@
 import React from "react";
-import { LoginForm } from "../components/layouts";
+import  LoginForm  from "../common/layouts/LoginForm";
 import { FaHome } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 const Hmis = () => {

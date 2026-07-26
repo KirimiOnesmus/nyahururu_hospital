@@ -64,7 +64,7 @@ router.patch(
   toggleVisibility
 );
 
-// Protected routes - Categories
+
 router.get("/categories/:id", getCategoryById);
 router.post(
   "/categories",

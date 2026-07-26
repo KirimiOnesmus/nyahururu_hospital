@@ -20,8 +20,8 @@ const RESEARCH_STAGES = Object.freeze({
 const RESEARCH_STATUSES =Object.freeze({
   DRAFT:              "draft",
   AWAITING_PAYMENT:   "awaiting_payment",
-  PENDING:            "pending",          // submitted, awaiting reviewer assignment
-  UNDER_REVIEW:       "under_review",     // assigned, reviewer actively reviewing
+  PENDING:            "pending",          
+  UNDER_REVIEW:       "under_review",   
   REVISION_REQUESTED: "revision_requested",
   PENDING_COMMITTEE_REVIEW: "pending_committee_review",
   APPROVED:           "approved",
@@ -81,8 +81,7 @@ const MPESA_RESULT_CODES = Object.freeze({
   TIMEOUT:    "1037",
 });
 
-// ─── Proposal Submission Fee ─────────────────────────────────────────────────
-// Change USE_PRODUCTION_AMOUNTS=true in .env to switch to real amounts
+
 const FEES = Object.freeze({
   PROPOSAL_SUBMISSION: process.env.USE_PRODUCTION_AMOUNTS === "true" ? 150 : 1,
   DEFAULT_DOWNLOAD:    process.env.USE_PRODUCTION_AMOUNTS === "true" ? 150 : 1,
@@ -95,7 +94,6 @@ const PAGINATION = Object.freeze({
   MAX_LIMIT:     50,
 });
 
-// ─── Token TTLs (hours) ───────────────────────────────────────────────────────
 const TOKEN_TTL = Object.freeze({
   EMAIL_VERIFICATION:  24,
   PASSWORD_RESET:      1,

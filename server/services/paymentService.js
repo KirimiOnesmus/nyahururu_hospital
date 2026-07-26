@@ -13,7 +13,7 @@ const {
   TOKEN_TTL,
 } = require("../constants/researchIndex");
 
-// ── INITIATE PAYMENT ─────────────────────────────────────────────────
+
 const initiatePayment = async ({ phone, email: buyerEmail, researchId, type }, researcherId) => {
   const resolvedType =
     type || (researchId ? PAYMENT_TYPES.PAPER_DOWNLOAD : PAYMENT_TYPES.PROPOSAL_SUBMISSION);
@@ -34,11 +34,7 @@ const initiatePayment = async ({ phone, email: buyerEmail, researchId, type }, r
     description = "Research proposal submission fee";
     linkedResearchId = null;
 
-    // Duplicate-payment guard: if this research already has a
-    // completed submission payment, block the STK push before we spend
-    // an M-Pesa transaction slot on it. Two SELECTs (research →
-    // payment) rather than a join to keep the reads shallow, and both
-    // rows are read outside a transaction because we're just probing.
+
     if (researchId) {
       const existing = await Research.findByPk(researchId, {
         attributes: ["submissionPaymentId"],
@@ -66,7 +62,7 @@ const initiatePayment = async ({ phone, email: buyerEmail, researchId, type }, r
     if (!research) throw new AppError("Research paper not found or not published.", 404);
 
     amount = research.downloadPrice ?? FEES.DEFAULT_DOWNLOAD;
-    accountRef = "ResearchDL"; // max 12 chars per M-Pesa spec
+    accountRef = "ResearchDL";
     description = `Paper download - ${String(researchId).slice(-8)}`;
     linkedResearchId = researchId;
   }
@@ -102,20 +98,7 @@ const initiatePayment = async ({ phone, email: buyerEmail, researchId, type }, r
 };
 
 // ── PROCESS DARAJA CALLBACK ──────────────────────────────────────────
-//
-// Race the Mongoose version had: two concurrent callbacks for the same
-// checkoutRequestId (Safaricom retries or a callback + a poll racing
-// each other) could both see status=PENDING, both mark completed, both
-// send the confirmation email and both bump the download counter.
-//
-// The M-Pesa server-to-server status query and confirmation email
-// remain OUTSIDE the transaction — both are slow network calls; holding
-// a row lock through them would tie up a connection for seconds and
-// cascade backpressure across the app.
-//
-// C4 fix preserved: the callback body is attacker-controlled, so a
-// claimed status of "completed" is only a hint. The DB mutation is
-// driven by the server-to-server query result, not the callback payload.
+
 const processCallback = async (body) => {
   const parsed = mpesa.parseCallback(body);
   if (!parsed) {
@@ -128,9 +111,6 @@ const processCallback = async (body) => {
     resultCode, resultDesc, transactionDate,
   } = parsed;
 
-  // Peek at the payment first so we can bail early if it's already
-  // completed — saves us the round trip to Safaricom for retried
-  // callbacks.
   const existing = await Payment.findOne({
     where: { checkoutRequestId },
     attributes: ["status"],
@@ -162,9 +142,6 @@ const processCallback = async (body) => {
   const verifiedResultCode = queryResult?.ResultCode ?? resultCode;
   const verifiedResultDesc = queryResult?.ResultDesc ?? resultDesc;
 
-  // Apply the outcome under a row lock so a concurrent callback
-  // that finishes the Safaricom query at roughly the same time can't
-  // duplicate the state transition.
   const outcome = await sequelize.transaction(async (t) => {
     const payment = await Payment.findOne({
       where: { checkoutRequestId },
@@ -172,8 +149,7 @@ const processCallback = async (body) => {
       transaction: t,
     });
     if (!payment) return { skipped: "not_found" };
-    // Second read after acquiring the lock — see the double-checked
-    // locking pattern for detail.
+  
     if (payment.status === PAYMENT_STATUSES.COMPLETED) {
       return { skipped: "already_completed" };
     }
@@ -195,8 +171,7 @@ const processCallback = async (body) => {
       };
     }
 
-    // Failed / cancelled — query result (when available) is
-    // authoritative; otherwise the callback's status.
+
     payment.status     = queryResult ? queryResult.status : status;
     payment.resultCode = verifiedResultCode;
     payment.resultDesc = verifiedResultDesc;
@@ -213,7 +188,6 @@ const processCallback = async (body) => {
   if (outcome.completed) {
     console.log(`[Payment] completed: ${outcome.receipt}`);
 
-    // Confirmation email — best-effort, non-fatal if it fails.
     if (outcome.researcherId && outcome.type === PAYMENT_TYPES.PROPOSAL_SUBMISSION) {
       try {
         const researcher = await Researcher.findByPk(outcome.researcherId, {
@@ -233,18 +207,12 @@ const processCallback = async (body) => {
       }
     }
 
-    // NOTE: the Mongoose version bumped `research.downloads` here on
-    // payment completion. That over-counted downloads — a user could
-    // pay, never actually download the file, and still be counted.
-    // Moved the increment into verifyDownloadToken() (where the token
-    // is actually redeemed), which is where the counter belongs. The
-    // number now reflects real downloads, not attempted-purchases.
+
   } else {
-    console.log(`[Payment] ✗ ${outcome.status}: ${verifiedResultDesc}`);
+    console.log(`[Payment]  ${outcome.status}: ${verifiedResultDesc}`);
   }
 };
 
-// ── VERIFY PAYMENT STATUS (frontend poll) ────────────────────────────
 const verifyPayment = async (checkoutRequestId) => {
   const payment = await Payment.findOne({
     where: { checkoutRequestId },
@@ -267,10 +235,8 @@ const verifyPayment = async (checkoutRequestId) => {
   };
 };
 
-// ── GENERATE SECURE DOWNLOAD TOKEN ───────────────────────────────────
 const generateDownloadToken = async (paymentId, researchId, requesterId) => {
-  // withSecrets scope so we can write the download-token columns
-  // (excluded by defaultScope).
+
   const payment = await Payment.scope("withSecrets").findOne({
     where: {
       id:         paymentId,
@@ -300,9 +266,6 @@ const generateDownloadToken = async (paymentId, researchId, requesterId) => {
   payment.downloadTokenExpire = expiry;
   await payment.save();
 
-  // Prefer the anonymous buyer's email; fall back to the logged-in
-  // researcher's account email so registered users always get their
-  // receipt + one-time download link.
   let recipientEmail = payment.buyerEmail || null;
   let recipientName = null;
 
@@ -331,13 +294,7 @@ const generateDownloadToken = async (paymentId, researchId, requesterId) => {
   return { downloadToken: raw, expiresAt: expiry };
 };
 
-// ── VERIFY DOWNLOAD TOKEN (one-time use) ─────────────────────────────
-//
-// Race the Mongoose version had: two concurrent GET /download requests
-// with the same still-valid token could both pass the "token valid"
-// check, both burn it, and both bump the download counter. Row lock
-// serialises them so only the first one gets the file, matching the
-// intended one-time-use semantics.
+
 const verifyDownloadToken = async (token, researchId) => {
   return sequelize.transaction(async (t) => {
     const payment = await Payment.scope("withSecrets").findOne({
@@ -352,15 +309,11 @@ const verifyDownloadToken = async (token, researchId) => {
     });
     if (!payment) throw new AppError("Download token is invalid or has expired.", 403);
 
-    // Burn the token first — after this, a concurrent request holding
-    // the same token but arriving later can't match it.
     payment.downloadToken = null;
     payment.downloadTokenExpire = null;
     payment.downloadedAt = new Date();
     await payment.save({ transaction: t });
 
-    // Atomic in-place bump; safe from lost-update races even without
-    // the row lock we're already holding.
     await Research.increment("downloads", {
       by: 1,
       where: { id: researchId },
@@ -371,7 +324,6 @@ const verifyDownloadToken = async (token, researchId) => {
   });
 };
 
-// ── REFUND PAYMENT (admin only) ──────────────────────────────────────
 const refundPayment = async (paymentId, reason) => {
   const payment = await Payment.findByPk(paymentId, {
     include: [
@@ -387,9 +339,6 @@ const refundPayment = async (paymentId, reason) => {
     throw new AppError("This payment has already been refunded.", 400);
   }
 
-  // Kick off the B2C payment BEFORE mutating the DB — if the M-Pesa
-  // side fails, we don't want a payment marked "refunded" without an
-  // actual money movement.
   let b2cResult;
   try {
     b2cResult = await mpesa.sendB2CPayment({
@@ -398,9 +347,7 @@ const refundPayment = async (paymentId, reason) => {
       remarks: `Refund: ${reason}`.slice(0, 100),
     });
   } catch (err) {
-    // M-4: distinguish "B2C isn't configured on this deploy" (our bug,
-    // clear fix) from an actual Safaricom-side failure, so this doesn't
-    // just look like a generic outage to whoever clicks "Refund".
+
     if (err.message?.startsWith("M-Pesa B2C is not configured")) {
       throw new AppError(
         "Refunds are not yet configured for this deployment. Contact an administrator.",
@@ -427,7 +374,6 @@ const refundPayment = async (paymentId, reason) => {
   return payment;
 };
 
-// ── REVENUE — single research, researcher-facing ─────────────────────
 const getRevenueForResearch = async (researchId) => {
   const payments = await Payment.findAll({
     where: {
@@ -444,8 +390,7 @@ const getRevenueForResearch = async (researchId) => {
   let downloadCount = 0;
 
   payments.forEach((p) => {
-    // amount is DECIMAL — Sequelize returns it as a string on raw:true.
-    // Number() gives us the right JS type for arithmetic.
+
     const amt = Number(p.amount) || 0;
     if (p.type === PAYMENT_TYPES.PROPOSAL_SUBMISSION) {
       proposalIncome += amt;
@@ -464,7 +409,6 @@ const getRevenueForResearch = async (researchId) => {
   };
 };
 
-// ── REVENUE — single research, admin-facing ──────────────────────────
 const getResearchRevenueAdmin = async (researchId) => {
   const research = await Research.findByPk(researchId, {
     include: [{ model: Researcher, as: "researcher", attributes: ["id", "name", "email"] }],
@@ -497,7 +441,6 @@ const getResearchRevenueAdmin = async (researchId) => {
   };
 };
 
-// ── REVENUE — platform-wide summary (admin dashboard) ────────────────
 const getAllRevenueSummary = async ({
   researcherId,
   startDate,

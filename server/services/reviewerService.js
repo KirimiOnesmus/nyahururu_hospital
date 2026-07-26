@@ -13,7 +13,6 @@ const {
 } = require("../constants/researchIndex");
 const { signToken } = require("./researcherService");
 
-// ── INVITE REVIEWER ───────────────────────────────────────────────────
 const inviteReviewer = async (data, caller) => {
   const { firstName, lastName, email, institution, discipline, specialisations } = data;
   const callerName = caller?.name || "Administration";
@@ -46,10 +45,7 @@ const inviteReviewer = async (data, caller) => {
     return { action: "promoted", reviewer: existing };
   }
 
-  // Brand-new reviewer invite. Password is a randomly-generated
-  // placeholder that will be replaced when they accept the invite via
-  // /set-password. It's still hashed by the beforeSave hook so a stolen
-  // DB dump doesn't reveal the placeholder.
+
   const reviewer = Researcher.build({
     firstName,
     lastName,
@@ -85,12 +81,10 @@ const inviteReviewer = async (data, caller) => {
   };
 };
 
-// ── SET PASSWORD (invite acceptance) ──────────────────────────────────
+
 const setPassword = async ({ token, email, password }) => {
   const hashed = crypto.createHash("sha256").update(token).digest("hex");
 
-  // withSecrets pulls the emailVerificationToken/expire columns needed
-  // for the WHERE — they're excluded by defaultScope.
   const account = await Researcher.scope("withSecrets").findOne({
     where: {
       email: email.toLowerCase(),
@@ -121,7 +115,6 @@ const setPassword = async ({ token, email, password }) => {
   return { token: jwtToken, reviewer: account.toSafeJSON() };
 };
 
-// ── RESEND INVITE ─────────────────────────────────────────────────────
 const resendInvite = async (reviewerId, caller) => {
   const account = await Researcher.findByPk(reviewerId);
   if (!account) throw new AppError("Account not found.", 404);
@@ -162,7 +155,6 @@ const resendInvite = async (reviewerId, caller) => {
   };
 };
 
-// ── REVOKE REVIEWER ───────────────────────────────────────────────────
 const revokeReviewer = async (reviewerId, caller) => {
   const reviewer = await Researcher.findByPk(reviewerId);
   if (!reviewer) throw new AppError("Reviewer not found.", 404);
@@ -190,10 +182,7 @@ const revokeReviewer = async (reviewerId, caller) => {
   return reviewer;
 };
 
-// ── RESEARCH COMMITTEE: INVITE / PROMOTE ──────────────────────────────
-//   existing REVIEWER    -> promoted in place (role stays, isCommittee=true)
-//   existing RESEARCHER  -> granted direct committee access (role -> RESEARCH_COMMITTEE)
-//   no existing account  -> brand-new committee-only invite
+
 const inviteCommitteeMember = async (data, caller) => {
   const { firstName, lastName, email, institution, discipline, specialisations } = data;
   const callerName = caller?.name || "Administration";
@@ -250,7 +239,6 @@ const inviteCommitteeMember = async (data, caller) => {
     );
   }
 
-  // Brand-new committee-only account
   const member = Researcher.build({
     firstName,
     lastName,
@@ -288,7 +276,6 @@ const inviteCommitteeMember = async (data, caller) => {
   };
 };
 
-// ── RESEARCH COMMITTEE: REVOKE ACCESS ─────────────────────────────────
 const revokeCommitteeAccess = async (researcherId, caller) => {
   const researcher = await Researcher.findByPk(researcherId);
   if (!researcher) throw new AppError("Researcher not found.", 404);
@@ -304,12 +291,12 @@ const revokeCommitteeAccess = async (researcherId, caller) => {
   }
 
   if (researcher.promotedFromReviewer) {
-    // Was a reviewer promoted to committee — revert to plain reviewer.
+    
     researcher.isCommittee = false;
     researcher.committeeSince = null;
     researcher.promotedFromReviewer = false;
   } else {
-    // Direct committee grant — revert to researcher role entirely.
+   
     researcher.role = RESEARCHER_ROLES.RESEARCHER;
     researcher.isCommittee = false;
     researcher.committeeSince = null;
@@ -326,7 +313,7 @@ const revokeCommitteeAccess = async (researcherId, caller) => {
   return researcher;
 };
 
-// ── LIST REVIEWERS + COMMITTEE ────────────────────────────────────────
+
 const REVIEWER_LIST_ATTRIBUTES = [
   "id", "name", "email", "role", "institution", "discipline", "specialisations",
   "emailVerified", "status", "isCommittee", "committeeSince",
@@ -347,7 +334,6 @@ const listReviewers = async () => {
   return { count: reviewers.length, reviewers };
 };
 
-// ── LIST ALL RESEARCHERS (paginated) ──────────────────────────────────
 const RESEARCHER_LIST_ATTRIBUTES = [
   "id", "name", "email", "role", "institution", "discipline",
   "emailVerified", "status", "isCommittee", "createdAt", "invitedAt",
@@ -363,8 +349,6 @@ const listAllResearchers = async ({ role, page, limit }) => {
   const where = {};
   if (role) where.role = role;
 
-  // findAndCountAll returns both rows and total in one round trip
-  // rather than the Mongoose Promise.all-of-two-queries pattern.
   const { rows: researchers, count: total } = await Researcher.findAndCountAll({
     where,
     attributes: RESEARCHER_LIST_ATTRIBUTES,
@@ -382,7 +366,7 @@ const listAllResearchers = async ({ role, page, limit }) => {
   };
 };
 
-// ── UPDATE REVIEWER ───────────────────────────────────────────────────
+
 const updateReviewer = async (reviewerId, updates) => {
   const ALLOWED = ["specialisations", "institution", "discipline", "bio"];
   const safeUpdates = {};

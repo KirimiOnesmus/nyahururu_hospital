@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import notify from "../../../common/utils/notify";
 import {
   FaSearch,
   FaFilter,
@@ -92,26 +92,13 @@ const EmptyState = ({ icon: Icon, title, sub }) => (
   </div>
 );
 
-const StatCard = ({
-  icon: Icon,
-  value,
-  label,
-  valueCls,
-  iconBg,
-  iconColor,
-}) => (
+const StatCard = ({ icon: Icon, value, label, valueCls, iconBg, iconColor }) => (
   <div className="bg-white rounded-2xl border border-slate-200 p-5">
-    <div
-      className={`w-11 h-11 rounded-xl flex items-center justify-center mb-3 ${iconBg}`}
-    >
+    <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-3 ${iconBg}`}>
       <Icon className={`text-lg ${iconColor}`} />
     </div>
-    <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-1">
-      {label}
-    </p>
-    <p className={`text-2xl font-bold ${valueCls || "text-slate-900"}`}>
-      {value}
-    </p>
+    <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-1">{label}</p>
+    <p className={`text-2xl font-bold ${valueCls || "text-slate-900"}`}>{value}</p>
   </div>
 );
 
@@ -128,11 +115,7 @@ const DeadlineCell = ({ deadline }) => {
         ${overdue ? "text-red-600" : soon ? "text-amber-600" : "text-slate-700"}`}
       >
         {overdue && <FaExclamationTriangle className="text-xs" />}
-        {overdue
-          ? "Overdue"
-          : days === 0
-            ? "Due today"
-            : `In ${days} day${days !== 1 ? "s" : ""}`}
+        {overdue ? "Overdue" : days === 0 ? "Due today" : `In ${days} day${days !== 1 ? "s" : ""}`}
       </p>
       <p className="text-xs text-slate-400">{fmt(deadline)}</p>
     </div>
@@ -143,9 +126,7 @@ const PriorityBadge = ({ priority }) => {
   const p = PRIORITY_CONFIG[priority] || null;
   if (!p) return <span className="text-xs text-slate-300">—</span>;
   return (
-    <span
-      className={`inline-flex text-[11px] font-bold px-2.5 py-1 rounded-full border ${p.cls}`}
-    >
+    <span className={`inline-flex text-[11px] font-bold px-2.5 py-1 rounded-full border ${p.cls}`}>
       {p.label.toUpperCase()}
     </span>
   );
@@ -178,12 +159,10 @@ const ReviewQueue = () => {
         }),
       ]);
       const active = Array.isArray(activeRes.papers) ? activeRes.papers : [];
-      const completed = Array.isArray(completedRes.papers)
-        ? completedRes.papers
-        : [];
+      const completed = Array.isArray(completedRes.papers) ? completedRes.papers : [];
       setItems([...active, ...completed]);
     } catch (err) {
-      toast.error(err.message || "Failed to load assignments");
+      notify.error(err.message || "Failed to load assignments");
     } finally {
       setLoading(false);
     }
@@ -199,16 +178,12 @@ const ReviewQueue = () => {
       case "pending":
         return items.filter(
           // (i) => i.status === "pending" && !i.draftReviewStartedAt,
-          (i) => i.status === "under_review" && !i.draftReviewStartedAt,
+          (i) => i.status === "under_review" && !i.draftReviewStartedAt
         );
       case "inProgress":
-        return items.filter(
-          (i) => i.status === "under_review" && !!i.draftReviewStartedAt,
-        );
+        return items.filter((i) => i.status === "under_review" && !!i.draftReviewStartedAt);
       case "completed":
-        return items.filter((i) =>
-          ["approved", "rejected", "suspended"].includes(i.status),
-        );
+        return items.filter((i) => ["approved", "rejected", "suspended"].includes(i.status));
       default:
         return items;
     }
@@ -217,13 +192,9 @@ const ReviewQueue = () => {
   const sorted = useMemo(() => {
     const list = [...byTab];
     if (sort === "deadline") {
-      list.sort(
-        (a, b) => new Date(a.deadline || 0) - new Date(b.deadline || 0),
-      );
+      list.sort((a, b) => new Date(a.deadline || 0) - new Date(b.deadline || 0));
     } else if (sort === "assigned") {
-      list.sort(
-        (a, b) => new Date(b.assignedAt || 0) - new Date(a.assignedAt || 0),
-      );
+      list.sort((a, b) => new Date(b.assignedAt || 0) - new Date(a.assignedAt || 0));
     } else if (sort === "priority") {
       const rank = { high: 0, medium: 1, normal: 2 };
       list.sort((a, b) => (rank[a.priority] ?? 3) - (rank[b.priority] ?? 3));
@@ -240,23 +211,17 @@ const ReviewQueue = () => {
 
   const stats = useMemo(() => {
     const pending = items.filter((i) =>
-      ["under_review", "pending", "revision_requested"].includes(i.status),
+      ["under_review", "pending", "revision_requested"].includes(i.status)
     );
-    const decided = items.filter((i) =>
-      ["approved", "rejected", "suspended"].includes(i.status),
-    );
-    const revisionsSent = items.filter(
-      (i) => i.status === "revision_requested",
-    ).length;
+    const decided = items.filter((i) => ["approved", "rejected", "suspended"].includes(i.status));
+    const revisionsSent = items.filter((i) => i.status === "revision_requested").length;
     const withDates = decided.filter((i) => i.assignedAt && i.reviewedAt);
     const avgTurnaround = withDates.length
       ? (
           withDates.reduce(
             (sum, i) =>
-              sum +
-              (new Date(i.reviewedAt) - new Date(i.assignedAt)) /
-                (1000 * 60 * 60 * 24),
-            0,
+              sum + (new Date(i.reviewedAt) - new Date(i.assignedAt)) / (1000 * 60 * 60 * 24),
+            0
           ) / withDates.length
         ).toFixed(1)
       : null;
@@ -268,19 +233,16 @@ const ReviewQueue = () => {
     };
   }, [items]);
 
-  const handleReview = (item) =>
-    navigate(`/research/dashboard/review/${item.id}`);
+  const handleReview = (item) => navigate(`/research/dashboard/review/${item.id}`);
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
       <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
         Portal <span className="text-slate-300 mx-1">/</span>
         My Assignments <span className="text-slate-300 mx-1">/</span>
         <span className="text-indigo-700">Reviewer Queue</span>
       </p>
 
-      {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
@@ -303,7 +265,6 @@ const ReviewQueue = () => {
         </button>
       </div>
 
-      {/* Stat cards */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={FaInbox}
@@ -336,7 +297,6 @@ const ReviewQueue = () => {
         />
       </div>
 
-      {/* Tabs + table */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
         <div className="px-6 pt-4 border-b border-slate-100">
           <div className="flex items-center gap-5 mb-4">
@@ -397,29 +357,23 @@ const ReviewQueue = () => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100">
-                    {[
-                      "Project ID & Title",
-                      "Type",
-                      "PI",
-                      "Deadline",
-                      "Priority",
-                      "",
-                    ].map((h, i) => (
-                      <th
-                        key={h || i}
-                        className={`px-6 py-3 text-xs font-bold uppercase
+                    {["Project ID & Title", "Type", "PI", "Deadline", "Priority", ""].map(
+                      (h, i) => (
+                        <th
+                          key={h || i}
+                          className={`px-6 py-3 text-xs font-bold uppercase
                         tracking-widest text-slate-400 whitespace-nowrap
                         ${i === 5 ? "text-right" : "text-left"}`}
-                      >
-                        {h}
-                      </th>
-                    ))}
+                        >
+                          {h}
+                        </th>
+                      )
+                    )}
                   </tr>
                 </thead>
                 <tbody>
                   {pageItems.map((item) => {
-                    const overdue =
-                      item.deadline && daysUntil(item.deadline) < 0;
+                    const overdue = item.deadline && daysUntil(item.deadline) < 0;
                     return (
                       <tr
                         key={item.id}
@@ -461,16 +415,13 @@ const ReviewQueue = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <DeadlineCell
-                            deadline={item.reviewDeadline || item.deadline}
-                          />
+                          <DeadlineCell deadline={item.reviewDeadline || item.deadline} />
                         </td>
                         <td className="px-6 py-4">
                           <PriorityBadge priority={item.priority} />
                         </td>
                         <td className="px-6 py-4 text-right">
                           {(() => {
-                            // AFTER
                             const isCompleted = [
                               "approved",
                               "rejected",
@@ -483,16 +434,13 @@ const ReviewQueue = () => {
                                   <button
                                     type="button"
                                     onClick={() =>
-                                      navigate(
-                                        `/research/dashboard/review/${item.id}?mode=edit`,
-                                      )
+                                      navigate(`/research/dashboard/review/${item.id}?mode=edit`)
                                     }
                                     className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-700
               hover:bg-slate-800 text-white text-xs font-bold transition-colors
               cursor-pointer whitespace-nowrap"
                                   >
-                                    <FaShieldAlt className="text-xs" /> View
-                                    Review
+                                    <FaShieldAlt className="text-xs" /> View Review
                                   </button>
                                 ) : (
                                   <button
@@ -502,8 +450,7 @@ const ReviewQueue = () => {
               hover:bg-indigo-700 text-white text-xs font-bold transition-colors
               cursor-pointer whitespace-nowrap"
                                   >
-                                    <FaShieldAlt className="text-xs" /> Start
-                                    Review
+                                    <FaShieldAlt className="text-xs" /> Start Review
                                   </button>
                                 )}
                               </div>
@@ -522,9 +469,8 @@ const ReviewQueue = () => {
               bg-slate-50 flex-wrap gap-3"
             >
               <p className="text-sm text-slate-500">
-                Showing {(page - 1) * PAGE_SIZE + 1}-
-                {Math.min(page * PAGE_SIZE, sorted.length)} of {sorted.length}{" "}
-                assignments
+                Showing {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, sorted.length)} of{" "}
+                {sorted.length} assignments
               </p>
               <div className="flex items-center gap-1.5">
                 <button
@@ -538,19 +484,17 @@ const ReviewQueue = () => {
                 >
                   <FaChevronLeft className="text-xs" />
                 </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                  (p) => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => setPage(p)}
-                      className={`w-8 h-8 rounded-lg text-sm font-semibold transition-colors cursor-pointer
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPage(p)}
+                    className={`w-8 h-8 rounded-lg text-sm font-semibold transition-colors cursor-pointer
                       ${p === page ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-100 border border-slate-200"}`}
-                    >
-                      {p}
-                    </button>
-                  ),
-                )}
+                  >
+                    {p}
+                  </button>
+                ))}
                 <button
                   type="button"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}

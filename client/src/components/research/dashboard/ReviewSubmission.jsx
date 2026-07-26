@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import notify from "../../../common/utils/notify";
 import {
   FaShieldAlt, FaCalendarAlt, FaUser, FaDownload, FaEye, FaFileAlt,
   FaCheck, FaChevronLeft, FaPaperPlane, FaSpinner, FaHistory,
@@ -178,8 +178,7 @@ const HistoryTab = ({ history = [] }) => (
     </div>
   )
 );
-
-//  Review Submission page 
+ 
 const ReviewSubmission = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -202,7 +201,7 @@ const ReviewSubmission = () => {
       const res = await research.getResearchById(id);
       setItem(res.research || res);
     } catch (err) {
-      toast.error(err.message || "Failed to load submission");
+      notify.error(err.message || "Failed to load submission");
       navigate(-1);
     } finally {
       setLoading(false);
@@ -222,9 +221,9 @@ const ReviewSubmission = () => {
     !submitting;
 
   const handleSubmit = async () => {
-    if (!decision) { toast.error("Select a final decision"); return; }
-    if (feedback.trim().length < 10) { toast.error("Feedback must be at least 10 characters"); return; }
-    if (!certified) { toast.error("Please certify your review before submitting"); return; }
+    if (!decision) { notify.error("Select a final decision"); return; }
+    if (feedback.trim().length < 10) { notify.error("Feedback must be at least 10 characters"); return; }
+    if (!certified) { notify.error("Please certify your review before submitting"); return; }
 
     setSubmitting(true);
     try {
@@ -234,10 +233,10 @@ const ReviewSubmission = () => {
         scores,
         aggregateScore: Number(aggregateScore),
       });
-      toast.success("Review submitted successfully!");
+      notify.success("Review submitted successfully!");
       navigate("/research/dashboard/review-queue");
     } catch (err) {
-      toast.error(err.message || "Failed to submit review");
+      notify.error(err.message || "Failed to submit review");
     } finally {
       setSubmitting(false);
     }
@@ -248,7 +247,7 @@ const ReviewSubmission = () => {
 
   return (
     <div className="space-y-6">
-      {/* Back link */}
+  
       <button
         type="button"
         onClick={() => navigate(-1)}
@@ -258,7 +257,7 @@ const ReviewSubmission = () => {
         <FaChevronLeft className="text-xs" /> Back to queue
       </button>
 
-      {/* Header card */}
+
       <div className="bg-white rounded-2xl border border-slate-200 p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -287,9 +286,9 @@ const ReviewSubmission = () => {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Left column */}
+       
         <div className="lg:col-span-2 space-y-6">
-          {/* Stepper */}
+  
           <div className="bg-white rounded-2xl border border-slate-200">
             <p className="text-xs font-bold uppercase tracking-widest text-slate-400 px-6 pt-5">
               Review Progress
@@ -297,7 +296,7 @@ const ReviewSubmission = () => {
             <Stepper currentStep="review" />
           </div>
 
-          {/* Tabbed content */}
+  
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div className="flex border-b border-slate-100 px-2">
               {TABS.map((t) => (
@@ -325,9 +324,9 @@ const ReviewSubmission = () => {
           </div>
         </div>
 
-        {/* Right column — scoring & decision */}
+    
         <div className="space-y-6">
-          {/* Scoring panel */}
+   
           <div className="bg-blue-700 rounded-2xl p-5 text-white">
             <h3 className="font-bold flex items-center gap-2">
               <FaShieldAlt className="text-sm" /> Scoring & Feedback
@@ -351,7 +350,7 @@ const ReviewSubmission = () => {
             </div>
           </div>
 
-          {/* Decision panel */}
+       
           <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
             <h3 className="font-bold text-slate-900 text-sm">Final Decision</h3>
 

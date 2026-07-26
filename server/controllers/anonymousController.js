@@ -3,18 +3,9 @@
 const { Op, UniqueConstraintError } = require("sequelize");
 const { AnonymousAppointment } = require("../sequelize/models");
 
-// ── Case code generation ────────────────────────────────────────────
 
-/**
- * Case codes are per-day sequences like `GBV-001-23-2026`. The Mongo
- * version counted today's cases and appended count+1 — a classic TOCTOU
- * race where two concurrent submissions can both count N and both try
- * to write the same code, one succeeding and one hitting the unique
- * index. We keep that count-based approach (changing the format is a
- * policy decision, not a migration decision), but wrap the whole
- * generate-then-insert in a retry loop so the loser of a race just
- * counts again and moves on rather than 500-ing the request.
- */
+
+
 const CASE_CODE_MAX_ATTEMPTS = 5;
 
 const generateCaseCode = async (caseType) => {
@@ -23,8 +14,7 @@ const generateCaseCode = async (caseType) => {
   const year = now.getFullYear();
   const prefix = caseType === "GBV" ? "GBV" : "MH";
 
-  // Explicit UTC-agnostic day window — same semantics as
-  // `setHours(0,0,0,0)` in the Mongoose version.
+  
   const startOfDay = new Date(now);
   startOfDay.setHours(0, 0, 0, 0);
   const endOfDay = new Date(now);
@@ -41,7 +31,7 @@ const generateCaseCode = async (caseType) => {
   return `${prefix}-${caseNumber}-${day}-${year}`;
 };
 
-// ── Endpoints ───────────────────────────────────────────────────────
+
 
 exports.createAnonymousAppointment = async (req, res) => {
   try {
@@ -91,8 +81,7 @@ exports.createAnonymousAppointment = async (req, res) => {
       });
     }
 
-    // Retry the whole generate → insert cycle a small number of times to
-    // absorb races on today's case count.
+ 
     let appointment;
     for (let attempt = 0; attempt < CASE_CODE_MAX_ATTEMPTS; attempt += 1) {
       const case_code = await generateCaseCode(case_type);
@@ -111,7 +100,7 @@ exports.createAnonymousAppointment = async (req, res) => {
         });
         break;
       } catch (err) {
-        // Only retry on case_code collision; every other error propagates.
+
         const isCollision =
           err instanceof UniqueConstraintError &&
           (err.fields?.case_code || err.errors?.some?.((e) => e.path === "case_code"));
@@ -130,8 +119,6 @@ exports.createAnonymousAppointment = async (req, res) => {
         preferred_date: appointment.preferred_date,
         preferred_time: appointment.preferred_time,
         status:         appointment.status,
-        // createdAt (camelCase) via defaults; frontend contract uses
-        // snake_case, so alias the response field.
         created_at:     appointment.createdAt,
       },
     });
@@ -159,8 +146,7 @@ exports.getAllAnonymousAppointments = async (req, res) => {
 
     const { rows: appointments, count: total } = await AnonymousAppointment.findAndCountAll({
       where,
-      // ASAP cases first, then most-recent — matches the "sort" clause
-      // from the Mongoose version.
+
       order: [
         ["asap", "DESC"],
         ["createdAt", "DESC"],
@@ -218,8 +204,6 @@ exports.updateAppointmentStatus = async (req, res) => {
       });
     }
 
-    // findOneAndUpdate → findOne + set + save so the model's validators
-    // and hooks fire the same way `runValidators: true` did.
     const appointment = await AnonymousAppointment.findOne({ where: { case_code } });
     if (!appointment) {
       return res.status(404).json({ success: false, message: "Appointment not found" });
@@ -268,7 +252,7 @@ exports.deleteAnonymousAppointment = async (req, res) => {
 
 exports.getAppointmentStats = async (req, res) => {
   try {
-    // Six COUNT queries → one Promise.all for a single-window round trip.
+
     const [
       total,
       pending,

@@ -1,3 +1,4 @@
+const emitChange = require("../utils/emitChange");
 "use strict";
 
 const { Feedback } = require("../sequelize/models");
@@ -5,7 +6,6 @@ const logger = require("../utils/logger");
 const { sendFeedbackReplyEmail } = require("../utils/emailServices");
 const { getPagination, buildMeta } = require("../utils/pagination");
 
-// Submit feedback (Public)
 exports.submitFeedback = async (req, res) => {
   try {
     const { name, email, subject, message, type } = req.body;
@@ -23,18 +23,17 @@ exports.submitFeedback = async (req, res) => {
     });
 
     res.status(201).json({ message: "Feedback submitted successfully", feedback });
+    emitChange("feedback", "created", { id: feedback.id });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
-// Admin / Communication — View all feedback
 exports.getAllFeedback = async (req, res) => {
   try {
     const { type, status } = req.query;
-    // Build the where-clause dynamically so an omitted query param means
-    // "no filter" — same semantics as the Mongoose empty-object filter.
+
     const where = {};
     if (type) where.type = type;
     if (status) where.status = status;
@@ -54,7 +53,7 @@ exports.getAllFeedback = async (req, res) => {
   }
 };
 
-// Admin / Communication — View single feedback
+
 exports.getFeedbackById = async (req, res) => {
   try {
     const feedback = await Feedback.findByPk(req.params.id);
@@ -66,7 +65,7 @@ exports.getFeedbackById = async (req, res) => {
   }
 };
 
-// Admin / Communication — Respond or mark as handled
+
 exports.respondToFeedback = async (req, res) => {
   try {
     const { response, status } = req.body;
@@ -78,10 +77,7 @@ exports.respondToFeedback = async (req, res) => {
     if (typeof status !== "undefined") feedback.status = status;
 
     if (req.user) {
-      // req.user comes from verifyToken → Sequelize User instance now, so
-      // it always exposes `id`. Keep the fallback chain in case a future
-      // dual-token flow attaches a research-side object with a different
-      // shape.
+
       if (req.user.id) feedback.respondedBy = req.user.id;
       if (req.user.name) feedback.respondedByName = req.user.name;
     }
@@ -104,13 +100,13 @@ exports.respondToFeedback = async (req, res) => {
     }
 
     res.json({ message: "Feedback updated successfully", feedback });
+    emitChange("feedback", "updated", { id: feedback.id });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
-// Admin — Delete feedback
 exports.deleteFeedback = async (req, res) => {
   try {
     const feedback = await Feedback.findByPk(req.params.id);
@@ -118,6 +114,7 @@ exports.deleteFeedback = async (req, res) => {
 
     await feedback.destroy();
     res.json({ message: "Feedback deleted successfully" });
+    emitChange("feedback", "deleted", { id: req.params.id });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });

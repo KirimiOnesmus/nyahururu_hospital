@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import notify from "../../../common/utils/notify";
 import ResearcherStats from "../ResearcherStatsSection";
 import { API_BASE_URL } from "../../../config/env";
 import {
@@ -20,7 +20,7 @@ import {
 } from "react-icons/fa";
 import * as research from "../../../api/research";
 
-//  Constants & mappings
+
 
 const DASHBOARD_STATUS_MAP = {
   approved: "approved",
@@ -55,7 +55,7 @@ const STATUS_CONFIG = {
   },
 };
 
-// Resolve a raw backend status string to a STATUS_CONFIG key
+
 const resolveStatus = (rawStatus) =>
   DASHBOARD_STATUS_MAP[rawStatus] || "pending";
 
@@ -68,7 +68,7 @@ const fmt = (d) =>
       })
     : "—";
 
-//  Shared class strings
+
 const filterBtnCls = (active) =>
   `px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer
    ${
@@ -89,7 +89,7 @@ const actionBtnCls = (variant = "primary") => {
     border transition-colors cursor-pointer ${map[variant]}`;
 };
 
-//  Local building blocks
+
 const Spinner = ({ size = 8, color = "border-t-blue-600" }) => (
   <div
     className={`w-${size} h-${size} border-4 border-slate-200 ${color} rounded-full animate-spin`}
@@ -121,7 +121,7 @@ const SlideModal = ({ onClose, children }) => (
   >
     <div
       className="bg-white rounded-2xl border border-slate-200 w-full max-w-xl
-        max-h-[90vh] overflow-y-auto shadow-xl"
+        max-h-[90vh] overflow-y-auto"
       onClick={(e) => e.stopPropagation()}
     >
       {children}
@@ -129,7 +129,7 @@ const SlideModal = ({ onClose, children }) => (
   </div>
 );
 
-//  Resubmit modal
+
 const ResubmitModal = ({ item, onClose, onResubmitted }) => {
   const [form, setFormRaw] = useState({
     abstract: item.abstract || "",
@@ -173,7 +173,7 @@ const ResubmitModal = ({ item, onClose, onResubmitted }) => {
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Resubmission failed");
-      toast.success("Resubmitted successfully!");
+      notify.success("Resubmitted successfully!");
       onResubmitted?.();
       onClose();
     } catch (err) {
@@ -288,7 +288,7 @@ const ResubmitModal = ({ item, onClose, onResubmitted }) => {
   );
 };
 
-//  Lifecycle percent
+
 const lifecyclePercent = (item) => {
   const uiStatus = resolveStatus(item.status);
   if (item.stage === "final_paper") {
@@ -308,7 +308,7 @@ const lifecyclePercent = (item) => {
 
 const STAGE_STEPS = ["Proposal", "Progress", "Final"];
 
-//  Project card
+
 const ProjectCard = ({
   item,
   onSubmitProgress,
@@ -347,7 +347,7 @@ const ProjectCard = ({
         {item.title}
       </h4>
 
-      {/* Show reviewer comment for revision/rejection; committee comment separately */}
+      
       {item.reviewComment &&
         (uiStatus === "rejected" || uiStatus === "approved") && (
           <div
@@ -366,7 +366,7 @@ const ProjectCard = ({
           </div>
         )}
 
-      {/* Committee review — show a distinct callout */}
+
       {uiStatus === "committee_review" && (
         <div className="rounded-xl px-3.5 py-2.5 border text-xs leading-relaxed flex items-start gap-2 bg-indigo-50 border-indigo-200 text-indigo-800">
           <FaShieldAlt className="mt-0.5 shrink-0" />
@@ -377,7 +377,7 @@ const ProjectCard = ({
         </div>
       )}
 
-      {/* Lifecycle progress bar */}
+
       <div>
         <div className="flex items-center justify-between text-xs mb-1.5">
           <span className="font-semibold text-slate-600">Lifecycle Stage</span>
@@ -447,7 +447,7 @@ const ProjectCard = ({
   );
 };
 
-//  Researcher Dashboard
+
 const ResearcherDashboard = ({ user }) => {
   const navigate = useNavigate();
 
@@ -468,7 +468,7 @@ const ResearcherDashboard = ({ user }) => {
       );
       setPapers(rawPapers);
     } catch {
-      toast.error("Failed to load your research submissions");
+      notify.error("Failed to load your research submissions");
     } finally {
       setLoading(false);
     }
@@ -511,7 +511,7 @@ const ResearcherDashboard = ({ user }) => {
               {user?.firstName
                 ? `${user.firstName} ${user.lastName ?? ""}`.trim()
                 : "Researcher"}{" "}
-              {/* ← fallback while loading */}
+          
             </h2>
             <p className="text-blue-200 text-sm mt-1">
               {user?.institution ?? ""}
@@ -521,7 +521,7 @@ const ResearcherDashboard = ({ user }) => {
           <button
             type="button"
             onClick={handleNewProposal}
-            className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-300 text-slate-900 font-bold px-5 py-2.5 rounded-xl transition-colors shadow-sm self-start sm:self-auto whitespace-nowrap cursor-pointer"
+            className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-300 text-slate-900 font-bold px-5 py-2.5 rounded-xl transition-colors self-start sm:self-auto whitespace-nowrap cursor-pointer"
           >
             <FaPlus className="text-xs" /> New proposal
           </button>

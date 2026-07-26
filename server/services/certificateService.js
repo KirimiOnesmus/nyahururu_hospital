@@ -18,12 +18,9 @@ const _persistPdf = async (certificateNumber, buffer) => {
   return { url: `/uploads/certificates/${filename}`, key: filename };
 };
 
-// The Researcher-side include used for issuance denormalisation. The
-// Mongoose flow only pulled a few fields off the researcher for the
-// certificate snapshot, and that's preserved here.
+
 const RESEARCHER_SNAPSHOT_ATTRS = ["id", "name", "firstName", "institution"];
 
-// ── Issue clearance certificate (proposal approval) ──────────────────
 const issueClearanceCertificate = async (researchId, issuedBy) => {
   const research = await Research.findByPk(researchId, {
     include: [
@@ -32,9 +29,7 @@ const issueClearanceCertificate = async (researchId, issuedBy) => {
   });
   if (!research) throw new AppError("Research not found.", 404);
 
-  // Idempotency: if an active clearance cert already exists for this
-  // research, hand it back rather than issuing a duplicate. Matches the
-  // Mongoose behaviour and is important for retryable workflows.
+
   const existing = await Certificate.findOne({
     where: {
       researchId,
@@ -48,11 +43,6 @@ const issueClearanceCertificate = async (researchId, issuedBy) => {
   const validUntil = new Date();
   validUntil.setFullYear(validUntil.getFullYear() + 1);
 
-  // The Certificate model's beforeValidate hook auto-generates
-  // certificateNumber + verificationToken from the Counter — we don't
-  // need to precompute them like the Mongoose version did. Only the QR
-  // (which depends on the number+token) is generated after the row
-  // has its number.
   const cert = await Certificate.create({
     type: CERTIFICATE_TYPES.PROPOSAL_APPROVAL,
     researchId: research.id,
@@ -69,8 +59,6 @@ const issueClearanceCertificate = async (researchId, issuedBy) => {
     issuedById: issuedBy,
   });
 
-  // Generate the QR after the row exists so we can use its persisted
-  // number + token (both come from the model hook).
   cert.qrCodeDataUrl = await generateVerificationQR(
     cert.certificateNumber,
     cert.verificationToken,
@@ -88,7 +76,6 @@ const issueClearanceCertificate = async (researchId, issuedBy) => {
   return cert;
 };
 
-// ── Issue completion certificate (publication) ──────────────────────
 const issueCompletionCertificate = async (researchId, issuedBy) => {
   const research = await Research.findByPk(researchId, {
     include: [
@@ -139,21 +126,13 @@ const issueCompletionCertificate = async (researchId, issuedBy) => {
   return cert;
 };
 
-// ── PUBLIC: verify a certificate via QR scan ────────────────────────
-//
-// NOTE (bug fixed on cutover): the Mongoose version of this function
-// referenced `valid` on line 139 BEFORE it was defined further down
-// (at ~line 156 in the original file). It would have thrown
-// `ReferenceError: Cannot access 'valid' before initialization` on
-// every call. Re-ordered so `valid` is computed first, then the
-// token-tamper check runs, then the certificate row is loaded — which
-// is what the original code clearly intended.
+//  PUBLIC: verify a certificate via QR scan 
+
 const verifyCertificate = async (certificateNumber, token) => {
   if (!certificateNumber || !token) {
     throw new AppError("Certificate number and token are required.", 400);
   }
 
-  // Timing-safe HMAC check — see Certificate.verifyToken in the model.
   const tokenValid = Certificate.verifyToken(certificateNumber, token);
   if (!tokenValid) {
     throw new AppError("Invalid or tampered verification code.", 400);
@@ -180,15 +159,12 @@ const verifyCertificate = async (certificateNumber, token) => {
   return { valid, expired: !!isExpired, certificate: cert };
 };
 
-// ── LIST / QUERY ────────────────────────────────────────────────────
+
 const getCertificatesForResearcher = async (researcherId) => {
   return Certificate.findAll({
     where: { researcherId },
     order: [["createdAt", "DESC"]],
-    // Exclude the HMAC token from the response — same intent as the
-    // Mongoose .select("-verificationToken"). Anyone who can already
-    // read the cert on the API doesn't need the token; only public QR
-    // scan endpoints go through verifyCertificate above.
+
     attributes: { exclude: ["verificationToken"] },
   });
 };
@@ -200,7 +176,6 @@ const getCertificatesForResearch = async (researchId) => {
   });
 };
 
-// ── ADMIN: revoke ───────────────────────────────────────────────────
 const revokeCertificate = async (certificateId, revokedBy, reason) => {
   if (!reason?.trim()) {
     throw new AppError("A reason is required to revoke a certificate.", 400);
@@ -211,9 +186,6 @@ const revokeCertificate = async (certificateId, revokedBy, reason) => {
   if (cert.status === Certificate.CERT_STATUSES.REVOKED) {
     throw new AppError("Certificate is already revoked.", 400);
   }
-
-  // Delegate to the model's revoke() method — sets status, revokedAt,
-  // revokedById, revokedReason and saves.
   await cert.revoke(revokedBy, reason.trim());
   return cert;
 };

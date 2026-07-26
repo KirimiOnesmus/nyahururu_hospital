@@ -1,6 +1,7 @@
 const { User, Profile, Doctor } = require("../sequelize/models");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
+const audit = require("../services/auditService");
 const {
   sendVerificationEmail,
   sendPasswordChangedEmail,
@@ -122,14 +123,10 @@ exports.updateProfile = async (req, res) => {
       await profile.save();
     }
 
-    // Update doctor details if applicable
     let doctorDetails = null;
     if (user.role === "doctor") {
       try {
-        // findOrCreate handles both branches (new profile / existing
-        // profile update) in a single MySQL transaction, closing the
-        // read-then-write race that could otherwise create two Doctor
-        // rows for the same user under concurrent edits.
+ 
         const [doctor, created] = await Doctor.findOrCreate({
           where: { userId },
           defaults: {
@@ -148,9 +145,7 @@ exports.updateProfile = async (req, res) => {
         }
         doctorDetails = doctor;
       } catch (doctorErr) {
-        // Non-fatal — the user's own profile update has already
-        // committed, so a downstream Doctor sync failure gets logged
-        // and the caller sees a successful profile response.
+
         console.error("Doctor profile sync failed:", doctorErr.message);
       }
     }
@@ -218,9 +213,7 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    // CUTOVER NOTE: password isn't hidden by the model's defaultScope
-    // (only the four token columns are), so a plain findByPk already
-    // returns it — no ".scope('withSecrets')" or "+password" needed here.
+
     const user = await User.findByPk(userId);
 
     if (!user) {
@@ -252,11 +245,20 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    // Left raw — the model's beforeSave hook hashes it. Do not
-    // bcrypt.hash() here, that would double-hash it.
     user.password = newPassword;
     user.mustChangePassword = false;
     await user.save();
+
+    audit.log({
+      req,
+      action: "password_reset",
+      resource: "User",
+      resourceId: user.id,
+      description: user.mustChangePassword
+        ? "First-login password change completed"
+        : "Password changed by user",
+      severity: "medium",
+    });
 
     try {
       await sendPasswordChangedEmail(user.email, user.name);
@@ -287,7 +289,6 @@ exports.uploadProfilePhoto = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    // Validate file type
     const allowedMimes = ["image/jpeg", "image/png", "image/webp"];
     if (!allowedMimes.includes(req.file.mimetype)) {
       return res
@@ -295,7 +296,7 @@ exports.uploadProfilePhoto = async (req, res) => {
         .json({ message: "Only JPEG, PNG, and WebP images are allowed" });
     }
 
-    // Validate file size (max 5MB)
+
     const maxSize = 5 * 1024 * 1024;
     if (req.file.size > maxSize) {
       return res

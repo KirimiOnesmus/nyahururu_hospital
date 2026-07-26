@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import notify from "../../../common/utils/notify";
 import {
   FaFileAlt, FaSpinner, FaBook, FaStar, FaFlask, FaDownload,
   FaShieldAlt, FaFilter, FaCalendarAlt, FaEye, FaChevronDown,
@@ -151,7 +151,7 @@ const AllResearch = () => {
       const res = await research.getAllResearch();
       setPapers(Array.isArray(res.papers) ? res.papers : []);
     } catch {
-      toast.error("Failed to load research repository");
+      notify.error("Failed to load research repository");
     } finally {
       setLoading(false);
     }
@@ -186,8 +186,8 @@ const AllResearch = () => {
     navigate(`../committee-research-detail/${recordId}`, { state: { record: paper } });
   };
 
-  const handleVerify  = (paper) => toast.success(`Verified: ${paper.researchId}`);
-  const handleDownload = (paper) => toast.success(`Preparing download for ${paper.researchId}`);
+  const handleVerify  = (paper) => notify.success(`Verified: ${paper.researchId}`);
+  const handleDownload = (paper) => notify.success(`Preparing download for ${paper.researchId}`);
   const handlePageChange = (n) => { if (n >= 1 && n <= totalPages) setPage(n); };
 
   return (
@@ -209,7 +209,7 @@ const AllResearch = () => {
         </div>
       </div>
 
-      {/* Stat cards */}
+
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={FaFileAlt} value={stats.total.toLocaleString()} label="Total Research Papers" sub="+12% vs LY" subColor="text-emerald-600" iconBg="bg-blue-50" iconColor="text-blue-900" />
         <StatCard icon={FaSpinner} value={stats.inProgress} label="In-Progress Studies" sub="8 Critical Path" iconBg="bg-amber-50" iconColor="text-amber-500" />
@@ -217,7 +217,7 @@ const AllResearch = () => {
         <StatCard icon={FaStar}    value={stats.impact}     label="Institutional Impact" sub="Global Quartile" iconBg="bg-pink-50" iconColor="text-pink-600" />
       </div>
 
-      {/* Filters */}
+
       <div className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-wrap items-end gap-4">
         <div className="flex flex-col gap-1 flex-1 min-w-[160px]">
           <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Research Stage</label>
@@ -246,7 +246,6 @@ const AllResearch = () => {
         </button>
       </div>
 
-      {/* Table */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <h3 className="font-bold text-slate-900 text-base">Research Papers</h3>
@@ -303,7 +302,7 @@ const AllResearch = () => {
         )}
       </div>
 
-      {/* Lifecycle Stage Mapping */}
+  
       <div className="bg-white rounded-2xl border border-slate-200 p-6">
         <h3 className="font-bold text-slate-700 text-sm mb-4">Lifecycle Stage Mapping</h3>
         <div className="flex flex-wrap items-center gap-y-3">

@@ -19,9 +19,12 @@ import {
   FaEyeSlash,
 } from "react-icons/fa";
 import api from "../../api/axios";
-import { toast } from "react-toastify";
+import notify from "../../common/utils/notify";
+import {
+  Modal, Spinner, EmptyState, StatCard, Button, SearchBox, Input, TextArea, Select, FormField, PageHeader, StatusBadge, Avatar, DataTable,
+} from "../../common/components";
 
-const Spinner = ({ size = "md" }) => {
+const InlineSpinner = ({ size = "md" }) => {
   const sizes = { sm: "w-4 h-4", md: "w-6 h-6", lg: "w-10 h-10" };
   return <FaSpinner className={`${sizes[size]} animate-spin`} />;
 };
@@ -102,7 +105,6 @@ const Field = ({
   </div>
 );
 
-// Password Inputs
 
 const PasswordInput = ({ label, placeholder, value, onChange, disabled }) => {
   const [show, setShow] = React.useState(false);
@@ -157,8 +159,8 @@ const PasswordModal = ({ onClose }) => {
   const allValid = lengthOk && matchOk && hasUpper && hasSpecial;
 
   const handleSubmit = async () => {
-    if (!fields.old) return toast.error("Please enter your current password");
-    if (!allValid) return toast.error("Please meet all password requirements");
+    if (!fields.old) return notify.error("Please enter your current password");
+    if (!allValid) return notify.error("Please meet all password requirements");
 
     setLoading(true);
     try {
@@ -166,10 +168,10 @@ const PasswordModal = ({ onClose }) => {
         oldPassword: fields.old,
         newPassword: fields.next,
       });
-      toast.success("Password updated successfully!");
+      notify.success("Password updated successfully!");
       onClose();
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Error updating password");
+      notify.error(err?.response?.data?.message || "Error updating password");
     } finally {
       setLoading(false);
     }
@@ -188,7 +190,7 @@ const PasswordModal = ({ onClose }) => {
       className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       onClick={(e) => e.target === e.currentTarget && !loading && onClose()}
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden">
+      <div className="bg-white rounded-2xl w-full max-w-md border border-slate-100 overflow-hidden">
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
           <h2 className="flex items-center gap-2 text-lg font-bold text-slate-800">
             <FaLock className="text-blue-500" /> Change Password
@@ -254,11 +256,11 @@ const PasswordModal = ({ onClose }) => {
             disabled={loading || !allValid}
             className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white
                        font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer
-                       transition-all shadow-sm hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                       transition-all disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {loading ? (
               <>
-                <Spinner size="sm" /> Updating…
+                <InlineSpinner size="sm" /> Updating…
               </>
             ) : (
               "Update Password"
@@ -279,7 +281,6 @@ const ProfilePage = () => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  // Weekly availability state (doctor only)
   const [availability, setAvailability] = useState([]);
   const [savingAvailability, setSavingAvailability] = useState(false);
 
@@ -318,7 +319,7 @@ const ProfilePage = () => {
       setEditedProfile(full);
       setAvailability(buildAvailability(res.data.data));
     } catch {
-      toast.error("Failed to load profile");
+      notify.error("Failed to load profile");
     } finally {
       setLoading(false);
     }
@@ -336,7 +337,7 @@ const ProfilePage = () => {
   };
 
   const handleSave = async () => {
-    if (!editedProfile.name?.trim()) return toast.error("Name cannot be empty");
+    if (!editedProfile.name?.trim()) return notify.error("Name cannot be empty");
     try {
       setSaving(true);
       const res = await api.put("/profile/update", editedProfile);
@@ -344,9 +345,9 @@ const ProfilePage = () => {
       setProfile(full);
       setEditedProfile(full);
       setIsEditing(false);
-      toast.success("Profile saved!");
+      notify.success("Profile saved!");
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Failed to update profile");
+      notify.error(err?.response?.data?.message || "Failed to update profile");
     } finally {
       setSaving(false);
     }
@@ -366,17 +367,16 @@ const ProfilePage = () => {
         const url = res.data.imageUrl;
         setProfile((p) => ({ ...p, profileImage: url }));
         setEditedProfile((p) => ({ ...p, profileImage: url }));
-        toast.success("Photo updated!");
+        notify.success("Photo updated!");
       }
     } catch {
-      toast.error("Failed to upload image");
+      notify.error("Failed to upload image");
     } finally {
       setUploading(false);
       e.target.value = "";
     }
   };
 
-  // Availability handlers (doctor only)
   const toggleDay = (day) =>
     setAvailability((prev) =>
       prev.map((d) => (d.day === day ? { ...d, enabled: !d.enabled } : d))
@@ -391,7 +391,7 @@ const ProfilePage = () => {
     const enabledDays = availability.filter((d) => d.enabled);
     for (const d of enabledDays) {
       if (d.startTime >= d.endTime) {
-        return toast.error(`${d.day}: start time must be before end time`);
+        return notify.error(`${d.day}: start time must be before end time`);
       }
     }
     try {
@@ -402,9 +402,9 @@ const ProfilePage = () => {
         endTime,
       }));
       await api.put("/doctors/availability", { availability: payload });
-      toast.success("Availability updated!");
+      notify.success("Availability updated!");
     } catch (err) {
-      toast.error(
+      notify.error(
         err?.response?.data?.message || "Failed to update availability"
       );
     } finally {
@@ -415,7 +415,7 @@ const ProfilePage = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-slate-50">
-        <Spinner size="lg" />
+        <InlineSpinner size="lg" />
         <p className="text-slate-500 text-base">Loading profile…</p>
       </div>
     );
@@ -449,7 +449,7 @@ const ProfilePage = () => {
             <button
               onClick={() => setIsEditing(true)}
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700
-                         text-white text-sm font-semibold shadow-sm hover:shadow-md transition-all"
+                         text-white text-sm font-semibold transition-all"
             >
               <FaEdit /> Edit Profile
             </button>
@@ -459,12 +459,12 @@ const ProfilePage = () => {
                 onClick={handleSave}
                 disabled={saving}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700
-                           text-white text-sm font-semibold shadow-sm hover:shadow-md transition-all
+                           text-white text-sm font-semibold transition-all
                            disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {saving ? (
                   <>
-                    <Spinner size="sm" /> Saving…
+                    <InlineSpinner size="sm" /> Saving…
                   </>
                 ) : (
                   <>
@@ -486,30 +486,30 @@ const ProfilePage = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col items-center gap-3 sticky top-4">
+            <div className="bg-white rounded-2xl border border-slate-100 p-6 flex flex-col items-center gap-3 sticky top-4">
               <div className="relative group">
                 {avatarSrc ? (
                   <img
                     src={avatarSrc}
                     alt={profile.name}
-                    className="w-28 h-28 rounded-full object-cover ring-4 ring-slate-100 shadow-md"
+                    className="w-28 h-28 rounded-full object-cover ring-4 ring-slate-100"
                   />
                 ) : (
                   <div
                     className="w-28 h-28 rounded-full bg-gradient-to-br from-blue-500 to-blue-700
                                   flex items-center justify-center text-white text-3xl font-bold
-                                  ring-4 ring-slate-100 shadow-md select-none"
+                                  ring-4 ring-slate-100 select-none"
                   >
                     {profile.name ? profile.name.charAt(0).toUpperCase() : "U"}
                   </div>
                 )}
                 <label
                   className={`absolute bottom-1 right-1 w-8 h-8 rounded-full bg-slate-800 hover:bg-blue-600
-                               text-white flex items-center justify-center cursor-pointer shadow-md
+                               text-white flex items-center justify-center cursor-pointer
                                border-2 border-white transition-colors text-xs
                                ${uploading ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
-                  {uploading ? <Spinner size="sm" /> : <FaCamera />}
+                  {uploading ? <InlineSpinner size="sm" /> : <FaCamera />}
                   <input
                     type="file"
                     accept="image/*"
@@ -563,7 +563,7 @@ const ProfilePage = () => {
           </div>
 
           <div className="lg:col-span-2 flex flex-col gap-5">
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <div className="bg-white rounded-2xl border border-slate-100 p-6">
               <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
                 <FaUser className="text-blue-500" />
                 <h3 className="text-base font-bold text-slate-800">
@@ -609,7 +609,7 @@ const ProfilePage = () => {
             </div>
 
             {isDoctor && (
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+              <div className="bg-white rounded-2xl border border-slate-100 p-6">
                 <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
                   <FaBriefcase className="text-blue-500" />
                   <h3 className="text-base font-bold text-slate-800">
@@ -650,7 +650,7 @@ const ProfilePage = () => {
             )}
 
             {isDoctor && (
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+              <div className="bg-white rounded-2xl border border-slate-100 p-6">
                 <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-100">
                   <div className="flex items-center gap-2">
                     <FaBriefcase className="text-blue-500" />
@@ -662,12 +662,12 @@ const ProfilePage = () => {
                     onClick={handleSaveAvailability}
                     disabled={savingAvailability}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700
-                               text-white text-xs font-semibold shadow-sm hover:shadow-md transition-all
+                               text-white text-xs font-semibold transition-all
                                disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {savingAvailability ? (
                       <>
-                        <Spinner size="sm" /> Saving…
+                        <InlineSpinner size="sm" /> Saving…
                       </>
                     ) : (
                       <>

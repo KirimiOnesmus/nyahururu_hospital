@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useSocket } from "../../api/socket";
 import {
   FaPlus, FaSearch, FaFilter, FaGavel, FaCalendarAlt, FaClock,
   FaEdit, FaTrash, FaEye, FaTimes, FaSave, FaFileDownload,
@@ -7,7 +8,11 @@ import {
   FaChartLine, FaFileContract, FaBullhorn,
 } from "react-icons/fa";
 import api from "../../api/axios";
-import { toast } from "react-toastify";
+import notify from "../../common/utils/notify";
+import {
+  Modal, Spinner, EmptyState, StatCard, Button, SearchBox, Input, TextArea, Select, FormField, PageHeader, StatusBadge as SharedStatusBadge, Avatar, DataTable,
+} from "../../common/components";
+
 
 
 const CATEGORIES = [
@@ -62,7 +67,7 @@ const EMPTY_FORM = () => ({
   visibility:"public", status:"draft", attachments: null,
 });
 
-const StatusBadge = ({ status }) => {
+const LocalStatusBadge = ({ status }) => {
   const c = scfg(status);
   const Icon = c.icon;
   return (
@@ -74,69 +79,12 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-const StatCard = ({ label, value, accent, icon: Icon, onClick }) => (
-  <div
-    onClick={onClick}
-    className={`bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow ${onClick ? "cursor-pointer" : ""}`}
-  >
-    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${accent.bg}`}>
-      <Icon className={`text-xl ${accent.icon}`} />
-    </div>
-    <div>
-      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{label}</p>
-      <p className={`text-2xl font-black ${accent.num}`}>{value ?? 0}</p>
-    </div>
-  </div>
-);
 
-const Spinner = ({ text = "Loading…" }) => (
-  <div className="flex flex-col items-center justify-center py-20 gap-3">
-    <div className="w-10 h-10 border-2 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
-    <p className="text-sm text-gray-400">{text}</p>
-  </div>
-);
 
-const Empty = ({ text }) => (
-  <div className="flex flex-col items-center justify-center py-20 gap-3">
-    <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center">
-      <FaGavel className="text-2xl text-gray-300" />
-    </div>
-    <p className="text-sm text-gray-400">{text}</p>
-  </div>
-);
 
-// ── Modal shell ────────────────────────────────────────────────────────────────
-const Modal = ({ open, onClose, title, children, maxW = "max-w-3xl" }) => {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div
-        className={`bg-white rounded-2xl shadow-2xl w-full ${maxW} max-h-[90vh] overflow-y-auto`}
-        style={{ animation: "modalPop .22s cubic-bezier(.34,1.56,.64,1) both" }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
-          <h2 className="text-lg font-black text-gray-900">{title}</h2>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100 cursor-pointer transition-colors shrink-0">
-            <FaTimes className="text-gray-400" />
-          </button>
-        </div>
-        <div className="p-6">{children}</div>
-      </div>
-    </div>
-  );
-};
 
-const Field = ({ label, required, children }) => (
-  <div>
-    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-      {label}{required && <span className="text-red-400 ml-0.5">*</span>}
-    </label>
-    {children}
-  </div>
-);
 
-const inputCls = "w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white";
+
 
 const DetailItem = ({ icon: Icon, label, value, full = false }) => (
   <div className={`bg-gray-50 rounded-xl p-4 ${full ? "col-span-2" : ""}`}>
@@ -194,7 +142,7 @@ const TenderPage = () => {
         setTenders(Array.isArray(res.data) ? res.data : []);
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error fetching tenders");
+      notify.error(err.response?.data?.message || "Error fetching tenders");
       setTenders([]);
     } finally {
       setLoading(false);
@@ -203,6 +151,11 @@ const TenderPage = () => {
 
   useEffect(() => { fetchTenders(); }, [fetchTenders]);
 
+  // Real-time updates via Socket.IO
+  useSocket("tenders:created", fetchTenders);
+  useSocket("tenders:updated", fetchTenders);
+  useSocket("tenders:deleted", fetchTenders);
+
   const fetchBids = async (tenderId) => {
     setBidsLoading(true);
     setBids([]);
@@ -210,7 +163,7 @@ const TenderPage = () => {
       const res = await api.get(`/bids/tender/${tenderId}`);
       setBids(res.data.success ? res.data.data : Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      toast.error("Error fetching bids");
+      notify.error("Error fetching bids");
     } finally {
       setBidsLoading(false);
     }
@@ -251,9 +204,9 @@ const TenderPage = () => {
 
   const handleSaveTender = async (e) => {
     e.preventDefault();
-    if (!formData.title.trim())   { toast.error("Title is required"); return; }
-    if (!formData.category)       { toast.error("Category is required"); return; }
-    if (!formData.description.trim()) { toast.error("Description is required"); return; }
+    if (!formData.title.trim())   { notify.error("Title is required"); return; }
+    if (!formData.category)       { notify.error("Category is required"); return; }
+    if (!formData.description.trim()) { notify.error("Description is required"); return; }
 
     setSubmitting(true);
     try {
@@ -273,13 +226,13 @@ const TenderPage = () => {
         : await api.post("/tenders", fd, cfg);
 
       if (res.data.success || res.status === 200 || res.status === 201) {
-        toast.success(`Tender ${formData.id ? "updated" : "created"} successfully`);
+        notify.success(`Tender ${formData.id ? "updated" : "created"} successfully`);
         setCreateModal(false);
         resetForm();
         fetchTenders();
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error saving tender");
+      notify.error(err.response?.data?.message || "Error saving tender");
     } finally {
       setSubmitting(false);
     }
@@ -292,9 +245,9 @@ const TenderPage = () => {
   
       setTenders(prev => prev.filter(t => t.id !== id));
       setSelectedTenders(prev => prev.filter(i => i !== id));
-      toast.success("Tender deleted");
+      notify.success("Tender deleted");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error deleting tender");
+      notify.error(err.response?.data?.message || "Error deleting tender");
     }
   };
 
@@ -302,11 +255,11 @@ const TenderPage = () => {
     if (!selectedTenders.length || !window.confirm(`Delete ${selectedTenders.length} tender(s)?`)) return;
     try {
       await api.post("/tenders/bulk-delete", { ids: selectedTenders });
-      toast.success(`${selectedTenders.length} tender(s) deleted`);
+      notify.success(`${selectedTenders.length} tender(s) deleted`);
       setSelectedTenders([]);
       fetchTenders();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error deleting tenders");
+      notify.error(err.response?.data?.message || "Error deleting tenders");
     }
   };
 
@@ -314,12 +267,12 @@ const TenderPage = () => {
     if (!window.confirm(`Close tender: "${tender.title}"?`)) return;
     try {
       await api.patch(`/tenders/${tender.id}/close`);
-      toast.success("Tender closed");
+      notify.success("Tender closed");
       setDetailsModal(false);
   
       setTenders(prev => prev.map(t => t.id === tender.id ? { ...t, status:"closed" } : t));
     } catch (err) {
-      toast.error("Error closing tender");
+      notify.error("Error closing tender");
     }
   };
 
@@ -327,14 +280,14 @@ const TenderPage = () => {
     const defaultDate = toInputDate(tender.submissionDeadline);
     const newDeadline = prompt("Enter new deadline (YYYY-MM-DD):", defaultDate);
     if (!newDeadline) return;
-    if (isNaN(Date.parse(newDeadline))) { toast.error("Invalid date format. Use YYYY-MM-DD."); return; }
+    if (isNaN(Date.parse(newDeadline))) { notify.error("Invalid date format. Use YYYY-MM-DD."); return; }
     try {
       await api.patch(`/tenders/${tender.id}/extend-deadline`, { newDeadline });
-      toast.success("Deadline extended");
+      notify.success("Deadline extended");
       setTenders(prev => prev.map(t => t.id === tender.id ? { ...t, submissionDeadline: newDeadline } : t));
       if (selectedTender?.id === tender.id) setSelectedTender(p => ({ ...p, submissionDeadline: newDeadline }));
     } catch (err) {
-      toast.error("Error extending deadline");
+      notify.error("Error extending deadline");
     }
   };
 
@@ -342,11 +295,11 @@ const TenderPage = () => {
     if (!window.confirm("Award this tender to the selected vendor?")) return;
     try {
       await api.patch(`/tenders/${tender.id}/award`, { awardedTo: vendorId });
-      toast.success("Tender awarded");
+      notify.success("Tender awarded");
       setBidsModal(false);
       setTenders(prev => prev.map(t => t.id === tender.id ? { ...t, status:"awarded" } : t));
     } catch (err) {
-      toast.error("Error awarding tender");
+      notify.error("Error awarding tender");
     }
   };
 
@@ -371,7 +324,7 @@ const TenderPage = () => {
     document.body.removeChild(link);
     
     URL.revokeObjectURL(url);
-    toast.success("Exported successfully");
+    notify.success("Exported successfully");
   };
 
   const toggleSelection  = (id) => setSelectedTenders(prev => prev.includes(id) ? prev.filter(i=>i!==id) : [...prev, id]);
@@ -379,14 +332,6 @@ const TenderPage = () => {
 
   return (
     <div className="min-h-screen bg-[#f8f7f5]">
-      <style>{`
-        @keyframes modalPop {
-          from { opacity:0; transform:scale(0.94) translateY(10px); }
-          to   { opacity:1; transform:scale(1) translateY(0); }
-        }
-        .fade-up { animation: fadeUp .3s ease both; }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-      `}</style>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
 
@@ -403,17 +348,17 @@ const TenderPage = () => {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={handleExport}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl hover:bg-gray-50 cursor-pointer shadow-sm transition-colors">
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
               <FaFileDownload className="text-xs" /> Export CSV
             </button>
             <button onClick={() => openCreate()}
-              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 cursor-pointer shadow-sm shadow-blue-200 transition-colors">
+              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 cursor-pointer  transition-colors">
               <FaPlus className="text-xs" /> Create Tender
             </button>
           </div>
         </div>
 
-        {/* ── Stats — clickable to filter ── */}
+       
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
           <StatCard label="Total"      value={stats.total}           icon={FaGavel}       onClick={() => setFilterStatus("all")}              accent={{ bg:"bg-blue-50",    icon:"text-blue-500",    num:"text-blue-600"    }} />
           <StatCard label="Active"     value={stats.active}          icon={FaCheckCircle} onClick={() => setFilterStatus("active")}            accent={{ bg:"bg-emerald-50", icon:"text-emerald-500", num:"text-emerald-600" }} />
@@ -423,7 +368,7 @@ const TenderPage = () => {
         </div>
 
    
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-5">
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-5">
           <div className="flex flex-col lg:flex-row gap-3">
             <div className="relative flex-1">
               <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm" />
@@ -469,116 +414,73 @@ const TenderPage = () => {
         </div>
 
     
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           {loading ? <Spinner text="Loading tenders…" /> : tenders.length === 0 ? (
-            <Empty text="No tenders found matching your criteria" />
+            <EmptyState text="No tenders found matching your criteria" />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="px-5 py-4 text-left">
-                      <input type="checkbox"
-                        checked={selectedTenders.length === tenders.length && tenders.length > 0}
-                        onChange={selectAll}
-                        className="w-4 h-4 rounded cursor-pointer" />
-                    </th>
-                    {["Tender", "Category", "Published", "Deadline", "Bids", "Status", ""].map((h, i) => (
-                      <th key={i} className={`px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider ${i === 6 ? "text-right" : "text-left"}`}>
-                        {h || "Actions"}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {tenders.map(tender => (
-                    <tr key={tender.id} className={`hover:bg-gray-50/80 transition-colors group ${selectedTenders.includes(tender.id) ? "bg-blue-50/30" : ""}`}>
-
-                      <td className="px-5 py-4">
-                        <input type="checkbox"
-                          checked={selectedTenders.includes(tender.id)}
-                          onChange={() => toggleSelection(tender.id)}
-                          className="w-4 h-4 rounded cursor-pointer" />
-                      </td>
-
-               
-                      <td className="px-5 py-4 max-w-xs">
-                        <p className="font-semibold text-gray-900 truncate">{tender.title}</p>
-                        <p className="text-[10px] text-gray-400 font-mono mt-0.5">{tender.tenderNumber}</p>
-                      </td>
-
-                    
-                      <td className="px-5 py-4">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${catCls(tender.category)}`}>
-                          {tender.category}
-                        </span>
-                      </td>
-
-                     
-                      <td className="px-5 py-4 text-xs text-gray-600">{fmtDate(tender.publicationDate)}</td>
-
-                
-                      <td className="px-5 py-4">
-                        <span className="flex items-center gap-1.5 text-xs text-gray-600">
-                          <FaClock className="text-gray-300 shrink-0" />{fmtDate(tender.submissionDeadline)}
-                        </span>
-                      </td>
-
-                  
-                      <td className="px-5 py-4">
-                        <button
-                          onClick={() => { setSelectedTender(tender); fetchBids(tender.id); setBidsModal(true); }}
-                          disabled={tender.status === "draft"}
-                          className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 disabled:text-gray-400 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                          <FaClipboardList className="text-[10px]" />{tender.bidsCount ?? 0} Bids
-                        </button>
-                      </td>
-
-                   
-                      <td className="px-5 py-4"><StatusBadge status={tender.status} /></td>
-
-                    
-                      <td className="px-5 py-4">
-                        <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => { setSelectedTender(tender); setDetailsModal(true); }}
-                            className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 cursor-pointer transition-colors" title="View">
-                            <FaEye className="text-sm" />
-                          </button>
-                          {(tender.status === "draft" || tender.status === "active") && (
-                            <button onClick={() => openCreate(tender)}
-                              className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 cursor-pointer transition-colors" title="Edit">
-                              <FaEdit className="text-sm" />
-                            </button>
-                          )}
-                          {tender.status === "active" && (
-                            <>
-                              <button onClick={() => handleExtendDeadline(tender)}
-                                className="p-2 rounded-xl text-emerald-500 hover:bg-emerald-50 cursor-pointer transition-colors" title="Extend Deadline">
-                                <FaClock className="text-sm" />
-                              </button>
-                              <button onClick={() => handleCloseTender(tender)}
-                                className="p-2 rounded-xl text-orange-500 hover:bg-orange-50 cursor-pointer transition-colors" title="Close Tender">
-                                <FaBan className="text-sm" />
-                              </button>
-                            </>
-                          )}
-                          <button onClick={() => handleDeleteTender(tender.id)}
-                            className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer transition-colors" title="Delete">
-                            <FaTrash className="text-sm" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/60">
-                <p className="text-xs text-gray-400">
-                  <span className="font-semibold text-gray-600">{tenders.length}</span> tenders
-                </p>
+            <>
+              <DataTable
+                columns={[
+                  {
+                    key: "checkbox", label: "",
+                    render: (t) => <input type="checkbox" checked={selectedTenders.includes(t.id)} onChange={() => toggleSelection(t.id)} className="w-4 h-4 rounded cursor-pointer" />,
+                    headerClassName: "w-10",
+                  },
+                  {
+                    key: "tender", label: "Tender",
+                    render: (t) => (
+                      <div className="max-w-xs">
+                        <p className="font-semibold text-gray-900 truncate">{t.title}</p>
+                        <p className="text-[10px] text-gray-400 font-mono mt-0.5">{t.tenderNumber}</p>
+                      </div>
+                    ),
+                  },
+                  {
+                    key: "category", label: "Category",
+                    render: (t) => <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${catCls(t.category)}`}>{t.category}</span>,
+                  },
+                  { key: "published", label: "Published", render: (t) => <span className="text-xs text-gray-600">{fmtDate(t.publicationDate)}</span> },
+                  {
+                    key: "deadline", label: "Deadline",
+                    render: (t) => <span className="flex items-center gap-1.5 text-xs text-gray-600"><FaClock className="text-gray-300 shrink-0" />{fmtDate(t.submissionDeadline)}</span>,
+                  },
+                  {
+                    key: "bids", label: "Bids",
+                    render: (t) => (
+                      <button onClick={() => { setSelectedTender(t); fetchBids(t.id); setBidsModal(true); }}
+                        disabled={t.status === "draft"}
+                        className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 disabled:text-gray-400 disabled:cursor-not-allowed cursor-pointer">
+                        <FaClipboardList className="text-[10px]" />{t.bidsCount ?? 0} Bids
+                      </button>
+                    ),
+                  },
+                  { key: "status", label: "Status", render: (t) => <LocalStatusBadge status={t.status} /> },
+                  {
+                    key: "actions", label: "Actions", align: "right",
+                    render: (tender) => (
+                      <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => { setSelectedTender(tender); setDetailsModal(true); }} className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 cursor-pointer transition-colors" title="View"><FaEye className="text-sm" /></button>
+                        {(tender.status === "draft" || tender.status === "active") && (
+                          <button onClick={() => openCreate(tender)} className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 cursor-pointer transition-colors" title="Edit"><FaEdit className="text-sm" /></button>
+                        )}
+                        {tender.status === "active" && (
+                          <>
+                            <button onClick={() => handleExtendDeadline(tender)} className="p-2 rounded-xl text-emerald-500 hover:bg-emerald-50 cursor-pointer transition-colors" title="Extend Deadline"><FaClock className="text-sm" /></button>
+                            <button onClick={() => handleCloseTender(tender)} className="p-2 rounded-xl text-orange-500 hover:bg-orange-50 cursor-pointer transition-colors" title="Close Tender"><FaBan className="text-sm" /></button>
+                          </>
+                        )}
+                        <button onClick={() => handleDeleteTender(tender.id)} className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer transition-colors" title="Delete"><FaTrash className="text-sm" /></button>
+                      </div>
+                    ),
+                  },
+                ]}
+                data={tenders}
+                rowKey={(t) => t.id}
+              />
+              <div className="px-5 py-3 border-t border-gray-100 bg-white rounded-b-2xl">
+                <p className="text-xs text-gray-400"><span className="font-semibold text-gray-600">{tenders.length}</span> tenders</p>
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>
@@ -588,80 +490,80 @@ const TenderPage = () => {
         open={createModal}
         onClose={() => { setCreateModal(false); resetForm(); }}
         title={formData.id ? "Edit Tender" : "Create New Tender"}
-        maxW="max-w-4xl"
+        size="2xl"
       >
         <form onSubmit={handleSaveTender} className="space-y-4">
           <SectionHead icon={FaFileContract} label="Basic Information" />
 
-          <Field label="Tender Title" required>
+          <FormField label="Tender Title" required>
             <input value={formData.title} onChange={e => setField("title", e.target.value)}
-              placeholder="e.g., Supply of Medical Equipment" className={inputCls} required />
-          </Field>
+              placeholder="e.g., Supply of Medical Equipment" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" required />
+          </FormField>
 
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Tender Number">
+            <FormField label="Tender Number">
               <input value={formData.tenderNumber} onChange={e => setField("tenderNumber", e.target.value)}
                 disabled={!!formData.id}
-                className={`${inputCls} ${formData.id ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""}`} />
-            </Field>
-            <Field label="Category" required>
-              <select value={formData.category} onChange={e => setField("category", e.target.value)} className={inputCls} required>
+                className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white ${formData.id ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""}`} />
+            </FormField>
+            <FormField label="Category" required>
+              <select value={formData.category} onChange={e => setField("category", e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" required>
                 <option value="">Select Category</option>
                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-            </Field>
+            </FormField>
           </div>
 
-          <Field label="Description" required>
+          <FormField label="Description" required>
             <textarea value={formData.description} onChange={e => setField("description", e.target.value)}
-              placeholder="Brief description of the tender…" rows={4} className={`${inputCls} resize-none`} required />
-          </Field>
+              placeholder="Brief description of the tender…" rows={4} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white resize-none" required />
+          </FormField>
 
-          <Field label="Scope of Work">
+          <FormField label="Scope of Work">
             <textarea value={formData.scopeOfWork} onChange={e => setField("scopeOfWork", e.target.value)}
-              placeholder="Detailed requirements and outcomes…" rows={3} className={`${inputCls} resize-none`} />
-          </Field>
+              placeholder="Detailed requirements and outcomes…" rows={3} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white resize-none" />
+          </FormField>
 
           <SectionHead icon={FaCalendarAlt} label="Timeline & Budget" />
 
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Publication Date">
-              <input type="date" value={formData.publicationDate} onChange={e => setField("publicationDate", e.target.value)} className={inputCls} />
-            </Field>
-            <Field label="Submission Deadline">
-              <input type="date" value={formData.submissionDeadline} onChange={e => setField("submissionDeadline", e.target.value)} className={inputCls} />
-            </Field>
-            <Field label="Evaluation Date">
-              <input type="date" value={formData.evaluationDate} onChange={e => setField("evaluationDate", e.target.value)} className={inputCls} />
-            </Field>
-            <Field label="Status">
-              <select value={formData.status} onChange={e => setField("status", e.target.value)} className={inputCls}>
+            <FormField label="Publication Date">
+              <input type="date" value={formData.publicationDate} onChange={e => setField("publicationDate", e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" />
+            </FormField>
+            <FormField label="Submission Deadline">
+              <input type="date" value={formData.submissionDeadline} onChange={e => setField("submissionDeadline", e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" />
+            </FormField>
+            <FormField label="Evaluation Date">
+              <input type="date" value={formData.evaluationDate} onChange={e => setField("evaluationDate", e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" />
+            </FormField>
+            <FormField label="Status">
+              <select value={formData.status} onChange={e => setField("status", e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white">
                 <option value="draft">Draft</option>
                 <option value="active">Active (Published)</option>
                 <option value="closed">Closed</option>
                 <option value="under_evaluation">Under Evaluation</option>
                 <option value="awarded">Awarded</option>
               </select>
-            </Field>
-            <Field label="Budget Min (KES)">
+            </FormField>
+            <FormField label="Budget Min (KES)">
               <input type="number" value={formData.budgetMin} onChange={e => setField("budgetMin", e.target.value)}
-                placeholder="0" className={inputCls} />
-            </Field>
-            <Field label="Budget Max (KES)">
+                placeholder="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" />
+            </FormField>
+            <FormField label="Budget Max (KES)">
               <input type="number" value={formData.budgetMax} onChange={e => setField("budgetMax", e.target.value)}
-                placeholder="0" className={inputCls} />
-            </Field>
+                placeholder="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" />
+            </FormField>
           </div>
 
           <SectionHead icon={FaPaperclip} label="Documents & Attachments" />
 
-          <Field label="Required Documents from Vendors">
+          <FormField label="Required Documents from Vendors">
             <textarea value={formData.requiredDocuments} onChange={e => setField("requiredDocuments", e.target.value)}
               placeholder="e.g., Company Registration, Tax Certificate, Technical Proposal…"
-              rows={2} className={`${inputCls} resize-none`} />
-          </Field>
+              rows={2} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white resize-none" />
+          </FormField>
 
-          <Field label="Upload Tender Documents">
+          <FormField label="Upload Tender Documents">
             <label className="flex items-center gap-3 px-4 py-3 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-blue-400 transition-colors">
               <FaPaperclip className="text-gray-300 text-lg shrink-0" />
               <span className="text-sm text-gray-400">
@@ -670,7 +572,7 @@ const TenderPage = () => {
               <input type="file" multiple accept=".pdf,.doc,.docx,.zip,.xlsx"
                 onChange={e => setField("attachments", e.target.files)} className="hidden" />
             </label>
-          </Field>
+          </FormField>
 
           <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
             <button type="button" onClick={() => { setCreateModal(false); resetForm(); }}
@@ -678,7 +580,7 @@ const TenderPage = () => {
               Cancel
             </button>
             <button type="submit" disabled={submitting}
-              className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 cursor-pointer shadow-sm shadow-blue-200 transition-colors">
+              className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 cursor-pointer  transition-colors">
               {submitting
                 ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Saving…</>
                 : <><FaSave className="text-xs" />{formData.id ? "Save Changes" : "Create Tender"}</>
@@ -693,13 +595,13 @@ const TenderPage = () => {
         open={detailsModal}
         onClose={() => setDetailsModal(false)}
         title={`Tender: ${selectedTender?.tenderNumber || ""}`}
-        maxW="max-w-4xl"
+        size="2xl"
       >
         {selectedTender && (
           <>
             <h3 className="text-xl font-black text-gray-900 mb-4">{selectedTender.title}</h3>
             <div className="flex flex-wrap gap-2 mb-5">
-              <StatusBadge status={selectedTender.status} />
+              <LocalStatusBadge status={selectedTender.status} />
               <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${catCls(selectedTender.category)}`}>{selectedTender.category}</span>
               <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full flex items-center gap-1">
                 <FaUsers className="text-[9px]" />{selectedTender.visibility?.toUpperCase()}

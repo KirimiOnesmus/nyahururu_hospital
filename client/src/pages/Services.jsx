@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Card from "../components/layouts/Card";
-import { Header, Partners, Footer } from "../components/layouts";
+import { Header, Partners, Footer } from "../common/layouts";
 import { useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 import { ASSET_BASE_URL } from "../config/env";
@@ -9,7 +9,7 @@ import { FaTimes, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 const BACKEND_URL = ASSET_BASE_URL;
 const PAGE_SIZE = 6;
 
-/* ── Service Slider (pure state-driven, no scroll/DOM manipulation) ───────── */
+
 const ServiceSlider = ({ services }) => {
   const [page, setPage] = useState(0);
 
@@ -17,7 +17,7 @@ const ServiceSlider = ({ services }) => {
   const canPrev = page > 0;
   const canNext = page < totalPages - 1;
 
-  // Reset to page 0 whenever the services list changes (filter applied)
+
   useEffect(() => {
     setPage(0);
   }, [services]);
@@ -28,8 +28,7 @@ const ServiceSlider = ({ services }) => {
 
   return (
     <div>
-      {/* Current page grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {currentSlice.map((service) => (
           <div key={service.id} className="relative">
             {service.nhifCovered && (
@@ -50,10 +49,10 @@ const ServiceSlider = ({ services }) => {
         ))}
       </div>
 
-      {/* Pagination controls — only shown when more than 1 page */}
+   
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-6">
-          {/* Dot indicators */}
+        
           <div className="flex items-center gap-2">
             {Array.from({ length: totalPages }).map((_, i) => (
               <button
@@ -69,7 +68,7 @@ const ServiceSlider = ({ services }) => {
             ))}
           </div>
 
-          {/* Arrow buttons + page counter */}
+    
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-400 font-medium">
               {page + 1} / {totalPages}
@@ -107,7 +106,6 @@ const ServiceSlider = ({ services }) => {
   );
 };
 
-/* ── Main Page ───────────────────────────────────────────────────────────── */
 const Services = () => {
   const [services, setServices] = useState([]);
   const [filteredServices, setFilteredServices] = useState([]);
@@ -239,7 +237,7 @@ const Services = () => {
           </h2>
         </div>
 
-        {/* ── Filters ── */}
+  
         {!loading && services.length > 0 && (
           <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-8">
             <div className="flex flex-wrap gap-4 items-end justify-between">
@@ -332,7 +330,7 @@ const Services = () => {
           </div>
         )}
 
-        {/* ── States ── */}
+
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <div className="w-10 h-10 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />

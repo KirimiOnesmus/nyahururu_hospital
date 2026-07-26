@@ -2,7 +2,6 @@ const { z } = require("zod");
 const { wordCountString } = require("./wordCount");
 const criteriaSchema = z.record(z.string(), z.coerce.number()).optional();
 
-// Reusable field primitives
 const phoneSchema = z
   .string()
   .min(1, "Phone is required")
@@ -30,7 +29,7 @@ const paginationSchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(10),
 });
 
-// Auth validators
+
 const registerSchema = z.object({
   firstName: z.string().trim().min(1).max(50),
   lastName: z.string().trim().min(1).max(50),
@@ -236,7 +235,6 @@ const progressSubmitSchema = z
     });
   });
 
-//  Review validators
 const submitReviewSchema = z.object({
   researchId: objectIdSchema,
   stage: z.enum(["proposal", "progress", "final_paper"]),
@@ -260,7 +258,6 @@ const submitCommitteeReviewSchema = z.object({
   criteria: criteriaSchema,
 });
 
-//  Payment validators
 const initiatePaymentSchema = z.object({
   phone: phoneSchema,
   email: z
@@ -282,7 +279,7 @@ const refundPaymentSchema = z.object({
     .max(500),
 });
 
-//  Reviewer management validators
+
 const inviteReviewerSchema = z.object({
   firstName: z.string().trim().min(1).max(50),
   lastName: z.string().trim().min(1).max(50),
@@ -311,8 +308,6 @@ const updateReviewerSchema = z.object({
   bio: z.string().trim().max(1000).optional(),
 });
 
-
-//Committee member management validators
 const inviteCommitteeSchema = z.object({
     firstName: z.string().trim().max(50).optional(),
   lastName: z.string().trim().max(50).optional(),
@@ -322,7 +317,6 @@ const inviteCommitteeSchema = z.object({
   specialisations: z.array(z.string()).max(10).optional(),
 });
 
-//Crearte Researcher
 
 const adminCreateResearcherSchema = z.object({
   firstName: z.string().trim().min(1).max(50),
@@ -336,9 +330,6 @@ const adminCreateResearcherSchema = z.object({
     .or(z.literal("")),
 });
 
-//  Validator middleware factory
-
-// utils/validators.js
 
 const validate =
   (schema, source = "body") =>

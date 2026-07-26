@@ -1,3 +1,4 @@
+const emitChange = require("../utils/emitChange");
 const { Op } = require("sequelize");
 const { User: UserData, Doctor } = require("../sequelize/models");
 const bcrypt = require("bcryptjs");
@@ -17,12 +18,7 @@ const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@
 
 const FULL_ADMIN_ROLES = ["admin", "it", "superadmin"];
 
-// CUTOVER NOTE: Mongoose used a projection *string* ("-password ...").
-// Sequelize's equivalent is an `attributes: { exclude: [...] }` clause.
-// Unlike the Sequelize User model's defaultScope (which only hides the
-// four token columns), `password` is NOT hidden by default — so every
-// query that returns a user to the client must explicitly exclude it,
-// same as the original Mongoose controller did with FULL_PROJECTION.
+
 const MINIMAL_ATTRIBUTES = [
   "id",
   "firstName",
@@ -169,11 +165,6 @@ exports.createUser = asyncHandler(async (req, res) => {
   const employeeId = await generateEmployeeId(role || "STAFF", UserData);
   const rfidTag = generateRFID(employeeId);
 
-  // CUTOVER NOTE: no manual bcrypt.hash() call here. The Sequelize User
-  // model's `beforeSave` hook hashes `password` automatically whenever it
-  // changes (see sequelize/models/user.js) — hashing it here too would
-  // double-hash it and make the temp password unusable. Same reasoning
-  // applies everywhere else a `password` field is written in this file.
   const user = await UserData.create({
     firstName,
     lastName,
@@ -199,13 +190,7 @@ exports.createUser = asyncHandler(async (req, res) => {
     emailVerificationToken: crypto.createHash("sha256").update(emailVerificationToken).digest("hex"),
     emailVerificationExpire,
   });
-  // `specialization` and a duplicate `rfid` alias existed on the Mongoose
-  // write but were never declared columns on the Sequelize model (or the
-  // migration) — dropped as dead writes rather than silently carried
-  // forward. If the frontend actually depends on either, flag it and
-  // we'll add real columns via a migration, same as mustChangePassword
-  // and isActive above.
-
+ 
   try {
     await sendVerificationEmail(user.email, emailVerificationToken, user.id);
   } catch (emailErr) {
@@ -213,20 +198,11 @@ exports.createUser = asyncHandler(async (req, res) => {
   }
 
   if (role.toLowerCase() === "doctor" && department) {
-    // KNOWN GAP, see top-of-file note: Doctor.userId is still a Mongoose
-    // ObjectId field, but user.id is now a Sequelize integer. This WILL
-    // throw a Mongoose CastError until Doctor gets its own cutover
-    // (Step 2, Content domain). Caught here — non-fatal, matches the
-    // existing pattern for email-send failures — so the already-created
-    // User account doesn't 500 out from under the caller. Doctor accounts
-    // created during this window won't have a synced Doctor profile until
-    // that's resolved; track it, don't silently leave it broken.
+
     try {
       await exports.syncDoctorProfile(user.id, { role: "doctor", department });
     } catch (doctorErr) {
-      // Defensive: the user record is already committed, so we log and
-      // continue rather than fail the whole request. Admin can inspect
-      // and re-run the sync if this fires.
+  
       req.log?.error?.(
         { err: doctorErr, userId: user.id },
         "syncDoctorProfile failed after user create",
@@ -240,6 +216,7 @@ exports.createUser = asyncHandler(async (req, res) => {
   delete safeUser.emailVerificationExpire;
 
   return sendSuccess(res, 201, "User registered successfully. Please verify your email to activate your account.", {
+  emitChange("users", "created", { id: user.id });
     user: safeUser,
     temporaryPassword,
   });
@@ -269,7 +246,7 @@ exports.verifyEmail = asyncHandler(async (req, res) => {
   const newPassword = exports.generateNewPassword();
 
   user.emailVerified = true;
-  user.password = newPassword; // hashed by the model hook on save()
+  user.password = newPassword;
   user.mustChangePassword = true;
   user.emailVerificationToken = null;
   user.emailVerificationExpire = null;
@@ -285,13 +262,7 @@ exports.verifyEmail = asyncHandler(async (req, res) => {
 });
 
 exports.updateUser = asyncHandler(async (req, res) => {
-  // L-5: explicit allow-list instead of a deny-list. A deny-list has to
-  // be remembered and updated every time a new sensitive column is added
-  // to the User model; this is safe-by-default against anything new,
-  // matching the pattern profileController.updateProfile already uses
-  // correctly elsewhere in this codebase. `name` is deliberately excluded
-  // — it's always derived from firstName/lastName below, never taken
-  // directly from client input.
+
   const ALLOWED_FIELDS = [
     "firstName", "lastName", "email", "role", "department", "position",
     "phone", "bloodGroup", "expiryDate", "signatureText", "dateOfBirth",
@@ -374,22 +345,20 @@ exports.updateUser = asyncHandler(async (req, res) => {
         400
       );
     }
-    // Left raw — the model hook hashes it on save(). Do NOT bcrypt.hash
-    // here, that would double-hash (see the note in createUser above).
+ 
     updates.mustChangePassword = false;
   }
 
   if (updates.photo && !updates.profileImage) {
     updates.profileImage = updates.photo;
   }
-  delete updates.profileImage; // not a real column — `photo` is the field
+  delete updates.profileImage; 
 
   currentUser.set(updates);
   await currentUser.save();
 
   if (newRole === "doctor" && (updates.department || currentUser.department)) {
-    // Non-fatal by design: the user update is already committed, so a
-    // failed doctor sync just gets logged.
+
     try {
       await exports.syncDoctorProfile(userId, { role: "doctor", department: newDepartment });
     } catch (doctorErr) {
@@ -403,6 +372,7 @@ exports.updateUser = asyncHandler(async (req, res) => {
   const user = await UserData.findByPk(userId, { attributes: { exclude: FULL_EXCLUDE } });
 
   return sendSuccess(res, 200, "User updated successfully", { user });
+  emitChange("users", "updated", { id: userId });
 });
 
 exports.requestPasswordReset = asyncHandler(async (req, res) => {
@@ -470,7 +440,7 @@ exports.resetPassword = asyncHandler(async (req, res) => {
     );
   }
 
-  user.password = newPassword; // hashed by the model hook on save()
+  user.password = newPassword; 
   user.passwordResetToken = null;
   user.passwordResetExpire = null;
   user.mustChangePassword = false;
@@ -514,14 +484,10 @@ exports.deleteUser = asyncHandler(async (req, res) => {
 
   await target.destroy();
   return sendSuccess(res, 200, "User deleted successfully");
+  emitChange("users", "deleted", { id: userId });
 });
 
-// syncDoctorProfile: keep a matching Doctor row in step with a User
-// whose role is "doctor". Now Sequelize on both sides — the
-// Content-domain cutover landed Doctor. findOrCreate runs the whole
-// SELECT-then-INSERT-or-UPDATE inside a single MySQL transaction so
-// two concurrent user-updates can't both create a duplicate Doctor row
-// for the same user.
+
 exports.syncDoctorProfile = async (userId, userData) => {
   if (!(userData.role && userData.role.toLowerCase() === "doctor")) return null;
 

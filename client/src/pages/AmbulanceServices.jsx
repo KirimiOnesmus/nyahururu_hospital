@@ -12,7 +12,7 @@ import {
   FaHome,
 } from "react-icons/fa";
 import api from "../api/axios";
-import { toast } from "react-toastify";
+import notify from "../common/utils/notify";
 import { useNavigate } from "react-router-dom";
 
 const API_KEY = "keyPub1569gsvndc123kg9sjhg";
@@ -40,8 +40,7 @@ const inputClass =
 
 const validClass = "border-slate-200 focus:border-blue-400";
 const errorClass = "border-red-400 focus:border-red-400 bg-red-50";
-const labelClass =
-  "text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5 block";
+const labelClass = "text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5 block";
 
 const SectionHeading = ({ step, icon: Icon, title }) => (
   <div className="flex items-center gap-3 mb-5 pb-4 border-b border-slate-100">
@@ -49,16 +48,12 @@ const SectionHeading = ({ step, icon: Icon, title }) => (
       {step}
     </span>
     {Icon && <Icon className="text-blue-500 text-sm" />}
-    <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">
-      {title}
-    </h2>
+    <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">{title}</h2>
   </div>
 );
 
-const FieldError = ({ msg }) =>
-  msg ? <p className="text-red-500 text-xs mt-1">{msg}</p> : null;
+const FieldError = ({ msg }) => (msg ? <p className="text-red-500 text-xs mt-1">{msg}</p> : null);
 
-// ── Main component ────────────────────────────────────────────────────────────
 const AmbulanceServices = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState(INIT);
@@ -76,9 +71,7 @@ const AmbulanceServices = () => {
     const fetchConstituencies = async () => {
       setLoadingConst(true);
       try {
-        const res = await fetch(
-          `${API_BASE}?apiKey=${API_KEY}&county=${FIXED_COUNTY}`,
-        );
+        const res = await fetch(`${API_BASE}?apiKey=${API_KEY}&county=${FIXED_COUNTY}`);
         const data = await res.json();
         if (data?.[FIXED_COUNTY]) {
           setConstituencies(Object.keys(data[FIXED_COUNTY]));
@@ -97,7 +90,7 @@ const AmbulanceServices = () => {
     setWards([]);
     try {
       const res = await fetch(
-        `${API_BASE}?apiKey=${API_KEY}&county=${FIXED_COUNTY}&constituency=${encodeURIComponent(constituency)}`,
+        `${API_BASE}?apiKey=${API_KEY}&county=${FIXED_COUNTY}&constituency=${encodeURIComponent(constituency)}`
       );
       const data = await res.json();
       if (data?.[FIXED_COUNTY]?.[constituency]) {
@@ -123,14 +116,12 @@ const AmbulanceServices = () => {
   };
   const validate = () => {
     const e = {};
-    if (!formData.patientName.trim())
-      e.patientName = "Patient name is required";
+    if (!formData.patientName.trim()) e.patientName = "Patient name is required";
     if (!formData.phone.trim()) e.phone = "Phone number is required";
     else if (!/^\d{10}$/.test(formData.phone.replace(/\D/g, "")))
       e.phone = "Enter a valid 10-digit number";
     if (!formData.constituency) e.constituency = "Constituency is required";
-    if (!formData.specificLocation.trim())
-      e.specificLocation = "Specific location is required";
+    if (!formData.specificLocation.trim()) e.specificLocation = "Specific location is required";
     if (!formData.destinationHospital.trim())
       e.destinationHospital = "Destination hospital is required";
     if (!formData.medicalCondition.trim())
@@ -142,7 +133,7 @@ const AmbulanceServices = () => {
     const errs = validate();
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
-      toast.error("Please fill in all required fields correctly");
+      notify.error("Please fill in all required fields correctly");
       return;
     }
     setLoading(true);
@@ -169,7 +160,7 @@ const AmbulanceServices = () => {
 
       setBookingId(res.data.booking.id);
       setSubmitted(true);
-      toast.success(res.data.message || "Ambulance booked successfully!");
+      notify.success(res.data.message || "Ambulance booked successfully!");
       setFormData({ ...INIT });
       setWards([]);
 
@@ -178,12 +169,9 @@ const AmbulanceServices = () => {
         navigate("/");
       }, 8000);
     } catch (err) {
-      const msg =
-        err.response?.data?.message ||
-        err.message ||
-        "Failed to book ambulance";
+      const msg = err.response?.data?.message || err.message || "Failed to book ambulance";
       setErrors({ submit: msg });
-      toast.error(msg);
+      notify.error(msg);
     } finally {
       setLoading(false);
     }
@@ -196,18 +184,14 @@ const AmbulanceServices = () => {
           <div className="w-16 h-16 bg-emerald-50 border border-emerald-200 rounded-full flex items-center justify-center mx-auto mb-5">
             <FaCheckCircle className="text-2xl text-emerald-600" />
           </div>
-          <h2 className="text-xl font-bold text-slate-800 mb-2">
-            Request Submitted
-          </h2>
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Request Submitted</h2>
           <p className="text-slate-500 text-sm mb-4">
             Our dispatch team will contact you shortly with ETA details.
           </p>
           {bookingId && (
             <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 mb-6">
               <p className="text-xs text-slate-500 mb-0.5">Booking ID</p>
-              <p className="font-mono font-bold text-slate-800 text-sm">
-                {bookingId}
-              </p>
+              <p className="font-mono font-bold text-slate-800 text-sm">{bookingId}</p>
             </div>
           )}
           <p className="text-xs text-slate-400 mb-6">
@@ -237,12 +221,10 @@ const AmbulanceServices = () => {
               <p className="text-xs font-semibold uppercase tracking-widest text-red-600">
                 Emergency
               </p>
-              <h1 className="text-2xl font-bold text-slate-800">
-                Book Ambulance
-              </h1>
+              <h1 className="text-2xl font-bold text-slate-800">Book Ambulance</h1>
             </div>
           </div>
-       
+
           <button
             onClick={() => navigate("/")}
             className=" bottom-10 fixed right-8 gap-2 p-2 rounded-full border border-slate-200
@@ -258,20 +240,15 @@ const AmbulanceServices = () => {
             <FaExclamationTriangle className="text-red-600 text-sm" />
           </div>
           <p className="text-red-800 text-sm leading-relaxed">
-            For life-threatening emergencies, call <strong>999</strong> or{" "}
-            <strong>911</strong> immediately instead of using this form.
-            Response time via this form is usually <strong>5–10 minutes</strong>
-            .
+            For life-threatening emergencies, call <strong>999</strong> or <strong>911</strong>{" "}
+            immediately instead of using this form. Response time via this form is usually{" "}
+            <strong>5–10 minutes</strong>.
           </p>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100 overflow-hidden">
           <div className="p-7">
-            <SectionHeading
-              step="1"
-              icon={FaUser}
-              title="Patient Information"
-            />
+            <SectionHeading step="1" icon={FaUser} title="Patient Information" />
             <div className="space-y-4">
               <div>
                 <label className={labelClass}>
@@ -305,10 +282,7 @@ const AmbulanceServices = () => {
                 </div>
                 <div>
                   <label className={labelClass}>
-                    Email{" "}
-                    <span className="text-slate-400 font-normal normal-case">
-                      (optional)
-                    </span>
+                    Email <span className="text-slate-400 font-normal normal-case">(optional)</span>
                   </label>
                   <input
                     type="email"
@@ -324,11 +298,7 @@ const AmbulanceServices = () => {
           </div>
 
           <div className="p-7">
-            <SectionHeading
-              step="2"
-              icon={FaMapMarkerAlt}
-              title="Location Details"
-            />
+            <SectionHeading step="2" icon={FaMapMarkerAlt} title="Location Details" />
             <div className="space-y-4">
               <div>
                 <label className={labelClass}>County</label>
@@ -338,9 +308,7 @@ const AmbulanceServices = () => {
                   disabled
                   className={`${inputClass} border-slate-200 bg-slate-50 text-slate-400`}
                 />
-                <p className="text-xs text-slate-400 mt-1">
-                  Service area: Laikipia County only
-                </p>
+                <p className="text-xs text-slate-400 mt-1">Service area: Laikipia County only</p>
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4">
@@ -355,9 +323,7 @@ const AmbulanceServices = () => {
                     disabled={loadingConst || constituencies.length === 0}
                     className={`${inputClass} ${errors.constituency ? errorClass : validClass}`}
                   >
-                    <option value="">
-                      {loadingConst ? "Loading…" : "Select constituency"}
-                    </option>
+                    <option value="">{loadingConst ? "Loading…" : "Select constituency"}</option>
                     {constituencies.map((c) => (
                       <option key={c} value={c}>
                         {c}
@@ -369,10 +335,7 @@ const AmbulanceServices = () => {
 
                 <div>
                   <label className={labelClass}>
-                    Ward{" "}
-                    <span className="text-slate-400 font-normal normal-case">
-                      (optional)
-                    </span>
+                    Ward <span className="text-slate-400 font-normal normal-case">(optional)</span>
                   </label>
                   <select
                     name="ward"
@@ -399,8 +362,7 @@ const AmbulanceServices = () => {
 
               <div>
                 <label className={labelClass}>
-                  Specific Location / Landmark{" "}
-                  <span className="text-red-400">*</span>
+                  Specific Location / Landmark <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="text"
@@ -431,11 +393,7 @@ const AmbulanceServices = () => {
           </div>
 
           <div className="p-7">
-            <SectionHeading
-              step="3"
-              icon={FaHospital}
-              title="Medical Information"
-            />
+            <SectionHeading step="3" icon={FaHospital} title="Medical Information" />
             <div className="space-y-4">
               <div>
                 <label className={labelClass}>
@@ -447,21 +405,15 @@ const AmbulanceServices = () => {
                   onChange={handleChange}
                   className={`${inputClass} ${validClass}`}
                 >
-                  <option value="standard">
-                    Standard — Non-life threatening
-                  </option>
-                  <option value="urgent">
-                    Urgent — Immediate attention needed
-                  </option>
-                  <option value="critical">
-                    Critical — Life-threatening emergency
-                  </option>
+                  <option value="standard">Standard — Non-life threatening</option>
+                  <option value="urgent">Urgent — Immediate attention needed</option>
+                  <option value="critical">Critical — Life-threatening emergency</option>
                 </select>
 
                 {formData.emergencyLevel === "critical" && (
                   <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-                    <FaExclamationTriangle className="text-[10px]" /> Please
-                    also call 999 immediately.
+                    <FaExclamationTriangle className="text-[10px]" /> Please also call 999
+                    immediately.
                   </p>
                 )}
               </div>
@@ -484,9 +436,7 @@ const AmbulanceServices = () => {
               <div>
                 <label className={labelClass}>
                   Additional Notes{" "}
-                  <span className="text-slate-400 font-normal normal-case">
-                    (optional)
-                  </span>
+                  <span className="text-slate-400 font-normal normal-case">(optional)</span>
                 </label>
                 <textarea
                   name="additionalNotes"
@@ -529,12 +479,10 @@ const AmbulanceServices = () => {
 
         <div className="mt-5 text-center text-xs text-slate-400 space-y-1">
           <p>
-            Typical response time:{" "}
-            <strong className="text-slate-600">5–10 minutes</strong>
+            Typical response time: <strong className="text-slate-600">5–10 minutes</strong>
           </p>
           <p>
-            Dispatch team:{" "}
-            <strong className="text-slate-600">+254 701 111 222</strong>
+            Dispatch team: <strong className="text-slate-600">+254 701 111 222</strong>
           </p>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import notify from "../../common/utils/notify";
 import {
   FaArrowLeft,
   FaCheckCircle,
@@ -29,7 +29,7 @@ import {
   submitProgressReport,
 } from "../../api/research";
 
-//  Constants
+
 const STUDY_DESIGN_OPTIONS = [
   "In Design",
   "In Implementation",
@@ -111,7 +111,7 @@ const CHECKLIST_ITEMS = [
 
 const UPLOAD_SLOT_KEYS = UPLOAD_SLOTS.map((s) => s.key);
 
-//  Shared class strings
+
 const labelCls =
   "text-xs font-semibold uppercase tracking-widest text-slate-500";
 
@@ -125,7 +125,7 @@ const selectCls = `w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-
    text-sm outline-none bg-white cursor-pointer
    focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all appearance-none`;
 
-//  Micro building blocks
+
 const Spinner = ({ size = 4, color = "border-t-blue-600" }) => (
   <div
     className={`w-${size} h-${size} border-2 border-slate-200 ${color} rounded-full animate-spin`}
@@ -143,7 +143,7 @@ const Field = ({ label, required, error, children }) => (
   </div>
 );
 
-//  Stage progress stepper
+
 const STAGES = ["Proposal", "Progress", "Final"];
 
 const StageStepper = ({ current = 1 }) => (
@@ -184,7 +184,7 @@ const StageStepper = ({ current = 1 }) => (
   </div>
 );
 
-//  Section card wrapper
+
 const SectionCard = ({
   icon: Icon,
   title,
@@ -216,7 +216,7 @@ const SectionCard = ({
   );
 };
 
-//  Upload slot
+
 const UploadSlot = ({ slot, file, existingUrl, onChange, onRemove }) => {
   const { icon: Icon, label, accept, hint, required } = slot;
   const inputRef = useRef();
@@ -287,7 +287,7 @@ const UploadSlot = ({ slot, file, existingUrl, onChange, onRemove }) => {
   );
 };
 
-//  Sidebar checklist
+
 const ProgressSidebar = ({
   checklist,
   savingDraft,
@@ -449,7 +449,7 @@ const ProgressSidebar = ({
   );
 };
 
-//  Main component
+
 const ResearchProgress = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -458,7 +458,6 @@ const ResearchProgress = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  //  Form state
   const [form, setForm] = useState({
     methodologyUpdates: "",
     studyDesignStatus: "",
@@ -486,7 +485,7 @@ const ResearchProgress = () => {
   const [savingDraft, setSavingDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  //  Derived checklist
+
   const checklist = {
     methodologyDone:
       form.methodologyUpdates.trim().length > 20 && !!form.studyDesignStatus,
@@ -508,7 +507,7 @@ const ResearchProgress = () => {
         )
       : 0;
 
-  //  Load submission for THIS research id ─
+
   const load = useCallback(async () => {
     if (!id) {
       setLoadError("No research ID was provided in the URL.");
@@ -570,7 +569,6 @@ const ResearchProgress = () => {
     load();
   }, [load]);
 
-  //  Helpers
   const set = (k, v) => {
     setForm((p) => ({ ...p, [k]: v }));
     if (errors[k]) setErrors((e) => ({ ...e, [k]: "" }));
@@ -633,10 +631,10 @@ const ResearchProgress = () => {
     setSavingDraft(true);
     try {
       await saveProgressDraft(id, buildFields(), files);
-      toast.success("Draft saved!");
+      notify.success("Draft saved!");
       await load();
     } catch (err) {
-      toast.error(err.message || "Could not save draft");
+      notify.error(err.message || "Could not save draft");
     } finally {
       setSavingDraft(false);
     }
@@ -644,16 +642,16 @@ const ResearchProgress = () => {
 
   const handleSubmit = async () => {
     if (!validate()) {
-      toast.error("Please fill all required fields before submitting.");
+      notify.error("Please fill all required fields before submitting.");
       return;
     }
     setSubmitting(true);
     try {
       await submitProgressReport(id, buildFields(), files);
-      toast.success("Progress report submitted for review!");
+      notify.success("Progress report submitted for review!");
       navigate("/research/dashboard");
     } catch (err) {
-      toast.error(err.message || "Submission failed");
+      notify.error(err.message || "Submission failed");
     } finally {
       setSubmitting(false);
     }
@@ -961,7 +959,7 @@ const ResearchProgress = () => {
             </Field>
           </SectionCard>
 
-          {/* 5. Required Uploads */}
+
           <SectionCard
             icon={FaCloudUploadAlt}
             title="Required Uploads"
@@ -979,7 +977,7 @@ const ResearchProgress = () => {
               </p>
             </div>
 
-            {/* Required uploads — top 3 */}
+          
             <div>
               <p className={`${labelCls} mb-3`}>Required Files</p>
               <div className="grid grid-cols-3 gap-3">
@@ -1002,7 +1000,7 @@ const ResearchProgress = () => {
               </div>
             </div>
 
-            {/* Optional uploads */}
+      
             <div>
               <p className={`${labelCls} mb-3`}>Optional Supporting Files</p>
               <div className="grid grid-cols-3 gap-3">
@@ -1020,7 +1018,7 @@ const ResearchProgress = () => {
             </div>
           </SectionCard>
 
-          {/* Bottom action bar (mobile / narrow) */}
+
           <div className="flex gap-3 pt-2 pb-6 border-t border-slate-100">
             <button
               type="button"

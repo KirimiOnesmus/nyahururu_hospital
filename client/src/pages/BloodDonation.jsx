@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Header, Footer } from "../components/layouts";
+import { Header, Footer } from "../common/layouts";
 import DonationBanner from "../assets/blood-donation.jpeg";
 import { PiSirenFill } from "react-icons/pi";
 import { BiDonateBlood } from "react-icons/bi";
@@ -16,7 +16,7 @@ import { TfiWrite } from "react-icons/tfi";
 import { GiCoffeeCup } from "react-icons/gi";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
-import { toast } from "react-toastify";
+import notify from "../common/utils/notify";
 
 const STEPS = [
   {
@@ -95,7 +95,7 @@ const BloodDonation = () => {
         else setUrgentRequests([]);
       } catch (err) {
         if (err.response?.status !== 404)
-          toast.error("Failed to load urgent blood requests");
+          notify.error("Failed to load urgent blood requests");
         setUrgentRequests([]);
       } finally {
         setLoading(false);

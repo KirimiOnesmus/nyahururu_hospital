@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useSocket } from "../../api/socket";
 import {
   FaPlus,
   FaSearch,
@@ -22,7 +23,10 @@ import {
   FaUpload,
 } from "react-icons/fa";
 import api from "../../api/axios";
-import { toast } from "react-toastify";
+import notify from "../../common/utils/notify";
+import {
+  Modal, Spinner, EmptyState, StatCard, Button, SearchBox, Input, TextArea, Select, FormField, PageHeader, StatusBadge as SharedStatusBadge, Avatar, DataTable,
+} from "../../common/components";
 
 const CATEGORIES = [
   { id: "operations", name: "Hospital Operations" },
@@ -71,23 +75,9 @@ const fmtDate = (d) =>
       })
     : "—";
 
-const StatCard = ({ label, value, accent, icon: Icon }) => (
-  <div className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
-    <div
-      className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${accent.bg}`}
-    >
-      <Icon className={`text-xl ${accent.icon}`} />
-    </div>
-    <div>
-      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-        {label}
-      </p>
-      <p className={`text-2xl font-black ${accent.num}`}>{value ?? 0}</p>
-    </div>
-  </div>
-);
 
-const StatusBadge = ({ status }) =>
+
+const LocalStatusBadge = ({ status }) =>
   status === "published" ? (
     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
@@ -101,63 +91,6 @@ const StatusBadge = ({ status }) =>
       Draft
     </span>
   );
-
-const Spinner = () => (
-  <div className="flex flex-col items-center justify-center py-20 gap-3">
-    <div className="w-10 h-10 border-2 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
-    <p className="text-sm text-gray-400">Loading reports…</p>
-  </div>
-);
-
-const Modal = ({
-  open,
-  onClose,
-  title,
-  subtitle,
-  children,
-  maxW = "max-w-3xl",
-}) => {
-  if (!open) return null;
-  return (
-    <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      onClick={onClose}
-    >
-      <div
-        className={`bg-white rounded-2xl shadow-2xl w-full ${maxW} max-h-[90vh] overflow-y-auto`}
-        style={{ animation: "modalPop .22s cubic-bezier(.34,1.56,.64,1) both" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
-          <div>
-            <h2 className="text-lg font-black text-gray-900">{title}</h2>
-            {subtitle && (
-              <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl hover:bg-gray-100 cursor-pointer transition-colors shrink-0"
-          >
-            <FaTimes className="text-gray-400" />
-          </button>
-        </div>
-        <div className="p-6">{children}</div>
-      </div>
-    </div>
-  );
-};
-
-const Field = ({ label, required, children }) => (
-  <div>
-    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-      {label}
-      {required && <span className="text-red-400 ml-0.5">*</span>}
-    </label>
-    {children}
-  </div>
-);
-
 const inputCls =
   "w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white";
 
@@ -204,7 +137,7 @@ const ReportsPage = () => {
         setReports(Array.isArray(res.data) ? res.data : []);
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error fetching reports");
+      notify.error(err.response?.data?.message || "Error fetching reports");
       setReports([]);
     } finally {
       setLoading(false);
@@ -242,7 +175,7 @@ const ReportsPage = () => {
     if (!file) return;
 
     if (file.size > 50 * 1024 * 1024) {
-      toast.error("File must be under 50 MB");
+      notify.error("File must be under 50 MB");
       return;
     }
     const ext = file.name.split(".").pop().toLowerCase();
@@ -283,26 +216,26 @@ const ReportsPage = () => {
 
   const handleCreateReport = async () => {
     if (!formData.title.trim()) {
-      toast.error("Title is required");
+      notify.error("Title is required");
       return;
     }
     if (!formData.category) {
-      toast.error("Category is required");
+      notify.error("Category is required");
       return;
     }
     if (!formData.period) {
-      toast.error("Period is required");
+      notify.error("Period is required");
       return;
     }
     if (!formData.id && !formData.file) {
-      toast.error("Please upload a file");
+      notify.error("Please upload a file");
       return;
     }
     if (
       formData.period === "Custom" &&
       (!formData.customStartDate || !formData.customEndDate)
     ) {
-      toast.error("Provide start and end dates for custom period");
+      notify.error("Provide start and end dates for custom period");
       return;
     }
 
@@ -327,7 +260,7 @@ const ReportsPage = () => {
         : await api.post("/reports", fd, cfg);
 
       if (res.data.success || res.status === 200 || res.status === 201) {
-        toast.success(
+        notify.success(
           `Report ${formData.id ? "updated" : "created"} successfully`,
         );
         setCreateModal(false);
@@ -335,7 +268,7 @@ const ReportsPage = () => {
         fetchReports();
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error saving report");
+      notify.error(err.response?.data?.message || "Error saving report");
     } finally {
       setSubmitting(false);
     }
@@ -346,9 +279,9 @@ const ReportsPage = () => {
     try {
       await api.delete(`/reports/${id}`);
       setReports((prev) => prev.filter((r) => r.id !== id));
-      toast.success("Report deleted");
+      notify.success("Report deleted");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error deleting report");
+      notify.error(err.response?.data?.message || "Error deleting report");
     }
   };
 
@@ -365,9 +298,9 @@ const ReportsPage = () => {
       link.click();
       link.parentElement.removeChild(link);
       window.URL.revokeObjectURL(url);
-      toast.success("Download started");
+      notify.success("Download started");
     } catch (err) {
-      toast.error("Failed to download report");
+      notify.error("Failed to download report");
     }
   };
 
@@ -377,7 +310,7 @@ const ReportsPage = () => {
       setSelectedReport(res.data.success ? res.data.data : res.data);
       setViewModal(true);
     } catch (err) {
-      toast.error("Failed to fetch report details");
+      notify.error("Failed to fetch report details");
     }
   };
 
@@ -390,14 +323,6 @@ const ReportsPage = () => {
 
   return (
     <div className="min-h-screen bg-[#f8f7f5]">
-      <style>{`
-        @keyframes modalPop {
-          from { opacity:0; transform:scale(0.94) translateY(10px); }
-          to   { opacity:1; transform:scale(1)    translateY(0);    }
-        }
-        .fade-up { animation: fadeUp .3s ease both; }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-      `}</style>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 fade-up">
@@ -416,7 +341,7 @@ const ReportsPage = () => {
           </div>
           <button
             onClick={() => openCreate()}
-            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200 cursor-pointer"
+            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors  cursor-pointer"
           >
             <FaPlus className="text-xs" /> Add New Report
           </button>
@@ -465,7 +390,7 @@ const ReportsPage = () => {
           />
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6">
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-6">
           <div className="flex flex-col md:flex-row gap-3">
             <div className="relative flex-1">
               <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm" />
@@ -553,9 +478,8 @@ const ReportsPage = () => {
               return (
                 <div
                   key={cat.id}
-                  className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
+                  className="bg-white rounded-2xl border border-gray-100 overflow-hidden"
                 >
-                  {/* Category header */}
                   <button
                     onClick={() => toggleCat(cat.id)}
                     className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50/80 transition-colors cursor-pointer"
@@ -592,123 +516,47 @@ const ReportsPage = () => {
                           </p>
                         </div>
                       ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="bg-gray-50/80 border-b border-gray-100">
-                                {[
-                                  "Title",
-                                  "Type",
-                                  "Period",
-                                  "Uploaded",
-                                  "Status",
-                                  "Views",
-                                  "",
-                                ].map((h, i) => (
-                                  <th
-                                    key={i}
-                                    className={`px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider ${i === 6 ? "text-right" : "text-left"}`}
-                                  >
-                                    {h || "Actions"}
-                                  </th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                              {catReports.map((report) => {
-                                const {
-                                  icon: TypeIcon,
-                                  color,
-                                  bg,
-                                } = typeMeta(report.type);
+                        <DataTable
+                          columns={[
+                            {
+                              key: "title", label: "Title",
+                              render: (report) => (
+                                <div className="max-w-xs">
+                                  <p className="font-semibold text-gray-900 truncate">{report.title}</p>
+                                  {report.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{report.description}</p>}
+                                </div>
+                              ),
+                            },
+                            {
+                              key: "type", label: "Type",
+                              render: (report) => {
+                                const { icon: TypeIcon, color, bg } = typeMeta(report.type);
                                 return (
-                                  <tr
-                                    key={report.id}
-                                    className="hover:bg-gray-50/80 transition-colors group"
-                                  >
-                                    <td className="px-5 py-4 max-w-xs">
-                                      <p className="font-semibold text-gray-900 truncate">
-                                        {report.title}
-                                      </p>
-                                      {report.description && (
-                                        <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">
-                                          {report.description}
-                                        </p>
-                                      )}
-                                    </td>
-
-                                    <td className="px-5 py-4">
-                                      <span
-                                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold ${bg} ${color}`}
-                                      >
-                                        <TypeIcon className="text-[10px]" />
-                                        {report.type?.toUpperCase()}
-                                      </span>
-                                    </td>
-
-                                    <td className="px-5 py-4 text-xs text-gray-600">
-                                      {report.period}
-                                    </td>
-
-                                    <td className="px-5 py-4 text-xs text-gray-500">
-                                      {fmtDate(report.createdAt)}
-                                    </td>
-
-                                    <td className="px-5 py-4">
-                                      <StatusBadge status={report.status} />
-                                    </td>
-
-                                    <td className="px-5 py-4 text-xs text-gray-600">
-                                      {report.views ?? 0}
-                                    </td>
-
-                                    <td className="px-5 py-4">
-                                      <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                                        <button
-                                          onClick={() =>
-                                            handleViewReport(report)
-                                          }
-                                          className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 cursor-pointer transition-colors"
-                                          title="View"
-                                        >
-                                          <FaEye className="text-sm" />
-                                        </button>
-                                        <button
-                                          onClick={() =>
-                                            handleDownloadReport(
-                                              report.id,
-                                              report.fileName,
-                                            )
-                                          }
-                                          className="p-2 rounded-xl text-emerald-500 hover:bg-emerald-50 cursor-pointer transition-colors"
-                                          title="Download"
-                                        >
-                                          <FaDownload className="text-sm" />
-                                        </button>
-                                        <button
-                                          onClick={() => openCreate(report)}
-                                          className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 cursor-pointer transition-colors"
-                                          title="Edit"
-                                        >
-                                          <FaEdit className="text-sm" />
-                                        </button>
-                                        <button
-                                          onClick={() =>
-                                            handleDeleteReport(report.id)
-                                          }
-                                          className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer transition-colors"
-                                          title="Delete"
-                                        >
-                                          <FaTrash className="text-sm" />
-                                        </button>
-                                      </div>
-                                    </td>
-                                  </tr>
+                                  <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold ${bg} ${color}`}>
+                                    <TypeIcon className="text-[10px]" />{report.type?.toUpperCase()}
+                                  </span>
                                 );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
+                              },
+                            },
+                            { key: "period", label: "Period", render: (r) => <span className="text-xs text-gray-600">{r.period}</span> },
+                            { key: "uploaded", label: "Uploaded", render: (r) => <span className="text-xs text-gray-500">{fmtDate(r.createdAt)}</span> },
+                            { key: "status", label: "Status", render: (r) => <LocalStatusBadge status={r.status} /> },
+                            { key: "views", label: "Views", render: (r) => <span className="text-xs text-gray-600">{r.views ?? 0}</span> },
+                            {
+                              key: "actions", label: "Actions", align: "right",
+                              render: (report) => (
+                                <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                                  <button onClick={() => handleViewReport(report)} className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 cursor-pointer transition-colors" title="View"><FaEye className="text-sm" /></button>
+                                  <button onClick={() => handleDownloadReport(report.id, report.fileName)} className="p-2 rounded-xl text-emerald-500 hover:bg-emerald-50 cursor-pointer transition-colors" title="Download"><FaDownload className="text-sm" /></button>
+                                  <button onClick={() => openCreate(report)} className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 cursor-pointer transition-colors" title="Edit"><FaEdit className="text-sm" /></button>
+                                  <button onClick={() => handleDeleteReport(report.id)} className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer transition-colors" title="Delete"><FaTrash className="text-sm" /></button>
+                                </div>
+                              ),
+                            },
+                          ]}
+                          data={catReports}
+                          rowKey={(r) => r.id}
+                        />
                       )}
                     </div>
                   )}
@@ -723,7 +571,7 @@ const ReportsPage = () => {
         open={viewModal}
         onClose={() => setViewModal(false)}
         title={selectedReport?.title || "Report Details"}
-        maxW="max-w-2xl"
+        size="lg"
       >
         {selectedReport &&
           (() => {
@@ -741,7 +589,7 @@ const ReportsPage = () => {
                     { label: "Period", value: selectedReport.period },
                     {
                       label: "Status",
-                      value: <StatusBadge status={selectedReport.status} />,
+                      value: <LocalStatusBadge status={selectedReport.status} />,
                     },
                     { label: "Views", value: selectedReport.views ?? 0 },
                     {
@@ -833,21 +681,21 @@ const ReportsPage = () => {
         }
       >
         <div className="space-y-5">
-          <Field label="Report Title" required>
+          <FormField label="Report Title" required>
             <input
               value={formData.title}
               onChange={(e) => setField("title", e.target.value)}
               placeholder="e.g., Quarterly Revenue 2025 Q2"
-              className={inputCls}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white"
             />
-          </Field>
+          </FormField>
 
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Category" required>
+            <FormField label="Category" required>
               <select
                 value={formData.category}
                 onChange={(e) => setField("category", e.target.value)}
-                className={inputCls}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white"
               >
                 <option value="">Select Category</option>
                 {CATEGORIES.map((c) => (
@@ -856,12 +704,12 @@ const ReportsPage = () => {
                   </option>
                 ))}
               </select>
-            </Field>
-            <Field label="File Type">
+            </FormField>
+            <FormField label="File Type">
               <select
                 value={formData.type}
                 onChange={(e) => setField("type", e.target.value)}
-                className={inputCls}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white"
               >
                 <option value="">Auto-detect</option>
                 {Object.keys(TYPE_META).map((t) => (
@@ -870,14 +718,14 @@ const ReportsPage = () => {
                   </option>
                 ))}
               </select>
-            </Field>
+            </FormField>
           </div>
 
-          <Field label="Reporting Period" required>
+          <FormField label="Reporting Period" required>
             <select
               value={formData.period}
               onChange={(e) => setField("period", e.target.value)}
-              className={inputCls}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white"
             >
               <option value="">Select Period</option>
               {PERIODS.map((p) => (
@@ -886,40 +734,40 @@ const ReportsPage = () => {
                 </option>
               ))}
             </select>
-          </Field>
+          </FormField>
 
           {formData.period === "Custom" && (
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Start Date" required>
+              <FormField label="Start Date" required>
                 <input
                   type="date"
                   value={formData.customStartDate}
                   onChange={(e) => setField("customStartDate", e.target.value)}
-                  className={inputCls}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white"
                 />
-              </Field>
-              <Field label="End Date" required>
+              </FormField>
+              <FormField label="End Date" required>
                 <input
                   type="date"
                   value={formData.customEndDate}
                   onChange={(e) => setField("customEndDate", e.target.value)}
-                  className={inputCls}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white"
                 />
-              </Field>
+              </FormField>
             </div>
           )}
 
-          <Field label="Description">
+          <FormField label="Description">
             <textarea
               value={formData.description}
               onChange={(e) => setField("description", e.target.value)}
               placeholder="Brief description of the report…"
               rows={3}
-              className={`${inputCls} resize-none`}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white resize-none"
             />
-          </Field>
+          </FormField>
 
-          <Field
+          <FormField
             label={formData.id ? "Replace File (optional)" : "Upload File"}
             required={!formData.id}
           >
@@ -948,9 +796,9 @@ const ReportsPage = () => {
                 className="hidden"
               />
             </label>
-          </Field>
+          </FormField>
 
-          <Field label="Publish Status">
+          <FormField label="Publish Status">
             <div className="flex items-center gap-6">
               {["published", "draft"].map((s) => (
                 <label
@@ -973,7 +821,7 @@ const ReportsPage = () => {
                 </label>
               ))}
             </div>
-          </Field>
+          </FormField>
 
           <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
             <button
@@ -988,7 +836,7 @@ const ReportsPage = () => {
             <button
               onClick={handleCreateReport}
               disabled={submitting}
-              className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 cursor-pointer transition-colors shadow-sm shadow-blue-200"
+              className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 cursor-pointer transition-colors "
             >
               {submitting ? (
                 <>

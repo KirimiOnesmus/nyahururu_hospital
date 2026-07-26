@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import notify from "../../../common/utils/notify";
 import {
   FaCheckCircle, FaClock, FaInbox, FaBell, FaSearch, FaUserCircle,
   FaUniversity, FaCalendarAlt, FaShieldAlt, FaBookOpen, FaGavel,
@@ -9,7 +9,7 @@ import {
 import * as research from "../../../api/research";
 
 
-//  Constants & mappings 
+
 const STAGE_LABELS = {
   proposal:    "Proposal",
   final_paper: "Final Paper",
@@ -43,7 +43,7 @@ const filterBtnCls = (active) =>
      ? "bg-purple-600 text-white border-purple-600"
      : "bg-white text-slate-500 border-slate-200 hover:border-purple-300 hover:text-purple-600"}`;
 
-//  Local building blocks
+
 const Spinner = ({ size = 10, color = "border-t-purple-600" }) => (
   <div className={`w-${size} h-${size} border-4 border-slate-200 ${color}
     rounded-full animate-spin`} />
@@ -67,7 +67,7 @@ const EmptyState = ({ icon: Icon, title, sub }) => (
   </div>
 );
 
-//  Shared row (used by both tabs) 
+ 
 const ResearchRow = ({ item, onOpen, variant }) => {
   const sc = STATUS_CONFIG[item.status] || STATUS_CONFIG.pending;
   const { Icon: StatusIcon } = sc;
@@ -134,7 +134,7 @@ const CommitteeDashboard = ({ user }) => {
       const res = await research.getPendingCommitteeApproval();
       setPending(Array.isArray(res.papers) ? res.papers : []);
     } catch (err) {
-      toast.error(err.message || "Failed to load pending approvals");
+      notify.error(err.message || "Failed to load pending approvals");
     } finally {
       setLoadingPending(false);
     }
@@ -152,7 +152,7 @@ const CommitteeDashboard = ({ user }) => {
       });
       setAll(Array.isArray(res.papers) ? res.papers : []);
     } catch (err) {
-      toast.error(err.message || "Failed to load research records");
+      notify.error(err.message || "Failed to load research records");
     } finally {
       setLoadingAll(false);
     }
@@ -177,7 +177,7 @@ const CommitteeDashboard = ({ user }) => {
 
   return (
     <div className="space-y-6">
-      {/* Banner */}
+
       <div className="relative bg-purple-700 rounded-2xl p-6 text-white overflow-hidden">
         <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full
           translate-x-16 -translate-y-16 pointer-events-none" />
@@ -204,7 +204,7 @@ const CommitteeDashboard = ({ user }) => {
         </div>
       </div>
 
-      {/* Stats row */}
+
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         {[
           { icon: FaInbox,    label: "Awaiting sign-off", value: pending.length,        color: "bg-purple-500" },
@@ -226,7 +226,7 @@ const CommitteeDashboard = ({ user }) => {
         ))}
       </div>
 
-      {/* Tabs */}
+    
       <div className="flex gap-2 flex-wrap">
         <button type="button" onClick={() => setTab("pending")} className={tabBtnCls(tab === "pending")}>
           <FaGavel className="text-xs" /> Pending sign-off
@@ -242,7 +242,7 @@ const CommitteeDashboard = ({ user }) => {
         </button>
       </div>
 
-      {/* Pending sign-off tab */}
+    
       {tab === "pending" && (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100">
@@ -272,7 +272,7 @@ const CommitteeDashboard = ({ user }) => {
         </div>
       )}
 
-      {/* All research tab */}
+
       {tab === "all" && (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100 space-y-3">
