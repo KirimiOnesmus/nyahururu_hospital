@@ -76,6 +76,9 @@ const certificateRoutes      = require("./routes/certificates");
 const app = express();
 
 
+
+app.set("trust proxy", 1);//ngrok testing
+
 if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
 }
@@ -181,8 +184,7 @@ PUBLIC_UPLOAD_FOLDERS.forEach((folder) => {
 
 const { verifyToken: requireStaffToken, protectResearcher: requireResearcherToken } = require("./middleware/auth");
 const requireUploadAuth = (req, res, next) => {
-  // Accept either a staff session or a researcher session — both
-  // extractToken() paths already exist in middleware/auth.js.
+
   requireStaffToken(req, res, (staffErr) => {
     if (!staffErr) return next();
     requireResearcherToken(req, res, next);
@@ -263,6 +265,14 @@ app.use("/api/audit-logs",    auditLogRoutes);
 app.use("/api/research",      researchRoutes);
 app.use("/api/payments",   paymentRoutes);
 app.use("/api/certificates", certificateRoutes);
+
+//ngrok
+app.get("/", (req, res) => {
+  res.json({ status: "ok", service: "NCRH API", timestamp: new Date().toISOString() });
+});
+
+app.get("/favicon.ico", (req, res) => res.status(204).end());
+
 
 
 app.all("*splat", (req, res, next) => {

@@ -6,6 +6,12 @@ const { init: initSocket } = require("./utils/socket");
 
 const { sequelize } = require("./sequelize/models");
 
+
+const cron = require("node-cron");
+const { run: runResearchExpiryJob } = require("./scripts/researchExpiryJob");
+
+const { run: runReviewerReminderJob } = require("./scripts/reviewerReminderJob");
+
 const PORT = process.env.PORT || 5000;
 
 const allowedOrigins = (process.env.CORS_ORIGINS || "http://localhost:5173")
@@ -33,6 +39,34 @@ const bootstrap = async () => {
 
 
   initSocket(server, allowedOrigins);
+
+  if (process.env.RESEARCH_EXPIRY_CRON_ENABLED !== "false") {
+
+    cron.schedule("0 7 * * *", () => {
+      runResearchExpiryJob({ closeConnection: false }).catch((err) => {
+        logger.error({ err }, "Research expiry job failed");
+      });
+    });
+    logger.info("Research expiry job scheduled (daily at 07:00, in-process)");
+  } else {
+    logger.info(
+      "Research expiry job in-process schedule disabled (RESEARCH_EXPIRY_CRON_ENABLED=false) — ensure an external cron is configured.",
+    );
+  }
+
+  if (process.env.REVIEWER_REMINDER_CRON_ENABLED !== "false") {
+
+    cron.schedule("0 8 * * *", () => {
+      runReviewerReminderJob({ closeConnection: false }).catch((err) => {
+        logger.error({ err }, "Reviewer reminder job failed");
+      });
+    });
+    logger.info("Reviewer reminder job scheduled (daily at 08:00, in-process)");
+  } else {
+    logger.info(
+      "Reviewer reminder job in-process schedule disabled (REVIEWER_REMINDER_CRON_ENABLED=false) — ensure an external cron is configured.",
+    );
+  }
 
   return server;
 };

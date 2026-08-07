@@ -40,7 +40,16 @@ router.post(
   ctrl.adminCreateResearcher,
 );
 
-
+//  Admin-accessible listing (staff token accepted) 
+router.get(
+  "/",
+  protectEither,
+  (req, res, next) => {
+    if (isResearchAdmin(req)) return next();
+    return next(new AppError("Admin access required.", 403));
+  },
+  ctrl.listAll,
+);
 
 
 router.use(protectResearcher);

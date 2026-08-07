@@ -128,10 +128,9 @@ exports.createGallery = async (req, res) => {
       visible: visible !== false,
       uploadedBy: req.user?.id,
     });
-
+emitChange("gallery", "created", { id: gallery.id });
     res.status(201).json({
       message: "Gallery item uploaded successfully",
-    emitChange("gallery", "created", { id: gallery.id });
       item: gallery,
     });
   } catch (error) {

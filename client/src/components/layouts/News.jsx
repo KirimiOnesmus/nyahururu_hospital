@@ -79,7 +79,7 @@ const News = () => {
                 <img
                   src={`${BACKEND_URL}${item.imageUrl}`}
                   alt={item.title}
-                  className="w-fit h-full object-cover"
+                  className="inset-0 w-full h-full object-cover object-center"
                 />
               ) : (
                 <FaNewspaper className="text-5xl text-slate-300" />

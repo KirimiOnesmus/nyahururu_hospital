@@ -203,6 +203,8 @@ const Sidebar = () => {
     }
     localStorage.removeItem("role");
     localStorage.removeItem("collection");
+    localStorage.removeItem("token");
+    localStorage.removeItem("researcher");
     navigate("/hmis");
   };
 

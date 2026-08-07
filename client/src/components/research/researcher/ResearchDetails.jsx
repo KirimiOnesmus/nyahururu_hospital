@@ -13,24 +13,34 @@ import {
 import * as research from "../../../api/research";
 import { ASSET_BASE_URL } from "../../../config/env";
 
-const STAGE_ORDER = ["proposal", "progress", "final_paper"];
+const STAGE_ORDER = ["submission", "review", "committee", "outcome"];
 
 const STAGE_LABELS = {
-  proposal: "Proposal",
-  progress: "Progress Report",
-  final_paper: "Final Paper",
+  submission: "Submission",
+  review: "Reviewer Evaluation",
+  committee: "Committee Decision",
+  outcome: "Outcome",
 };
 
 const STAGE_SHORT_LABELS = {
-  proposal: "Proposal",
-  progress: "Progress",
-  final_paper: "Final Paper",
+  submission: "Submitted",
+  review: "Review",
+  committee: "Committee",
+  outcome: "Outcome",
 };
 
 const STAGE_COLORS = {
-  proposal: "bg-blue-100 text-blue-700 border border-blue-200",
-  progress: "bg-purple-100 text-purple-700 border border-purple-200",
-  final_paper: "bg-emerald-100 text-emerald-700 border border-emerald-200",
+  submission: "bg-blue-100 text-blue-700 border border-blue-200",
+  review: "bg-purple-100 text-purple-700 border border-purple-200",
+  committee: "bg-indigo-100 text-indigo-700 border border-indigo-200",
+  outcome: "bg-emerald-100 text-emerald-700 border border-emerald-200",
+};
+
+const TYPE_LABELS = {
+  initial_proposal: "Initial Proposal",
+  amendment: "Amendment",
+  continuing_review: "Continuing Review",
+  study_closure: "Study Closure",
 };
 
 const STATUS_CONFIG = {
@@ -90,16 +100,27 @@ const STATUS_CONFIG = {
     dot: "bg-slate-300",
   },
   committee_review: {
-  label: "With Research Committee",
-  icon: FaShieldAlt,
-  cls: "text-indigo-700 bg-indigo-50 border-indigo-300",
-  iconText: "text-indigo-600",
-  iconBg: "bg-indigo-100",
-  bar: "bg-indigo-500",
-  banner: "bg-indigo-50 border-indigo-200",
-  bannerText: "text-indigo-800",
-  dot: "bg-indigo-500",
-},
+    label: "With Research Committee",
+    icon: FaShieldAlt,
+    cls: "text-indigo-700 bg-indigo-50 border-indigo-300",
+    iconText: "text-indigo-600",
+    iconBg: "bg-indigo-100",
+    bar: "bg-indigo-500",
+    banner: "bg-indigo-50 border-indigo-200",
+    bannerText: "text-indigo-800",
+    dot: "bg-indigo-500",
+  },
+  submitted_complete: {
+    label: "Submitted",
+    icon: FaCheckCircle,
+    cls: "text-blue-700 bg-blue-50 border-blue-300",
+    iconText: "text-blue-600",
+    iconBg: "bg-blue-100",
+    bar: "bg-blue-500",
+    banner: "bg-blue-50 border-blue-200",
+    bannerText: "text-blue-800",
+    dot: "bg-blue-500",
+  },
 };
 
 const FILE_ICON_BY_EXT = {
@@ -119,7 +140,6 @@ const getFileMeta = (fileName = "") => {
   return FILE_ICON_BY_EXT[ext] || { icon: FaFile, cls: "text-slate-500 bg-slate-100" };
 };
 
-
 const fmt = (d) =>
   d
     ? new Date(d).toLocaleDateString("en-KE", { day: "numeric", month: "long", year: "numeric" })
@@ -132,15 +152,56 @@ const fmtTime = (d) =>
       })
     : "—";
 
-
 const STATUS_MAP = {
+  draft: "pending",
+  awaiting_payment: "pending",
+  submitted: "pending",
   approved: "approved",
-  pending: "pending",
   under_review: "pending",
   pending_committee_review: "committee_review",
   revision_requested: "rejected",
   rejected: "rejected",
   suspended: "suspended",
+  expired: "rejected",
+  closed: "approved",
+};
+
+const DECISION_TO_CONFIG = {
+  approve: "approved",
+  approved: "approved",
+  reject: "rejected",
+  rejected: "rejected",
+  revise: "rejected",
+  revision_requested: "rejected",
+  pending: "pending",
+  suspend: "suspended",
+  suspended: "suspended",
+};
+
+
+const resolveStageStatus = (stage, stageData, projectUiStatus) => {
+  const raw = stageData?.status || "locked";
+  if (raw === "locked") return "locked";
+  if (raw === "needs_revision") return "rejected";
+
+  if (stage === "submission") {
+    if (raw === "complete") return "submitted_complete";
+    if (raw === "active") return "pending";
+    return "submitted_complete";
+  }
+
+  if (stage === "outcome") {
+    if (projectUiStatus && STATUS_CONFIG[projectUiStatus]) return projectUiStatus;
+    return raw === "complete" ? "approved" : "pending";
+  }
+
+  const decision = stageData?.review?.decision;
+  const mapped = decision ? DECISION_TO_CONFIG[String(decision).toLowerCase()] : null;
+  if (mapped) return mapped;
+
+  if (raw === "active") return "pending";
+  if (raw === "complete") return "approved";
+  return "pending";
 };
 
 const PROGRESS_FILE_LABELS = {
@@ -151,7 +212,13 @@ const PROGRESS_FILE_LABELS = {
 
 const buildFileUrl = (path) => {
   if (!path) return null;
-  return `${ASSET_BASE_URL}${path}`;
+  const base = `${ASSET_BASE_URL}${path}`;
+  const token = localStorage.getItem("token");
+  if (token && base.includes("/uploads/")) {
+    const sep = base.includes("?") ? "&" : "?";
+    return `${base}${sep}token=${token}`;
+  }
+  return base;
 };
 
 const fileEntry = (path, fallbackName) => {
@@ -160,118 +227,333 @@ const fileEntry = (path, fallbackName) => {
   return { name, size: null, url: buildFileUrl(path) };
 };
 
+const safeArray = (val) => {
+  if (Array.isArray(val)) return val;
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
+  }
+  return [];
+};
+
+// Renders the continuing-review (SERU Type B) payload: the progress-report
+// narrative plus the mandatory supporting documents uploaded at this stage.
+// The proposal itself is rendered by the normal Submission stage (which now
+// falls back to the parent proposal's content for continuing reviews).
+const ContinuingReviewPanel = ({ paper }) => {
+  const cr = paper?.continuingReviewData || {};
+  const files = safeArray(paper?.progressFiles);
+
+  const rows = [
+    ["Progress Summary", cr.progressSummary],
+    ["Participants Enrolled", cr.participantsEnrolled],
+    ["Participants Continuing", cr.participantsContinuing],
+    ["Adverse Events", cr.adverseEvents],
+    ["Amendments During Period", cr.amendments],
+    ["Constraints", cr.constraints],
+    ["Plans for Next Year", cr.plansForNextYear],
+    ["Final Project Year", cr.isLastYear ? "Yes" : "No"],
+  ].filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== "");
+
+  return (
+    <div className="bg-white rounded-2xl border border-emerald-100 p-5">
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-[11px] text-emerald-600 font-semibold uppercase tracking-wide">
+          Continuing Review
+          {paper.continuingReviewNumber ? ` #${paper.continuingReviewNumber}` : ""}
+          {" "}— Progress Report
+        </p>
+        {cr.submittedAt && (
+          <span className="text-[11px] text-slate-400">
+            Submitted {new Date(cr.submittedAt).toLocaleDateString("en-KE")}
+          </span>
+        )}
+      </div>
+
+      {rows.length > 0 ? (
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+          {rows.map(([label, value]) => (
+            <div key={label} className="min-w-0">
+              <dt className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
+                {label}
+              </dt>
+              <dd className="text-sm text-slate-700 whitespace-pre-wrap break-words">
+                {String(value)}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="text-sm text-slate-400">No progress details recorded.</p>
+      )}
+
+      <div className="mt-5 pt-4 border-t border-slate-100">
+        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">
+          Supporting Documents
+        </p>
+        {files.length > 0 ? (
+          <ul className="space-y-1.5">
+            {files.map((f, i) => (
+              <li key={f.key || f.url || i}>
+                <a
+                  href={buildFileUrl(f.url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  <span aria-hidden>📎</span>
+                  {PROGRESS_FILE_LABELS[f.label] || f.label || `Document ${i + 1}`}
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-amber-600">
+            No supporting documents were attached to this continuing review.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const mapResearchToProject = (paper, reviews = []) => {
   if (!paper) return null;
 
-  const currentStageIndex = STAGE_ORDER.indexOf(paper.stage);
-  const reviewsByStage = STAGE_ORDER.reduce((acc, s) => {
-    acc[s] = reviews.filter((r) => r.stage === s).sort((a, b) => b.round - a.round);
-    return acc;
-  }, {});
+  // A continuing review / amendment / closure is a continuation of an
+  // approved study. Its own row leaves the proposal fields (abstract,
+  // background, objectives, …) NULL because those live on the parent, so
+  // we fall back to the parent proposal (returned as `parentSummary`) when
+  // rendering the underlying proposal content.
+  const parent = paper.parentSummary || {};
+
+  const reviewerReviews = reviews
+    .filter((r) => r.reviewerRole === "reviewer" || !r.reviewerRole)
+    .sort((a, b) => (a.round || 1) - (b.round || 1) || new Date(a.submittedAt) - new Date(b.submittedAt));
+  const committeeReviews = reviews.filter((r) => r.reviewerRole === "committee");
+
+  const maxRound = reviewerReviews.reduce((m, r) => Math.max(m, r.round || 1), 0);
+  const hasResubmitted = (paper.resubmissionCount || 0) > 0;
+
+  const currentStageIndex = (() => {
+    const s = paper.status;
+    if (["approved", "rejected", "expired", "closed"].includes(s)) return 3;
+    if (s === "pending_committee_review") return 2;
+
+
+    if (hasResubmitted || maxRound > 1) return 1;
+    return 0;
+  })();
+
+
+  const safeCriteria = (val) => {
+    if (!val) return {};
+    if (typeof val === "object" && !Array.isArray(val)) return val;
+    try { return JSON.parse(val); } catch { return {}; }
+  };
+
+  const mapReview = (r) => ({
+    decision: r.decision,
+    comment: r.comment,
+    criteria: safeCriteria(r.criteria),
+    reviewer: r.reviewer?.name || r.reviewer?.firstName || "Reviewer",
+    reviewerEmail: r.reviewer?.email || null,
+    reviewerInstitution: r.reviewer?.institution || null,
+    reviewedAt: r.submittedAt,
+    round: r.round,
+  });
+
+
+  const isRevisionStatus = ["revision_requested", "suspended"].includes(paper.status);
+  const isUnderReview = ["under_review", "submitted"].includes(paper.status);
+
+
+  const round1Reviews = reviewerReviews.filter((r) => (r.round || 1) === 1);
+  const submissionStageStatus = (() => {
+    if (currentStageIndex > 0) return "complete";      
+    if (isRevisionStatus && round1Reviews.length > 0) return "needs_revision";
+    if (isUnderReview) return round1Reviews.length > 0 ? "complete" : "active";
+    return "active";
+  })();
 
   const stages = {};
+  stages.submission = {
+    status: submissionStageStatus,
+    submittedAt: paper.createdAt,
+    fields: {
+      "Title": paper.title || parent.title,
+      "Type": TYPE_LABELS[paper.submissionType] || paper.submissionType,
+      "Discipline": paper.discipline || parent.discipline,
+      "Abstract": paper.abstract ?? parent.abstract,
+      "Background": paper.background ?? parent.background,
+      "Objectives": paper.objectives ?? parent.objectives,
+      "Methodology": paper.methodology ?? parent.methodology,
+      "Expected Outcome": paper.expectedOutcome ?? parent.expectedOutcome,
+      "Justification": paper.justification ?? parent.justification,
+      "Research Programme": paper.researchProgramme ?? parent.researchProgramme,
+      "SDG": paper.sdg ?? parent.sdg,
+      "Protocol Version": paper.protocolVersionNumber ?? parent.protocolVersionNumber,
+      "Counties": safeArray(
+        paper.studyImplementationCounties?.length
+          ? paper.studyImplementationCounties
+          : parent.studyImplementationCounties,
+      ).join(", "),
+      "Funding": paper.fundingSource ?? parent.fundingSource,
+      "Ethics (Human)": paper.ethicsHumanSubjects ?? parent.ethicsHumanSubjects,
+      "Inclusion Criteria": paper.inclusionCriteria ?? parent.inclusionCriteria,
+      "Exclusion Criteria": paper.exclusionCriteria ?? parent.exclusionCriteria,
+    },
+    files: [
+      fileEntry(paper.proposalFile || parent.proposalFile, "Proposal Document"),
+    ].filter(Boolean),
+    review: round1Reviews.length > 0 ? mapReview(round1Reviews[round1Reviews.length - 1]) : null,
+    allReviews: round1Reviews.map(mapReview),
+  };
 
-  STAGE_ORDER.forEach((stage, i) => {
-    const stageReviews = reviewsByStage[stage];
-    const latestReview = stageReviews.find((r) => r.isLatest) || stageReviews[0];
-    const history = stageReviews.filter((r) => r !== latestReview);
 
-    let status;
-    let submittedAt = null;
-    let fields = {};
-    let files = [];
+  const laterRoundReviews = reviewerReviews.filter((r) => (r.round || 1) > 1);
+  const evalStageStatus = (() => {
+    if (currentStageIndex > 1) return "complete";
+    if (currentStageIndex < 1) return "locked";
+    if (isRevisionStatus) return "needs_revision";
+    if (isUnderReview) return "active";
+    return "active";
+  })();
 
-    if (i < currentStageIndex) {
-      status = "approved";
-    } else if (i > currentStageIndex) {
-      status = "locked";
-    } else {
-      status = STATUS_MAP[paper.status] || "pending";
-    }
 
-    if (stage === "proposal") {
-      submittedAt = paper.createdAt;
-      fields = {
-        "Problem Statement": paper.background,
-        "Background": paper.background,
-        "Objectives": Array.isArray(paper.objectives)
-          ? paper.objectives.join("; ")
-          : paper.objectives,
-        "Methodology": paper.methodology,
-        "Expected Outcome": paper.expectedOutcome,
-        "Timeline": paper.timeline,
-        "Co-Investigators": Array.isArray(paper.teamMembers)
-          ? paper.teamMembers.join(", ")
-          : paper.teamMembers,
-        "Abstract": paper.abstract,
-      };
-      files = [fileEntry(paper.proposalFile, "Proposal.pdf")].filter(Boolean);
-    }
+  const isContinuingReview = paper.submissionType === "continuing_review";
+  const crData = paper.continuingReviewData || {};
+  const revisedFields = !hasResubmitted
+    ? {}
+    : isContinuingReview
+      ? {
+          "Progress Summary": crData.progressSummary,
+          "Participants Enrolled": crData.participantsEnrolled,
+          "Participants Continuing": crData.participantsContinuing,
+          "Adverse Events": crData.adverseEvents,
+          "Amendments": crData.amendments,
+          "Constraints": crData.constraints,
+          "Plans for Next Year": crData.plansForNextYear,
+        }
+      : {
+          "Title": paper.title,
+          "Abstract": paper.abstract,
+          "Background": paper.background,
+          "Objectives": paper.objectives,
+          "Methodology": paper.methodology,
+          "Expected Outcome": paper.expectedOutcome,
+          "Justification": paper.justification,
+          "Inclusion Criteria": paper.inclusionCriteria,
+          "Exclusion Criteria": paper.exclusionCriteria,
+          "Funding": paper.fundingSource,
+        };
 
-    if (stage === "progress") {
-      const pd = paper.progressData || {};
-      submittedAt = i <= currentStageIndex ? pd.submittedAt : null;
-      fields = {
-        "Methodology": pd.methodology,
-        "Study Design": pd.studyDesign,
-        "Sampling Method": pd.samplingMethod,
-        "Sample Size Achieved": pd.sampleSizeAchieved,
-        "Sample Size Target": pd.sampleSizeTarget,
-        "Data Collection Progress": pd.dataCollectionProgress,
-        "Statistical Methods": pd.statisticalMethods,
-        "Analysis Tools": pd.analysisTools,
-        "Preliminary Findings": pd.preliminaryFindings,
-        "Deviations from Protocol": pd.deviationsFromProtocol,
-        "Ethical Incidents": pd.ethicalIncidents,
-        "Participant Withdrawals": pd.participantWithdrawals,
-      };
-      files = (paper.progressFiles || []).map((f) => ({
-        name: PROGRESS_FILE_LABELS[f.label] || f.label,
-        size: null,
-        url: buildFileUrl(f.url),
-      }));
-    }
+  const revisionChangelog = paper.amendmentDetails || null;
 
-    if (stage === "final_paper") {
-      submittedAt = i <= currentStageIndex ? paper.updatedAt : null;
-      fields = {
-        "Final Abstract": paper.finalAbstract,
-        "Keywords": Array.isArray(paper.keywords)
-          ? paper.keywords.join(", ")
-          : paper.keywords,
-      };
-      files = [fileEntry(paper.finalPaperFile, "FinalPaper.pdf")].filter(Boolean);
-    }
-
-    const decisionToStatus = {
-      approved: "approved",
-      revision: "revision_requested",
-      rejected: "rejected",
-      suspended: "suspended",
-    };
-
-    stages[stage] = {
-      status,
-      submittedAt,
-      reviewedAt: latestReview?.submittedAt || (i === currentStageIndex ? paper.reviewedAt : null),
-      reviewedBy: latestReview?.reviewer?.name || (i === currentStageIndex ? paper.reviewedBy?.name : null),
-      reviewComment: latestReview?.comment || (i === currentStageIndex ? paper.reviewComment : ""),
-      rating: latestReview?.criteria
-        ? Math.round(
-            Object.values(latestReview.criteria).reduce((s, v) => s + v, 0) /
-              Object.values(latestReview.criteria).length /
-              2,
-          ) || null
-        : null,
-      fields,
-      files,
-      reviewHistory: history.map((r) => ({
-        status: STATUS_MAP[decisionToStatus[r.decision]] || "pending",
-        reviewedAt: r.submittedAt,
-        comment: r.comment,
-      })),
-    };
+  const allReviewsByRound = {};
+  reviewerReviews.forEach((r) => {
+    const round = r.round || 1;
+    if (!allReviewsByRound[round]) allReviewsByRound[round] = [];
+    allReviewsByRound[round].push(mapReview(r));
   });
+
+  const currentRound = Math.max(1, maxRound, (paper.resubmissionCount || 0) + 1);
+
+  stages.review = {
+    status: evalStageStatus,
+    submittedAt: laterRoundReviews.length > 0
+      ? laterRoundReviews[laterRoundReviews.length - 1].submittedAt
+      : (hasResubmitted ? paper.updatedAt : null),
+    fields: revisedFields,
+    files: (isContinuingReview
+      ? (paper.progressFiles || []).map((d, i) =>
+          fileEntry(d.url, d.label || `Document ${i + 1}`))
+      : [fileEntry(paper.proposalFile, "Revised Document")]
+    ).filter(Boolean),
+    review: laterRoundReviews.length > 0
+      ? mapReview(laterRoundReviews[laterRoundReviews.length - 1])
+      : null,
+    allReviews: reviewerReviews.map(mapReview),
+    allReviewsByRound,
+    revisionChangelog,
+    currentRound,
+  };
+
+  const latestCommitteeReview = committeeReviews[0] || null;
+  stages.committee = {
+    status: currentStageIndex >= 2 ? (currentStageIndex > 2 ? "complete" : "active") : "locked",
+    submittedAt: latestCommitteeReview?.submittedAt || paper.committeeReviewedAt,
+    fields: {},
+    files: [],
+    review: latestCommitteeReview ? mapReview(latestCommitteeReview) : null,
+    allReviews: committeeReviews.map(mapReview),
+  };
+
+  stages.outcome = {
+    status: currentStageIndex >= 3 ? "complete" : "locked",
+    submittedAt: paper.approvedAt || paper.committeeReviewedAt,
+    fields: {
+      "SERU Number": paper.seruNumber,
+      "Approval Valid Until": paper.approvalValidUntil ? fmt(paper.approvalValidUntil) : null,
+      "Decision": paper.reviewDecision,
+    },
+    files: [],
+    review: null,
+    allReviews: [],
+  };
+
+
+  const resubmissionEvents = [];
+  if (hasResubmitted) {
+    const resubCount = paper.resubmissionCount || 0;
+    for (let i = 0; i < resubCount; i++) {
+      const roundNum = i + 1;
+  
+      const prevRoundReviews = reviewerReviews.filter((r) => (r.round || 1) === roundNum);
+      const nextRoundReviews = reviewerReviews.filter((r) => (r.round || 1) === roundNum + 1);
+
+      let resubDate;
+      if (prevRoundReviews.length > 0) {
+        const lastPrevReview = prevRoundReviews[prevRoundReviews.length - 1];
+        resubDate = new Date(new Date(lastPrevReview.submittedAt).getTime() + 1000); 
+      } else {
+        resubDate = paper.updatedAt;
+      }
+      
+      resubmissionEvents.push({
+        date: resubDate,
+        label: `Revision #${i + 1} submitted by researcher`,
+        type: "resubmission",
+      });
+    }
+  }
+
+  const fullTimeline = [
+    { date: paper.createdAt, label: "Research submitted", type: "submission" },
+    ...resubmissionEvents,
+    ...reviewerReviews.map((r) => ({
+      date: r.submittedAt,
+      label: `Round ${r.round || 1} review by ${r.reviewer?.name || "Reviewer"} — ${r.decision}`,
+      type: "review",
+      decision: r.decision,
+    })),
+    ...committeeReviews.map((r) => ({
+      date: r.submittedAt,
+      label: `Committee review by ${r.reviewer?.name || "Committee"} — ${r.decision}`,
+      type: "committee",
+      decision: r.decision,
+    })),
+  ].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+
+  Object.values(stages).forEach((s) => { s.fullTimeline = fullTimeline; });
+
+  const activeStage = STAGE_ORDER[currentStageIndex] || "submission";
+  const rawStatus = paper.status || "submitted";
+  const uiStatus = STATUS_MAP[rawStatus] || "pending";
+  const sc = STATUS_CONFIG[uiStatus] || STATUS_CONFIG.pending;
 
   return {
     id: paper.researchId || paper.id,
@@ -279,12 +561,21 @@ const mapResearchToProject = (paper, reviews = []) => {
     author: paper.researcher?.name,
     institution: paper.researcher?.institution,
     discipline: paper.discipline,
+    paper,
     stages,
-    certificate: null,
+    activeStage,
+    uiStatus,
+    sc,
+    reviews,
+    seruNumber: paper.seruNumber,
+    approvalValidUntil: paper.approvalValidUntil,
+    submissionType: paper.submissionType,
+    certificate: paper.seruNumber ? {
+      number: paper.seruNumber,
+      validUntil: paper.approvalValidUntil,
+    } : null,
   };
 };
-
-
 
 const InfoRow = ({ label, value, icon: Icon }) => (
   <div className="flex items-start gap-3 py-3 border-b border-slate-50 last:border-0">
@@ -347,23 +638,25 @@ const EmptyFiles = () => (
   </div>
 );
 
-
-
-const StageProgressStrip = ({ stages, activeStage, onSelectStage }) => {
+const StageProgressStrip = ({ stages, activeStage, onSelectStage, project }) => {
   return (
     <div className="flex items-center gap-0">
       {STAGE_ORDER.map((stage, i) => {
         const data = stages[stage];
-        const status = data?.status || "locked";
+        const rawStatus = data?.status || "locked";
+        const status = resolveStageStatus(stage, data, project?.uiStatus);
         const isPastApproved = STAGE_ORDER.slice(0, i).every(
-          (s) => stages[s]?.status === "approved"
+          (s) => {
+            const st = resolveStageStatus(s, stages[s], project?.uiStatus);
+            return st === "approved" || st === "submitted_complete";
+          }
         );
-        const isLocked = status === "locked";
+        const isLocked = rawStatus === "locked";
         const isActive = stage === activeStage;
 
         const nodeCls = isLocked
           ? "bg-slate-100 border-slate-200 text-slate-400"
-          : status === "approved"
+          : status === "approved" || status === "submitted_complete"
           ? "bg-emerald-500 border-emerald-500 text-white"
           : status === "pending"
           ? "bg-amber-400 border-amber-400 text-white"
@@ -390,7 +683,7 @@ const StageProgressStrip = ({ stages, activeStage, onSelectStage }) => {
               >
                 {isLocked ? (
                   <FaLock className="text-[11px]" />
-                ) : status === "approved" ? (
+                ) : status === "approved" || status === "submitted_complete" ? (
                   <FaCheckCircle className="text-[11px]" />
                 ) : (
                   i + 1
@@ -417,10 +710,18 @@ const StageProgressStrip = ({ stages, activeStage, onSelectStage }) => {
   );
 };
 
+const ReviewerFeedback = ({ status, stageData, researchId }) => {
+  const [report, setReport] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
 
-
-const ReviewerFeedback = ({ stageData }) => {
-  const status = stageData?.status || "locked";
+  useEffect(() => {
+    if (!researchId || status === "locked") return;
+    setReportLoading(true);
+    research.getDecisionReport(researchId)
+      .then((data) => setReport(data))
+      .catch(() => setReport(null))
+      .finally(() => setReportLoading(false));
+  }, [researchId, status]);
 
   if (status === "locked") {
     return (
@@ -431,88 +732,179 @@ const ReviewerFeedback = ({ stageData }) => {
           </div>
           <div>
             <p className="text-sm font-bold text-slate-600">Stage locked</p>
-            <p className="text-xs text-slate-400">
-              This stage unlocks once the previous stage is approved.
-            </p>
+            <p className="text-xs text-slate-400">This stage unlocks once the previous stage is approved.</p>
           </div>
         </div>
       </div>
     );
   }
 
-  if (status === "pending") {
+  if (status === "pending" && !report) {
+    const currentRound = stageData?.currentRound || 1;
+    const revisionChangelog = stageData?.revisionChangelog;
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
-            <FaClock className="text-amber-500 text-xs" />
+      <div className="space-y-4">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
+              <FaClock className="text-amber-500 text-xs" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-amber-800">
+                Awaiting Review {currentRound > 1 ? `(Round ${currentRound})` : ""}
+              </p>
+              <p className="text-xs text-amber-600">Your submission is in the review queue</p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-bold text-amber-800">Awaiting Review</p>
-            <p className="text-xs text-amber-600">Your submission is in the review queue</p>
-          </div>
+          <p className="text-xs text-amber-700 leading-relaxed mt-3 pl-11">
+            Our panel typically reviews submissions within 3–5 business days.
+          </p>
         </div>
-        <p className="text-xs text-amber-700 leading-relaxed mt-3 pl-11">
-          Our panel typically reviews submissions within 3–5 business days. You'll receive an email
-          notification once a decision has been made.
-        </p>
+        {revisionChangelog && (
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-5">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-blue-600 mb-2 flex items-center gap-1.5">
+              <FaFileAlt className="text-[10px]" /> Changes Made in This Revision
+            </p>
+            <p className="text-sm text-blue-800 leading-relaxed whitespace-pre-line">{revisionChangelog}</p>
+          </div>
+        )}
       </div>
     );
   }
 
-  const sc = STATUS_CONFIG[status];
-  const StatusIcon = sc.icon;
+  if (reportLoading) {
+    return (
+      <div className="flex justify-center py-8">
+        <div className="w-7 h-7 border-3 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (report && report.releasedAt) {
+    const decisionKey = DECISION_TO_CONFIG[String(report.finalDecision || "").toLowerCase()] || "pending";
+    const sc = STATUS_CONFIG[decisionKey] || STATUS_CONFIG.pending;
+    const StatusIcon = sc.icon;
+    return (
+      <div className="space-y-4">
+        <div className={`rounded-xl border p-5 ${sc.banner}`}>
+          <div className="flex items-start gap-3">
+            <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${sc.iconBg}`}>
+              <StatusIcon className={`text-sm ${sc.iconText}`} />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                <p className={`text-sm font-bold ${sc.bannerText}`}>
+                  Committee Decision: {sc.label}
+                </p>
+                <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                  <FaCalendarAlt className="text-[9px]" /> {fmtTime(report.releasedAt)}
+                </span>
+              </div>
+              {report.committeeComment && (
+                <div className="bg-white/70 rounded-lg px-4 py-3 border border-white/60">
+                  <p className="text-[11px] text-slate-500 font-semibold mb-1.5 flex items-center gap-1">
+                    <FaCommentAlt className="text-[8px]" /> Committee Feedback
+                  </p>
+                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                    {report.committeeComment}
+                  </p>
+                </div>
+              )}
+              {report.officerAttachment && (
+                <div className="bg-white/70 rounded-lg px-4 py-3 border border-white/60 mt-2">
+                  <p className="text-[11px] text-slate-500 font-semibold mb-1.5 flex items-center gap-1">
+                    <FaFileAlt className="text-[8px]" /> Attached Document
+                  </p>
+                  <a
+                    href={buildFileUrl(report.officerAttachment)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 border border-blue-100 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
+                  >
+                    <FaDownload className="text-[10px]" />
+                    {report.officerAttachment.split("/").pop() || "Download Document"}
+                  </a>
+                </div>
+              )}
+              {report.reviewerComments && report.reviewerComments.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-widest flex items-center gap-1.5">
+                    <FaShieldAlt className="text-[9px]" /> Peer Review Summary
+                  </p>
+                  {report.reviewerComments.map((rc, i) => {
+                    const rcKey = DECISION_TO_CONFIG[String(rc.decision || "").toLowerCase()] || "pending";
+                    const rcSc = STATUS_CONFIG[rcKey] || STATUS_CONFIG.pending;
+                    return (
+                      <div key={i} className="bg-white/50 rounded-lg px-4 py-3 border border-slate-100">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[11px] text-slate-500 font-semibold">Reviewer {i + 1}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${rcSc.cls}`}>
+                            {rcSc.label}
+                          </span>
+                        </div>
+                        {rc.comment && (
+                          <p className="text-xs text-slate-600 leading-relaxed">{rc.comment}</p>
+                        )}
+                        {rc.criteria && Object.keys(rc.criteria).length > 0 && (
+                          <div className="grid grid-cols-2 gap-1 mt-2">
+                            {Object.entries(rc.criteria).map(([key, val]) => (
+                              <div key={key} className="flex items-center justify-between bg-slate-50 rounded px-2 py-1">
+                                <span className="text-[10px] text-slate-500 capitalize">
+                                  {key.replace(/([A-Z])/g, " $1").trim()}
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-700">{val}/10</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const allReviews = stageData?.allReviews || [];
+  if (allReviews.length === 0) {
+    const pendingSc = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+    const PendingIcon = pendingSc.icon;
+    return (
+      <div className={`rounded-xl border p-5 ${pendingSc.banner}`}>
+        <div className="flex items-start gap-3">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${pendingSc.iconBg}`}>
+            <PendingIcon className={`text-xs ${pendingSc.iconText}`} />
+          </div>
+          <p className={`text-sm font-bold ${pendingSc.bannerText}`}>{pendingSc.label}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={`rounded-xl border p-5 ${sc.banner}`}>
-      <div className="flex items-start gap-3">
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${sc.iconBg}`}>
-          <StatusIcon className={`text-xs ${sc.iconText}`} />
+    <div className="rounded-xl border border-blue-200 bg-blue-50 p-5">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+          <FaClock className="text-blue-500 text-xs" />
         </div>
-        <div className="flex-1">
-          <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-            <p className={`text-sm font-bold ${sc.bannerText}`}>{sc.label}</p>
-            {stageData.reviewedAt && (
-              <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                <FaCalendarAlt className="text-[9px]" /> {fmtTime(stageData.reviewedAt)}
-              </span>
-            )}
-          </div>
-
-          {stageData.reviewedBy && (
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center">
-                <FaShieldAlt className="text-indigo-500 text-[9px]" />
-              </div>
-              <p className="text-xs text-slate-500">
-                Reviewed by <span className="font-semibold text-slate-700">{stageData.reviewedBy}</span>
-              </p>
-            </div>
-          )}
-
-          {stageData.reviewComment && (
-            <div className="bg-white/70 rounded-lg px-4 py-3 border border-white/60">
-              <p className="text-xs text-slate-500 font-semibold mb-1 flex items-center gap-1">
-                <FaCommentAlt className="text-[9px]" /> Reviewer Comment
-              </p>
-              <p className={`text-sm leading-relaxed ${sc.bannerText}`}>{stageData.reviewComment}</p>
-            </div>
-          )}
-
-          {stageData.rating != null && (
-            <div className="mt-3">
-              <RatingStars rating={stageData.rating} />
-            </div>
-          )}
+        <div>
+          <p className="text-sm font-bold text-blue-800">Review in Progress</p>
+          <p className="text-xs text-blue-600 mt-0.5">
+            Your submission has been reviewed. The compiled feedback will be released by the Research Officer.
+          </p>
         </div>
       </div>
     </div>
   );
 };
+const StageTimeline = ({ stage, status, stageData }) => {
+  const timeline = stageData?.fullTimeline || [];
 
-
-const StageTimeline = ({ stage, stageData }) => {
-  if (!stageData?.submittedAt) {
+  if (timeline.length === 0) {
     return (
       <div className="flex flex-col items-center py-10 gap-3 text-center">
         <div className="w-12 h-12 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center">
@@ -528,47 +920,53 @@ const StageTimeline = ({ stage, stageData }) => {
     );
   }
 
-  const events = [
-    {
-      date: stageData.submittedAt,
-      label: `${STAGE_LABELS[stage]} submitted`,
-      icon: FaFileAlt,
-      color: "bg-blue-500",
-    },
-    stageData.reviewedAt && {
-      date: stageData.reviewedAt,
-      label: `Reviewed — ${STATUS_CONFIG[stageData.status]?.label}`,
-      icon: STATUS_CONFIG[stageData.status]?.icon || FaClock,
-      color: STATUS_CONFIG[stageData.status]?.dot || "bg-slate-400",
-    },
-  ].filter(Boolean);
+  const decisionColor = (decision) => {
+    const d = String(decision || "").toLowerCase();
+    if (["approved", "approve"].includes(d)) return "bg-emerald-500";
+    if (["revision", "revision_needed", "revision_requested", "rejected", "reject"].includes(d)) return "bg-red-500";
+    if (["suspended", "suspend"].includes(d)) return "bg-slate-500";
+    return "bg-blue-500";
+  };
+
+  const decisionIcon = (type, decision) => {
+    if (type === "submission") return FaFileAlt;
+    if (type === "resubmission") return FaArrowRight;
+    const d = String(decision || "").toLowerCase();
+    if (["approved", "approve"].includes(d)) return FaCheckCircle;
+    if (["revision", "revision_needed", "revision_requested", "rejected", "reject"].includes(d)) return FaTimesCircle;
+    return FaShieldAlt;
+  };
 
   return (
-    <div className="space-y-3">
-      {events.map((ev, i) => (
-        <div key={i} className="flex items-start gap-3">
-          <div className="flex flex-col items-center">
-            <div className={`w-7 h-7 rounded-full ${ev.color} flex items-center justify-center flex-shrink-0`}>
-              <ev.icon className="text-white text-[10px]" />
+    <div className="space-y-0">
+      {timeline.map((ev, i) => {
+        const EvIcon = decisionIcon(ev.type, ev.decision);
+        const color = ev.type === "submission" ? "bg-blue-500"
+          : ev.type === "resubmission" ? "bg-orange-500"
+          : decisionColor(ev.decision);
+        return (
+          <div key={i} className="flex items-start gap-3">
+            <div className="flex flex-col items-center">
+              <div className={`w-7 h-7 rounded-full ${color} flex items-center justify-center flex-shrink-0`}>
+                <EvIcon className="text-white text-[10px]" />
+              </div>
+              {i < timeline.length - 1 && <div className="w-px h-6 bg-slate-200" />}
             </div>
-            {i < events.length - 1 && <div className="w-px h-4 bg-slate-200 mt-1" />}
+            <div className="pb-4">
+              <p className="text-sm font-semibold text-slate-800">{ev.label}</p>
+              <p className="text-xs text-slate-400 mt-0.5">{fmtTime(ev.date)}</p>
+            </div>
           </div>
-          <div className="pb-3">
-            <p className="text-sm font-semibold text-slate-800">{ev.label}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{fmtTime(ev.date)}</p>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };
 
-
-
-const StagePanel = ({ stage, stageData, onResubmit,onAdvance  }) => {
+const StagePanel = ({ stage, stageData, project, onResubmit }) => {
   const [subTab, setSubTab] = useState("details");
-  const status = stageData?.status || "locked";
-  const sc = STATUS_CONFIG[status];
+  const status = resolveStageStatus(stage, stageData, project?.uiStatus);
+  const sc = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
   const StatusIcon = sc.icon;
 
   const subTabs = [
@@ -588,9 +986,7 @@ const StagePanel = ({ stage, stageData, onResubmit,onAdvance  }) => {
           <div>
             <p className="text-sm font-bold text-slate-700">{STAGE_LABELS[stage]} is locked</p>
             <p className="text-xs text-slate-400 mt-1 max-w-sm">
-              {stage === "progress"
-                ? "Submit and get your Proposal approved to unlock progress reporting."
-                : "Submit and get your Progress Report approved to unlock final paper submission."}
+              This stage unlocks once the previous stage has been approved.
             </p>
           </div>
         </div>
@@ -598,11 +994,11 @@ const StagePanel = ({ stage, stageData, onResubmit,onAdvance  }) => {
     );
   }
 
-  const fieldEntries = Object.entries(stageData.fields || {});
+  const fieldEntries = Object.entries(stageData?.fields || {}).filter(([, v]) => v && v !== "—");
+  const canResubmit = status === "rejected" && (stage === "review" || stage === "committee");
 
   return (
     <div className="space-y-5">
-   
       <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
         <div className={`h-1.5 w-full ${sc.bar}`} />
         <div className="p-6">
@@ -617,52 +1013,27 @@ const StagePanel = ({ stage, stageData, onResubmit,onAdvance  }) => {
 
           <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 mb-1">
             <span className="flex items-center gap-1">
-              <FaCalendarAlt /> Submitted {fmt(stageData.submittedAt)}
+              <FaCalendarAlt /> Submitted {fmt(stageData?.submittedAt)}
             </span>
             <span className="flex items-center gap-1">
-              <FaFileAlt /> {stageData.files?.length || 0} file{stageData.files?.length === 1 ? "" : "s"}
+              <FaFileAlt /> {stageData?.files?.length || 0} file{stageData?.files?.length === 1 ? "" : "s"}
             </span>
           </div>
 
-{status === "rejected" && (
-  <div className="mt-4">
-    <button
-      type="button"
-      onClick={() => onResubmit?.(stage)}
-      className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-colors cursor-pointer"
-    >
-      <FaFileAlt /> Resubmit (Free)
-    </button>
-  </div>
-)}
-
-{status === "approved" && stage === "proposal" && (
-  <div className="mt-4">
-    <button
-      type="button"
-      onClick={() => onAdvance?.(stage)}
-      className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-colors cursor-pointer"
-    >
-      <FaArrowRight className="text-[10px]" /> Submit Progress Report
-    </button>
-  </div>
-)}
-
-{status === "approved" && stage === "progress" && (
-  <div className="mt-4">
-    <button
-      type="button"
-      onClick={() => onAdvance?.(stage)}
-      className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-colors cursor-pointer"
-    >
-      <FaArrowRight className="text-[10px]" /> Submit Final Paper
-    </button>
-  </div>
-)}
+          {canResubmit && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => onResubmit?.(stage)}
+                className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-colors cursor-pointer"
+              >
+                <FaFileAlt /> Resubmit (Free)
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-   
       <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
         <div className="flex border-b border-slate-100 overflow-x-auto">
           {subTabs.map((tab) => (
@@ -677,9 +1048,9 @@ const StagePanel = ({ stage, stageData, onResubmit,onAdvance  }) => {
             >
               <tab.icon className="text-xs" />
               {tab.label}
-              {tab.id === "review" && stageData.reviewComment && (
+              {tab.id === "review" && (stageData?.allReviews?.length || 0) > 0 && (
                 <span className="bg-blue-100 text-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                  1
+                  {stageData.allReviews.length}
                 </span>
               )}
             </button>
@@ -703,7 +1074,7 @@ const StagePanel = ({ stage, stageData, onResubmit,onAdvance  }) => {
                 <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-3">
                   Submitted Files
                 </p>
-                {stageData.files?.length > 0 ? (
+                {stageData?.files?.length > 0 ? (
                   <div className="space-y-3">
                     {stageData.files.map((file) => (
                       <FileRow key={file.name} file={file} />
@@ -718,16 +1089,16 @@ const StagePanel = ({ stage, stageData, onResubmit,onAdvance  }) => {
 
           {subTab === "review" && (
             <div className="space-y-5">
-              <ReviewerFeedback stageData={stageData} />
+              <ReviewerFeedback status={status} stageData={stageData} researchId={project?.paper?.id} />
 
-              {stageData.reviewHistory?.length > 0 && (
+              {stageData?.reviewHistory?.length > 0 && (
                 <div>
                   <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-3">
                     Previous Reviews
                   </p>
                   <div className="space-y-3">
                     {stageData.reviewHistory.map((rev, i) => {
-                      const rsc = STATUS_CONFIG[rev.status] || STATUS_CONFIG.pending;
+                      const rsc = STATUS_CONFIG[DECISION_TO_CONFIG[rev.status] || rev.status] || STATUS_CONFIG.pending;
                       const RIcon = rsc.icon;
                       return (
                         <div key={i} className={`rounded-xl border p-4 ${rsc.banner}`}>
@@ -754,7 +1125,7 @@ const StagePanel = ({ stage, stageData, onResubmit,onAdvance  }) => {
               <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-4">
                 Stage History
               </p>
-              <StageTimeline stage={stage} stageData={stageData} />
+              <StageTimeline stage={stage} status={status} stageData={stageData} />
             </div>
           )}
         </div>
@@ -763,10 +1134,453 @@ const StagePanel = ({ stage, stageData, onResubmit,onAdvance  }) => {
   );
 };
 
+const DecisionLetterButton = ({ researchId }) => {
+  const [letters, setLetters] = useState([]);
+  const [checked, setChecked] = useState(false);
+  const [open, setOpen] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!researchId) return;
+    research.getDecisionLetterHistory(researchId)
+      .then((data) => { if (!cancelled) setLetters(data || []); })
+      .catch(() => { /* none issued yet, or not permitted — stay hidden */ })
+      .finally(() => { if (!cancelled) setChecked(true); });
+    return () => { cancelled = true; };
+  }, [researchId]);
+
+  if (!checked || letters.length === 0) return null;
+
+  const latest = letters[0];
+
+  return (
+    <div className="relative flex-shrink-0">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3
+          hover:bg-blue-100/70 transition-colors cursor-pointer"
+      >
+        <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
+          <FaDownload className="text-blue-600" />
+        </div>
+        <div className="text-left">
+          <p className="text-[11px] text-blue-600 font-semibold uppercase tracking-wide">
+            Decision Letter{letters.length > 1 ? "s" : ""}
+          </p>
+          <p className="text-sm font-bold text-blue-800">{latest.letterNumber}</p>
+          <p className="text-[11px] text-blue-600">
+            {letters.length > 1 ? `${letters.length} issued — click to view all` : "Click to download PDF"}
+          </p>
+        </div>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-lg z-20 overflow-hidden">
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide px-4 pt-3 pb-2">
+            Decision Letter History
+          </p>
+          <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
+            {letters.map((l) => (
+              <a
+                key={l.id}
+                href={buildFileUrl(l.file)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">{l.letterNumber}</p>
+                  <p className="text-xs text-slate-400 capitalize">
+                    {l.decision?.replace(/_/g, " ")} · {new Date(l.issuedAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <FaDownload className="text-slate-400 text-xs shrink-0" />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+const getCurrentResearcherId = () => {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return payload?.collection === "researchers" ? payload.id : null;
+  } catch {
+    return null;
+  }
+};
+
+const CoInvestigatorsPanel = ({ researchId, isOwner }) => {
+  const [list, setList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState(null);
+
+  const load = useCallback(() => {
+    if (!researchId) return;
+    research.getResearchCoInvestigators(researchId)
+      .then(setList)
+      .catch(() => setList([]))
+      .finally(() => setLoading(false));
+  }, [researchId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const toggleEdit = async (coInv) => {
+    setSavingId(coInv.researcherId);
+    try {
+      await research.setCoInvestigatorEditAccess(researchId, coInv.researcherId, !coInv.canEdit);
+      notify.success(!coInv.canEdit ? "Edit access granted." : "Edit access revoked.");
+      load();
+    } catch (err) {
+      notify.error(err.response?.data?.message || err.message || "Failed to update edit access");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  if (loading || list.length === 0) return null;
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 p-6">
+      <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-4">
+        Co-Investigators
+      </p>
+      <div className="space-y-3">
+        {list.map((coInv) => (
+          <div key={coInv.researcherId || coInv.id}
+            className="flex items-center justify-between border border-slate-100 rounded-xl px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-800">
+                {coInv.researcher?.name || coInv.name || "Co-Investigator"}
+              </p>
+              <p className="text-xs text-slate-400">
+                {coInv.roleOnStudy || "Co-Investigator"}
+                {coInv.acceptedAt ? " · Accepted" : " · Invitation pending"}
+              </p>
+            </div>
+            {isOwner && (
+              <button
+                onClick={() => toggleEdit(coInv)}
+                disabled={savingId === coInv.researcherId}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-lg cursor-pointer transition-colors disabled:opacity-50 ${
+                  coInv.canEdit
+                    ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                    : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                }`}
+                title="PI-delegated: lets this co-investigator edit specific proposal sections"
+              >
+                {coInv.canEdit ? "Edit access: On" : "Edit access: Off"}
+              </button>
+            )}
+            {!isOwner && (
+              <span className="text-xs font-semibold text-slate-400">
+                {coInv.canEdit ? "Can edit delegated sections" : "Read-only"}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const SEVERITY_STYLES = {
+  minor: "bg-slate-100 text-slate-600",
+  major: "bg-amber-100 text-amber-700",
+  critical: "bg-red-100 text-red-700",
+};
+
+const ProtocolDeviationsPanel = ({ researchId }) => {
+  const [list, setList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [formOpen, setFormOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [files, setFiles] = useState([]);
+  const [form, setForm] = useState({
+    deviationType: "protocol_deviation",
+    severity: "minor",
+    description: "",
+    dateOfDeviation: "",
+    correctiveAction: "",
+    participantsAffected: "",
+    atRiskParticipantList: "",
+    isUrgentSafety: false,
+  });
+
+  const load = useCallback(() => {
+    if (!researchId) return;
+    research.getProtocolDeviations(researchId)
+      .then(setList)
+      .catch(() => setList([]))
+      .finally(() => setLoading(false));
+  }, [researchId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const submit = async () => {
+    if (!form.description.trim() || !form.dateOfDeviation) {
+      return notify.error("Description and date of deviation are required.");
+    }
+    setSaving(true);
+    try {
+      await research.submitProtocolDeviation(
+        { ...form, parentResearchId: researchId },
+        files,
+      );
+      notify.success("Protocol deviation reported.");
+      setFormOpen(false);
+      setForm({
+        deviationType: "protocol_deviation", severity: "minor", description: "",
+        dateOfDeviation: "", correctiveAction: "", participantsAffected: "",
+        atRiskParticipantList: "", isUrgentSafety: false,
+      });
+      setFiles([]);
+      load();
+    } catch (err) {
+      notify.error(err.response?.data?.message || err.message || "Failed to submit deviation report");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return null;
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 p-6">
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide">
+          Protocol Deviations
+        </p>
+        <button
+          onClick={() => setFormOpen((v) => !v)}
+          className="text-xs font-semibold text-blue-600 hover:underline cursor-pointer"
+        >
+          {formOpen ? "Cancel" : "+ Report a Deviation"}
+        </button>
+      </div>
+
+      {formOpen && (
+        <div className="border border-slate-100 rounded-xl p-4 mb-4 space-y-3 bg-slate-50/50">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-600">Type</label>
+              <select value={form.deviationType}
+                onChange={(e) => setForm((f) => ({ ...f, deviationType: e.target.value }))}
+                className="w-full mt-1 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                {research.DEVIATION_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600">Severity</label>
+              <select value={form.severity}
+                onChange={(e) => setForm((f) => ({ ...f, severity: e.target.value }))}
+                className="w-full mt-1 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                {research.DEVIATION_SEVERITIES.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-600">Date of Deviation *</label>
+            <input type="date" value={form.dateOfDeviation}
+              onChange={(e) => setForm((f) => ({ ...f, dateOfDeviation: e.target.value }))}
+              className="w-full mt-1 border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-600">Description *</label>
+            <textarea rows={3} value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              className="w-full mt-1 border border-slate-300 rounded-lg px-3 py-2 text-sm resize-none" />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-600">Corrective Action</label>
+            <textarea rows={2} value={form.correctiveAction}
+              onChange={(e) => setForm((f) => ({ ...f, correctiveAction: e.target.value }))}
+              className="w-full mt-1 border border-slate-300 rounded-lg px-3 py-2 text-sm resize-none" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-600">Participants Affected</label>
+              <input type="number" min="0" value={form.participantsAffected}
+                onChange={(e) => setForm((f) => ({ ...f, participantsAffected: e.target.value }))}
+                className="w-full mt-1 border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div className="flex items-end pb-2">
+              <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                <input type="checkbox" checked={form.isUrgentSafety}
+                  onChange={(e) => setForm((f) => ({ ...f, isUrgentSafety: e.target.checked }))}
+                  className="w-4 h-4 rounded border-slate-300" />
+                Urgent safety concern
+              </label>
+            </div>
+          </div>
+
+          {form.isUrgentSafety && (
+            <div>
+              <label className="text-xs font-semibold text-slate-600">At-Risk Participant Details</label>
+              <textarea rows={2} value={form.atRiskParticipantList}
+                onChange={(e) => setForm((f) => ({ ...f, atRiskParticipantList: e.target.value }))}
+                className="w-full mt-1 border border-slate-300 rounded-lg px-3 py-2 text-sm resize-none" />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Visible only to the study's owner, its reviewers/committee, and research staff.
+              </p>
+            </div>
+          )}
+
+          <div>
+            <label className="text-xs font-semibold text-slate-600">Supporting Documents</label>
+            <input type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              onChange={(e) => setFiles(Array.from(e.target.files || []))}
+              className="w-full mt-1 text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg
+                file:border-0 file:bg-blue-50 file:text-blue-700 file:text-xs file:font-semibold" />
+          </div>
+
+          <button onClick={submit} disabled={saving}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2 rounded-lg cursor-pointer disabled:opacity-50">
+            {saving ? "Submitting…" : "Submit Deviation Report"}
+          </button>
+        </div>
+      )}
+
+      {list.length === 0 ? (
+        <p className="text-sm text-slate-400">No protocol deviations reported.</p>
+      ) : (
+        <div className="space-y-3">
+          {list.map((d) => (
+            <div key={d.id} className="border border-slate-100 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-1">
+                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${SEVERITY_STYLES[d.severity] || SEVERITY_STYLES.minor}`}>
+                  {d.severity?.toUpperCase()}
+                </span>
+                <span className="text-xs text-slate-400">
+                  {d.dateOfDeviation ? new Date(d.dateOfDeviation).toLocaleDateString() : ""}
+                </span>
+              </div>
+              <p className="text-sm text-slate-700">{d.description}</p>
+              {d.correctiveAction && (
+                <p className="text-xs text-slate-500 mt-1">
+                  <span className="font-semibold">Corrective action:</span> {d.correctiveAction}
+                </p>
+              )}
+              {d.deviationDeadline && (
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Response due: {new Date(d.deviationDeadline).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const CO_EDIT_FIELDS = [
+  { key: "abstract", label: "Abstract", rows: 4 },
+  { key: "background", label: "Background", rows: 4 },
+  { key: "objectives", label: "Objectives", rows: 3 },
+  { key: "methodology", label: "Methodology", rows: 4 },
+  { key: "expectedOutcome", label: "Expected Outcome", rows: 3 },
+  { key: "timeline", label: "Timeline", rows: 2 },
+  { key: "inclusionCriteria", label: "Inclusion Criteria", rows: 3 },
+  { key: "exclusionCriteria", label: "Exclusion Criteria", rows: 3 },
+  { key: "literatureReviewSummary", label: "Literature Review Summary", rows: 4 },
+];
+
+
+const CoInvestigatorEditPanel = ({ researchId, isOwner, paper }) => {
+  const [myAccess, setMyAccess] = useState(null); 
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!researchId || isOwner) { setMyAccess(false); return; }
+    const myId = getCurrentResearcherId();
+    research.getResearchCoInvestigators(researchId)
+      .then((list) => {
+        const mine = list.find((c) => c.researcherId === myId);
+        setMyAccess(!!mine?.canEdit);
+      })
+      .catch(() => setMyAccess(false));
+  }, [researchId, isOwner]);
+
+  useEffect(() => {
+    if (myAccess && paper) {
+      const initial = {};
+      CO_EDIT_FIELDS.forEach(({ key }) => { initial[key] = paper[key] || ""; });
+      setForm(initial);
+    }
+  }, [myAccess, paper]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await research.coInvestigatorEditResearch(researchId, form);
+      notify.success("Changes saved.");
+      setOpen(false);
+    } catch (err) {
+      notify.error(err.response?.data?.message || err.message || "Failed to save changes");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!myAccess) return null;
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 p-6">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide">
+            Your Delegated Access
+          </p>
+          <p className="text-sm text-slate-600 mt-1">
+            The Principal Investigator has given you edit access to the sections below.
+            Submission decisions still require the PI.
+          </p>
+        </div>
+        <button onClick={() => setOpen((v) => !v)}
+          className="text-xs font-semibold text-blue-600 hover:underline cursor-pointer shrink-0">
+          {open ? "Close" : "Edit Sections"}
+        </button>
+      </div>
+
+      {open && (
+        <div className="mt-4 space-y-3">
+          {CO_EDIT_FIELDS.map(({ key, label, rows }) => (
+            <div key={key}>
+              <label className="text-xs font-semibold text-slate-600">{label}</label>
+              <textarea rows={rows} value={form[key] || ""}
+                onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                className="w-full mt-1 border border-slate-300 rounded-lg px-3 py-2 text-sm resize-none" />
+            </div>
+          ))}
+          <button onClick={save} disabled={saving}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2 rounded-lg cursor-pointer disabled:opacity-50">
+            {saving ? "Saving…" : "Save Changes"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ProjectHeader = ({ project, onBack }) => {
-  const proposalApproved = project.stages.proposal?.status === "approved";
+  const isApproved = project.stages.outcome?.status === "complete" && project.certificate;
 
   return (
     <div className="space-y-4">
@@ -801,7 +1615,7 @@ const ProjectHeader = ({ project, onBack }) => {
             </div>
           </div>
 
-          {proposalApproved && project.certificate && (
+          {isApproved && project.certificate && (
             <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 flex-shrink-0">
               <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center">
                 <FaCertificate className="text-emerald-600" />
@@ -817,16 +1631,16 @@ const ProjectHeader = ({ project, onBack }) => {
               </div>
             </div>
           )}
+
+          <DecisionLetterButton researchId={project.paper?.id} />
         </div>
       </div>
     </div>
   );
 };
 
-
-
-const ResearchDetails = ({  onBack, onResubmit }) => {
-   const { id } = useParams();
+const ResearchDetails = ({ onBack }) => {
+  const { id } = useParams();
   const navigate = useNavigate();
 
   const [project, setProject] = useState(null);
@@ -835,8 +1649,12 @@ const ResearchDetails = ({  onBack, onResubmit }) => {
   const [activeStage, setActiveStage] = useState(null);
   const [resubmitTarget, setResubmitTarget] = useState(null);
 
-
   const load = useCallback(async () => {
+    if (!id || id === "undefined") {
+      setError("No research submission was specified.");
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -846,9 +1664,9 @@ const ResearchDetails = ({  onBack, onResubmit }) => {
       setActiveStage((prev) => {
         if (prev && mapped.stages[prev]?.status !== "locked") return prev;
         const firstOpen = Object.keys(mapped.stages).find(
-          (s) => mapped.stages[s].status !== "approved",
+          (s) => mapped.stages[s].status !== "complete" && mapped.stages[s].status !== "locked",
         );
-        return firstOpen || Object.keys(mapped.stages).pop();
+        return firstOpen || Object.keys(mapped.stages).find((s) => mapped.stages[s].status !== "locked") || "submission";
       });
     } catch (err) {
       setError(err.message || "Failed to load this research submission");
@@ -861,23 +1679,8 @@ const ResearchDetails = ({  onBack, onResubmit }) => {
     load();
   }, [load]);
 
-  const handleResubmit = async (stage, fields, file) => {
-    try {
-      await research.resubmitResearch(id, fields, file);
-      notify.success("Resubmitted successfully!");
-      setResubmitTarget(null);
-      load();
-    } catch (err) {
-      notify.error(err.message || "Resubmission failed");
-    }
-  };
-const handleAdvance = (stage) => {
-  if (stage === "proposal") {
-    navigate(`/research/dashboard/research-progress/${id}`);
-  } else if (stage === "progress") {
-    navigate(`/research/dashboard/submit-final/${id}`);
-  }
-};
+
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -907,34 +1710,120 @@ const handleAdvance = (stage) => {
   }
 
   const stages = project.stages;
+
   const overallTabs = STAGE_ORDER.map((stage) => ({
     id: stage,
     label: STAGE_SHORT_LABELS[stage],
-    status: stages[stage]?.status || "locked",
+    status: resolveStageStatus(stage, stages[stage], project.uiStatus),
+    locked: (stages[stage]?.status || "locked") === "locked",
   }));
 
   const handleSelectStage = (stage) => {
-    if (stages[stage]?.status !== "locked") setActiveStage(stage);
+    if ((stages[stage]?.status || "locked") !== "locked") setActiveStage(stage);
   };
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <main className="max-w-5xl mx-auto w-full px-4 py-4 space-y-4">
+      <main className=" w-full px-4 py-4 space-y-4">
         <ProjectHeader project={project} onBack={() => navigate("/research/dashboard")} />
 
-        
+        {project.paper?.parentSummary && (
+          <button
+            type="button"
+            onClick={() =>
+              navigate(`/research/dashboard/view/${project.paper.parentSummary.id}`)
+            }
+            className="w-full flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-left hover:bg-amber-100/70 transition-colors cursor-pointer"
+          >
+            <span className="text-amber-600 font-bold shrink-0">↳</span>
+            <span className="text-sm text-amber-800">
+              This is a{" "}
+              <span className="font-semibold">
+                {TYPE_LABELS[project.paper.submissionType] || "submission"}
+              </span>{" "}
+              for approved study{" "}
+              <span className="font-semibold">
+                {project.paper.parentSummary.researchId}
+              </span>
+              {project.paper.parentSummary.seruNumber
+                ? ` (${project.paper.parentSummary.seruNumber})`
+                : ""}{" "}
+              — click to open the parent study.
+            </span>
+          </button>
+        )}
+
+        {project.paper?.submissionType === "continuing_review" && (
+          <ContinuingReviewPanel paper={project.paper} />
+        )}
+
+        {Array.isArray(project.paper?.childSubmissions) &&
+          project.paper.childSubmissions.length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-100 p-5">
+              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-3">
+                Study Lifecycle
+              </p>
+              <div className="space-y-1.5">
+                {project.paper.childSubmissions.map((child) => {
+                  const num =
+                    child.continuingReviewNumber || child.amendmentNumber;
+                  return (
+                    <button
+                      key={child.id}
+                      type="button"
+                      onClick={() =>
+                        navigate(`/research/dashboard/view/${child.id}`)
+                      }
+                      className="w-full flex items-center justify-between gap-2 text-left px-3 py-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-colors cursor-pointer"
+                    >
+                      <span className="text-xs font-semibold text-slate-700">
+                        {TYPE_LABELS[child.submissionType] || "Submission"}
+                        {num ? ` #${num}` : ""}
+                        <span className="ml-2 text-[11px] text-slate-400">
+                          {child.researchId}
+                        </span>
+                      </span>
+                      <span className="text-[11px] font-medium text-slate-500 capitalize">
+                        {String(child.status || "").replace(/_/g, " ")}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+        <CoInvestigatorsPanel
+          researchId={project.paper?.id}
+          isOwner={project.paper?.researcherId === getCurrentResearcherId()}
+        />
+
+        <CoInvestigatorEditPanel
+          researchId={project.paper?.id}
+          isOwner={project.paper?.researcherId === getCurrentResearcherId()}
+          paper={project.paper}
+        />
+
+        <ProtocolDeviationsPanel researchId={project.paper?.id} />
+
         <div className="bg-white rounded-2xl border border-slate-100 p-6">
           <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-5">
             Submission Progress
           </p>
-          <StageProgressStrip stages={stages} activeStage={activeStage} onSelectStage={handleSelectStage} />
+          <StageProgressStrip
+            stages={stages}
+            activeStage={activeStage}
+            onSelectStage={handleSelectStage}
+            project={project}
+          />
         </div>
 
         <div className="flex gap-2 border-b border-slate-200 overflow-x-auto">
-           {overallTabs.map((tab) => {
-            const isLocked = tab.status === "locked";
+          {overallTabs.map((tab) => {
+            const isLocked = tab.locked;
             const isActive = tab.id === activeStage;
-            const sc = STATUS_CONFIG[tab.status];
+            const sc = STATUS_CONFIG[tab.status] || STATUS_CONFIG.pending;
+            const TabIcon = isLocked ? FaLock : (sc.icon || FaClock);
             return (
               <button
                 key={tab.id}
@@ -946,25 +1835,21 @@ const handleAdvance = (stage) => {
                   ${isActive ? "text-blue-600 border-blue-600" : "text-slate-500 border-transparent"}
                   ${isLocked ? "opacity-50 cursor-not-allowed" : "hover:text-blue-600 cursor-pointer"}`}
               >
-                {isLocked ? <FaLock className="text-[11px]" /> : <sc.icon className="text-[11px]" />}
+                <TabIcon className="text-[11px]" />
                 {STAGE_LABELS[tab.id]}
               </button>
             );
           })}
         </div>
 
-<StagePanel
-  stage={activeStage}
-  stageData={stages[activeStage]}
-  onResubmit={(stage) => setResubmitTarget(stage)}
-  onAdvance={handleAdvance}
-/>
+        <StagePanel
+          stage={activeStage}
+          stageData={stages[activeStage]}
+          project={project}
+          onResubmit={(stage) => setResubmitTarget(stage)}
+        />
       </main>
-        {/* {resubmitTarget && (
-        <SlideModal onClose={() => setResubmitTarget(null)}>
-        
-        </SlideModal>
-      )} */}
+
     </div>
   );
 };

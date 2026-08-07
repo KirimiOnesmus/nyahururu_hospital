@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
 import notify from "../../../common/utils/notify";
 import {
@@ -8,13 +8,16 @@ import {
   FaChevronRight,
   FaFlask,
 } from "react-icons/fa";
+import { RiArrowDownDoubleFill } from "react-icons/ri";
+import { HiArrowTurnDownRight } from "react-icons/hi2";
 import * as research from "../../../api/research";
 
 
 const STAGE_LABELS = {
-  proposal: "Proposal",
-  progress: "Progress",
-  final_paper: "Final Paper",
+  initial_proposal: "Proposal",
+  amendment: "Amendment",
+  continuing_review: "Continuing Review",
+  study_closure: "Study Closure",
 };
 
 const DECISION_CONFIG = {
@@ -135,6 +138,40 @@ const TABLE_HEADERS = [
 ];
 
 
+const ReviewHistoryChildRow = ({ child, navigate }) => {
+  const dc = DECISION_CONFIG[decisionKeyFor(child)] ?? DECISION_CONFIG.in_progress;
+  const num = child.continuingReviewNumber || child.amendmentNumber;
+  const displayDate = child.reviewedAt || child.assignedAt || child.createdAt;
+  return (
+    <tr
+      onClick={() => navigate(`/research/dashboard/review/${child.id}?mode=edit`)}
+      className="border-b border-slate-100 bg-slate-50/40 hover:bg-slate-50 transition-colors cursor-pointer"
+    >
+      <td className="px-6 py-2 pl-9 text-[11px] font-bold text-blue-600 whitespace-nowrap">
+        <span className="border-l-2 border-slate-200 pl-2">{child.researchId || "—"}</span>
+      </td>
+      <td className="px-6 py-2 text-[11px] font-medium text-slate-600 max-w-xs truncate">
+        ↳ {STAGE_LABELS[child.submissionType] || child.submissionType}{num ? ` #${num}` : ""}
+      </td>
+      <td className="px-6 py-2 text-[11px] text-slate-500 whitespace-nowrap">
+        {STAGE_LABELS[child.submissionType] || child.submissionType}
+      </td>
+      <td className="px-6 py-2 text-[11px] text-slate-500 whitespace-nowrap">
+        {child.researcher?.name || "—"}
+      </td>
+      <td className="px-6 py-2 text-[11px] text-slate-400 whitespace-nowrap">{fmt(displayDate)}</td>
+      <td className="px-6 py-2">
+        <span className={`inline-flex text-[10px] font-bold px-2.5 py-0.5 rounded-full border whitespace-nowrap ${dc.cls}`}>
+          {dc.label.toUpperCase()}
+        </span>
+      </td>
+      <td className="px-6 py-2 text-right text-[11px] font-bold text-slate-700 whitespace-nowrap">
+        {child.aggregateScore != null ? `${Number(child.aggregateScore).toFixed(1)}/10` : "—"}
+      </td>
+    </tr>
+  );
+};
+
 const ReviewHistory = () => {
   const navigate = useNavigate();
 
@@ -205,16 +242,33 @@ const ReviewHistory = () => {
   }, [items, decisionFilter, categoryFilter, dateFrom, dateTo]);
 
 
+  const grouped = useMemo(() => {
+    const byId = new Map();
+    filtered.forEach((p) => byId.set(p.id, { ...p, childSubmissions: [] }));
+    const top = [];
+    for (const p of byId.values()) {
+      if (p.parentResearchId && byId.has(p.parentResearchId)) {
+        byId.get(p.parentResearchId).childSubmissions.push(p);
+      } else {
+        top.push(p);
+      }
+    }
+    return top;
+  }, [filtered]);
+
+
   useEffect(() => {
     setPage(1);
   }, [decisionFilter, categoryFilter, dateFrom, dateTo, search]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(grouped.length / PAGE_SIZE));
+  const pageItems = grouped.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
 
   const stats = useMemo(() => {
-    const total = items.length;
+    const studyKey = (i) => i.parentResearchId || i.id;
+    const total = new Set(items.map(studyKey)).size;
+    const reviewCount = items.length;
     const withScore = items.filter(
       (i) => i.aggregateScore !== null && i.aggregateScore !== undefined,
     );
@@ -230,10 +284,18 @@ const ReviewHistory = () => {
     const revisionCount = items.filter((i) =>
       ["revision_needed", "rejected", "suspended"].includes(decisionKeyFor(i)),
     ).length;
-    const approvalPct = total ? Math.round((approvedCount / total) * 100) : 0;
-    const revisionPct = total ? Math.round((revisionCount / total) * 100) : 0;
+    const approvalPct = reviewCount ? Math.round((approvedCount / reviewCount) * 100) : 0;
+    const revisionPct = reviewCount ? Math.round((revisionCount / reviewCount) * 100) : 0;
     return { total, avgScore, approvalPct, revisionPct };
   }, [items]);
+
+  const [expandedRows, setExpandedRows] = useState(() => new Set());
+  const toggleRow = (id) =>
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
 
   const pageNumbers = useMemo(() => {
@@ -371,7 +433,7 @@ const ReviewHistory = () => {
           </div>
           {!loading && (
             <p className="text-sm text-slate-400 shrink-0">
-              {filtered.length} record{filtered.length !== 1 ? "s" : ""}
+              {grouped.length} record{grouped.length !== 1 ? "s" : ""}
             </p>
           )}
         </div>
@@ -413,8 +475,8 @@ const ReviewHistory = () => {
         
                     const displayDate = item.reviewedAt || item.assignedAt || item.createdAt;
                     return (
+                      <Fragment key={item.id}>
                       <tr
-                        key={item.id}
                         onClick={() =>
                           navigate(
                             `/research/dashboard/review/${item.id}?mode=edit`,
@@ -424,13 +486,44 @@ const ReviewHistory = () => {
                           transition-colors cursor-pointer"
                       >
                         <td className="px-6 py-4 font-bold text-blue-700 whitespace-nowrap">
-                          {item.researchId || "—"}
+                          <div className="flex items-center gap-2">
+                            {(item.childSubmissions || []).length > 0 && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); toggleRow(item.id); }}
+                                aria-label={expandedRows.has(item.id) ? "Collapse" : "Expand"}
+                                className="w-5 h-5 shrink-0 flex items-center justify-center rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
+                              >
+                                <span className={`inline-block text-[20px] transition-transform ${expandedRows.has(item.id) ? "rotate-90" : ""}`}>
+                                  <RiArrowDownDoubleFill />
+                                </span>
+                              </button>
+                            )}
+                            <span>{item.researchId || "—"}</span>
+                          </div>
                         </td>
                         <td className="px-6 py-4 font-semibold text-slate-900 max-w-xs truncate">
                           {item.title}
+                          {(item.childSubmissions || []).length > 0 && (
+                            <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-semibold align-middle">
+                              {(item.childSubmissions || []).length + 1}
+                            </span>
+                          )}
+                          {(item.resubmissionCount || 0) > 0 && (
+                            <span className="inline-flex items-center gap-1 ml-2 text-[10px] font-bold
+                              px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200 align-middle">
+                              R{(item.resubmissionCount || 0) + 1}
+                            </span>
+                          )}
+                          {item.parentSummary && (
+                            <span className="block text-[15px] font-normal text-slate-400 mt-0.5">
+                              <HiArrowTurnDownRight className="inline-block mr-1" />
+                              part of {item.parentSummary.researchId || item.parentSummary.seruNumber || "parent study"}
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-slate-600 whitespace-nowrap">
-                          {STAGE_LABELS[item.stage] || item.stage}
+                          {STAGE_LABELS[item.submissionType] || item.submissionType}
                         </td>
                         <td className="px-6 py-4 text-slate-600 whitespace-nowrap">
                           {item.researcher?.name || "—"}
@@ -453,6 +546,11 @@ const ReviewHistory = () => {
                             : "—"}
                         </td>
                       </tr>
+                      {expandedRows.has(item.id) &&
+                        (item.childSubmissions || []).map((child) => (
+                        <ReviewHistoryChildRow key={child.id} child={child} navigate={navigate} />
+                      ))}
+                      </Fragment>
                     );
                   })}
                 </tbody>
@@ -463,8 +561,8 @@ const ReviewHistory = () => {
             <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50 flex-wrap gap-3">
               <p className="text-sm text-slate-500">
                 Showing {(page - 1) * PAGE_SIZE + 1}–
-                {Math.min(page * PAGE_SIZE, filtered.length)} of{" "}
-                {filtered.length} records
+                {Math.min(page * PAGE_SIZE, grouped.length)} of{" "}
+                {grouped.length} records
               </p>
               <div className="flex items-center gap-1.5">
                 <button

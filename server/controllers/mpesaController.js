@@ -16,6 +16,7 @@ exports.initiatePayment = asyncHandler(async (req, res) => {
 
 
 exports.mpesaCallback = asyncHandler(async (req, res) => {
+  console.log("[Callback] ← HIT from Safaricom:", JSON.stringify(req.body?.Body?.stkCallback?.ResultCode ?? req.body));
   res.status(200).json({ ResultCode: 0, ResultDesc: "Accepted" });
 
   paymentService.processCallback(req.body).catch((err) => {

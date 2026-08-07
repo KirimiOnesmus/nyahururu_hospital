@@ -50,3 +50,32 @@ exports.adminCreateResearcher = asyncHandler(async (req, res) => {
   const researcher = await authService.adminCreateResearcher(req.body);
   sendSuccess(res, 201, "Researcher account created. Credentials sent via email.", { researcher });
 });
+exports.listAll = asyncHandler(async (req, res) => {
+  const { Researcher } = require("../sequelize/models");
+  const { Op } = require("sequelize");
+
+  const { role, search, limit = 200 } = req.query;
+  const where = {};
+  if (role) where.role = role;
+  if (search) {
+    const like = `%${search}%`;
+    where[Op.or] = [
+      { name: { [Op.like]: like } },
+      { email: { [Op.like]: like } },
+      { institution: { [Op.like]: like } },
+    ];
+  }
+
+  const researchers = await Researcher.findAll({
+    where,
+    attributes: [
+      "id", "name", "firstName", "lastName", "email", "role",
+      "isCommittee", "institution", "department", "discipline",
+      "emailVerified", "isActive", "createdAt",
+    ],
+    order: [["createdAt", "DESC"]],
+    limit: Math.min(Number(limit) || 200, 500),
+  });
+
+  sendSuccess(res, 200, "Researchers fetched.", { researchers });
+});

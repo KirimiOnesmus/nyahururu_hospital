@@ -183,6 +183,21 @@ module.exports = (sequelize, DataTypes) => {
     return bcrypt.compare(candidate, this.password);
   };
 
+  // Chair's change #8: the Research Officer is modelled as the
+  // existing staff role `research` (staffIsResearchOfficer in
+  // middleware/auth.js) — used to notify the RO at each review-
+  // pipeline milestone without requiring a dedicated identity model.
+  User.findResearchOfficers = function findResearchOfficers() {
+    const { Op } = sequelize.Sequelize;
+    return User.findAll({
+      where: {
+        isActive: true,
+        role: { [Op.in]: ["admin", "superadmin", "research"] },
+      },
+      attributes: { exclude: ["password"] },
+    });
+  };
+
   User.associate = (models) => {
     User.hasOne(models.Profile, { foreignKey: "userId", as: "profile", onDelete: "CASCADE" });
   };

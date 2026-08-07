@@ -91,7 +91,7 @@ const setPassword = async ({ token, email, password }) => {
       emailVerificationToken: hashed,
       emailVerificationExpire: { [Op.gt]: new Date() },
       role: {
-        [Op.in]: [RESEARCHER_ROLES.REVIEWER, RESEARCHER_ROLES.RESEARCH_COMMITTEE],
+        [Op.in]: [RESEARCHER_ROLES.REVIEWER, RESEARCHER_ROLES.RESEARCH_COMMITTEE, RESEARCHER_ROLES.CO_INVESTIGATOR],
       },
     },
   });
@@ -123,7 +123,7 @@ const resendInvite = async (reviewerId, caller) => {
     throw new AppError("This person has already accepted the invitation.", 400);
   }
   if (
-    ![RESEARCHER_ROLES.REVIEWER, RESEARCHER_ROLES.RESEARCH_COMMITTEE].includes(account.role)
+    ![RESEARCHER_ROLES.REVIEWER, RESEARCHER_ROLES.RESEARCH_COMMITTEE, RESEARCHER_ROLES.CO_INVESTIGATOR].includes(account.role)
   ) {
     throw new AppError(`${account.name} does not have a pending invite.`, 400);
   }

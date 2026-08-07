@@ -11,6 +11,29 @@ const { CERTIFICATE_TYPES } = require("../constants/researchIndex");
 const CERT_DIR = path.join(process.cwd(), "uploads", "certificates");
 if (!fs.existsSync(CERT_DIR)) fs.mkdirSync(CERT_DIR, { recursive: true });
 
+// studySites is a JSON column that may hold an array, a JSON-encoded
+// array string, or a plain string. Always resolve it to a string array
+// so downstream rendering (which calls .join) is safe.
+const normalizeStudySites = (value) => {
+  if (Array.isArray(value)) return value.filter((v) => v != null && v !== "");
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        return Array.isArray(parsed)
+          ? parsed.filter((v) => v != null && v !== "")
+          : [String(parsed)];
+      } catch {
+        return [trimmed];
+      }
+    }
+    return [trimmed];
+  }
+  return [];
+};
+
 const _persistPdf = async (certificateNumber, buffer) => {
   const filename = `${certificateNumber}.pdf`;
   const filePath = path.join(CERT_DIR, filename);
@@ -43,6 +66,16 @@ const issueClearanceCertificate = async (researchId, issuedBy) => {
   const validUntil = new Date();
   validUntil.setFullYear(validUntil.getFullYear() + 1);
 
+  // Always label with the parent study's SERU number, regardless of stage.
+  let seruNumber = research.seruNumber;
+  if (!seruNumber && research.parentResearchId) {
+    const parent = await Research.findByPk(research.parentResearchId, {
+      attributes: ["seruNumber", "researchId"],
+    });
+    seruNumber = parent?.seruNumber || parent?.researchId;
+  }
+  seruNumber = seruNumber || research.researchId;
+
   const cert = await Certificate.create({
     type: CERTIFICATE_TYPES.PROPOSAL_APPROVAL,
     researchId: research.id,
@@ -50,14 +83,17 @@ const issueClearanceCertificate = async (researchId, issuedBy) => {
     researchTitle: research.title,
     researcherName: research.researcher.name || research.researcher.firstName,
     institution: research.researcher.institution,
-    studySites: research.studySites || [],
-    researchCode: research.researchId,
+    studySites: normalizeStudySites(research.studySites),
+    researchCode: seruNumber,
     committeeApprovalStatement:
       "This research proposal has been reviewed and approved by the Nyahururu Hospital Research & Ethics Committee in accordance with institutional research governance policy.",
     validFrom,
     validUntil,
     issuedById: issuedBy,
   });
+
+  // Stage drives the certificate wording (proposal vs continuing review).
+  cert.stageKey = research.submissionType;
 
   cert.qrCodeDataUrl = await generateVerificationQR(
     cert.certificateNumber,
@@ -84,30 +120,34 @@ const issueCompletionCertificate = async (researchId, issuedBy) => {
   });
   if (!research) throw new AppError("Research not found.", 404);
 
+  // ETHICS_CLEARANCE is the non-approval certificate type (rendered as a
+  // completion certificate — number prefix NCRH-CPL). Reused here for study
+  // closure so no new enum value / migration is required.
   const existing = await Certificate.findOne({
     where: {
       researchId,
-      type: CERTIFICATE_TYPES.PUBLICATION,
+      type: CERTIFICATE_TYPES.ETHICS_CLEARANCE,
       status: Certificate.CERT_STATUSES.ACTIVE,
     },
   });
   if (existing) return existing;
 
   const cert = await Certificate.create({
-    type: CERTIFICATE_TYPES.PUBLICATION,
+    type: CERTIFICATE_TYPES.ETHICS_CLEARANCE,
     researchId: research.id,
     researcherId: research.researcher.id,
     researchTitle: research.title,
     researcherName: research.researcher.name || research.researcher.firstName,
     institution: research.researcher.institution,
-    studySites: research.studySites || [],
+    studySites: normalizeStudySites(research.studySites),
     researchCode: research.researchId,
-    publicationDate: research.publishedAt || new Date(),
-    journalName: research.journalName,
+    publicationDate: new Date(),
     completionStatement:
-      "This certifies that the above research has successfully completed all review stages and has been published in the Nyahururu Hospital Research Repository.",
+      "This certifies that the above research study has been formally closed with the approval of the Nyahururu Hospital Research & Ethics Committee, having satisfied all closure requirements.",
     issuedById: issuedBy,
   });
+
+  cert.stageKey = "study_closure";
 
   cert.qrCodeDataUrl = await generateVerificationQR(
     cert.certificateNumber,
@@ -164,8 +204,15 @@ const getCertificatesForResearcher = async (researcherId) => {
   return Certificate.findAll({
     where: { researcherId },
     order: [["createdAt", "DESC"]],
-
     attributes: { exclude: ["verificationToken"] },
+    include: [
+      {
+        model: Research,
+        as: "research",
+        attributes: ["id", "submissionType", "seruNumber", "researchId", "parentResearchId"],
+        required: false,
+      },
+    ],
   });
 };
 

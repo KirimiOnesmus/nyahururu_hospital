@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   FaPlus,
   FaTrash,
@@ -20,7 +21,6 @@ import {
   FaFilePdf,
   FaFileAlt,
   FaImage,
-  FaDownload,
   FaPhone,
   FaShieldAlt,
   FaKey,
@@ -29,13 +29,19 @@ import {
   FaMicroscope,
   FaRegFileAlt,
   FaChevronDown,
-  FaGlobe,
   FaMoneyBillWave,
+  FaStamp,
+  FaExclamationTriangle,
+  FaClipboardCheck,
+  FaChartBar,
 } from "react-icons/fa";
 import { MdSchool } from "react-icons/md";
 import notify from "../../common/utils/notify";
 import api from "../../api/axios";
 import * as research from "../../api/research";
+import {DataTable} from "../../common/components"
+import OfficerDecisionReports from "./research/OfficerDecisionReports";
+import ReviewerWorkloadPanel from "./research/ReviewerWorkloadPanel";
 
 const STAGE_META = {
   proposal: {
@@ -67,6 +73,25 @@ const STAGE_META = {
   },
 };
 
+// `/research/admin/all` returns every submission row flat — including
+// continuing reviews, amendments, and study closures that are actually
+// children of an already-approved study (parentResearchId set). Those
+// rows never carry a `stage` field, so falling back to "proposal" made
+// a continuing review look like a brand-new proposal. Derive the real
+// label from submissionType (and flag it as a child submission) instead.
+const SUBMISSION_TYPE_META = {
+  continuing_review: { label: "Continuing Review", dotColor: "bg-purple-400" },
+  amendment: { label: "Amendment", dotColor: "bg-indigo-400" },
+  study_closure: { label: "Study Closure", dotColor: "bg-slate-400" },
+};
+
+const resolveStageMeta = (item) => {
+  if (item.parentResearchId && SUBMISSION_TYPE_META[item.submissionType]) {
+    return SUBMISSION_TYPE_META[item.submissionType];
+  }
+  return STAGE_META[item.stage || "proposal"] || STAGE_META.proposal;
+};
+
 const STATUS_META = {
   pending: {
     label: "Under Review",
@@ -75,13 +100,29 @@ const STATUS_META = {
     icon: FaClock,
     dot: "bg-blue-400",
   },
-
+  returned_for_correction: {
+    label: "Returned for Correction",
+    color: "bg-orange-100",
+    textColor: "text-orange-700",
+    icon: FaRedo,
+    dot: "bg-orange-400",
+  },
   pending_committee_review: {
     label: "Awaiting Committee",
     color: "bg-violet-100",
     textColor: "text-violet-700",
     icon: FaUserTie,
     dot: "bg-violet-400",
+  },
+  // Chair's change §4/§6.1 — new status introduced by the review-pipeline
+  // re-architecture: committee has voted, and this now sits with the
+  // Research Officer until they compile and release the decision report.
+  pending_officer_review: {
+    label: "Awaiting Officer Release",
+    color: "bg-indigo-100",
+    textColor: "text-indigo-700",
+    icon: FaClipboardCheck,
+    dot: "bg-indigo-400",
   },
   revision_requested: {
     label: "Revision Requested",
@@ -188,7 +229,10 @@ const EMPTY_INVITE = {
 
 const TOP_TABS = [
   { key: "papers", label: "Research Papers", icon: FaBookOpen },
+
+  { key: "decisions", label: "Decision Reports", icon: FaClipboardCheck },
   { key: "reviewers", label: "Reviewer Management", icon: FaUserTie },
+  { key: "workload", label: "Reviewer Workload", icon: FaChartBar },
 ];
 
 const ResearchPage = () => {
@@ -227,32 +271,28 @@ const ResearchPage = () => {
           ))}
         </div>
         {topTab === "papers" && <PapersPanel />}
+        {topTab === "decisions" && <OfficerDecisionReports />}
         {topTab === "reviewers" && <ReviewersPanel />}
+        {topTab === "workload" && <ReviewerWorkloadPanel />}
       </div>
     </div>
   );
 };
 
 const PapersPanel = () => {
+  const navigate = useNavigate();
   const [researchList, setResearchList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStage, setFilterStage] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [categoryColorMap, setCategoryColorMap] = useState({});
-  const [downloadingId, setDownloadingId] = useState(null);
-  const [publishingId, setPublishingId] = useState(null);
   const [revenue, setRevenue] = useState({
     totalIncome: 0,
     proposalIncome: 0,
-    downloadIncome: 0,
     byResearch: [],
   });
   const [revenueLoading, setRevenueLoading] = useState(false);
-
-  const [viewModal, setViewModal] = useState(false);
-  const [selectedResearch, setSelectedResearch] = useState(null);
-
   const [addResearcherOpen, setAddResearcherOpen] = useState(false);
   const [researcherForm, setResearcherForm] = useState(EMPTY_RESEARCHER);
   const [researcherLoading, setResearcherLoading] = useState(false);
@@ -260,8 +300,127 @@ const PapersPanel = () => {
 
   const [assignReviewerOpen, setAssignReviewerOpen] = useState(false);
   const [assignTarget, setAssignTarget] = useState(null);
-  const [assignReviewerEmail, setAssignReviewerEmail] = useState("");
+  const [availableReviewers, setAvailableReviewers] = useState([]);
+  const [selectedReviewerIds, setSelectedReviewerIds] = useState([]);
+  const [existingReviewers, setExistingReviewers] = useState([]);
+  const [reviewerSearch, setReviewerSearch] = useState("");
   const [assignLoading, setAssignLoading] = useState(false);
+  const [reviewersLoading, setReviewersLoading] = useState(false);
+
+  const [cscModalOpen, setCscModalOpen] = useState(false);
+  const [cscTarget, setCscTarget] = useState(null);
+  const [cscForm, setCscForm] = useState({
+    cscApprovalDate: "", cscReviewDate: "", cscComments: "",
+    cscContactName: "", cscContactEmail: "",
+  });
+  const [cscEvidenceFile, setCscEvidenceFile] = useState(null);
+  const [cscSaving, setCscSaving] = useState(false);
+
+  const openCscModal = (item) => {
+    setCscTarget(item);
+    setCscForm({
+      cscApprovalDate: item.cscApprovalDate?.slice(0, 10) || "",
+      cscReviewDate: item.cscReviewDate?.slice(0, 10) || "",
+      cscComments: item.cscComments || "",
+      cscContactName: item.cscContactName || "",
+      cscContactEmail: item.cscContactEmail || "",
+    });
+    setCscEvidenceFile(null);
+    setCscModalOpen(true);
+  };
+
+  const submitCscEndorsement = async () => {
+    if (!cscTarget) return;
+    if (!cscForm.cscApprovalDate) return notify.error("CSC approval date is required.");
+    if (!cscForm.cscContactName.trim() || !cscForm.cscContactEmail.trim()) {
+      return notify.error("The attesting CSC contact's name and email are required.");
+    }
+    if (!cscEvidenceFile) {
+      return notify.error("Please attach the signed CSC evidence letter (per SOP-1 §10).");
+    }
+    setCscSaving(true);
+    try {
+      await research.recordCscEndorsement(cscTarget.id, { ...cscForm, evidenceFile: cscEvidenceFile });
+      notify.success("CSC endorsement recorded.");
+      setCscModalOpen(false);
+      setCscTarget(null);
+      fetchResearch();
+    } catch (err) {
+      notify.error(err.response?.data?.message || err.message || "Failed to record CSC endorsement");
+    } finally {
+      setCscSaving(false);
+    }
+  };
+
+
+  const [completenessModalOpen, setCompletenessModalOpen] = useState(false);
+  const [completenessTarget, setCompletenessTarget] = useState(null);
+  const [completenessIssues, setCompletenessIssues] = useState([""]);
+  const [completenessSaving, setCompletenessSaving] = useState(false);
+  const [verifyingId, setVerifyingId] = useState(null);
+
+  const openCompletenessModal = (item) => {
+    setCompletenessTarget(item);
+    setCompletenessIssues(
+      Array.isArray(item.completenessIssues) && item.completenessIssues.length
+        ? item.completenessIssues
+        : [""],
+    );
+    setCompletenessModalOpen(true);
+  };
+
+  const submitReturnForCorrection = async () => {
+    if (!completenessTarget) return;
+    const cleanIssues = completenessIssues.map((i) => i.trim()).filter(Boolean);
+    if (!cleanIssues.length) return notify.error("List at least one issue.");
+    setCompletenessSaving(true);
+    try {
+      await research.returnForCorrection(completenessTarget.id, cleanIssues);
+      notify.success("Proposal returned for correction.");
+      setCompletenessModalOpen(false);
+      setCompletenessTarget(null);
+      fetchResearch();
+    } catch (err) {
+      notify.error(err.response?.data?.message || err.message || "Failed to return proposal");
+    } finally {
+      setCompletenessSaving(false);
+    }
+  };
+
+  const handleVerifyCompleteness = async (item) => {
+    setVerifyingId(item.id);
+    try {
+      await research.markCompletenessVerified(item.id);
+      notify.success("Completeness verified.");
+      fetchResearch();
+    } catch (err) {
+      notify.error(err.response?.data?.message || err.message || "Failed to verify completeness");
+    } finally {
+      setVerifyingId(null);
+    }
+  };
+
+  const [deviationsModalOpen, setDeviationsModalOpen] = useState(false);
+  const [deviationsTarget, setDeviationsTarget] = useState(null);
+  const [deviationsList, setDeviationsList] = useState([]);
+  const [deviationsLoading, setDeviationsLoading] = useState(false);
+
+  const openDeviationsModal = async (item) => {
+    setDeviationsTarget(item);
+    setDeviationsModalOpen(true);
+    setDeviationsLoading(true);
+    try {
+      const list = await research.getProtocolDeviations(item.id);
+      setDeviationsList(list);
+    } catch (err) {
+      notify.error(err.response?.data?.message || err.message || "Failed to load protocol deviations");
+      setDeviationsList([]);
+    } finally {
+      setDeviationsLoading(false);
+    }
+  };
+
+  const MIN_REVIEWERS = 2;
 
   const fetchResearch = async () => {
     try {
@@ -290,7 +449,6 @@ const PapersPanel = () => {
       setRevenue({
         totalIncome: data.totalIncome ?? 0,
         proposalIncome: data.proposalIncome ?? 0,
-        downloadIncome: data.downloadIncome ?? 0,
         byResearch: data.byResearch ?? [],
       });
     } catch (err) {
@@ -306,15 +464,38 @@ const PapersPanel = () => {
     fetchRevenue();
   }, []);
 
-  const filtered = researchList.filter((item) => {
+  // Group children (continuing reviews / amendments / closures) under their
+  // parent study so a study is one row (with its lifecycle nested) rather than
+  // several. Stats and the "showing N" count are per-study too.
+  const nested = React.useMemo(() => {
+    const byId = new Map();
+    researchList.forEach((r) => byId.set(r.id, { ...r, childSubmissions: [] }));
+    const top = [];
+    researchList.forEach((r) => {
+      const node = byId.get(r.id);
+      if (r.parentResearchId && byId.has(r.parentResearchId)) {
+        byId.get(r.parentResearchId).childSubmissions.push(node);
+      } else {
+        top.push(node);
+      }
+    });
+    return top;
+  }, [researchList]);
+
+  const filtered = nested.filter((item) => {
     const q = searchTerm.toLowerCase();
-    const matchSearch =
-      item.title?.toLowerCase().includes(q) ||
-      item.researcher?.name?.toLowerCase().includes(q) ||
-      item.author?.toLowerCase().includes(q) ||
-      item.abstract?.toLowerCase().includes(q);
+    const matchIn = (p) =>
+      p.title?.toLowerCase().includes(q) ||
+      p.researcher?.name?.toLowerCase().includes(q) ||
+      p.author?.toLowerCase().includes(q) ||
+      p.abstract?.toLowerCase().includes(q);
+    const kids = item.childSubmissions || [];
+    const matchSearch = !q || matchIn(item) || kids.some(matchIn);
     const matchStage = filterStage === "all" || (item.stage || "proposal") === filterStage;
-    const matchStatus = filterStatus === "all" || item.status === filterStatus;
+    const matchStatus =
+      filterStatus === "all" ||
+      item.status === filterStatus ||
+      kids.some((c) => c.status === filterStatus);
     return matchSearch && matchStage && matchStatus;
   });
 
@@ -324,9 +505,9 @@ const PapersPanel = () => {
   }, {});
 
   const stageCounts = {
-    proposal: researchList.filter((r) => (r.stage || "proposal") === "proposal").length,
-    progress: researchList.filter((r) => r.stage === "progress").length,
-    final_paper: researchList.filter((r) => r.stage === "final_paper").length,
+    proposal: nested.filter((r) => (r.stage || "proposal") === "proposal").length,
+    progress: nested.filter((r) => r.stage === "progress").length,
+    final_paper: nested.filter((r) => r.stage === "final_paper").length,
   };
 
   const closeAddResearcher = () => {
@@ -351,64 +532,60 @@ const PapersPanel = () => {
     }
   };
 
-  const handleDownload = async (item) => {
-    try {
-      setDownloadingId(item.id);
-      const fileUrl = item.fileUrl || item.proposalFile;
-      if (!fileUrl) {
-        notify.error("No PDF available for download");
-        return;
-      }
-      const link = document.createElement("a");
-      link.href = fileUrl;
-      link.download = `${item.title || "research"}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      notify.success("Download started");
-    } catch (err) {
-      notify.error("Download failed");
-      console.error(err);
-    } finally {
-      setDownloadingId(null);
-    }
-  };
-
-  const handlePublish = async (item) => {
-    if (!window.confirm(`Publish "${item.title}"? This will make it publicly visible.`)) return;
-    try {
-      setPublishingId(item.id);
-      await research.publishResearch(item.id);
-      notify.success("Research published successfully!");
-      fetchResearch();
-    } catch (err) {
-      notify.error(err.message || "Failed to publish");
-    } finally {
-      setPublishingId(null);
-    }
-  };
-
-  const handleAssignReviewer = async (e) => {
+  const handleAssignReviewers = async (e) => {
     e.preventDefault();
+    const selectedEmails = availableReviewers
+      .filter((r) => selectedReviewerIds.includes(r.id))
+      .map((r) => r.email);
+    if (selectedEmails.length < MIN_REVIEWERS) {
+      notify.error(`At least ${MIN_REVIEWERS} reviewers are required.`);
+      return;
+    }
     setAssignLoading(true);
     try {
-      await research.assignReviewer(assignTarget.id, assignReviewerEmail);
-      notify.success("Reviewer assigned successfully!");
+      await research.assignReviewers(assignTarget.id, selectedEmails);
+      notify.success(`${selectedEmails.length} reviewer(s) assigned successfully!`);
       setAssignReviewerOpen(false);
-      setAssignReviewerEmail("");
+      setSelectedReviewerIds([]);
+      setExistingReviewers([]);
       setAssignTarget(null);
+      setReviewerSearch("");
       fetchResearch();
     } catch (err) {
-      notify.error(err.message || "Failed to assign reviewer");
+      notify.error(err.response?.data?.message || err.message || "Failed to assign reviewers");
     } finally {
       setAssignLoading(false);
     }
   };
 
-  const openAssignModal = (item) => {
+  const openAssignModal = async (item) => {
     setAssignTarget(item);
-    setAssignReviewerEmail(item.assignedReviewer?.email || "");
     setAssignReviewerOpen(true);
+    setReviewerSearch("");
+    setReviewersLoading(true);
+    try {
+      const [reviewerData, existing] = await Promise.all([
+        research.listReviewers(),
+        research.getResearchReviewers(item.id).catch(() => []),
+      ]);
+      const allReviewers = reviewerData.reviewers ?? [];
+      setAvailableReviewers(allReviewers);
+      setExistingReviewers(existing);
+      const existingIds = existing.map((r) => r.reviewer?.id || r.reviewerId).filter(Boolean);
+      setSelectedReviewerIds(existingIds);
+    } catch {
+      setAvailableReviewers([]);
+      setExistingReviewers([]);
+      setSelectedReviewerIds([]);
+    } finally {
+      setReviewersLoading(false);
+    }
+  };
+
+  const toggleReviewer = (id) => {
+    setSelectedReviewerIds((prev) =>
+      prev.includes(id) ? prev.filter((rid) => rid !== id) : [...prev, id]
+    );
   };
 
   return (
@@ -417,7 +594,7 @@ const PapersPanel = () => {
         {[
           {
             label: "Total Papers",
-            value: researchList.length,
+            value: nested.length,
             color: "blue",
             icon: FaBookOpen,
           },
@@ -434,10 +611,14 @@ const PapersPanel = () => {
             icon: FaMicroscope,
           },
           {
-            label: "Published",
-            value: researchList.filter((r) => r.isPublished).length,
-            color: "purple",
-            icon: FaGlobe,
+            label: "Awaiting Officer Release",
+            value: nested.filter(
+              (r) =>
+                r.status === "pending_officer_review" ||
+                (r.childSubmissions || []).some((c) => c.status === "pending_officer_review"),
+            ).length,
+            color: "indigo",
+            icon: FaClipboardCheck,
           },
         ].map(({ label, value, color, icon: Icon }) => (
           <div key={label} className="bg-white rounded-xl p-5 border border-gray-100">
@@ -456,7 +637,7 @@ const PapersPanel = () => {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         {[
           {
             label: "Total Income",
@@ -469,12 +650,6 @@ const PapersPanel = () => {
             value: revenue.proposalIncome,
             color: "amber",
             icon: FaRegFileAlt,
-          },
-          {
-            label: "Download Income",
-            value: revenue.downloadIncome,
-            color: "blue",
-            icon: FaDownload,
           },
         ].map(({ label, value, color, icon: Icon }) => (
           <div key={label} className="bg-white rounded-xl p-5 border border-gray-100">
@@ -559,8 +734,11 @@ const PapersPanel = () => {
               className="px-3 py-2 border border-gray-200 rounded-lg text-sm cursor-pointer outline-none focus:ring focus:ring-blue-500"
             >
               <option value="all">All Statuses</option>
+              <option value="submitted">Submitted</option>
+              <option value="returned_for_correction">Returned for Correction</option>
               <option value="pending">Under Review</option>
               <option value="pending_committee_review">Awaiting Committee</option>
+              <option value="pending_officer_review">Awaiting Officer Release</option>
               <option value="revision_requested">Revision Requested</option>
               <option value="suspended">Suspended</option>
               <option value="approved">Approved</option>
@@ -572,7 +750,7 @@ const PapersPanel = () => {
         {(filterStage !== "all" || filterStatus !== "all" || searchTerm) && (
           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100 flex-wrap">
             <span className="text-xs text-gray-400">
-              Showing {filtered.length} of {researchList.length} papers
+              Showing {filtered.length} of {nested.length} papers
             </span>
             {[
               filterStage !== "all" && {
@@ -642,7 +820,7 @@ const PapersPanel = () => {
                 key: "title",
                 label: "Title",
                 render: (item) => (
-                  <div className="flex items-start gap-3 min-w-0">
+                  <div className="flex items-start gap-3 min-w-0 max-w-[280px]">
                     {item.thumbnailUrl && (
                       <img
                         src={item.thumbnailUrl}
@@ -653,18 +831,11 @@ const PapersPanel = () => {
                     <div className="min-w-0">
                       <p
                         className="font-semibold text-gray-900 truncate hover:text-blue-600 cursor-pointer transition-colors"
-                        onClick={() => {
-                          setSelectedResearch(item);
-                          setViewModal(true);
-                        }}
+                        title={item.title}
+                        onClick={() => navigate(`/dashboard/research/${item.id}`)}
                       >
                         {item.title}
                       </p>
-                      {item.isPublished && (
-                        <span className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded bg-green-50 text-green-700 mt-0.5">
-                          Published
-                        </span>
-                      )}
                     </div>
                   </div>
                 ),
@@ -686,7 +857,7 @@ const PapersPanel = () => {
                 label: "Stage",
                 align: "center",
                 render: (item) => {
-                  const stageMeta = STAGE_META[item.stage || "proposal"] || STAGE_META.proposal;
+                  const stageMeta = resolveStageMeta(item);
                   return (
                     <div className="flex items-center justify-center gap-1.5">
                       <span className={`w-2 h-2 rounded-full ${stageMeta.dotColor}`} />
@@ -746,31 +917,17 @@ const PapersPanel = () => {
                 },
               },
               {
-                key: "downloads",
-                label: "Downloads",
-                align: "center",
-                render: (item) => (
-                  <span className="text-gray-600 font-semibold text-xs">{item.downloads ?? 0}</span>
-                ),
-              },
-              {
                 key: "income",
-                label: "Income",
+                label: "Proposal Fee",
                 align: "right",
                 render: (item) => {
                   const itemRevenue = revenueByResearch[item.id];
-                  return !itemRevenue || itemRevenue.totalIncome === 0 ? (
+                  return !itemRevenue || itemRevenue.proposalIncome === 0 ? (
                     <span className="text-xs text-gray-300">—</span>
                   ) : (
-                    <div className="flex flex-col items-end">
-                      <span className="text-xs font-bold text-gray-800">
-                        {formatKES(itemRevenue.totalIncome)}
-                      </span>
-                      <span className="text-[10px] text-gray-400">
-                        P: {formatKES(itemRevenue.proposalIncome)} · D:{" "}
-                        {formatKES(itemRevenue.downloadIncome)}
-                      </span>
-                    </div>
+                    <span className="text-xs font-bold text-gray-800">
+                      {formatKES(itemRevenue.proposalIncome)}
+                    </span>
                   );
                 },
               },
@@ -779,46 +936,22 @@ const PapersPanel = () => {
                 label: "Actions",
                 align: "right",
                 render: (item) => {
-                  const hasFile = item.fileUrl || item.proposalFile;
-                  const stage = item.stage || "proposal";
-                  const canPublish =
-                    stage === "final_paper" &&
-                    item.status === "approved" &&
-                    Boolean(item.committeeReviewedBy) &&
-                    !item.isPublished;
                   const ASSIGNABLE_STATUSES = [
+                    "submitted",
                     "pending",
                     "under_review",
                     "revision_requested",
                     "rejected",
                   ];
-                  const canAssignReviewer =
-                    ASSIGNABLE_STATUSES.includes(item.status) && !item.isPublished;
+                  const canAssignReviewer = ASSIGNABLE_STATUSES.includes(item.status);
                   const assignedReviewer =
                     item.assignedReviewer && typeof item.assignedReviewer === "object"
                       ? item.assignedReviewer
                       : null;
                   return (
                     <div className="flex items-center justify-end gap-1">
-                      {hasFile && (
-                        <button
-                          onClick={() => handleDownload(item)}
-                          disabled={downloadingId === item.id}
-                          className="p-2 rounded-xl text-green-600 hover:bg-green-50 cursor-pointer transition-colors disabled:opacity-50"
-                          title="Download PDF"
-                        >
-                          {downloadingId === item.id ? (
-                            <div className="w-4 h-4 border-2 border-green-400 border-t-green-600 rounded-full animate-spin" />
-                          ) : (
-                            <FaDownload className="text-sm" />
-                          )}
-                        </button>
-                      )}
                       <button
-                        onClick={() => {
-                          setSelectedResearch(item);
-                          setViewModal(true);
-                        }}
+                        onClick={() => navigate(`/dashboard/research/${item.id}`)}
                         className="p-2 rounded-xl text-blue-600 hover:bg-blue-50 cursor-pointer transition-colors"
                         title="View details"
                       >
@@ -826,25 +959,61 @@ const PapersPanel = () => {
                       </button>
                       {canAssignReviewer && (
                         <button
-                          onClick={() => openAssignModal(item)}
-                          className={`p-2 rounded-xl cursor-pointer transition-colors ${assignedReviewer ? "text-purple-500 hover:bg-purple-50 ring-1 ring-purple-200" : "text-purple-600 hover:bg-purple-50"}`}
-                          title={assignedReviewer ? "Re-assign reviewer" : "Assign reviewer"}
+                          onClick={() => openDeviationsModal(item)}
+                          className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 cursor-pointer transition-colors"
+                          title="View protocol deviations"
                         >
-                          <FaUserTie className="text-sm" />
+                          <FaExclamationTriangle className="text-sm" />
                         </button>
                       )}
-                      {canPublish && (
+                      {canAssignReviewer && item.status === "submitted" && (
+                        <>
+                          <button
+                            onClick={() => openCompletenessModal(item)}
+                            className="p-2 rounded-xl text-amber-600 hover:bg-amber-50 cursor-pointer transition-colors"
+                            title="Return for correction"
+                          >
+                            <FaRedo className="text-sm" />
+                          </button>
+                          <button
+                            onClick={() => handleVerifyCompleteness(item)}
+                            disabled={verifyingId === item.id}
+                            className="p-2 rounded-xl text-green-600 hover:bg-green-50 cursor-pointer transition-colors disabled:opacity-50"
+                            title="Verify completeness"
+                          >
+                            {verifyingId === item.id ? (
+                              <div className="w-4 h-4 border-2 border-green-400 border-t-green-600 rounded-full animate-spin" />
+                            ) : (
+                              <FaCheckCircle className="text-sm" />
+                            )}
+                          </button>
+                        </>
+                      )}
+                      {item.status === "returned_for_correction" && (
                         <button
-                          onClick={() => handlePublish(item)}
-                          disabled={publishingId === item.id}
-                          className="p-2 rounded-xl text-emerald-600 hover:bg-emerald-50 cursor-pointer transition-colors disabled:opacity-50"
-                          title="Publish paper"
+                          onClick={() => openCompletenessModal(item)}
+                          className="p-2 rounded-xl text-amber-500 hover:bg-amber-50 ring-1 ring-amber-200 cursor-pointer transition-colors"
+                          title="View/edit correction issues"
                         >
-                          {publishingId === item.id ? (
-                            <div className="w-4 h-4 border-2 border-emerald-400 border-t-emerald-600 rounded-full animate-spin" />
-                          ) : (
-                            <FaGlobe className="text-sm" />
-                          )}
+                          <FaRedo className="text-sm" />
+                        </button>
+                      )}
+                      {canAssignReviewer && item.submissionType === "initial_proposal" && (
+                        <button
+                          onClick={() => openCscModal(item)}
+                          className={`p-2 rounded-xl cursor-pointer transition-colors ${item.cscApprovalDate ? "text-teal-500 hover:bg-teal-50 ring-1 ring-teal-200" : "text-teal-600 hover:bg-teal-50"}`}
+                          title={item.cscApprovalDate ? "CSC endorsement recorded" : "Record CSC endorsement"}
+                        >
+                          <FaStamp className="text-sm" />
+                        </button>
+                      )}
+                      {canAssignReviewer && (
+                        <button
+                          onClick={() => openAssignModal(item)}
+                          className={`p-2 rounded-xl cursor-pointer transition-colors ${assignedReviewer ? "text-purple-500 hover:bg-purple-50 ring-1 ring-purple-200" : "text-purple-600 hover:bg-purple-50"}`}
+                          title={assignedReviewer ? "Manage reviewers" : "Assign reviewers"}
+                        >
+                          <FaUserTie className="text-sm" />
                         </button>
                       )}
                     </div>
@@ -854,249 +1023,14 @@ const PapersPanel = () => {
             ]}
             data={filtered}
             rowKey={(item) => item.id}
+            expandable={{
+              getChildren: (row) => row.childSubmissions,
+              childUsesColumns: true,
+            }}
           />
         )}
       </div>
 
-      {viewModal &&
-        selectedResearch &&
-        (() => {
-          const stage = selectedResearch.stage || "proposal";
-          const stageMeta = STAGE_META[stage] || STAGE_META.proposal;
-          const statusMeta = STATUS_META[selectedResearch.status] || STATUS_META.pending;
-          const assignedReviewer =
-            selectedResearch.assignedReviewer &&
-            typeof selectedResearch.assignedReviewer === "object"
-              ? selectedResearch.assignedReviewer
-              : null;
-          const modalRevenue = revenueByResearch[selectedResearch.id];
-
-          return (
-            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-                <div className={`${stageMeta.color} px-6 py-4 rounded-t-2xl`}>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                          {stageMeta.label}
-                        </span>
-                        <span className="bg-white/20 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
-                          {statusMeta.label}
-                        </span>
-                        {selectedResearch.isPublished && (
-                          <span className="bg-white/20 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
-                            Published
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="text-xl font-bold text-white leading-tight">
-                        {selectedResearch.title}
-                      </h3>
-                      <div className="flex items-center gap-3 mt-1 text-white text-sm flex-wrap">
-                        <span className="flex items-center gap-1">
-                          <FaUser className="text-xs" />
-                          {selectedResearch.researcher?.name ||
-                            selectedResearch.author ||
-                            "Unknown"}
-                        </span>
-
-                        {selectedResearch.researcher?.institution && (
-                          <p className="text-sm text-white flex items-center gap-1">
-                            <FaUniversity /> {selectedResearch.researcher.institution}
-                          </p>
-                        )}
-                        {selectedResearch.researcher?.email && (
-                          <p className="text-sm text-white flex items-center gap-1 ">
-                            <FaEnvelope /> {selectedResearch.researcher.email}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setViewModal(false)}
-                      className="p-2 cursor-pointer rounded-lg bg-white/20 hover:bg-white/30 transition-colors ml-4 shrink-0"
-                    >
-                      <FaTimes className="text-white" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="p-6 space-y-4">
-                  {selectedResearch.thumbnailUrl && (
-                    <img
-                      src={selectedResearch.thumbnailUrl}
-                      alt={selectedResearch.title}
-                      className="w-full h-56 object-cover rounded-lg"
-                    />
-                  )}
-
-                  <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                      Abstract
-                    </p>
-                    <p className="text-sm text-gray-700 leading-relaxed">
-                      {selectedResearch.abstract || "No abstract available"}
-                    </p>
-                  </div>
-
-                  {selectedResearch.background && (
-                    <div>
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                        Background
-                      </p>
-                      <p className="text-sm text-gray-700 leading-relaxed">
-                        {selectedResearch.background}
-                      </p>
-                    </div>
-                  )}
-
-                  {selectedResearch.methodology && (
-                    <div>
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                        Methodology
-                      </p>
-                      <p className="text-sm text-gray-700 leading-relaxed">
-                        {selectedResearch.methodology}
-                      </p>
-                    </div>
-                  )}
-
-                  {(selectedResearch.fileUrl || selectedResearch.proposalFile) && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <FaFilePdf className="text-2xl text-green-600" />
-                        <div>
-                          <p className="font-semibold text-gray-900 text-sm">PDF Document</p>
-                          <p className="text-xs text-gray-500">
-                            {selectedResearch.isPublished
-                              ? `Price: KES ${selectedResearch.downloadPrice}`
-                              : "Full document available"}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleDownload(selectedResearch)}
-                        disabled={downloadingId === selectedResearch.id}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white cursor-pointer rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
-                      >
-                        {downloadingId === selectedResearch.id ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                            Downloading…
-                          </>
-                        ) : (
-                          <>
-                            <FaDownload /> Download
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  )}
-
-                  {modalRevenue && modalRevenue.totalIncome > 0 && (
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                        Revenue Breakdown
-                      </p>
-                      <div className="grid grid-cols-3 gap-3 text-center">
-                        <div>
-                          <p className="text-[10px] text-gray-500 uppercase">Proposal Fee</p>
-                          <p className="text-sm font-bold text-amber-700">
-                            {formatKES(modalRevenue.proposalIncome)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] text-gray-500 uppercase">
-                            Download Sales
-                            {modalRevenue.downloadCount ? ` (${modalRevenue.downloadCount})` : ""}
-                          </p>
-                          <p className="text-sm font-bold text-blue-700">
-                            {formatKES(modalRevenue.downloadIncome)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] text-gray-500 uppercase">Total</p>
-                          <p className="text-sm font-bold text-emerald-700">
-                            {formatKES(modalRevenue.totalIncome)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {assignedReviewer && (
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                        Assigned Reviewer
-                      </p>
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                          {(assignedReviewer.name || assignedReviewer.firstName || "?")
-                            .charAt(0)
-                            .toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-gray-900">
-                            {assignedReviewer.name ||
-                              `${assignedReviewer.firstName ?? ""} ${assignedReviewer.lastName ?? ""}`.trim()}
-                          </p>
-                          {assignedReviewer.email && (
-                            <p className="text-xs text-gray-500 flex items-center gap-1 truncate">
-                              <FaEnvelope className="text-[10px]" /> {assignedReviewer.email}
-                            </p>
-                          )}
-                          {assignedReviewer.institution && (
-                            <p className="text-xs text-gray-400 flex items-center gap-1 truncate">
-                              <MdSchool /> {assignedReviewer.institution}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedResearch.reviewComment && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                        Reviewer Comment
-                      </p>
-                      <p className="text-sm text-gray-700">{selectedResearch.reviewComment}</p>
-                    </div>
-                  )}
-
-                  {selectedResearch.status === "pending_committee_review" && (
-                    <div className="bg-violet-50 border border-violet-200 rounded-lg p-4 flex items-start gap-3">
-                      <FaUserTie className="text-violet-500 text-sm mt-0.5 shrink-0" />
-                      <p className="text-sm text-violet-700">
-                        The assigned reviewer has approved this final paper. It is now awaiting
-                        sign-off from the Research Committee before it can be published.
-                      </p>
-                    </div>
-                  )}
-
-                  {selectedResearch.committeeComment && (
-                    <div className="bg-violet-50 border border-violet-200 rounded-lg p-4">
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                        Research Committee Comment
-                      </p>
-                      <p className="text-sm text-gray-700">{selectedResearch.committeeComment}</p>
-                    </div>
-                  )}
-
-                  <div className="flex justify-end pt-2 border-t border-gray-100">
-                    <button
-                      onClick={() => setViewModal(false)}
-                      className="px-4 py-2 border border-gray-200 hover:text-white rounded-lg text-sm hover:bg-red-500 cursor-pointer transition-colors"
-                    >
-                      Close
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
 
       {addResearcherOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
@@ -1256,21 +1190,38 @@ const PapersPanel = () => {
         </div>
       )}
 
-      {assignReviewerOpen && assignTarget && (
+      {assignReviewerOpen && assignTarget && (() => {
+        const closeAssignModal = () => {
+          setAssignReviewerOpen(false);
+          setAssignTarget(null);
+          setSelectedReviewerIds([]);
+          setExistingReviewers([]);
+          setReviewerSearch("");
+        };
+
+        const q = reviewerSearch.trim().toLowerCase();
+        const visibleReviewers = availableReviewers.filter((r) => {
+          if (!q) return true;
+          return (
+            r.name?.toLowerCase().includes(q) ||
+            r.email?.toLowerCase().includes(q) ||
+            r.institution?.toLowerCase().includes(q)
+          );
+        });
+        const selectedCount = selectedReviewerIds.length;
+        const canSubmit = selectedCount >= MIN_REVIEWERS;
+
+        return (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div
-            className="bg-white rounded-2xl w-full max-w-md overflow-hidden"
+            className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]"
             style={{
               animation: "modalPop .25s cubic-bezier(.34,1.56,.64,1) both",
             }}
           >
-            <div className="relative bg-gradient-to-br from-purple-600 to-purple-700 px-6 pt-6 pb-8">
+            <div className="relative bg-purple-700 px-6 pt-6 pb-8 shrink-0">
               <button
-                onClick={() => {
-                  setAssignReviewerOpen(false);
-                  setAssignTarget(null);
-                  setAssignReviewerEmail("");
-                }}
+                onClick={closeAssignModal}
                 className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors cursor-pointer"
               >
                 <FaTimes className="text-white text-xs" />
@@ -1281,69 +1232,112 @@ const PapersPanel = () => {
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-lg font-bold text-white leading-tight">
-                    {assignTarget.assignedReviewer &&
-                    typeof assignTarget.assignedReviewer === "object"
-                      ? "Re-assign Reviewer"
-                      : "Assign Reviewer"}
+                    Assign Reviewers
                   </h3>
                   <p className="text-purple-200 text-xs truncate">{assignTarget.title}</p>
                 </div>
               </div>
             </div>
-            <div className="h-3 bg-gradient-to-br from-purple-600 to-purple-700 relative">
+            <div className="h-3 bg-gradient-to-br from-purple-600 to-purple-700 relative shrink-0">
               <div className="absolute inset-x-0 bottom-0 h-3 bg-white rounded-t-2xl" />
             </div>
 
-            <form onSubmit={handleAssignReviewer} className="px-6 pb-6 pt-2 space-y-4">
-              {assignTarget.assignedReviewer &&
-                typeof assignTarget.assignedReviewer === "object" && (
-                  <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-                    <FaUserTie className="text-amber-500 text-sm mt-0.5 shrink-0" />
-                    <div>
-                      <p className="text-xs font-semibold text-amber-800 mb-0.5">
-                        Already assigned
-                      </p>
-                      <p className="text-xs text-amber-700">
-                        Currently assigned to{" "}
-                        <span className="font-semibold">
-                          {assignTarget.assignedReviewer.name ||
-                            `${assignTarget.assignedReviewer.firstName ?? ""} ${assignTarget.assignedReviewer.lastName ?? ""}`.trim()}
-                        </span>
-                        {assignTarget.assignedReviewer.email &&
-                          ` (${assignTarget.assignedReviewer.email})`}
-                        . Submitting will replace them.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
+            <form
+              onSubmit={handleAssignReviewers}
+              className="px-6 pb-6 pt-2 space-y-4 overflow-y-auto flex-1 min-h-0"
+            >
               <div className="flex items-start gap-3 bg-purple-50 border border-purple-200 rounded-xl px-4 py-3">
                 <FaShieldAlt className="text-purple-500 text-sm mt-0.5 flex-shrink-0" />
                 <p className="text-xs text-purple-700 leading-relaxed">
-                  Enter the email of an existing{" "}
-                  <span className="font-semibold">reviewer or admin</span>. They will receive a
-                  notification to review this paper.
+                  Select at least <span className="font-semibold">{MIN_REVIEWERS} reviewers</span>{" "}
+                  from the registered reviewer pool. Each selected reviewer will be notified.
                 </p>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                  Reviewer Email <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <FaEnvelope className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
-                  <input
-                    type="email"
-                    required
-                    value={assignReviewerEmail}
-                    onChange={(e) => setAssignReviewerEmail(e.target.value)}
-                    placeholder="reviewer@institution.ac.ke"
-                    className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-shadow"
-                  />
+              {existingReviewers.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                  <p className="text-xs font-semibold text-amber-800 mb-1.5">Currently assigned</p>
+                  <div className="space-y-1">
+                    {existingReviewers.map((r, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs text-amber-700">
+                        <FaUserTie className="text-amber-500 text-[10px] shrink-0" />
+                        <span className="font-medium">{r.reviewer?.name || r.name || "Reviewer"}</span>
+                        <span className="text-amber-500">({r.reviewer?.email || r.email})</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-amber-600 mt-1.5">
+                    Submitting will update the full reviewer list.
+                  </p>
                 </div>
-                <p className="text-[11px] text-gray-400 mt-1">
-                  Must be a registered reviewer or research admin.
-                </p>
+              )}
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-gray-700">
+                    Reviewers <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-[11px] text-gray-400">
+                    {selectedCount} selected · minimum {MIN_REVIEWERS}
+                  </span>
+                </div>
+
+                {/* Select dropdown to add reviewers */}
+                <div className="relative">
+                  {reviewersLoading ? (
+                    <div className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-400">
+                      <div className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
+                      Loading reviewers…
+                    </div>
+                  ) : (
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        const id = Number(e.target.value) || e.target.value;
+                        if (id && !selectedReviewerIds.includes(id)) {
+                          setSelectedReviewerIds((prev) => [...prev, id]);
+                        }
+                      }}
+                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent cursor-pointer appearance-none bg-white"
+                    >
+                      <option value="">— Select a reviewer to add —</option>
+                      {availableReviewers
+                        .filter((r) => !selectedReviewerIds.includes(r.id))
+                        .map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name} — {r.email}{r.institution ? ` (${r.institution})` : ""}
+                          </option>
+                        ))}
+                    </select>
+                  )}
+                  <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none" />
+                </div>
+
+                {/* Selected reviewers as removable chips */}
+                {selectedCount > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {selectedReviewerIds.map((id) => {
+                      const r = availableReviewers.find((rev) => rev.id === id);
+                      if (!r) return null;
+                      return (
+                        <span key={id} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 border border-purple-200 rounded-full text-xs font-semibold text-purple-700">
+                          {r.name}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedReviewerIds((prev) => prev.filter((rid) => rid !== id))}
+                            className="text-purple-400 hover:text-red-500 cursor-pointer"
+                          >
+                            <FaTimes className="text-[9px]" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {availableReviewers.length === 0 && !reviewersLoading && (
+                  <p className="text-xs text-gray-400 text-center py-2">No reviewers available yet.</p>
+                )}
               </div>
 
               <div className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 space-y-1">
@@ -1364,19 +1358,15 @@ const PapersPanel = () => {
               <div className="flex justify-end gap-3 pt-1">
                 <button
                   type="button"
-                  onClick={() => {
-                    setAssignReviewerOpen(false);
-                    setAssignTarget(null);
-                    setAssignReviewerEmail("");
-                  }}
+                  onClick={closeAssignModal}
                   className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-red-500 hover:text-white hover:border-red-500 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={assignLoading}
-                  className="flex items-center gap-2 px-5 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700 disabled:opacity-60 cursor-pointer transition-colors"
+                  disabled={assignLoading || !canSubmit}
+                  className="flex items-center gap-2 px-5 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer transition-colors"
                 >
                   {assignLoading ? (
                     <>
@@ -1385,16 +1375,255 @@ const PapersPanel = () => {
                     </>
                   ) : (
                     <>
-                      <FaUserTie />{" "}
-                      {assignTarget.assignedReviewer &&
-                      typeof assignTarget.assignedReviewer === "object"
-                        ? "Re-assign"
-                        : "Assign Reviewer"}
+                      <FaUserTie /> Assign {selectedCount} Reviewer{selectedCount !== 1 ? "s" : ""}
                     </>
                   )}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+        );
+      })()}
+
+      {cscModalOpen && cscTarget && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-teal-600 px-6 py-4 flex items-center justify-between sticky top-0">
+              <div>
+                <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                  <FaStamp /> CSC Endorsement
+                </h3>
+                <p className="text-teal-100 text-xs truncate max-w-lg">{cscTarget.title}</p>
+              </div>
+              <button onClick={() => setCscModalOpen(false)} className="text-white/80 hover:text-white cursor-pointer">
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-gray-500">
+                Reviewer assignment is blocked until Centre Scientific Committee (CSC) endorsement
+                is recorded here, per SOP-1 to 10. A supporting evidence document (e.g. the signed
+                Secretary letter) and the attesting contact's details are required.
+              </p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">CSC Approval Date *</label>
+                  <input type="date" value={cscForm.cscApprovalDate}
+                    onChange={(e) => setCscForm((f) => ({ ...f, cscApprovalDate: e.target.value }))}
+                    className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">CSC Review Date</label>
+                  <input type="date" value={cscForm.cscReviewDate}
+                    onChange={(e) => setCscForm((f) => ({ ...f, cscReviewDate: e.target.value }))}
+                    className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">Attesting CSC Contact Name *</label>
+                  <input type="text" value={cscForm.cscContactName}
+                    onChange={(e) => setCscForm((f) => ({ ...f, cscContactName: e.target.value }))}
+                    placeholder="e.g. Dr. Jane Doe, CSC Secretary"
+                    className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">Attesting CSC Contact Email *</label>
+                  <input type="email" value={cscForm.cscContactEmail}
+                    onChange={(e) => setCscForm((f) => ({ ...f, cscContactEmail: e.target.value }))}
+                    placeholder="jane.doe@example.org"
+                    className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-gray-600">Comments</label>
+                <textarea rows={2} value={cscForm.cscComments}
+                  onChange={(e) => setCscForm((f) => ({ ...f, cscComments: e.target.value }))}
+                  className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none" />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-gray-600">
+                  Evidence Document (signed CSC letter) *
+                </label>
+                <input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                  onChange={(e) => setCscEvidenceFile(e.target.files[0] || null)}
+                  className="w-full mt-1 text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg
+                    file:border-0 file:bg-teal-50 file:text-teal-700 file:text-xs file:font-semibold" />
+                {cscEvidenceFile && <p className="text-xs text-emerald-600 mt-1">Selected: {cscEvidenceFile.name}</p>}
+                {!cscEvidenceFile && cscTarget.cscEvidenceFile && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Evidence already on file — select a new file only to replace it.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+              <button onClick={() => setCscModalOpen(false)}
+                className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer">
+                Cancel
+              </button>
+              <button onClick={submitCscEndorsement} disabled={cscSaving}
+                className="px-4 py-2 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-lg cursor-pointer disabled:opacity-50">
+                {cscSaving ? "Saving…" : "Record Endorsement"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {completenessModalOpen && completenessTarget && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-amber-500 px-6 py-4 flex items-center justify-between sticky top-0">
+              <div>
+                <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                  <FaRedo /> Administrative Completeness
+                </h3>
+                <p className="text-amber-100 text-xs truncate">{completenessTarget.title}</p>
+              </div>
+              <button onClick={() => setCompletenessModalOpen(false)} className="text-white/80 hover:text-white cursor-pointer">
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-gray-500">
+                List each missing or incorrect item. The proposal will be returned to the
+                researcher with these issues and cannot proceed to CSC endorsement or reviewer
+                assignment until resubmitted.
+              </p>
+
+              <div className="space-y-2">
+                {completenessIssues.map((issue, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={issue}
+                      onChange={(e) => {
+                        const next = [...completenessIssues];
+                        next[idx] = e.target.value;
+                        setCompletenessIssues(next);
+                      }}
+                      placeholder={`Issue ${idx + 1} (e.g. "Budget breakdown missing")`}
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    />
+                    {completenessIssues.length > 1 && (
+                      <button
+                        onClick={() => setCompletenessIssues(completenessIssues.filter((_, i) => i !== idx))}
+                        className="p-2 text-gray-400 hover:text-red-500 cursor-pointer"
+                      >
+                        <FaTrash className="text-xs" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  onClick={() => setCompletenessIssues([...completenessIssues, ""])}
+                  className="text-xs font-semibold text-amber-600 hover:underline cursor-pointer"
+                >
+                  Add another issue
+                </button>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+              <button onClick={() => setCompletenessModalOpen(false)}
+                className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer">
+                Cancel
+              </button>
+              <button onClick={submitReturnForCorrection} disabled={completenessSaving}
+                className="px-4 py-2 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 rounded-lg cursor-pointer disabled:opacity-50">
+                {completenessSaving ? "Saving…" : "Return for Correction"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deviationsModalOpen && deviationsTarget && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+            <div className="bg-rose-600 px-6 py-4 flex items-center justify-between sticky top-0">
+              <div>
+                <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                  <FaExclamationTriangle /> Protocol Deviations
+                </h3>
+                <p className="text-rose-100 text-xs truncate">{deviationsTarget.title}</p>
+              </div>
+              <button onClick={() => setDeviationsModalOpen(false)} className="text-white/80 hover:text-white cursor-pointer">
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {deviationsLoading ? (
+                <div className="flex justify-center py-10">
+                  <div className="w-6 h-6 border-2 border-rose-300 border-t-rose-600 rounded-full animate-spin" />
+                </div>
+              ) : deviationsList.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">No protocol deviations reported for this study.</p>
+              ) : (
+                <div className="space-y-3">
+                  {deviationsList.map((d) => {
+                    const sevStyle = d.severity === "critical" ? "bg-red-100 text-red-700"
+                      : d.severity === "major" ? "bg-amber-100 text-amber-700"
+                      : "bg-gray-100 text-gray-600";
+                    return (
+                      <div key={d.id} className="border border-gray-100 rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${sevStyle}`}>
+                              {d.severity?.toUpperCase()}
+                            </span>
+                            <span className="text-xs text-gray-400 capitalize">
+                              {d.deviationType?.replace(/_/g, " ")}
+                            </span>
+                            {d.isUrgentSafety && (
+                              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-red-600 text-white">
+                                URGENT SAFETY
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-gray-400">
+                            {d.dateOfDeviation ? new Date(d.dateOfDeviation).toLocaleDateString() : ""}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-700">{d.description}</p>
+                        {d.correctiveAction && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            <span className="font-semibold">Corrective action:</span> {d.correctiveAction}
+                          </p>
+                        )}
+                        {d.researcher?.name && (
+                          <p className="text-[11px] text-gray-400 mt-1">
+                            Reported by {d.researcher.name}
+                            {d.participantsAffected ? ` · ${d.participantsAffected} participant(s) affected` : ""}
+                          </p>
+                        )}
+                        {d.deadline && (
+                          <p className="text-[11px] text-gray-400 mt-1">
+                            Response due: {new Date(d.deadline).toLocaleDateString()}
+                          </p>
+                        )}
+                        {d.atRiskParticipantList && (
+                          <div className="mt-2 bg-red-50 border border-red-100 rounded-lg p-2">
+                            <p className="text-[11px] font-semibold text-red-600">At-risk participant details</p>
+                            <p className="text-xs text-red-700">{d.atRiskParticipantList}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

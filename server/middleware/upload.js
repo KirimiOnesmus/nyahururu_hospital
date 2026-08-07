@@ -29,6 +29,11 @@ const ALLOWED_MIME_TYPES = {
   progress:    DOC_MIMES,
   final_paper: [...DOC_MIMES, "text/plain"],
 
+  // Chair's change #3: study-closure closeout report upload.
+  closure:         DOC_MIMES,
+  // Chair's change #6: reviewer/committee feedback attachments.
+  "review-feedback": DOC_MIMES,
+
   //  Content / CMS modules 
   news:        IMAGE_MIMES,
   events:      IMAGE_MIMES,
@@ -48,6 +53,9 @@ const ALLOWED_EXTENSIONS = {
   progress:    [".pdf", ".docx", ".csv", ".xls", ".xlsx", ".zip"],
   final_paper: [".pdf", ".docx", ".csv", ".xls", ".xlsx", ".zip", ".r", ".py", ".do", ".sps", ".txt"],
 
+  closure:           [".pdf", ".docx", ".csv", ".xls", ".xlsx", ".zip"],
+  "review-feedback": [".pdf", ".docx", ".csv", ".xls", ".xlsx", ".zip"],
+
   news:        IMAGE_EXTS,
   events:      IMAGE_EXTS,
   gallery:     [...IMAGE_EXTS, ...VIDEO_EXTS],
@@ -65,6 +73,9 @@ const MAX_FILE_SIZE = {
   progress:    50 * 1024 * 1024, 
   final_paper: 50 * 1024 * 1024,
 
+  closure:           50 * 1024 * 1024,
+  "review-feedback": 50 * 1024 * 1024,
+
   news:        10 * 1024 * 1024,
   events:      10 * 1024 * 1024,
   gallery:    100 * 1024 * 1024, 
@@ -81,7 +92,6 @@ const createFileFilter = (folder) => (req, file, cb) => {
   const allowedExts  = ALLOWED_EXTENSIONS[folder] || ALLOWED_EXTENSIONS.research;
   const ext = path.extname(file.originalname).toLowerCase();
 
- e
 
   if (!allowedMimes.includes(file.mimetype) || !allowedExts.includes(ext)) {
     return cb(

@@ -37,12 +37,18 @@ const inferSeverity = (action) => {
 };
 
 const extractCaller = (req) => {
+
   const user = req.user || null;
+  const researcher = req.researcher || null;
+  // userId FK references the `users` table — only set it for staff/admin
+  // users. Researchers live in a separate table; their ID would violate
+  // the FK constraint, so we store it in metadata instead.
   return {
     userId: user?.id || null,
-    userName: user?.name || `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || null,
-    userEmail: user?.email || null,
-    userRole: user?.role || null,
+    userName: (user || researcher)?.name || `${(user || researcher)?.firstName || ""} ${(user || researcher)?.lastName || ""}`.trim() || null,
+    userEmail: (user || researcher)?.email || null,
+    userRole: user?.role || (researcher ? (researcher.role || "researcher") : null),
+    metadata: researcher && !user ? { researcherId: researcher.id } : undefined,
   };
 };
 
@@ -70,7 +76,10 @@ const log = async ({
     const sev = severity || inferSeverity(action);
 
     const entry = await AuditLog.create({
-      ...caller,
+      userId: caller.userId,
+      userName: caller.userName,
+      userEmail: caller.userEmail,
+      userRole: caller.userRole,
       ...client,
       action,
       resource: resource || null,
@@ -78,7 +87,7 @@ const log = async ({
       description: description || null,
       severity: sev,
       changes: changes || null,
-      metadata: metadata || null,
+      metadata: { ...(caller.metadata || {}), ...(metadata || {}) } || null,
     });
 
 

@@ -1,4 +1,3 @@
-
 import axios from 'axios';
 import { API_BASE_URL } from '../config/env';
 
@@ -8,11 +7,6 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
   timeout: 30000,
-  // M-1: send the httpOnly `jwt`/`refreshToken` cookies the backend already
-  // sets on login, instead of reading the token from localStorage and
-  // attaching it as a Bearer header. httpOnly cookies can't be read by
-  // JavaScript, so a stored/reflected XSS on this app can no longer
-  // exfiltrate a live session token the way it could with localStorage.
   withCredentials: true,
 });
 
@@ -21,6 +15,12 @@ api.interceptors.request.use(
   (config) => {
     if (config.data instanceof FormData) {
       delete config.headers['Content-Type'];
+    }
+
+    const collection = localStorage.getItem('collection');
+    const token = localStorage.getItem('token');
+    if (token && collection === 'researchers') {
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
@@ -32,26 +32,35 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-
-     const status = error.response?.status;
+    const status = error.response?.status;
     const url    = error.config?.url || "";
 
-     const isResearchEndpoint = url.includes("/research/");
-
+    const isResearchEndpoint = /\/researchers?(\/|$)/.test(url);
     const isAuthEndpoint = url.includes("/change-password") || url.includes("/login");
 
-
-    if (status === 401 && !isResearchEndpoint)  {
+    if (status === 401 && !isResearchEndpoint) {
       localStorage.removeItem('role');
       localStorage.removeItem('collection');
       localStorage.removeItem('researcher');
-
-     window.location.href = '/hmis';
-
-        return new Promise(() => {});
+      localStorage.removeItem('token');
+      window.location.href = '/hmis';
+      return new Promise(() => {});
     }
+
+    if (status === 403 && !isAuthEndpoint) {
+      const msg = error.response?.data?.message || '';
+      if (msg.includes('researcher token') || msg.includes('researcher token required')) {
+        localStorage.removeItem('role');
+        localStorage.removeItem('collection');
+        localStorage.removeItem('researcher');
+        localStorage.removeItem('token');
+        window.location.href = '/hmis';
+        return new Promise(() => {});
+      }
+    }
+
     if (status === 401 && isResearchEndpoint) {
-      console.warn('[Auth] Access forbidden:', error.response.data.message);
+      console.warn('[Auth] Access forbidden:', error.response?.data?.message);
     }
 
     return Promise.reject(error);

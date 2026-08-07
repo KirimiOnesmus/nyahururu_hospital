@@ -33,6 +33,12 @@ const ResetPassword = () => {
 
   const token = searchParams.get("token");
   const userId = searchParams.get("userId");
+  const email = searchParams.get("email");
+
+  // Staff reset links carry ?userId=…; researcher reset links carry
+  // ?email=… (they hit different tables/endpoints). Mode is derived from
+  // whichever identifier the emailed link contains.
+  const isResearcher = !userId && !!email;
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -43,10 +49,10 @@ const ResetPassword = () => {
   const [invalidLink, setInvalidLink] = useState(false);
 
   useEffect(() => {
-    if (!token || !userId) {
+    if (!token || (!userId && !email)) {
       setInvalidLink(true);
     }
-  }, [token, userId]);
+  }, [token, userId, email]);
 
   const allRulesPass = PASSWORD_RULES.every((r) => r.test(newPassword));
   const passwordsMatch = newPassword && confirmPassword && newPassword === confirmPassword;
@@ -58,11 +64,20 @@ const ResetPassword = () => {
 
     setLoading(true);
     try {
-      await api.post("/users/reset-password", {
-        token,
-        userId,
-        newPassword,
-      });
+      if (isResearcher) {
+        await api.post("/researchers/reset-password", {
+          token,
+          email,
+          password: newPassword,
+          confirmPassword,
+        });
+      } else {
+        await api.post("/users/reset-password", {
+          token,
+          userId,
+          newPassword,
+        });
+      }
       setSuccess(true);
     } catch (err) {
       const msg = err.response?.data?.message || "Password reset failed. The link may have expired.";

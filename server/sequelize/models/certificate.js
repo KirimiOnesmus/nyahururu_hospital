@@ -30,7 +30,7 @@ module.exports = (sequelize, DataTypes) => {
       researchId: {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: false,
-        references: { model: "researches", key: "id" },
+        references: { model: "submissions", key: "id" },
         // A certificate is issued against a specific research row; if
         // the research is soft-deleted, the certificate stays valid
         // (the researcher may still need it for external verification).

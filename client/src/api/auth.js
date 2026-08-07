@@ -5,16 +5,13 @@ import api from './axios';
 
 export const loginUser = async (email, password) => {
   try {
+
+    localStorage.removeItem('token');
+    localStorage.removeItem('researcher');
+
     const res = await api.post('/auth/login', { email, password });
-    // Backend wraps payloads as { success, message, data }, matching every
-    // other endpoint in this app (see registerResearcher, loginResearcher
-    // below) — this was the one spot still reading the un-wrapped shape,
-    // so the token never saved and the caller never saw `user`/`role`.
     const data = res.data?.data || res.data;
-    // M-1: the httpOnly `jwt` cookie is already set by the backend on
-    // login (withCredentials on the axios instance ensures it's stored by
-    // the browser). We no longer keep the raw token in localStorage, since
-    // JS-readable storage is exactly what an XSS bug would exfiltrate.
+
     if (data.user?.role) {
       localStorage.setItem('role', data.user.role);
       localStorage.setItem('collection', 'users');
@@ -115,7 +112,7 @@ export const getResearcherProfile = async () => {
 
 export const updateResearcherProfile = async (updates) => {
   try {
-    const response = await api.put('/researchers/profile', updates);
+    const response = await api.patch('/researchers/profile', updates);
    
         const data = response.data.data || response.data;
    
@@ -137,7 +134,7 @@ export const changeResearcherPassword = async (
   confirmPassword
 ) => {
   try {
-    const response = await api.post('/researchers/change-password', {
+    const response = await api.patch('/researchers/change-password', {
       currentPassword,
       newPassword,
       confirmPassword,
@@ -195,18 +192,11 @@ export const logout = () => {
 };
 
 
-// M-1: the staff session no longer keeps a raw token in localStorage — the
-// httpOnly cookie set by the backend is the actual credential, and it isn't
-// readable here by design. `role` is a non-sensitive UI cache written at
-// login/logout, so it's what we check for "was a session established."
-// This is a UX signal, not a security boundary: every real authorization
-// decision is still made server-side against the cookie/DB-loaded user.
+
 export const isAuthenticated = () => {
   return !!localStorage.getItem('role');
 };
 
-// Kept for the researcher flow, which the backend still issues as a plain
-// bearer token (no httpOnly cookie equivalent yet — see researcherService).
 export const getToken = () => {
   return localStorage.getItem('token');
 };

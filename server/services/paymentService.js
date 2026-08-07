@@ -97,7 +97,7 @@ const initiatePayment = async ({ phone, email: buyerEmail, researchId, type }, r
   };
 };
 
-// ── PROCESS DARAJA CALLBACK ──────────────────────────────────────────
+//  PROCESS DARAJA CALLBACK 
 
 const processCallback = async (body) => {
   const parsed = mpesa.parseCallback(body);
@@ -113,18 +113,18 @@ const processCallback = async (body) => {
 
   const existing = await Payment.findOne({
     where: { checkoutRequestId },
-    attributes: ["status"],
+    attributes: ["status", "mpesaReceiptNumber"],
   });
   if (!existing) {
     console.warn(`[Payment] No payment found for checkoutRequestId: ${checkoutRequestId}`);
     return;
   }
-  if (existing.status === PAYMENT_STATUSES.COMPLETED) {
+  if (existing.status === PAYMENT_STATUSES.COMPLETED && existing.mpesaReceiptNumber) {
     console.log(`[Payment] Already completed — skipping: ${checkoutRequestId}`);
     return;
   }
 
-  // Re-verify with Safaricom (see C4 note above).
+
   let queryResult = null;
   try {
     queryResult = await mpesa.querySTKStatus(checkoutRequestId);
@@ -151,6 +151,21 @@ const processCallback = async (body) => {
     if (!payment) return { skipped: "not_found" };
   
     if (payment.status === PAYMENT_STATUSES.COMPLETED) {
+
+      if (!payment.mpesaReceiptNumber && mpesaReceiptNumber) {
+        payment.mpesaReceiptNumber = mpesaReceiptNumber;
+        payment.transactionDate    = transactionDate || payment.transactionDate;
+        await payment.save({ transaction: t });
+        return {
+          completed: true,
+          receiptBackfill: true,
+          researcherId: payment.researcherId,
+          researchId:   payment.researchId,
+          type:         payment.type,
+          amount:       payment.amount,
+          receipt:      mpesaReceiptNumber,
+        };
+      }
       return { skipped: "already_completed" };
     }
 
@@ -185,6 +200,10 @@ const processCallback = async (body) => {
   }
   if (outcome.skipped === "not_found") return;
 
+  if (outcome.receiptBackfill) {
+    console.log(`[Payment] Receipt backfilled from callback: ${outcome.receipt}`);
+  }
+
   if (outcome.completed) {
     console.log(`[Payment] completed: ${outcome.receipt}`);
 
@@ -217,11 +236,37 @@ const verifyPayment = async (checkoutRequestId) => {
   const payment = await Payment.findOne({
     where: { checkoutRequestId },
     attributes: [
-      "status", "mpesaReceiptNumber", "amount", "type",
+      "id", "status", "mpesaReceiptNumber", "amount", "type",
       "researchId", "resultCode", "resultDesc",
     ],
   });
   if (!payment) throw new AppError("Payment record not found.", 404);
+
+
+  if (payment.status === PAYMENT_STATUSES.PENDING) {
+    try {
+      const stkStatus = await mpesa.querySTKStatus(checkoutRequestId);
+
+      if (stkStatus.isCompleted) {
+        payment.status             = PAYMENT_STATUSES.COMPLETED;
+        payment.mpesaReceiptNumber = stkStatus.MpesaReceiptNumber || payment.mpesaReceiptNumber;
+        payment.resultCode         = stkStatus.ResultCode;
+        payment.resultDesc         = stkStatus.ResultDesc;
+        await payment.save();
+      } else if (["failed", "cancelled"].includes(stkStatus.status)) {
+        payment.status     = stkStatus.status;
+        payment.resultCode = stkStatus.ResultCode;
+        payment.resultDesc = stkStatus.ResultDesc;
+        await payment.save();
+      }
+    } catch (err) {
+
+      console.warn(
+        `[Payment] STK status query failed for ${checkoutRequestId}:`,
+        err.message,
+      );
+    }
+  }
 
   return {
     checkoutRequestId,

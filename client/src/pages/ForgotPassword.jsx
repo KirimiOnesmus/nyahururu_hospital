@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 import notify from "../common/utils/notify";
 import {
@@ -21,6 +21,15 @@ const ForgotPassword = () => {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Researchers and staff live in separate tables with separate reset
+  // endpoints. The login screen passes ?type=researcher for the research
+  // portal so the request hits /researchers/forgot-password.
+  const isResearcher = searchParams.get("type") === "researcher";
+  const endpoint = isResearcher
+    ? "/researchers/forgot-password"
+    : "/users/forgot-password";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,7 +40,7 @@ const ForgotPassword = () => {
 
     setLoading(true);
     try {
-      await api.post("/users/forgot-password", { email: email.trim() });
+      await api.post(endpoint, { email: email.trim() });
       setSent(true);
     } catch (err) {
       // The backend always returns 200 to prevent email enumeration,

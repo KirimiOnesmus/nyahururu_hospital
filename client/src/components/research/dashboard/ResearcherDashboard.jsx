@@ -2,7 +2,21 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import notify from "../../../common/utils/notify";
 import ResearcherStats from "../ResearcherStatsSection";
-import { API_BASE_URL } from "../../../config/env";
+import { API_BASE_URL, ASSET_BASE_URL } from "../../../config/env";
+
+// Build a downloadable URL for an uploaded document. Files served from
+// `/uploads/` require the auth token as a query param (same scheme the
+// detail view uses), so append it when present.
+const buildAssetUrl = (path) => {
+  if (!path) return null;
+  const base = `${ASSET_BASE_URL}${path}`;
+  const token = localStorage.getItem("token");
+  if (token && base.includes("/uploads/")) {
+    const sep = base.includes("?") ? "&" : "?";
+    return `${base}${sep}token=${token}`;
+  }
+  return base;
+};
 import {
   FaFlask,
   FaCheckCircle,
@@ -24,12 +38,15 @@ import * as research from "../../../api/research";
 
 const DASHBOARD_STATUS_MAP = {
   approved: "approved",
+  submitted: "pending",
   pending: "pending",
   under_review: "pending",
   pending_committee_review: "committee_review",
   revision_requested: "rejected",
   rejected: "rejected",
   suspended: "suspended",
+  expired: "expired",
+  closed: "closed",
 };
 
 const STATUS_CONFIG = {
@@ -52,6 +69,21 @@ const STATUS_CONFIG = {
     label: "With Committee",
     Icon: FaShieldAlt,
     cls: "text-indigo-700 bg-indigo-50 border-indigo-200",
+  },
+  expired: {
+    label: "Expired",
+    Icon: FaTimesCircle,
+    cls: "text-orange-700 bg-orange-50 border-orange-200",
+  },
+  closed: {
+    label: "Closed",
+    Icon: FaCheckCircle,
+    cls: "text-slate-700 bg-slate-50 border-slate-200",
+  },
+  suspended: {
+    label: "Suspended",
+    Icon: FaTimesCircle,
+    cls: "text-red-700 bg-red-50 border-red-200",
   },
 };
 
@@ -158,7 +190,7 @@ const ResubmitModal = ({ item, onClose, onResubmitted }) => {
       });
       if (file) {
         const fileField =
-          item.stage === "final_paper" ? "finalPaperFile" : "proposalFile";
+          item.submissionType === "study_closure" ? "finalPaperFile" : "proposalFile";
         fd.append(fileField, file);
       }
       const res = await fetch(
@@ -290,23 +322,27 @@ const ResubmitModal = ({ item, onClose, onResubmitted }) => {
 
 
 const lifecyclePercent = (item) => {
-  const uiStatus = resolveStatus(item.status);
-  if (item.stage === "final_paper") {
-    if (uiStatus === "approved") return 100;
-    if (uiStatus === "committee_review") return 90;
-    return 80;
-  }
-  if (item.stage === "progress") {
-    if (uiStatus === "approved") return 75;
-    return 65;
-  }
-
-  if (uiStatus === "approved") return 50;
-  if (uiStatus === "rejected") return 20;
-  return 15;
+  const s = item.status;
+  const resubmitted = (item.resubmissionCount || 0) > 0;
+  if (s === "approved") return 100;
+  if (s === "closed") return 100;
+  if (s === "pending_committee_review") return 75;
+  if (s === "under_review" && resubmitted) return 50;
+  if (s === "under_review") return 30;
+  if (s === "submitted") return 20;
+  if (s === "revision_requested") return 25;
+  if (s === "expired") return 60;
+  if (s === "rejected") return 15;
+  if (s === "suspended") return 15;
+  return 20;
 };
 
-const STAGE_STEPS = ["Proposal", "Progress", "Final"];
+const SUBMISSION_TYPE_LABEL = {
+  initial_proposal: "Initial Proposal",
+  amendment: "Amendment",
+  continuing_review: "Continuing Review",
+  study_closure: "Study Closure",
+};
 
 
 const ProjectCard = ({
@@ -320,13 +356,10 @@ const ProjectCard = ({
   const { Icon: StatusIcon } = sc;
   const percent = lifecyclePercent(item);
 
-  const canSubmitProgress =
-    item.stage === "proposal" && item.status === "approved";
   const canResubmit =
-    item.status === "rejected" || item.status === "revision_requested";
-
-  const activeStepIndex =
-    item.stage === "final_paper" ? 2 : item.stage === "progress" ? 1 : 0;
+    item.myRole !== "co_investigator" &&
+    (item.status === "rejected" || item.status === "revision_requested");
+  const typeLabel = SUBMISSION_TYPE_LABEL[item.submissionType] || "Submission";
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col gap-4">
@@ -346,6 +379,17 @@ const ProjectCard = ({
       <h4 className="font-bold text-slate-900 text-base leading-snug">
         {item.title}
       </h4>
+      {item.myRole === "co_investigator" && (
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 self-start">
+          Co-Investigator
+        </span>
+      )}
+
+      {(item.resubmissionCount || 0) > 0 && (
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200 self-start">
+          <FaRedo className="text-[8px]" /> Round {(item.resubmissionCount || 0) + 1}
+        </span>
+      )}
 
       
       {item.reviewComment &&
@@ -380,8 +424,8 @@ const ProjectCard = ({
 
       <div>
         <div className="flex items-center justify-between text-xs mb-1.5">
-          <span className="font-semibold text-slate-600">Lifecycle Stage</span>
-          <span className="font-bold text-slate-900">{percent}% Complete</span>
+          <span className="font-semibold text-slate-600">{typeLabel}</span>
+          <span className="font-bold text-slate-900">{percent}%</span>
         </div>
         <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
           <div
@@ -391,17 +435,6 @@ const ProjectCard = ({
             style={{ width: `${percent}%` }}
           />
         </div>
-        <div className="flex items-center justify-between mt-1.5">
-          {STAGE_STEPS.map((step, i) => (
-            <span
-              key={step}
-              className={`text-[10px] font-bold uppercase tracking-widest
-                ${i === activeStepIndex ? "text-blue-700" : "text-slate-400"}`}
-            >
-              {step}
-            </span>
-          ))}
-        </div>
       </div>
 
       <p className="text-xs text-slate-400 flex items-center gap-3 flex-wrap">
@@ -409,23 +442,99 @@ const ProjectCard = ({
           <FaCalendarAlt className="text-[10px]" /> Submitted{" "}
           {fmt(item.createdAt)}
         </span>
-        {item.downloads > 0 && (
+        {item.approvalValidUntil && item.status === "approved" && (
           <span className="flex items-center gap-1">
-            <FaDownload className="text-[10px]" /> {item.downloads} downloads
+            Valid until {fmt(item.approvalValidUntil)}
           </span>
+        )}
+        {item.seruNumber && (
+          <span className="font-medium text-slate-500">{item.seruNumber}</span>
         )}
       </p>
 
+      {Array.isArray(item.childSubmissions) && item.childSubmissions.length > 0 && (
+        <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+            Study Lifecycle
+          </p>
+          <div className="space-y-1.5">
+            {item.childSubmissions.map((child) => {
+              const cs =
+                STATUS_CONFIG[resolveStatus(child.status)] ||
+                STATUS_CONFIG.pending;
+              const num = child.continuingReviewNumber || child.amendmentNumber;
+              const crData = child.continuingReviewData || {};
+              const docs = Array.isArray(child.progressFiles)
+                ? child.progressFiles
+                : [];
+              return (
+                <div
+                  key={child.id}
+                  className="rounded-lg border border-transparent hover:border-slate-200 hover:bg-white transition-colors"
+                >
+                  <button
+                    type="button"
+                    onClick={() => onViewProposal(child)}
+                    className="w-full flex items-center justify-between gap-2 text-left px-2.5 py-1.5 cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span className="text-[11px] font-semibold text-slate-700 truncate">
+                        {SUBMISSION_TYPE_LABEL[child.submissionType] || "Submission"}
+                        {num ? ` #${num}` : ""}
+                      </span>
+                      {child.researchId && (
+                        <span className="text-[10px] text-slate-400 shrink-0">
+                          {child.researchId}
+                        </span>
+                      )}
+                      {docs.length > 0 && (
+                        <span className="text-[10px] text-slate-500 shrink-0 inline-flex items-center gap-0.5">
+                          <span aria-hidden>📎</span>
+                          {docs.length}
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${cs.cls}`}
+                    >
+                      {cs.label}
+                    </span>
+                  </button>
+
+                  {(crData.progressSummary || docs.length > 0) && (
+                    <div className="px-2.5 pb-2 -mt-0.5 space-y-1">
+                      {crData.progressSummary && (
+                        <p className="text-[11px] text-slate-500 line-clamp-2">
+                          {crData.progressSummary}
+                        </p>
+                      )}
+                      {docs.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {docs.map((f, i) => (
+                            <a
+                              key={f.key || f.url || i}
+                              href={buildAssetUrl(f.url)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 hover:bg-blue-100 inline-flex items-center gap-1"
+                            >
+                              <span aria-hidden>📎</span>
+                              {f.label || `Document ${i + 1}`}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-2 flex-wrap pt-1 border-t border-slate-50 mt-1">
-        {canSubmitProgress && (
-          <button
-            type="button"
-            onClick={() => onSubmitProgress(item)}
-            className={actionBtnCls("success")}
-          >
-            <FaArrowRight className="text-[10px]" /> Submit Stage Two
-          </button>
-        )}
         {canResubmit && (
           <button
             type="button"
@@ -454,19 +563,21 @@ const ResearcherDashboard = ({ user }) => {
   const [papers, setPapers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
-  const [resubmit, setResubmit] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await research.getMyResearch();
-
-      const rawPapers = Array.isArray(res.papers) ? res.papers : [];
-      console.log(
-        "statuses:",
-        rawPapers.map((p) => ({ title: p.title, status: p.status })),
-      );
-      setPapers(rawPapers);
+      // BUGFIX: same issue as MySubmission.jsx — getMyResearch() only
+      // returns studies this researcher owns, so an invited co-investigator
+      // saw an empty dashboard with no indication anything was missing.
+      const [ownedRes, coInvStudies] = await Promise.all([
+        research.getMyResearch(),
+        research.getCoInvestigatorStudies().catch(() => []),
+      ]);
+      const owned = (Array.isArray(ownedRes.papers) ? ownedRes.papers : [])
+        .map((p) => ({ ...p, myRole: "principal_investigator" }));
+      const coInv = coInvStudies.map((p) => ({ ...p, myRole: "co_investigator" }));
+      setPapers([...owned, ...coInv]);
     } catch {
       notify.error("Failed to load your research submissions");
     } finally {
@@ -497,10 +608,12 @@ const ResearcherDashboard = ({ user }) => {
     navigate(`/research/dashboard/research-progress/${item.id}`);
   const handleViewProposal = (item) =>
     navigate(`/research/dashboard/view/${item.id}`);
+  const handleResubmit = (item) =>
+    navigate(`/research/dashboard/submit-amendment`);
 
   return (
     <div className="space-y-6">
-      <div className="relative bg-blue-700 rounded-2xl p-6 text-white overflow-hidden">
+      <div className="relative bg-blue-700 rounded-2xl p-4 text-white overflow-hidden">
         <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full translate-x-16 -translate-y-16 pointer-events-none" />
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -603,25 +716,12 @@ const ResearcherDashboard = ({ user }) => {
                 item={item}
                 onSubmitProgress={handleProgress}
                 onViewProposal={handleViewProposal}
-                onResubmit={(p) => setResubmit(p)}
+                onResubmit={handleResubmit}
               />
             ))}
           </div>
         )}
       </div>
-
-      {resubmit && (
-        <SlideModal onClose={() => setResubmit(null)}>
-          <ResubmitModal
-            item={resubmit}
-            onClose={() => setResubmit(null)}
-            onResubmitted={() => {
-              setResubmit(null);
-              load();
-            }}
-          />
-        </SlideModal>
-      )}
     </div>
   );
 };

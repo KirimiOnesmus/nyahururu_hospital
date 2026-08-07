@@ -84,10 +84,11 @@ exports.createInventory = async (req, res) => {
       createdBy: req.user?.id,
       updatedBy: req.user?.id,
     });
+      emitChange("inventory", "created", { id: item.id });
 
     res.status(201).json({
       message: "Inventory item created successfully",
-    emitChange("inventory", "created", { id: item.id });
+
       item: newItem,
     });
   } catch (error) {

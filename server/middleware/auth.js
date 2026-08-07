@@ -1,9 +1,11 @@
 const jwt = require("jsonwebtoken");
 
+
+const JWT_VERIFY_OPTIONS = { algorithms: ["HS256"] };
+
 const { User, TokenBlacklist, Researcher } = require("../sequelize/models");
 const { AppError, asyncHandler } = require("../utils/appError");
 const { RESEARCHER_ROLES, RESEARCHER_STATUSES } = require("../constants/researchIndex");
-
 
 
 const extractToken = (req) => {
@@ -13,6 +15,10 @@ const extractToken = (req) => {
   }
   if (req.cookies && req.cookies.jwt) {
     return req.cookies.jwt;
+  }
+  // Support token in query string for file downloads (e.g. PDF viewer)
+  if (req.query && req.query.token) {
+    return req.query.token;
   }
   return null;
 };
@@ -44,6 +50,9 @@ const buildCallerIdentity = (req) => {
 const staffIsAdmin = (req) =>
   !!(req.user && ["admin", "superadmin"].includes(req.user.role));
 
+const staffIsResearchOfficer = (req) =>
+  !!(req.user && ["admin", "superadmin", "research"].includes(req.user.role));
+
 const researcherHasCommitteeAccess = (researcher) =>
   !!researcher &&
   (researcher.role === RESEARCHER_ROLES.RESEARCH_COMMITTEE ||
@@ -56,7 +65,7 @@ exports.verifyToken = asyncHandler(async (req, res, next) => {
   const token = extractToken(req);
   if (!token) throw new AppError("No token provided.", 401);
 
-  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const decoded = jwt.verify(token, process.env.JWT_SECRET, JWT_VERIFY_OPTIONS);
 
   if (decoded.collection === "researchers") {
     throw new AppError("Access denied — researcher token not allowed on staff routes.", 403);
@@ -117,7 +126,7 @@ exports.protectResearcher = asyncHandler(async (req, res, next) => {
   const token = extractToken(req);
   if (!token) throw new AppError("No token provided.", 401);
 
-  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const decoded = jwt.verify(token, process.env.JWT_SECRET, JWT_VERIFY_OPTIONS);
 
  
   if (decoded.collection !== "researchers") {
@@ -157,7 +166,7 @@ exports.authorizeResearcherRoles = (...roles) => (req, res, next) => {
 
 
 exports.protectCommittee = (req, res, next) => {
-  if (staffIsAdmin(req)) return next();
+  if (staffIsResearchOfficer(req)) return next();
 
   if (!req.researcher) {
     return next(new AppError("Authentication required.", 401));
@@ -176,7 +185,7 @@ exports.protectEither = asyncHandler(async (req, res, next) => {
   const token = extractToken(req);
   if (!token) throw new AppError("No token provided.", 401);
 
-  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const decoded = jwt.verify(token, process.env.JWT_SECRET, JWT_VERIFY_OPTIONS);
 
   if (decoded.collection === "researchers") {
     const researcher = await Researcher.findByPk(decoded.id);
@@ -209,7 +218,7 @@ exports.protectReviewers = asyncHandler(async (req, res, next) => {
   const token = extractToken(req);
   if (!token) throw new AppError("No token provided.", 401);
 
-  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const decoded = jwt.verify(token, process.env.JWT_SECRET, JWT_VERIFY_OPTIONS);
 
   if (decoded.collection === "researchers") {
     const researcher = await Researcher.findByPk(decoded.id);
@@ -237,7 +246,7 @@ exports.protectReviewers = asyncHandler(async (req, res, next) => {
     const user = await User.findByPk(decoded.id, { attributes: { exclude: ["password"] } });
     if (!user) throw new AppError("User not found.", 401);
 
-    if (!["admin", "superadmin"].includes(user.role)) {
+    if (!["admin", "superadmin", "research"].includes(user.role)) {
       throw new AppError(
         `Role '${user.role}' does not have review permissions.`,
         403
@@ -257,7 +266,7 @@ exports.optionalResearcher = async (req, res, next) => {
   if (!token) return next();
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, JWT_VERIFY_OPTIONS);
     if (decoded.collection === "researchers") {
       const researcher = await Researcher.findByPk(decoded.id);
       if (researcher && researcher.isActive !== false) {
@@ -274,12 +283,12 @@ exports.optionalResearcher = async (req, res, next) => {
 //RESEARCH ADMIN GUARD
 
 exports.protectResearchAdmin = (req, res, next) => {
-  if (staffIsAdmin(req)) return next();
-  return next(new AppError("Admin access required.", 403));
+  if (staffIsResearchOfficer(req)) return next();
+  return next(new AppError("Research admin access required.", 403));
 };
 
 exports.restrictTo = (...roles) => (req, res, next) => {
-  if (staffIsAdmin(req)) return next();
+  if (staffIsResearchOfficer(req)) return next();
 
   if (!req.researcher) {
     return next(new AppError("Authentication required.", 401));
@@ -306,7 +315,8 @@ exports.getCallerName = (req) => {
 
 exports.getCallerIdentity = (req) => buildCallerIdentity(req);
 
-exports.isResearchAdmin = (req) => staffIsAdmin(req);
+
+exports.isResearchAdmin = (req) => staffIsResearchOfficer(req);
 
 exports.hasCommitteeAccess = (req) =>
-  staffIsAdmin(req) || researcherHasCommitteeAccess(req.researcher);
+  staffIsResearchOfficer(req) || researcherHasCommitteeAccess(req.researcher);

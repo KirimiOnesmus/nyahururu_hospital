@@ -16,7 +16,7 @@ const Footer = () => {
     { label: "Careers", path: "/careers" },
     // { label: "Tenders", path: "/tenders" },
     { label: "Downloads", path: "/downloads" },
-    // { label: "Research", path: "/research" },
+    { label: "Research", path: "/research" },
     {label:"Gallery" , path:"/gallery"}
   ];
 
@@ -37,6 +37,7 @@ const Footer = () => {
     { label: "Laikipia County Government", path: "https://laikipia.go.ke/" },
     { label: "Social Health Authority", path: "https://sha.go.ke/" },
     { label: "Kenya Medical Training College", path: "https://kmtc.ac.ke/" },
+    {label:"Laikipia University", path:"https://www.laikipia.ac.ke/"}
   ];
 
   return (

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
 import notify from "../../../common/utils/notify";
 import {
@@ -16,18 +16,22 @@ import {
   FaShieldAlt,
   FaFlask,
 } from "react-icons/fa";
+import { RiArrowDownDoubleFill } from "react-icons/ri";
+
 import * as research from "../../../api/research";
 
 const STAGE_LABELS = {
-  proposal: "Proposal",
-  progress: "Progress",
-  final_paper: "Final Paper",
+  initial_proposal: "Proposal",
+  amendment: "Amendment",
+  continuing_review: "Continuing Review",
+  study_closure: "Study Closure",
 };
 
 const STAGE_COLORS = {
-  proposal: "bg-blue-100 text-blue-700 border-blue-200",
-  progress: "bg-amber-100 text-amber-700 border-amber-200",
-  final_paper: "bg-green-100 text-green-700 border-green-200",
+  initial_proposal: "bg-blue-100 text-blue-700 border-blue-200",
+  amendment: "bg-amber-100 text-amber-700 border-amber-200",
+  continuing_review: "bg-teal-100 text-teal-700 border-teal-200",
+  study_closure: "bg-red-100 text-red-700 border-red-200",
 };
 
 const PRIORITY_CONFIG = {
@@ -132,6 +136,53 @@ const PriorityBadge = ({ priority }) => {
   );
 };
 
+const ReviewChildRow = ({ child, onReview, navigate }) => {
+  const num = child.continuingReviewNumber || child.amendmentNumber;
+  const isCompleted = ["approved", "rejected", "suspended", "revision_requested"].includes(
+    child.status
+  );
+  return (
+    <tr className="border-b border-slate-100 bg-slate-50/40 hover:bg-slate-50 transition-colors">
+      <td className="px-6 py-2 pl-9 max-w-sm">
+        <p className="text-[11px] font-bold text-indigo-600 border-l-2 border-slate-200 pl-2">
+          {child.researchId || "—"}
+        </p>
+        <p className="text-[11px] text-slate-500 pl-2">
+          ↳ {STAGE_LABELS[child.submissionType] || child.submissionType}
+          {num ? ` #${num}` : ""}
+        </p>
+      </td>
+      <td className="px-6 py-2">
+        <span
+          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${STAGE_COLORS[child.submissionType] || "bg-slate-100 text-slate-600 border-slate-200"}`}
+        >
+          {STAGE_LABELS[child.submissionType] || child.submissionType}
+        </span>
+      </td>
+      <td className="px-6 py-2" />
+      <td className="px-6 py-2 whitespace-nowrap">
+        <DeadlineCell deadline={child.reviewDeadline || child.deadline} />
+      </td>
+      <td className="px-6 py-2">
+        <PriorityBadge priority={child.priority} />
+      </td>
+      <td className="px-6 py-2 text-right">
+        <button
+          type="button"
+          onClick={() =>
+            isCompleted
+              ? navigate(`/research/dashboard/review/${child.id}?mode=edit`)
+              : onReview(child)
+          }
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-[11px] font-bold transition-colors cursor-pointer whitespace-nowrap ${isCompleted ? "bg-slate-700 hover:bg-slate-800" : "bg-indigo-600 hover:bg-indigo-700"}`}
+        >
+          <FaShieldAlt className="text-[10px]" /> {isCompleted ? "View Review" : "Start Review"}
+        </button>
+      </td>
+    </tr>
+  );
+};
+
 const ReviewQueue = () => {
   const navigate = useNavigate();
 
@@ -176,10 +227,7 @@ const ReviewQueue = () => {
   const byTab = useMemo(() => {
     switch (tab) {
       case "pending":
-        return items.filter(
-          // (i) => i.status === "pending" && !i.draftReviewStartedAt,
-          (i) => i.status === "under_review" && !i.draftReviewStartedAt
-        );
+        return items.filter((i) => i.status === "under_review" && !i.draftReviewStartedAt);
       case "inProgress":
         return items.filter((i) => i.status === "under_review" && !!i.draftReviewStartedAt);
       case "completed":
@@ -189,8 +237,22 @@ const ReviewQueue = () => {
     }
   }, [items, tab]);
 
+  const grouped = useMemo(() => {
+    const byId = new Map();
+    byTab.forEach((p) => byId.set(p.id, { ...p, childSubmissions: [] }));
+    const top = [];
+    for (const p of byId.values()) {
+      if (p.parentResearchId && byId.has(p.parentResearchId)) {
+        byId.get(p.parentResearchId).childSubmissions.push(p);
+      } else {
+        top.push(p);
+      }
+    }
+    return top;
+  }, [byTab]);
+
   const sorted = useMemo(() => {
-    const list = [...byTab];
+    const list = [...grouped];
     if (sort === "deadline") {
       list.sort((a, b) => new Date(a.deadline || 0) - new Date(b.deadline || 0));
     } else if (sort === "assigned") {
@@ -200,7 +262,7 @@ const ReviewQueue = () => {
       list.sort((a, b) => (rank[a.priority] ?? 3) - (rank[b.priority] ?? 3));
     }
     return list;
-  }, [byTab, sort]);
+  }, [grouped, sort]);
 
   useEffect(() => {
     setPage(1);
@@ -210,11 +272,13 @@ const ReviewQueue = () => {
   const pageItems = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const stats = useMemo(() => {
+    const studyKey = (i) => i.parentResearchId || i.id;
+    const distinct = (list) => new Set(list.map(studyKey)).size;
     const pending = items.filter((i) =>
       ["under_review", "pending", "revision_requested"].includes(i.status)
     );
     const decided = items.filter((i) => ["approved", "rejected", "suspended"].includes(i.status));
-    const revisionsSent = items.filter((i) => i.status === "revision_requested").length;
+    const revisionsSent = distinct(items.filter((i) => i.status === "revision_requested"));
     const withDates = decided.filter((i) => i.assignedAt && i.reviewedAt);
     const avgTurnaround = withDates.length
       ? (
@@ -226,14 +290,22 @@ const ReviewQueue = () => {
         ).toFixed(1)
       : null;
     return {
-      total: items.length,
-      pending: pending.length,
+      total: distinct(items),
+      pending: distinct(pending),
       revisionsSent,
       avgTurnaround,
     };
   }, [items]);
 
   const handleReview = (item) => navigate(`/research/dashboard/review/${item.id}`);
+
+  const [expandedRows, setExpandedRows] = useState(() => new Set());
+  const toggleRow = (id) =>
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
   return (
     <div className="space-y-6">
@@ -375,89 +447,151 @@ const ReviewQueue = () => {
                   {pageItems.map((item) => {
                     const overdue = item.deadline && daysUntil(item.deadline) < 0;
                     return (
-                      <tr
-                        key={item.id}
-                        className={`border-b border-slate-100 last:border-0 transition-colors
+                      <Fragment key={item.id}>
+                        <tr
+                          className={`border-b border-slate-100 last:border-0 transition-colors
                           ${overdue ? "bg-red-50/40 hover:bg-red-50/70" : "hover:bg-slate-50/60"}`}
-                      >
-                        <td className="px-6 py-4 max-w-sm">
-                          <p className="text-xs font-bold text-indigo-700">
-                            {item.researchId || "—"}
-                          </p>
-                          <p className="text-sm font-semibold text-slate-900 leading-snug mt-0.5">
-                            {item.title}
-                          </p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`text-xs font-semibold px-2.5 py-1 rounded-full border
-                            ${STAGE_COLORS[item.stage] || "bg-slate-100 text-slate-600 border-slate-200"}`}
-                          >
-                            {STAGE_LABELS[item.stage] || item.stage}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700
-                              text-[10px] font-bold flex items-center justify-center shrink-0"
-                            >
-                              {(item.researcher?.name || "—")
-                                .split(" ")
-                                .map((n) => n[0])
-                                .join("")
-                                .slice(0, 2)
-                                .toUpperCase()}
-                            </div>
-                            <span className="text-sm text-slate-700 whitespace-nowrap">
-                              {item.researcher?.name || "—"}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <DeadlineCell deadline={item.reviewDeadline || item.deadline} />
-                        </td>
-                        <td className="px-6 py-4">
-                          <PriorityBadge priority={item.priority} />
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          {(() => {
-                            const isCompleted = [
-                              "approved",
-                              "rejected",
-                              "suspended",
-                              "revision_requested",
-                            ].includes(item.status);
-                            return (
-                              <div className="flex items-center justify-end gap-2">
-                                {isCompleted ? (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      navigate(`/research/dashboard/review/${item.id}?mode=edit`)
-                                    }
-                                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-700
-              hover:bg-slate-800 text-white text-xs font-bold transition-colors
-              cursor-pointer whitespace-nowrap"
+                        >
+                          <td className="px-6 py-4 max-w-0 w-72">
+                            <div className="flex items-start gap-2 min-w-0">
+                              {(item.childSubmissions || []).length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleRow(item.id)}
+                                  aria-label={expandedRows.has(item.id) ? "Collapse" : "Expand"}
+                                  className="mt-0.5 w-5 h-5 shrink-0 flex items-center justify-center rounded
+          text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 cursor-pointer"
+                                >
+                                  <span
+                                    className={`inline-block text-[20px] transition-transform
+            ${expandedRows.has(item.id) ? "rotate-90" : ""}`}
                                   >
-                                    <FaShieldAlt className="text-xs" /> View Review
-                                  </button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleReview(item)}
-                                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600
-              hover:bg-indigo-700 text-white text-xs font-bold transition-colors
-              cursor-pointer whitespace-nowrap"
+                                    <RiArrowDownDoubleFill />
+                                  </span>
+                                </button>
+                              )}
+
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-indigo-700">
+                                  {item.researchId || "—"}
+                                </p>
+
+                                <p
+                                  className="text-sm font-semibold text-slate-900 leading-snug mt-0.5 truncate"
+                                  title={item.title}
+                                >
+                                  {item.title}
+                                  {(item.childSubmissions || []).length > 0 && (
+                                    <span
+                                      className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full
+            bg-slate-100 text-slate-500 text-[10px] font-semibold align-middle"
+                                    >
+                                      {(item.childSubmissions || []).length + 1} submissions
+                                    </span>
+                                  )}
+                                </p>
+
+                                {(item.resubmissionCount || 0) > 0 && (
+                                  <span
+                                    className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold
+          px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200"
                                   >
-                                    <FaShieldAlt className="text-xs" /> Start Review
-                                  </button>
+                                    Round {(item.resubmissionCount || 0) + 1}
+                                  </span>
+                                )}
+
+                                {item.parentSummary && (
+                                  <p className="text-[10px] text-slate-400 mt-1">
+                                    part of{" "}
+                                    {item.parentSummary.researchId ||
+                                      item.parentSummary.seruNumber ||
+                                      "parent study"}
+                                  </p>
                                 )}
                               </div>
-                            );
-                          })()}
-                        </td>
-                      </tr>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`text-xs font-semibold px-2.5 py-1 rounded-full border
+                            ${STAGE_COLORS[item.submissionType] || "bg-slate-100 text-slate-600 border-slate-200"}`}
+                            >
+                              {STAGE_LABELS[item.submissionType] || item.submissionType}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 max-w-0 w-48">
+                            {" "}
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div
+                                className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700
+      text-[10px] font-bold flex items-center justify-center shrink-0"
+                              >
+                                {(item.researcher?.name || "—")
+                                  .split(" ")
+                                  .map((n) => n[0])
+                                  .join("")
+                                  .slice(0, 2)
+                                  .toUpperCase()}
+                              </div>
+                              <span className="text-sm text-slate-700 truncate">
+                                {item.researcher?.name || "—"}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <DeadlineCell deadline={item.reviewDeadline || item.deadline} />
+                          </td>
+                          <td className="px-6 py-4">
+                            <PriorityBadge priority={item.priority} />
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            {(() => {
+                              const isCompleted = [
+                                "approved",
+                                "rejected",
+                                "suspended",
+                                "revision_requested",
+                              ].includes(item.status);
+                              return (
+                                <div className="flex items-center justify-end gap-2">
+                                  {isCompleted ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        navigate(`/research/dashboard/review/${item.id}?mode=edit`)
+                                      }
+                                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-700
+              hover:bg-slate-800 text-white text-xs font-bold transition-colors
+              cursor-pointer whitespace-nowrap"
+                                    >
+                                      <FaShieldAlt className="text-xs" /> View Review
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleReview(item)}
+                                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600
+              hover:bg-indigo-700 text-white text-xs font-bold transition-colors
+              cursor-pointer whitespace-nowrap"
+                                    >
+                                      <FaShieldAlt className="text-xs" /> Start Review
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </td>
+                        </tr>
+                        {expandedRows.has(item.id) &&
+                          (item.childSubmissions || []).map((child) => (
+                            <ReviewChildRow
+                              key={child.id}
+                              child={child}
+                              onReview={handleReview}
+                              navigate={navigate}
+                            />
+                          ))}
+                      </Fragment>
                     );
                   })}
                 </tbody>

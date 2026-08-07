@@ -115,7 +115,7 @@ const STAT_DEFINITIONS = [
     fetch: async () => {
    
       const res = await api.get("/research/admin/stats");
-      return res.data?.data?.stats?.totalResearch ?? 0;
+      return res.data?.data?.stats?.research?.total ?? 0;
     },
   },
   {

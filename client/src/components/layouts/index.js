@@ -5,3 +5,5 @@ export { default as Management } from "./Management";
 export { default as News } from "./News";
 export { default as GeneralDashboard } from "./GeneralDashboard";
 export { default as EventOverlay } from "./EventOverlay";
+export { default as QuickActions } from "./QuickActions";
+export { default as WelcomeIntro } from "./WelcomeIntro";

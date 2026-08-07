@@ -255,6 +255,9 @@ module.exports = (sequelize, DataTypes) => {
     if (models.Research) {
       Researcher.hasMany(models.Research, { foreignKey: "researcherId", as: "researchProjects" });
     }
+    if (models.CoInvestigatorAssignment) {
+      Researcher.hasMany(models.CoInvestigatorAssignment, { foreignKey: "researcherId", as: "coInvestigatorStudies" });
+    }
   };
 
   return Researcher;

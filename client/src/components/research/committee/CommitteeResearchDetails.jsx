@@ -28,73 +28,51 @@ import {
   FaClipboardCheck,
 } from "react-icons/fa";
 import * as research from "../../../api/research";
-import { API_BASE_URL } from "../../../config/env";
+import RevisionComparison from "../RevisionComparison";
+import { API_BASE_URL, ASSET_BASE_URL } from "../../../config/env";
 
 const LIFECYCLE_STAGES = [
-  { id: "proposal", label: "Stage 1", sublabel: "Proposal" },
-  { id: "progress", label: "Stage 2", sublabel: "Progress" },
-  { id: "final_paper", label: "Stage 3", sublabel: "Final Paper" },
-  { id: "committee", label: "Stage 4", sublabel: "Committee" },
-  { id: "decision", label: "Decision", sublabel: "Sign-off" },
+  { id: "proposal", label: "Submission", sublabel: "Protocol" },
+  { id: "review", label: "Review", sublabel: "Reviewers" },
+  { id: "committee", label: "Committee", sublabel: "Decision" },
+  { id: "decision", label: "Outcome", sublabel: "Sign-off" },
 ];
 
 const STAGE_IDS = LIFECYCLE_STAGES.map((s) => s.id);
 
 const STATUS_TO_STAGE_INDEX = {
-  pending: 0,
-  pending_proposal_review: 0,
+  draft: 0,
+  awaiting_payment: 0,
+  submitted: 0,
   under_review: 1,
-  progress_review: 1,
-  pending_progress_review: 1,
-  final_paper: 2,
-  final_review: 2,
-  pending_final_review: 2,
-  committee_review: 3,
-  pending_committee_review: 3,
-  awaiting_sign_off: 3,
-  approved: 4,
-  published: 4,
-  rejected: 4,
+  revision_requested: 1,
+  pending_committee_review: 2,
+  approved: 3,
+  rejected: 3,
+  expired: 3,
+  closed: 3,
+  suspended: 1,
+};
+
+const TYPE_LABELS = {
+  initial_proposal: "Initial Proposal",
+  amendment: "Amendment",
+  continuing_review: "Continuing Review",
+  study_closure: "Study Closure",
 };
 
 const STATUS_CONFIG = {
-  pending_proposal_review: {
-    label: "Pending Proposal Review",
-    cls: "bg-slate-100 text-slate-600  border-slate-200",
-  },
-  pending_progress_review: {
-    label: "Pending Progress Review",
-    cls: "bg-blue-50   text-blue-700   border-blue-200",
-  },
-  pending_final_review: {
-    label: "Pending Final Review",
-    cls: "bg-blue-50   text-blue-700   border-blue-200",
-  },
-  pending_committee_review: {
-    label: "Pending Committee Review",
-    cls: "bg-indigo-50 text-indigo-700 border-indigo-200",
-  },
-  committee_review: {
-    label: "Under Committee Review",
-    cls: "bg-indigo-50 text-indigo-700 border-indigo-200",
-  },
-  awaiting_sign_off: {
-    label: "Awaiting Sign-off",
-    cls: "bg-amber-50  text-amber-700  border-amber-200",
-  },
-  approved: {
-    label: "Committee Approved",
-    cls: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    icon: FaCheckCircle,
-  },
-  published: { label: "Published", cls: "bg-teal-50   text-teal-700   border-teal-200" },
-  rejected: { label: "Rejected", cls: "bg-red-50    text-red-700    border-red-200" },
-  pending: { label: "Pending Review", cls: "bg-slate-100 text-slate-600  border-slate-200" },
-  under_review: { label: "Under Review", cls: "bg-blue-50   text-blue-700   border-blue-200" },
-  revision_requested: {
-    label: "Revision Requested",
-    cls: "bg-orange-50 text-orange-700 border-orange-200",
-  },
+  draft: { label: "Draft", cls: "bg-slate-100 text-slate-600 border-slate-200" },
+  awaiting_payment: { label: "Awaiting Payment", cls: "bg-amber-50 text-amber-700 border-amber-200" },
+  submitted: { label: "Submitted", cls: "bg-slate-100 text-slate-600 border-slate-200" },
+  under_review: { label: "Under Review", cls: "bg-blue-50 text-blue-700 border-blue-200" },
+  pending_committee_review: { label: "With Committee", cls: "bg-indigo-50 text-indigo-700 border-indigo-200" },
+  revision_requested: { label: "Revision Requested", cls: "bg-orange-50 text-orange-700 border-orange-200" },
+  approved: { label: "Approved", cls: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: FaCheckCircle },
+  rejected: { label: "Rejected", cls: "bg-red-50 text-red-700 border-red-200" },
+  expired: { label: "Expired", cls: "bg-orange-50 text-orange-700 border-orange-200" },
+  closed: { label: "Closed", cls: "bg-slate-50 text-slate-700 border-slate-200" },
+  suspended: { label: "Suspended", cls: "bg-red-50 text-red-700 border-red-200" },
 };
 
 const primaryBtn =
@@ -135,6 +113,64 @@ const toArray = (v) => {
     .map((s) => s.replace(/^\d+[.)]\s*/, ""));
 };
 
+// The review-history endpoint returns each review's rubric under `criteria`
+// (see sequelize/models/review.js). Some records may carry a `scores` key
+// instead, so we accept either without caring which one is present.
+const getReviewCriteria = (rv) => {
+  const c = rv?.scores || rv?.criteria;
+  return c && typeof c === "object" ? c : null;
+};
+
+const averageOf = (values) =>
+  values.length
+    ? Number((values.reduce((sum, v) => sum + v, 0) / values.length).toFixed(1))
+    : null;
+
+// A single reviewer's average across their submitted rubric — criteria are
+// validated 0–10 on the backend (see validateCriteria in researchService.js).
+const criteriaAverage = (rv) => {
+  const criteria = getReviewCriteria(rv);
+  if (!criteria) return null;
+  const values = Object.values(criteria).filter(
+    (v) => typeof v === "number" && !Number.isNaN(v),
+  );
+  return averageOf(values);
+};
+
+// Shared by both the current-stage reviews and, when this record is a
+// continuing review, the original proposal's own reviews — so the committee
+// can compare the two aggregates side by side. `fallback` supplies the
+// legacy single stored score/criteria fields if no rubric rows exist yet.
+const buildAggregate = (reviewsList = [], fallback = {}) => {
+  const scores = reviewsList.map((rv) => criteriaAverage(rv)).filter((v) => v !== null);
+  const avg = scores.length ? averageOf(scores) : (fallback.aggregateScore ?? fallback.avgScore ?? null);
+  const scoredCount = scores.length;
+
+  const aggregatedScores = (() => {
+    if (reviewsList.length === 0) return fallback.scores || null;
+    const keys = new Set(
+      reviewsList.flatMap((rv) => Object.keys(getReviewCriteria(rv) || {})),
+    );
+    if (keys.size === 0) return fallback.scores || null;
+    const totals = {};
+    keys.forEach((k) => {
+      totals[k] = 0;
+    });
+    reviewsList.forEach((rv) => {
+      Object.entries(getReviewCriteria(rv) || {}).forEach(([k, v]) => {
+        totals[k] = (totals[k] || 0) + Number(v);
+      });
+    });
+    const result = {};
+    keys.forEach((k) => {
+      result[k] = totals[k] / reviewsList.length;
+    });
+    return result;
+  })();
+
+  return { avg, scoredCount, aggregatedScores };
+};
+
 //  Building blocks
 const PageSpinner = ({ label = "Loading…" }) => (
   <div className="flex flex-col items-center justify-center py-24 gap-3">
@@ -161,6 +197,8 @@ const MetaItem = ({ icon: Icon, value }) =>
     </span>
   ) : null;
 
+// value is on a 0–5 scale here (criteria averages are converted before
+// being passed in, since the underlying rubric is scored 0–10).
 const StarRating = ({ value }) => {
   const stars = [1, 2, 3, 4, 5];
   return (
@@ -251,9 +289,20 @@ const LifecycleTracker = ({ status, activeStage, onStageClick }) => {
   );
 };
 
+const withToken = (rawUrl) => {
+  if (!rawUrl) return rawUrl;
+  const token = localStorage.getItem("token");
+  const base = rawUrl.startsWith("http") ? rawUrl : `${ASSET_BASE_URL}${rawUrl.startsWith("/") ? "" : "/"}${rawUrl}`;
+  if (token && base.includes("/uploads/")) {
+    return `${base}${base.includes("?") ? "&" : "?"}token=${token}`;
+  }
+  return base;
+};
+
 const DocumentRow = ({ label, url, stageLabel }) => {
   if (!url) return null;
   const filename = url.split("/").pop() || label;
+  const authUrl = withToken(url);
   return (
     <div className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
       <div className="flex items-center gap-3 min-w-0">
@@ -267,7 +316,7 @@ const DocumentRow = ({ label, url, stageLabel }) => {
       </div>
       <div className="flex items-center gap-1 shrink-0 ml-3">
         <a
-          href={url}
+          href={authUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
@@ -276,7 +325,7 @@ const DocumentRow = ({ label, url, stageLabel }) => {
           <FaExternalLinkAlt className="text-xs" />
         </a>
         <a
-          href={url}
+          href={authUrl}
           download={filename}
           className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
           aria-label={`Download ${label}`}
@@ -306,6 +355,15 @@ const ReviewerCard = ({ review, index }) => {
   const email = review.reviewer?.email;
   const recommendation = review.recommendation || review.decision;
   const isApprove = ["approved", "highly_recommended", "approve"].includes(recommendation);
+  const criteria = getReviewCriteria(review);
+  // Criteria are scored 0–10 on the backend; the star widget is a 0–5
+  // scale, so convert rather than feeding the raw 0–10 average straight in.
+  const starValue =
+    review.overallScore != null
+      ? review.overallScore
+      : criteriaAverage(review) != null
+        ? criteriaAverage(review) / 2
+        : null;
 
   return (
     <div className="border-l-2 border-blue-900 bg-slate-50/60 rounded-r-xl pl-4 pr-4 py-4">
@@ -323,7 +381,7 @@ const ReviewerCard = ({ review, index }) => {
           </div>
         </div>
         <div className="flex flex-col items-end gap-1.5">
-          {review.overallScore != null && <StarRating value={review.overallScore} />}
+          {starValue != null && <StarRating value={starValue} />}
           {recommendation && (
             <span
               className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border
@@ -339,9 +397,9 @@ const ReviewerCard = ({ review, index }) => {
         </div>
       </div>
 
-      {review.scores && Object.keys(review.scores).length > 0 && (
+      {criteria && Object.keys(criteria).length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-          {Object.entries(review.scores).map(([key, val]) => (
+          {Object.entries(criteria).map(([key, val]) => (
             <div
               key={key}
               className="bg-white rounded-lg border border-slate-200 px-3 py-2 text-center"
@@ -372,6 +430,35 @@ const AuditEntry = ({ text, time }) => (
       <p className="text-xs text-slate-400">{time}</p>
     </div>
   </div>
+);
+
+// Toggles between the original proposal and the current continuing-review
+// stage when a submission has a parent study, so the committee can flip
+// between "what was approved" and "what's being reported now" without
+// losing their place on the page.
+const TabButton = ({ active, onClick, icon: Icon, label, sub }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-pressed={active}
+    className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors cursor-pointer
+      ${active ? "bg-blue-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}
+  >
+    <span
+      className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0
+        ${active ? "bg-white/15" : "bg-slate-100"}`}
+    >
+      <Icon className={`text-sm ${active ? "text-white" : "text-slate-500"}`} />
+    </span>
+    <span className="min-w-0">
+      <span className={`block text-sm font-bold truncate ${active ? "text-white" : "text-slate-800"}`}>
+        {label}
+      </span>
+      <span className={`block text-xs truncate ${active ? "text-blue-100" : "text-slate-400"}`}>
+        {sub}
+      </span>
+    </span>
+  </button>
 );
 
 const ProposalPanel = ({ r }) => (
@@ -469,35 +556,48 @@ const ProposalPanel = ({ r }) => (
   </>
 );
 
+// A continuing review's own row leaves the proposal fields (abstract,
+// background, objectives, …) NULL — that content lives on the parent study.
+// Its actual written content is the progress-report narrative, which the
+// backend flattens onto `continuingReviewData` (see stageDetailToLegacy in
+// researchService.js), together with `progressFiles` for the uploaded
+// supporting documents. This mirrors the shape the reviewer-facing
+// SubmissionContentTab already renders (Reviewsubmission.jsx), so the
+// committee sees the same content the reviewers scored.
 const ProgressPanel = ({ r }) => {
-  const pd = r.progressData || {};
-  const progressFields = [
-    { label: "Study Design", value: pd.studyDesign },
-    { label: "Sampling Method", value: pd.samplingMethod },
-    { label: "Sample Size (Target)", value: pd.sampleSizeTarget },
-    { label: "Sample Size (Achieved)", value: pd.sampleSizeAchieved },
-    { label: "Statistical Methods", value: pd.statisticalMethods },
-    { label: "Analysis Tools", value: pd.analysisTools },
+  const cr = r.continuingReviewData || {};
+
+  const metrics = [
+    { label: "Participants Enrolled", value: cr.participantsEnrolled },
+    { label: "Participants Continuing", value: cr.participantsContinuing },
   ].filter((f) => f.value != null && f.value !== "");
 
-  const progressNarrative = [
-    { label: "Preliminary Findings", value: pd.preliminaryFindings },
-    { label: "Deviations from Protocol", value: pd.deviationsFromProtocol },
-    { label: "Ethical Incidents", value: pd.ethicalIncidents },
-    { label: "Methodology Notes", value: pd.methodology },
+  const narrative = [
+    { label: "Progress Summary", value: cr.progressSummary },
+    { label: "Adverse Events", value: cr.adverseEvents },
+    { label: "Amendments During Period", value: cr.amendments },
+    { label: "Constraints", value: cr.constraints },
+    { label: "Plans For Next Year", value: cr.plansForNextYear },
   ].filter((f) => f.value);
 
   const progressFiles = Array.isArray(r.progressFiles) ? r.progressFiles : [];
 
   return (
     <>
-      {(progressFields.length > 0 || progressNarrative.length > 0) && (
+      {(metrics.length > 0 || narrative.length > 0) && (
         <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
-          <h2 className="font-bold text-slate-900 text-base">Progress Report</h2>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h2 className="font-bold text-slate-900 text-base">Progress Report</h2>
+            {cr.isLastYear && (
+              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide border bg-purple-50 text-purple-700 border-purple-200">
+                Final Year Report
+              </span>
+            )}
+          </div>
 
-          {progressFields.length > 0 && (
+          {metrics.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {progressFields.map(({ label, value }) => (
+              {metrics.map(({ label, value }) => (
                 <div
                   key={label}
                   className="bg-slate-50 rounded-xl border border-slate-200 px-3 py-2"
@@ -511,35 +611,35 @@ const ProgressPanel = ({ r }) => {
             </div>
           )}
 
-          {progressNarrative.map(({ label, value }) => (
+          {narrative.map(({ label, value }) => (
             <div key={label}>
               <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">
                 {label}
               </p>
-              <p className="text-sm text-slate-700 leading-relaxed">{value}</p>
+              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{value}</p>
             </div>
           ))}
 
-          {pd.submittedAt && (
+          {cr.submittedAt && (
             <p className="text-xs text-slate-400 pt-1 border-t border-slate-100">
-              Submitted {fmtDate(pd.submittedAt)}
+              Submitted {fmtDate(cr.submittedAt)}
             </p>
           )}
         </div>
       )}
 
       <div className="bg-white rounded-2xl border border-slate-200 p-6">
-        <h2 className="font-bold text-slate-900 text-base mb-4">Progress Documents</h2>
+        <h2 className="font-bold text-slate-900 text-base mb-4">Progress Report Documents</h2>
         {progressFiles.length === 0 ? (
           <EmptyState
             icon={FaFileAlt}
-            title="No progress report uploaded"
-            sub="The researcher has not yet submitted a progress report."
+            title="No progress report documents uploaded"
+            sub="The researcher has not yet submitted supporting files for this continuing review."
           />
         ) : (
           progressFiles.map((f, i) => (
             <DocumentRow
-              key={f.id || i}
+              key={f.id || f.url || i}
               label={
                 f.label
                   ? f.label
@@ -548,7 +648,7 @@ const ProgressPanel = ({ r }) => {
                   : `Progress File ${i + 1}`
               }
               url={f.url}
-              stageLabel="Stage 2 · Progress"
+              stageLabel="Continuing Review"
             />
           ))
         )}
@@ -691,10 +791,17 @@ const FinalPaperPanel = ({ r }) => {
   );
 };
 
-const CommitteePanel = ({ r, reviews, computedAvg, aggregatedScores }) => (
+const CommitteePanel = ({
+  r,
+  reviews,
+  computedAvg,
+  aggregatedScores,
+  scoredReviewerCount,
+  title = "Peer Review Evaluations",
+}) => (
   <div className="bg-white rounded-2xl border border-slate-200 p-6">
     <div className="flex items-start justify-between gap-4 mb-5">
-      <h2 className="font-bold text-slate-900 text-base">Peer Review Evaluations</h2>
+      <h2 className="font-bold text-slate-900 text-base">{title}</h2>
       {computedAvg != null && (
         <div className="text-right shrink-0">
           <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
@@ -702,8 +809,13 @@ const CommitteePanel = ({ r, reviews, computedAvg, aggregatedScores }) => (
           </p>
           <p className="text-2xl font-bold text-blue-900">
             {Number(computedAvg).toFixed(1)}
-            <span className="text-sm text-slate-400">/5</span>
+            <span className="text-sm text-slate-400">/10.0</span>
           </p>
+          {scoredReviewerCount > 0 && (
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              From {scoredReviewerCount} reviewer{scoredReviewerCount > 1 ? "s" : ""}
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -754,13 +866,12 @@ const DecisionPanel = ({
   r,
   decisionMade,
   decisionLoading,
-  onApprove,
-  onReject,
   noteToCommittee,
+  goToSignOff,
 }) => {
   const rawStatus = r.status || "pending";
-  const isCommitteeStage = STATUS_TO_STAGE_INDEX[rawStatus] === 3;
-  const isApproved = ["approved", "published"].includes(rawStatus);
+  const isCommitteeStage = rawStatus === "pending_committee_review";
+  const isApproved = ["approved", "closed"].includes(rawStatus);
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
@@ -793,22 +904,13 @@ const DecisionPanel = ({
             </div>
           )}
           <div className="flex flex-col gap-3">
-            <button type="button" className={primaryBtn} onClick={onApprove}>
-              <FaCheck className="text-xs" />
-              Sign Off & Approve
-            </button>
             <button
               type="button"
-              className={dangerOutlineBtn}
+              className={primaryBtn}
               disabled={decisionLoading}
-              onClick={onReject}
+              onClick={goToSignOff}
             >
-              {decisionLoading ? (
-                <FaSpinner className="animate-spin text-xs" />
-              ) : (
-                <FaTimes className="text-xs" />
-              )}
-              Request Revisions
+              Sign Off & Approve
             </button>
           </div>
         </>
@@ -817,7 +919,7 @@ const DecisionPanel = ({
       {!decisionMade && isApproved && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3.5 flex items-start gap-3 text-sm text-emerald-800">
           <FaCheckCircle className="text-emerald-500 shrink-0 mt-0.5" />
-          <p>Signed off by the committee{r.publishedAt ? ` on ${fmtDate(r.publishedAt)}` : ""}.</p>
+          <p>Signed off by the committee{r.approvedAt ? ` on ${fmtDate(r.approvedAt)}` : ""}.</p>
         </div>
       )}
 
@@ -839,11 +941,13 @@ const CommitteeResearchDetails = () => {
 
   const [detail, setDetail] = useState(null);
   const [reviews, setReviews] = useState([]);
+  const [parentReviews, setParentReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [decisionMade, setDecisionMade] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const [activeStage, setActiveStage] = useState(null);
+  const [detailTab, setDetailTab] = useState("progress");
 
   const load = useCallback(async () => {
     const recordId = id || recordProp?.id;
@@ -862,12 +966,28 @@ const CommitteeResearchDetails = () => {
       setDetail(paper);
       setReviews(Array.isArray(reviewHistory) ? reviewHistory : (reviewHistory?.reviews ?? []));
 
+      // A continuing review (or amendment / closure) carries a parent study
+      // (`parentResearchId`, flattened by the backend into `parentSummary`
+      // on the detail payload). Pull that study's own peer-review history
+      // too, so the committee can compare "what was originally approved"
+      // against "what's being reported now" — not just the progress data.
+      if (paper?.parentResearchId) {
+        const parentHistory = await research
+          .getReviewHistory(paper.parentResearchId)
+          .catch(() => []);
+        setParentReviews(
+          Array.isArray(parentHistory) ? parentHistory : (parentHistory?.reviews ?? []),
+        );
+      } else {
+        setParentReviews([]);
+      }
+
       if (
         paper?.committeeReviewedBy ||
-        ["approved", "rejected", "published"].includes(paper?.status)
+        ["approved", "rejected", "closed"].includes(paper?.status)
       ) {
         if (paper.status === "rejected") setDecisionMade("rejected");
-        else if (["approved", "published"].includes(paper.status)) setDecisionMade("approved");
+        else if (["approved", "closed"].includes(paper.status)) setDecisionMade("approved");
       }
     } catch {
       notify.error("Failed to load research details");
@@ -887,6 +1007,13 @@ const CommitteeResearchDetails = () => {
     }
   }, [detail, activeStage]);
 
+  // Default back to the progress-report tab whenever a different record is
+  // loaded, so switching between queue items never leaves the committee
+  // stranded on the previous record's "Original Proposal" tab.
+  useEffect(() => {
+    setDetailTab("progress");
+  }, [detail?.id]);
+
   const goToSignOff = () => {
     const rid = detail?.id;
     if (!rid) return;
@@ -898,7 +1025,7 @@ const CommitteeResearchDetails = () => {
     if (!rid) return;
     setDecisionLoading(true);
     try {
-      await research.submitCommitteeDecision(rid, { decision });
+      await research.submitCommitteeReview(rid, { decision, comment: `Committee ${decision}` });
       setDecisionMade(decision);
       notify.success("Revision request recorded");
     } catch {
@@ -908,7 +1035,7 @@ const CommitteeResearchDetails = () => {
     }
   };
 
-  //
+  
   const handleDownloadAll = async () => {
     const rid = detail?.id;
     if (!rid) return;
@@ -951,8 +1078,27 @@ const CommitteeResearchDetails = () => {
   r.coInvestigators = Array.isArray(r.coInvestigators) ? r.coInvestigators : [];
 
   const rawStatus = r.status || "pending";
-  const isCommitteeStage = STATUS_TO_STAGE_INDEX[rawStatus] === 3;
-  const isApproved = ["approved", "published"].includes(rawStatus);
+  const isCommitteeStage = rawStatus === "pending_committee_review";
+  const isApproved = ["approved", "closed"].includes(rawStatus);
+
+  // For a continuing review, `parentSummary` (see getResearchById in
+  // researchService.js) carries the FULL original proposal — content, file,
+  // and lifecycle dates — so it needs the same normalisation as `r` before
+  // ProposalPanel/CommitteePanel can render it.
+  const isContinuingReview = r.submissionType === "continuing_review";
+  const parentProposal = r.parentSummary
+    ? {
+        ...r.parentSummary,
+        objectives: toArray(r.parentSummary.objectives),
+        keywords: toArray(r.parentSummary.keywords),
+        coInvestigators: Array.isArray(r.parentSummary.coInvestigators)
+          ? r.parentSummary.coInvestigators
+          : [],
+      }
+    : null;
+  const showComparisonView = isContinuingReview && !!parentProposal;
+
+  const relatedSubmissions = Array.isArray(r.childSubmissions) ? r.childSubmissions : [];
 
   const resolvedActiveStage = activeStage ?? STATUS_TO_STAGE_INDEX[rawStatus] ?? 0;
   const viewingStageId = STAGE_IDS[resolvedActiveStage];
@@ -966,38 +1112,29 @@ const CommitteeResearchDetails = () => {
           recommendation: r.reviewDecision,
           comments: r.reviewComment,
           reviewedAt: r.reviewedAt,
-          overallScore: r.aggregateScore ?? null,
+          // aggregateScore is on a 0–10 scale; convert to the 0–5 scale
+          // ReviewerCard's star widget expects.
+          overallScore: r.aggregateScore != null ? r.aggregateScore / 2 : null,
         },
       ];
     }
     return [];
   })();
 
-  const computedAvg =
-    effectiveReviews.length > 0 && effectiveReviews.some((rv) => rv.overallScore != null)
-      ? effectiveReviews.reduce((sum, rv) => sum + (rv.overallScore || 0), 0) /
-        effectiveReviews.filter((rv) => rv.overallScore != null).length
-      : (r.aggregateScore ?? r.avgScore ?? null);
+  // The real aggregate: average each reviewer's own rubric average (0–10
+  // scale, matching how the backend computes aggregateScore — see
+  // averageVoteScore in researchService.js), computed straight from the
+  // actual criteria submitted rather than trusting a single stored field.
+  const {
+    avg: computedAvg,
+    scoredCount: scoredReviewerCount,
+    aggregatedScores,
+  } = buildAggregate(effectiveReviews, r);
 
-  const aggregatedScores = (() => {
-    if (effectiveReviews.length === 0) return r.scores || null;
-    const keys = new Set(effectiveReviews.flatMap((rv) => Object.keys(rv.scores || {})));
-    if (keys.size === 0) return r.scores || null;
-    const totals = {};
-    keys.forEach((k) => {
-      totals[k] = 0;
-    });
-    effectiveReviews.forEach((rv) => {
-      Object.entries(rv.scores || {}).forEach(([k, v]) => {
-        totals[k] = (totals[k] || 0) + Number(v);
-      });
-    });
-    const result = {};
-    keys.forEach((k) => {
-      result[k] = totals[k] / effectiveReviews.length;
-    });
-    return result;
-  })();
+  // Same computation for the original proposal's own reviewers, so the
+  // committee can compare the study's initial evaluation against this
+  // continuing-review round side by side.
+  const parentAggregate = parentProposal ? buildAggregate(parentReviews, parentProposal) : null;
 
   const noteToCommittee = r.finalPaperSubmission?.noteToCommittee || r.noteToCommittee || "";
 
@@ -1020,6 +1157,11 @@ const CommitteeResearchDetails = () => {
         </h1>
         <div className="flex flex-wrap items-center gap-3 mt-3">
           <StatusBadge status={rawStatus} />
+          {r.submissionType && (
+            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide border bg-blue-50 text-blue-700 border-blue-200">
+              {TYPE_LABELS[r.submissionType] || r.submissionType}
+            </span>
+          )}
           <MetaItem icon={FaShieldAlt} value={r.projectId || r.researchId || r.id} />
           <MetaItem
             icon={FaUserMd}
@@ -1030,6 +1172,12 @@ const CommitteeResearchDetails = () => {
             icon={FaCalendarAlt}
             value={r.createdAt ? `Submitted ${fmtDate(r.createdAt)}` : null}
           />
+          {parentProposal && (
+            <span className="inline-flex items-center gap-1.5 text-sm text-indigo-700">
+              <FaBookOpen className="text-xs text-indigo-400 shrink-0" />
+              Continuing review of &ldquo;{parentProposal.title}&rdquo;
+            </span>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-3 mt-4">
@@ -1064,29 +1212,116 @@ const CommitteeResearchDetails = () => {
             />
           </div>
 
-          {viewingStageId === "proposal" && <ProposalPanel r={r} />}
+          {showComparisonView ? (
+            <>
+              <div className="bg-white rounded-2xl border border-slate-200 p-2 flex flex-col sm:flex-row gap-2">
+                <TabButton
+                  active={detailTab === "progress"}
+                  onClick={() => setDetailTab("progress")}
+                  icon={FaClipboardCheck}
+                  label="Continuing Review"
+                  sub="Progress report, files & reviews"
+                />
+                <TabButton
+                  active={detailTab === "proposal"}
+                  onClick={() => setDetailTab("proposal")}
+                  icon={FaBookOpen}
+                  label="Original Proposal"
+                  sub="Approved protocol & reviews"
+                />
+              </div>
 
-          {viewingStageId === "progress" && <ProgressPanel r={r} />}
+              {detailTab === "progress" ? (
+                <>
+                  <ProgressPanel r={r} />
 
-          {viewingStageId === "final_paper" && <FinalPaperPanel r={r} />}
+                  {(r.resubmissionCount || 0) > 0 && (
+                    <div className="bg-white rounded-2xl border border-slate-200 p-6">
+                      <RevisionComparison researchId={r.id} />
+                    </div>
+                  )}
 
-          {viewingStageId === "committee" && (
-            <CommitteePanel
-              r={r}
-              reviews={effectiveReviews}
-              computedAvg={computedAvg}
-              aggregatedScores={aggregatedScores}
-            />
-          )}
+                  <CommitteePanel
+                    r={r}
+                    reviews={effectiveReviews}
+                    computedAvg={computedAvg}
+                    aggregatedScores={aggregatedScores}
+                    scoredReviewerCount={scoredReviewerCount}
+                    title="Continuing Review — Peer Evaluations"
+                  />
 
-          {viewingStageId === "decision" && (
-            <DecisionPanel
-              r={r}
-              decisionMade={decisionMade}
-              decisionLoading={decisionLoading}
-              onDecision={handleDecision}
-              noteToCommittee={noteToCommittee}
-            />
+                  {(isCommitteeStage || isApproved || rawStatus === "rejected") && (
+                    <DecisionPanel
+                      r={r}
+                      decisionMade={decisionMade}
+                      decisionLoading={decisionLoading}
+                      goToSignOff={goToSignOff}
+                      noteToCommittee={noteToCommittee}
+                    />
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="bg-indigo-50 border border-indigo-200 rounded-2xl px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold uppercase tracking-widest text-indigo-700 mb-1">
+                        Originally Approved Study
+                      </p>
+                      <p className="text-sm font-semibold text-indigo-900 truncate">
+                        {parentProposal.title}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <StatusBadge status={parentProposal.status} />
+                      {parentProposal.approvedAt && (
+                        <span className="text-xs text-indigo-700 font-medium">
+                          Approved {fmtDate(parentProposal.approvedAt)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <ProposalPanel r={parentProposal} />
+
+                  <CommitteePanel
+                    r={parentProposal}
+                    reviews={parentReviews}
+                    computedAvg={parentAggregate?.avg}
+                    aggregatedScores={parentAggregate?.aggregatedScores}
+                    scoredReviewerCount={parentAggregate?.scoredCount}
+                    title="Original Proposal — Peer Evaluations"
+                  />
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <ProposalPanel r={r} />
+
+              {(r.resubmissionCount || 0) > 0 && (
+                <div className="bg-white rounded-2xl border border-slate-200 p-6">
+                  <RevisionComparison researchId={r.id} />
+                </div>
+              )}
+
+              <CommitteePanel
+                r={r}
+                reviews={effectiveReviews}
+                computedAvg={computedAvg}
+                aggregatedScores={aggregatedScores}
+                scoredReviewerCount={scoredReviewerCount}
+              />
+
+              {(isCommitteeStage || isApproved || rawStatus === "rejected") && (
+                <DecisionPanel
+                  r={r}
+                  decisionMade={decisionMade}
+                  decisionLoading={decisionLoading}
+                  goToSignOff={goToSignOff}
+                  noteToCommittee={noteToCommittee}
+                />
+              )}
+            </>
           )}
         </div>
 
@@ -1097,30 +1332,15 @@ const CommitteeResearchDetails = () => {
             </h2>
             <div className="space-y-3">
               {[
+                { label: "Type", value: TYPE_LABELS[r.submissionType] || r.submissionType },
                 { label: "Researcher", value: r.researcher?.displayName || r.researcher?.name },
                 { label: "Discipline", value: r.discipline },
-                { label: "Timeline", value: r.timeline },
-                {
-                  label: "Funding",
-                  value: r.finalPaperSubmission?.fundingSource || r.fundingSource,
-                },
+                { label: "SERU No.", value: r.seruNumber },
+                { label: "Protocol Ver.", value: r.protocolVersionNumber },
+                { label: "Programme", value: r.researchProgramme },
+                { label: "Funding", value: r.fundingSource },
                 { label: "Submitted", value: fmtDate(r.createdAt) },
-                {
-                  label: "AI Usage",
-                  value: r.finalPaperSubmission?.declarations?.aiUsageDeclared
-                    ? "Declared"
-                    : r.finalPaperSubmission?.declarations?.aiUsageDeclared === false
-                      ? "Not declared"
-                      : null,
-                },
-                {
-                  label: "COI",
-                  value: r.finalPaperSubmission?.declarations?.conflictOfInterestDeclared
-                    ? "Declared"
-                    : r.finalPaperSubmission?.declarations?.conflictOfInterestDeclared === false
-                      ? "None"
-                      : null,
-                },
+                { label: "Approval Valid Until", value: r.approvalValidUntil ? fmtDate(r.approvalValidUntil) : null },
               ]
                 .filter((i) => i.value && i.value !== "—")
                 .map(({ label, value }) => (
@@ -1151,63 +1371,39 @@ const CommitteeResearchDetails = () => {
             )}
           </div>
 
-          {/* <div className="bg-white rounded-2xl border border-slate-200 p-6">
-            <h2 className="font-bold text-slate-900 text-sm mb-4">
-              {isCommitteeStage ? "Committee Decision" : "Committee Record"}
-            </h2>
-
-            {decisionMade === "approved" && (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3.5 flex items-start gap-3 text-sm text-emerald-800">
-                <FaCheckCircle className="text-emerald-500 shrink-0 mt-0.5" />
-                <p>Decision recorded. This study is now committee approved.</p>
-              </div>
-            )}
-            {decisionMade === "rejected" && (
-              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3.5 flex items-start gap-3 text-sm text-red-700">
-                <FaTimes className="text-red-500 shrink-0 mt-0.5" />
-                <p>Decision recorded. The researcher will be notified.</p>
-              </div>
-            )}
-
-            {!decisionMade && isCommitteeStage && (
-              <>
-                <p className="text-sm text-slate-500 mb-4">
-                  Record the committee's final decision for this submission.
-                </p>
-                {noteToCommittee && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 mb-4">
-                    <p className="text-xs font-bold uppercase tracking-widest text-amber-700 mb-1">Note from Researcher</p>
-                    <p className="text-xs text-amber-800 leading-relaxed">{noteToCommittee}</p>
-                  </div>
-                )}
-                <div className="flex flex-col gap-3">
-                  <button type="button" className={primaryBtn} disabled={decisionLoading} onClick={() => handleDecision("approved")}>
-                    {decisionLoading ? <FaSpinner className="animate-spin text-xs" /> : <FaCheck className="text-xs" />}
-                    Approve Study
+          {relatedSubmissions.length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6">
+              <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">
+                Related Submissions
+              </h2>
+              <div className="space-y-2">
+                {relatedSubmissions.map((sub) => (
+                  <button
+                    key={sub.id}
+                    type="button"
+                    onClick={() =>
+                      navigate(`/research/dashboard/committee-research-detail/${sub.id}`)
+                    }
+                    className="w-full flex items-center justify-between gap-2 rounded-xl border border-slate-200
+                      px-3 py-2.5 text-left hover:border-blue-300 hover:bg-blue-50/50 transition-colors cursor-pointer"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-xs font-bold text-slate-700 truncate">
+                        {TYPE_LABELS[sub.submissionType] || sub.submissionType}
+                        {sub.continuingReviewNumber ? ` #${sub.continuingReviewNumber}` : ""}
+                        {sub.amendmentNumber ? ` #${sub.amendmentNumber}` : ""}
+                      </span>
+                      <span className="block text-[11px] text-slate-400">
+                        {fmtDate(sub.createdAt)}
+                      </span>
+                    </span>
+                    <StatusBadge status={sub.status} />
                   </button>
-                  <button type="button" className={dangerOutlineBtn} disabled={decisionLoading} onClick={() => handleDecision("rejected")}>
-                    <FaTimes className="text-xs" />
-                    Request Revisions
-                  </button>
-                </div>
-              </>
-            )}
-
-            {!decisionMade && isApproved && (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3.5 flex items-start gap-3 text-sm text-emerald-800">
-                <FaCheckCircle className="text-emerald-500 shrink-0 mt-0.5" />
-                <p>Signed off by the committee{r.publishedAt ? ` on ${fmtDate(r.publishedAt)}` : ""}.</p>
+                ))}
               </div>
-            )}
+            </div>
+          )}
 
-            {!decisionMade && !isCommitteeStage && !isApproved && (
-              <p className="text-sm text-slate-400">
-                This submission is not yet at the committee decision stage.
-              </p>
-            )}
-          </div> */}
-
-          {/* Audit trail */}
           {auditTrail.length > 0 && (
             <div className="bg-white rounded-2xl border border-slate-200 p-6">
               <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">
@@ -1228,6 +1424,6 @@ const CommitteeResearchDetails = () => {
       </div>
     </div>
   );
-};
+}; 
 
 export default CommitteeResearchDetails;

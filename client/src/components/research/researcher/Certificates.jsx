@@ -16,8 +16,6 @@ import {
 } from "react-icons/fa";
 import * as research from "../../../api/research";
 
-// Only the two certificate types the spec doc actually defines: Clearance Certificate: issued automatically after PROPOSAL approval and Completion Certificate: issued after final approval + publication.
-
 const CERT_TYPES = {
   clearance: {
     label: "Research Approval & Clearance Certificate",
@@ -199,15 +197,15 @@ const CertificateRow = ({ cert, onVerify, onView, onDownload }) => {
 };
 
 const Certificates = () => {
-  const [papers, setPapers] = useState([]);
+  const [certs, setCerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await research.getMyResearch();
-      setPapers(Array.isArray(res.papers) ? res.papers : []);
+      const list = await research.getMyCertificates();
+      setCerts(Array.isArray(list) ? list : []);
     } catch {
       notify.error("Failed to load your certificates");
     } finally {
@@ -219,35 +217,37 @@ const Certificates = () => {
     load();
   }, [load]);
 
-  const certificates = useMemo(() => {
-    const list = [];
-    papers.forEach((p) => {
-      if (p.stage === "proposal" && p.status === "approved") {
-        list.push({
-          id: `${p.id}-clearance`,
-          researchItemId: p.id,
-          typeInfo: CERT_TYPES.clearance,
-          researchId: p.researchId,
-          issuedAt: p.reviewedAt || p.updatedAt,
-          status: "active",
-          certificateNumber: p.clearanceCertificateNumber || `CLR-${p.researchId || p.id}`,
-        });
-      }
-      if (p.stage === "final_paper") {
-        const done = p.status === "approved" || p.status === "published";
-        list.push({
-          id: `${p.id}-completion`,
-          researchItemId: p.id,
-          typeInfo: CERT_TYPES.completion,
-          researchId: p.researchId,
-          issuedAt: p.publishedAt || p.reviewedAt,
-          status: done ? "active" : "pending",
-          certificateNumber: p.completionCertificateNumber || `CPL-${p.researchId || p.id}`,
-        });
-      }
-    });
-    return list;
-  }, [papers]);
+  // Stage-aware label/icon, derived from the certificate type and the linked
+  // submission (a continuing-review approval and a proposal approval share the
+  // same certificate type, so we look at the submission to tell them apart).
+  const stageInfo = (cert) => {
+    if (cert.type === "ethics_clearance") {
+      return { ...CERT_TYPES.completion, label: "Study Closure Certificate", stage: "Closure" };
+    }
+    if (cert.research?.submissionType === "continuing_review") {
+      return {
+        ...CERT_TYPES.clearance,
+        label: "Continuing Review (Progress) Certificate",
+        stage: "Continuing Review",
+      };
+    }
+    return { ...CERT_TYPES.clearance, label: "Proposal Approval Certificate", stage: "Proposal" };
+  };
+
+  const certificates = useMemo(
+    () =>
+      certs.map((c) => ({
+        id: c.id,
+        certificateNumber: c.certificateNumber,
+        seruNumber: c.researchCode,
+        researchId: c.researchCode, // SERU number shown as the identifier
+        typeInfo: stageInfo(c),
+        issuedAt: c.createdAt || c.validFrom,
+        status: (c.status || "active").toLowerCase() === "active" ? "active" : (c.status || "").toLowerCase(),
+        pdfFile: c.pdfFile,
+      })),
+    [certs]
+  );
 
   const stats = useMemo(
     () => ({
@@ -260,18 +260,44 @@ const Certificates = () => {
     [certificates]
   );
 
-  const handleView = (cert) => {
-    notify.success(`Opening ${cert.typeInfo.label} for ${cert.researchId}`);
+  const triggerBlob = (blob, filename, view) => {
+    const url = window.URL.createObjectURL(blob);
+    if (view) {
+      window.open(url, "_blank", "noopener");
+    } else {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    setTimeout(() => window.URL.revokeObjectURL(url), 60000);
   };
 
-  const handleDownload = (cert) => {
-    notify.success(`Preparing ${cert.certificateNumber} for download`);
+  const handleView = async (cert) => {
+    try {
+      const blob = await research.downloadCertificate(cert.id, "view");
+      triggerBlob(blob, `${cert.seruNumber || cert.id}.pdf`, true);
+    } catch {
+      notify.error("Could not open the certificate.");
+    }
+  };
+
+  const handleDownload = async (cert) => {
+    try {
+      const blob = await research.downloadCertificate(cert.id);
+      triggerBlob(blob, `${cert.seruNumber || cert.id}.pdf`, false);
+      notify.success("Certificate downloaded.");
+    } catch {
+      notify.error("Could not download the certificate.");
+    }
   };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="max-w-5xl">
+        <div className="">
           <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
             My Certificates
           </h1>

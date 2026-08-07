@@ -1,22 +1,21 @@
 "use strict";
 
 const {
-  RESEARCH_STAGES,
+  SUBMISSION_TYPES,
   RESEARCH_STATUSES,
+  REVIEW_TYPES,
   FEES,
+  APPROVAL_VALIDITY_MONTHS,
 } = require("../../constants/researchIndex");
 
-const STAGE_VALUES = Object.values(RESEARCH_STAGES);
+const SUBMISSION_TYPE_VALUES = Object.values(SUBMISSION_TYPES);
 const STATUS_VALUES = Object.values(RESEARCH_STATUSES);
+const REVIEW_TYPE_VALUES = Object.values(REVIEW_TYPES);
 
-/**
- * Levenshtein distance. Kept identical to the Mongoose implementation
- * so title-similarity thresholds behave the same after cutover.
- */
+
 function levenshtein(a, b) {
   const dp = Array.from({ length: a.length + 1 }, (_, i) => [
-    i,
-    ...Array(b.length).fill(0),
+    i, ...Array(b.length).fill(0),
   ]);
   for (let j = 0; j <= b.length; j += 1) dp[0][j] = j;
   for (let i = 1; i <= a.length; i += 1) {
@@ -46,13 +45,27 @@ module.exports = (sequelize, DataTypes) => {
         onDelete: "RESTRICT",
         onUpdate: "CASCADE",
       },
-      // Public identifier `NCRH-{year}-{5digits}` — set via Counter in
-      // the beforeValidate hook. Sparse-unique via MySQL default
-      // multi-NULL semantics.
+
+  
       researchId: {
         type: DataTypes.STRING(50),
         allowNull: true,
         unique: true,
+      },
+
+  
+      submissionType: {
+        type: DataTypes.ENUM(...SUBMISSION_TYPE_VALUES),
+        allowNull: false,
+        defaultValue: SUBMISSION_TYPES.INITIAL_PROPOSAL,
+      },
+
+      parentResearchId: {
+        type: DataTypes.BIGINT.UNSIGNED,
+        allowNull: true,
+        references: { model: "submissions", key: "id" },
+        onDelete: "SET NULL",
+        onUpdate: "CASCADE",
       },
 
       title: {
@@ -77,63 +90,105 @@ module.exports = (sequelize, DataTypes) => {
       teamMembers: DataTypes.TEXT,
       references: DataTypes.TEXT,
 
-      // Stage-1 ethics/funding fields — all optional TEXT.
-      hypotheses: DataTypes.TEXT,
-      literatureReviewSummary: DataTypes.TEXT,
-      studyDuration: DataTypes.STRING(150),
-      // Short string arrays — JSON, updated wholesale.
-      studySites: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
-      coInvestigators: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
-      fundingSource: DataTypes.STRING(300),
-      ethicsInformation: DataTypes.TEXT,
+      protocolVersionNumber: { type: DataTypes.STRING(50), allowNull: true },
+      protocolVersionDate: { type: DataTypes.DATEONLY, allowNull: true },
 
-      // Stage-1 files
+
+      seruNumber: { type: DataTypes.STRING(50), allowNull: true },
+
+
+      centre: {
+        type: DataTypes.STRING(150),
+        allowNull: false,
+        defaultValue: "NCRH",
+      },
+      researchProgramme: { type: DataTypes.STRING(200), allowNull: true },
+      keyPerformanceArea: { type: DataTypes.STRING(200), allowNull: true },
+      strategy: { type: DataTypes.STRING(200), allowNull: true },
+      sdg: { type: DataTypes.STRING(200), allowNull: true },
+
+
+      studyImplementationCounties: {
+        type: DataTypes.JSON, allowNull: false, defaultValue: [],
+      },
+      studySites: {
+        type: DataTypes.JSON, allowNull: false, defaultValue: [],
+      },
+      coInvestigators: {
+        type: DataTypes.JSON, allowNull: false, defaultValue: [],
+      },
+      fundingSource: { type: DataTypes.STRING(300), allowNull: true },
+      totalFundsNeeded: { type: DataTypes.DECIMAL(14, 2), allowNull: true },
+      expectedDurationMonths: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
+
+
+      hypotheses: DataTypes.TEXT,
+      justification: DataTypes.TEXT,
+      literatureReviewSummary: DataTypes.TEXT,
+      inclusionCriteria: DataTypes.TEXT,
+      exclusionCriteria: DataTypes.TEXT,
+      sampleSizeDescription: DataTypes.TEXT,
+      samplingProcedure: DataTypes.TEXT,
+      dataManagementPlan: DataTypes.TEXT,
+      ethicsInformation: DataTypes.TEXT,
+      ethicsHumanSubjects: DataTypes.TEXT,
+      ethicsAnimalSubjects: DataTypes.TEXT,
+      budgetSummary: DataTypes.TEXT,
+      budgetJustification: DataTypes.TEXT,
+      expectedApplicationOfResults: DataTypes.TEXT,
+
+      informedConsentDocs: {
+        type: DataTypes.JSON, allowNull: false, defaultValue: [],
+      },
+      studyToolsDocs: {
+        type: DataTypes.JSON, allowNull: false, defaultValue: [],
+      },
+      investigatorCertificates: {
+        type: DataTypes.JSON, allowNull: false, defaultValue: [],
+      },
+      supportingDocuments: {
+        type: DataTypes.JSON, allowNull: false, defaultValue: [],
+      },
+
+
       proposalFile: DataTypes.STRING(500),
       proposalFileKey: DataTypes.STRING(255),
 
-      // Stage-2 progress data — deeply nested single object, always
-      // fetched wholesale. JSON is the right shape.
-      progressData: {
-        type: DataTypes.JSON,
-        allowNull: false,
-        defaultValue: {},
-      },
-      progressFiles: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
+      // CSC (Centre Scientific Committee) review
+      cscReviewDate: { type: DataTypes.DATEONLY, allowNull: true },
+      cscApprovalDate: { type: DataTypes.DATEONLY, allowNull: true },
+      cscComments: DataTypes.TEXT,
+      // G-5: evidence of centre-level review (e.g. signed Secretary letter,
+      // per SOP-1 §10) plus who is attesting to it, so the endorsement
+      // isn't just a self-reported date from any Research Officer.
+      cscEvidenceFile: { type: DataTypes.STRING(500), allowNull: true },
+      cscEvidenceFileKey: { type: DataTypes.STRING(500), allowNull: true },
+      cscContactName: { type: DataTypes.STRING(200), allowNull: true },
+      cscContactEmail: { type: DataTypes.STRING(200), allowNull: true },
+      // F-15
+      decisionLetterNumber: { type: DataTypes.STRING(50), allowNull: true },
+      decisionLetterFile: { type: DataTypes.STRING(500), allowNull: true },
+      decisionLetterFileKey: { type: DataTypes.STRING(500), allowNull: true },
+      decisionLetterIssuedAt: { type: DataTypes.DATE, allowNull: true },
 
-      priority: {
-        type: DataTypes.ENUM("high", "medium", "normal"),
-        allowNull: false,
-        defaultValue: "normal",
-      },
-      reviewDeadline: DataTypes.DATE,
+      // F-5: Administrative completeness review
+      completenessCheckedAt: { type: DataTypes.DATE, allowNull: true },
+      completenessCheckedById: { type: DataTypes.BIGINT.UNSIGNED, allowNull: true },
+      completenessIssues: { type: DataTypes.JSON, allowNull: true },
 
-      // Stage-3 final paper
-      finalPaperFile: DataTypes.STRING(500),
-      finalPaperFileKey: DataTypes.STRING(255),
-      finalAbstract: DataTypes.TEXT,
-      keywords: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
-      finalPaperFiles: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
-      finalPaperSubmission: {
-        type: DataTypes.JSON,
+      reviewType: {
+        type: DataTypes.ENUM(...REVIEW_TYPE_VALUES),
         allowNull: false,
-        defaultValue: {},
+        defaultValue: REVIEW_TYPES.FULL_COMMITTEE,
       },
 
-      journalName: DataTypes.STRING(255),
-      journalVolume: DataTypes.STRING(100),
-      journalDoi: DataTypes.STRING(200),
-
-      // Workflow
-      stage: {
-        type: DataTypes.ENUM(...STAGE_VALUES),
-        allowNull: false,
-        defaultValue: RESEARCH_STAGES.PROPOSAL,
-      },
       status: {
         type: DataTypes.ENUM(...STATUS_VALUES),
         allowNull: false,
-        defaultValue: RESEARCH_STATUSES.PENDING,
+        defaultValue: RESEARCH_STATUSES.DRAFT,
       },
+
+
       assignedReviewerId: {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: true,
@@ -143,18 +198,13 @@ module.exports = (sequelize, DataTypes) => {
       },
       assignedAt: DataTypes.DATE,
 
-      // ── Review snapshots (per-stage denormalized decisions) ────────
-      // Kept as JSON, not join tables. Each snapshot is a
-      // one-object-per-stage per Research and is always fetched
-      // wholesale with the research row (Mongoose treated them the
-      // same way — one subdocument per stage). Canonical, queryable
-      // review history lives in the `reviews` table.
-      proposalReview: { type: DataTypes.JSON, allowNull: false, defaultValue: {} },
-      progressReview: { type: DataTypes.JSON, allowNull: false, defaultValue: {} },
-      finalPaperReview: { type: DataTypes.JSON, allowNull: false, defaultValue: {} },
 
-      // Latest-decision denormalized fields — mirror the Mongoose
-      // "whichever stage" convenience columns.
+      approvedAt: DataTypes.DATE,
+      approvalValidUntil: { type: DataTypes.DATEONLY, allowNull: true },
+
+
+      proposalReview: { type: DataTypes.JSON, allowNull: false, defaultValue: {} },
+      // progressReview removed — column dropped in SERU migration
       reviewComment: DataTypes.TEXT,
       reviewedById: {
         type: DataTypes.BIGINT.UNSIGNED,
@@ -171,14 +221,20 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: 0,
       },
 
-      // Circular FK to payments — column exists here, constraint added
-      // in the follow-up migration (20260722150400).
-      submissionPaymentId: {
-        type: DataTypes.BIGINT.UNSIGNED,
-        allowNull: true,
+      revisionHistory: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [],
       },
 
-      // Committee quorum voting
+      priority: {
+        type: DataTypes.ENUM("high", "medium", "normal"),
+        allowNull: false,
+        defaultValue: "normal",
+      },
+      reviewDeadline: DataTypes.DATE,
+
+
       committeeRound: {
         type: DataTypes.INTEGER.UNSIGNED,
         allowNull: false,
@@ -195,6 +251,56 @@ module.exports = (sequelize, DataTypes) => {
       committeeReviewedAt: DataTypes.DATE,
       committeeComment: { type: DataTypes.TEXT, defaultValue: "" },
 
+      aggregateScore: {
+        type: DataTypes.DECIMAL(4, 2),
+        allowNull: true,
+        validate: { min: 0, max: 10 },
+      },
+      reviewDecision: DataTypes.STRING(50),
+
+
+      amendmentNumber: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
+      amendmentDetails: DataTypes.TEXT,
+      // F-8: Amendment classification
+      isSubstantialAmendment: { type: DataTypes.BOOLEAN, allowNull: true, defaultValue: null },
+
+      // F-10: Investigational New Drug/Product flag
+      isInvestigationalProduct: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+
+      // F-9: Study design classification for expedited review track
+      studyDesign: {
+        type: DataTypes.ENUM("observational", "interventional", "mixed_methods", "other"),
+        allowNull: true,
+        defaultValue: null,
+      },
+
+      // Stage-specific payloads moved to their own 1:1 detail tables to
+      // keep this base table clean:
+      //   continuing_review_details  (progress report + documents)
+      //   closure_details            (closeout report + disposal data)
+      // Only `continuingReviewNumber` stays here, because it is part of the
+      // submission's identity — the code-suffix hook below builds
+      // `<parent>-CR<n>` from it before the detail row exists.
+      continuingReviewNumber: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
+
+      nacostiPermit: DataTypes.STRING(100),
+      nacostiSubmittedAt: DataTypes.DATE,
+
+      submissionPaymentId: {
+        type: DataTypes.BIGINT.UNSIGNED,
+        allowNull: true,
+      },
+
+      clearanceCertificateId: {
+        type: DataTypes.BIGINT.UNSIGNED,
+        allowNull: true,
+      },
+      completionCertificateId: {
+        type: DataTypes.BIGINT.UNSIGNED,
+        allowNull: true,
+      },
+
+
       reactivatedAt: DataTypes.DATE,
       reactivatedById: {
         type: DataTypes.BIGINT.UNSIGNED,
@@ -205,52 +311,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       reactivationReason: DataTypes.STRING(500),
 
-      aggregateScore: {
-        type: DataTypes.DECIMAL(4, 2),
-        allowNull: true,
-        validate: { min: 0, max: 10 },
-      },
-      reviewDecision: DataTypes.STRING(50),
 
-      // NACOSTI
-      nacostiPermit: DataTypes.STRING(100),
-      nacostiSubmittedAt: DataTypes.DATE,
-
-      // Certificates — circular FKs (added in follow-up migration).
-      clearanceCertificateId: {
-        type: DataTypes.BIGINT.UNSIGNED,
-        allowNull: true,
-      },
-      completionCertificateId: {
-        type: DataTypes.BIGINT.UNSIGNED,
-        allowNull: true,
-      },
-
-      // Publishing
-      isPublished: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: false,
-      },
-      publishedAt: DataTypes.DATE,
-      downloadPrice: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false,
-        defaultValue: FEES.DEFAULT_DOWNLOAD,
-        validate: { min: { args: [0], msg: "Download price cannot be negative" } },
-      },
-      downloads: {
-        type: DataTypes.INTEGER.UNSIGNED,
-        allowNull: false,
-        defaultValue: 0,
-      },
-      views: {
-        type: DataTypes.INTEGER.UNSIGNED,
-        allowNull: false,
-        defaultValue: 0,
-      },
-
-      // Soft delete
       isDeleted: {
         type: DataTypes.BOOLEAN,
         allowNull: false,
@@ -266,71 +327,103 @@ module.exports = (sequelize, DataTypes) => {
       },
     },
     {
-      tableName: "researches",
-      // Automatic soft-delete filter — replaces the Mongoose
-      // pre(/^find/) middleware. Callers who need deleted rows
-      // (admin restore flow, hard-delete cleanup) use
-      // `Research.unscoped()` or `.scope('withDeleted')`.
+      tableName: "submissions",
       defaultScope: {
         where: { isDeleted: false },
       },
       scopes: {
-        withDeleted: {}, // no filter
+        withDeleted: {},
         onlyDeleted: { where: { isDeleted: true } },
       },
       indexes: [
         { unique: true, fields: ["research_id"] },
+        { unique: true, fields: ["seru_number"] },
         { fields: ["researcher_id", "created_at"] },
-        { fields: ["stage", "status"] },
-        { fields: ["is_published", "created_at"] },
-        { fields: ["is_published", "discipline"] },
+        { fields: ["submission_type", "status"] },
+        { fields: ["parent_research_id"] },
         { fields: ["assigned_reviewer_id", "status"] },
-        { fields: ["is_deleted", "is_published"] },
+        { fields: ["approval_valid_until"] },
+        { fields: ["is_deleted"] },
         { fields: ["title"] },
         { fields: ["discipline"] },
       ],
       hooks: {
         beforeValidate: async (research, options) => {
-          // Atomic per-year sequence via the Counter model — same
-          // pattern used for Tender numbers. Only fires when
-          // researchId isn't already set, matching Mongoose's
-          // static generateResearchId call site.
-          if (!research.researchId) {
-            const year = new Date().getFullYear();
-            const seq = await sequelize.models.Counter.incrementAndGet(
-              `research-${year}`,
-              { transaction: options.transaction },
+          if (research.researchId) return;
+
+          // Child submissions (continuing reviews, amendments, close-outs)
+          // are lodged against an EXISTING approved study. Per the KEMRI
+          // SERU process they are not new proposals, so they inherit the
+          // parent study's code with a submission suffix rather than
+          // consuming a new NCRH proposal number.
+          if (research.parentResearchId) {
+            const parent = await sequelize.models.Research.findByPk(
+              research.parentResearchId,
+              { attributes: ["researchId"], transaction: options.transaction },
             );
-            research.researchId = `NCRH-${year}-${String(seq).padStart(5, "0")}`;
+            if (parent && parent.researchId) {
+              const TAG = {
+                continuing_review: "CR",
+                amendment: "AM",
+                study_closure: "CLO",
+              };
+              const tag = TAG[research.submissionType] || "SUB";
+              const n =
+                research.continuingReviewNumber ||
+                research.amendmentNumber ||
+                1;
+              research.researchId =
+                tag === "CLO"
+                  ? `${parent.researchId}-CLO`
+                  : `${parent.researchId}-${tag}${n}`;
+              return;
+            }
           }
+
+          // Top-level proposal: allocate the next NCRH proposal number.
+          const year = new Date().getFullYear();
+          const seq = await sequelize.models.Counter.incrementAndGet(
+            `research-${year}`,
+            { transaction: options.transaction },
+          );
+          research.researchId = `NCRH-${year}-${String(seq).padStart(5, "0")}`;
         },
       },
     },
   );
 
-  // ── Virtuals (workflow gates) ─────────────────────────────────────
-  Object.defineProperty(Research.prototype, "canSubmitProgress", {
+
+  Object.defineProperty(Research.prototype, "isApprovalExpired", {
     get() {
-      return (
-        this.stage === RESEARCH_STAGES.PROPOSAL &&
-        this.status === RESEARCH_STATUSES.APPROVED
-      );
+      if (!this.approvalValidUntil) return false;
+      return new Date(this.approvalValidUntil) < new Date();
     },
   });
-  Object.defineProperty(Research.prototype, "canSubmitFinalPaper", {
+
+  Object.defineProperty(Research.prototype, "canSubmitAmendment", {
     get() {
       return (
-        this.stage === RESEARCH_STAGES.PROGRESS &&
-        this.status === RESEARCH_STATUSES.APPROVED
-      );
-    },
-  });
-  Object.defineProperty(Research.prototype, "isReadyToPublish", {
-    get() {
-      return (
-        this.stage === RESEARCH_STAGES.FINAL_PAPER &&
+        this.submissionType === SUBMISSION_TYPES.INITIAL_PROPOSAL &&
         this.status === RESEARCH_STATUSES.APPROVED &&
-        !this.isPublished
+        !this.isApprovalExpired
+      );
+    },
+  });
+
+  Object.defineProperty(Research.prototype, "canSubmitContinuingReview", {
+    get() {
+      return (
+        this.submissionType === SUBMISSION_TYPES.INITIAL_PROPOSAL &&
+        [RESEARCH_STATUSES.APPROVED, RESEARCH_STATUSES.EXPIRED].includes(this.status)
+      );
+    },
+  });
+
+  Object.defineProperty(Research.prototype, "canSubmitClosure", {
+    get() {
+      return (
+        this.submissionType === SUBMISSION_TYPES.INITIAL_PROPOSAL &&
+        this.status === RESEARCH_STATUSES.APPROVED
       );
     },
   });
@@ -342,30 +435,43 @@ module.exports = (sequelize, DataTypes) => {
     return this.save();
   };
 
-  /**
-   * MySQL replacement for the Mongoose Research.findSimilarTitles static.
-   * Combines FULLTEXT relevance search (top 5 candidates) with a
-   * Levenshtein-ratio filter so we still surface fuzzy near-duplicates
-   * that share tokens but differ in exact phrasing. The FULLTEXT
-   * candidate pool is intentionally small — Levenshtein is O(n·m) per
-   * pair, and we don't want to run it against every title in the DB.
-   *
-   * Note: unlike Mongoose's weighted text index (title>abstract>...),
-   * MySQL FULLTEXT has no per-column weighting. The tradeoff is worth
-   * it: FULLTEXT is fast and native. If title-vs-abstract ranking
-   * matters, split into two separate MATCH clauses at call time.
-   */
+
+  Research.prototype.generateSeruNumber = async function generateSeruNumber(options = {}) {
+    if (this.seruNumber) return this.seruNumber;
+    const year = new Date().getFullYear();
+    const seq = await sequelize.models.Counter.incrementAndGet(
+      `seru-${year}`,
+      { transaction: options.transaction },
+    );
+    this.seruNumber = `NCRH/SERU/${year}/${String(seq).padStart(4, "0")}`;
+    return this.seruNumber;
+  };
+
+
+  Research.prototype.approve = async function approve(options = {}) {
+    this.status = RESEARCH_STATUSES.APPROVED;
+    this.approvedAt = new Date();
+    const validUntil = new Date();
+    validUntil.setMonth(validUntil.getMonth() + APPROVAL_VALIDITY_MONTHS);
+    this.approvalValidUntil = validUntil;
+
+    if (this.submissionType === SUBMISSION_TYPES.INITIAL_PROPOSAL && !this.seruNumber) {
+      await this.generateSeruNumber(options);
+    }
+    return this.save({ transaction: options.transaction });
+  };
+
+
   Research.findSimilarTitles = async function findSimilarTitles(
-    title,
-    { excludeId, threshold = 0.85 } = {},
+    title, { excludeId, threshold = 0.85 } = {},
   ) {
     const [candidates] = await sequelize.query(
       `SELECT id, title,
-              MATCH(title, abstract, final_abstract, discipline) AGAINST(:q IN NATURAL LANGUAGE MODE) AS score
-       FROM researches
+              MATCH(title, abstract, discipline) AGAINST(:q IN NATURAL LANGUAGE MODE) AS score
+       FROM submissions
        WHERE is_deleted = false
          ${excludeId ? "AND id <> :excludeId" : ""}
-         AND MATCH(title, abstract, final_abstract, discipline) AGAINST(:q IN NATURAL LANGUAGE MODE)
+         AND MATCH(title, abstract, discipline) AGAINST(:q IN NATURAL LANGUAGE MODE)
        ORDER BY score DESC
        LIMIT 5`,
       { replacements: { q: title, excludeId } },
@@ -382,6 +488,7 @@ module.exports = (sequelize, DataTypes) => {
     });
   };
 
+
   Research.associate = (models) => {
     Research.belongsTo(models.Researcher, { foreignKey: "researcherId", as: "researcher" });
     Research.belongsTo(models.Researcher, { foreignKey: "assignedReviewerId", as: "assignedReviewer" });
@@ -390,14 +497,44 @@ module.exports = (sequelize, DataTypes) => {
     Research.belongsTo(models.Researcher, { foreignKey: "reactivatedById", as: "reactivator" });
     Research.belongsTo(models.Researcher, { foreignKey: "deletedById", as: "deleter" });
 
-    // Reviews / Payments — Research is the parent side of both.
+    Research.belongsTo(Research, { foreignKey: "parentResearchId", as: "parentResearch" });
+    Research.hasMany(Research, { foreignKey: "parentResearchId", as: "childSubmissions" });
+
+    // 1:1 stage-specific payloads (see continuing_review_detail.js /
+    // closure_detail.js). Loaded via include when a submission's details
+    // are needed; the base row stays lean.
+    if (models.ContinuingReviewDetail) {
+      Research.hasOne(models.ContinuingReviewDetail, {
+        foreignKey: "submissionId",
+        as: "continuingReviewDetail",
+        onDelete: "CASCADE",
+      });
+    }
+    if (models.ClosureDetail) {
+      Research.hasOne(models.ClosureDetail, {
+        foreignKey: "submissionId",
+        as: "closureDetail",
+        onDelete: "CASCADE",
+      });
+    }
+
+    if (models.ResearchReviewer) {
+      Research.hasMany(models.ResearchReviewer, { foreignKey: "researchId", as: "reviewerAssignments" });
+    }
+
+    if (models.CoInvestigatorAssignment) {
+      Research.hasMany(models.CoInvestigatorAssignment, { foreignKey: "researchId", as: "coInvestigatorAssignments" });
+    }
+
+    if (models.ProtocolDeviation) {
+      Research.hasMany(models.ProtocolDeviation, { foreignKey: "researchId", as: "protocolDeviations" });
+    }
+
     if (models.Review) {
       Research.hasMany(models.Review, { foreignKey: "researchId", as: "reviews" });
     }
     if (models.Payment) {
       Research.hasMany(models.Payment, { foreignKey: "researchId", as: "payments" });
-      // Circular FK — constraints: false because the DB-level FK is
-      // added in the follow-up migration.
       Research.belongsTo(models.Payment, {
         foreignKey: "submissionPaymentId",
         as: "submissionPayment",
@@ -418,8 +555,9 @@ module.exports = (sequelize, DataTypes) => {
     }
   };
 
-  Research.STAGES = STAGE_VALUES;
+  Research.SUBMISSION_TYPES = SUBMISSION_TYPE_VALUES;
   Research.STATUSES = STATUS_VALUES;
+  Research.REVIEW_TYPES = REVIEW_TYPE_VALUES;
 
   return Research;
 };

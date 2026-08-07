@@ -8,9 +8,6 @@ const {
 const TYPE_VALUES = Object.values(PAYMENT_TYPES);
 const STATUS_VALUES = Object.values(PAYMENT_STATUSES);
 
-// Download-token columns are excluded from default SELECTs to mirror the
-// Mongoose `select: false` behavior — they're only pulled when the
-// download flow explicitly asks for them.
 const SECRET_COLUMNS = ["downloadToken", "downloadTokenExpire"];
 
 module.exports = (sequelize, DataTypes) => {
@@ -26,10 +23,7 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: true,
         references: { model: "researchers", key: "id" },
-        // Anonymous paper downloads are legal callers (no researcher
-        // account required). SET NULL preserves the payment record even
-        // if the researcher account is later removed — revenue history
-        // must survive account lifecycle events.
+   
         onDelete: "SET NULL",
         onUpdate: "CASCADE",
       },
@@ -40,13 +34,12 @@ module.exports = (sequelize, DataTypes) => {
       researchId: {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: true,
-        references: { model: "researches", key: "id" },
+        references: { model: "submissions", key: "id" },
         onDelete: "RESTRICT",
         onUpdate: "CASCADE",
       },
 
-      // Money — DECIMAL, same reasoning as the procurement cluster.
-      // Amounts in KES can hit 6 digits for real submission fees.
+
       amount: {
         type: DataTypes.DECIMAL(12, 2),
         allowNull: false,
@@ -71,31 +64,35 @@ module.exports = (sequelize, DataTypes) => {
         },
       },
 
-      // ── M-Pesa STK-push identifiers ───────────────────────────────
+
       merchantRequestId: DataTypes.STRING(100),
-      // checkoutRequestId is guaranteed unique by Safaricom per STK
-      // push — using it as an idempotency key means retried callbacks
-      // don't create duplicate rows.
+
       checkoutRequestId: {
         type: DataTypes.STRING(100),
         allowNull: true,
         unique: true,
       },
-      // Only present after a successful M-Pesa completion; sparse
-      // unique via MySQL's default multiple-NULL-allowed semantics.
+
       mpesaReceiptNumber: {
         type: DataTypes.STRING(50),
         allowNull: true,
         unique: true,
       },
-      // M-Pesa returns this as a numeric string like "20260722143000".
-      // Kept as STRING to match the raw callback shape — the parsing
-      // decision (which timezone, which format) stays in the controller.
+
       transactionDate: DataTypes.STRING(30),
       status: {
         type: DataTypes.ENUM(...STATUS_VALUES),
         allowNull: false,
         defaultValue: PAYMENT_STATUSES.PENDING,
+      },
+
+      // Chair's change #4: payment record captures the SERU number.
+      // Populated inside the same transaction as proposal submission
+      // (see confirmProposalSubmission), the moment the SERU number is
+      // generated — so it's never out of sync with the research record.
+      seruNumber: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
       },
 
       resultCode: DataTypes.STRING(20),
@@ -105,7 +102,7 @@ module.exports = (sequelize, DataTypes) => {
       refundCode: DataTypes.STRING(50),
       refundAmount: DataTypes.DECIMAL(12, 2),
 
-      // ── Secure download token (hidden by default scope) ───────────
+
       downloadToken: DataTypes.STRING(255),
       downloadTokenExpire: DataTypes.DATE,
       downloadedAt: DataTypes.DATE,
@@ -126,11 +123,12 @@ module.exports = (sequelize, DataTypes) => {
         { fields: ["research_id", "status"] },
         { fields: ["created_at"] },
         { fields: ["phone"] },
+        { fields: ["seru_number"] },
       ],
     },
   );
 
-  // ── Virtuals (read-only) ──────────────────────────────────────────
+
   Object.defineProperty(Payment.prototype, "isRevenue", {
     get() {
       return this.status === PAYMENT_STATUSES.COMPLETED;
@@ -142,11 +140,7 @@ module.exports = (sequelize, DataTypes) => {
     },
   });
 
-  /**
-   * Aggregate completed-payment revenue for a research row, split by
-   * type. Ported from the Mongoose static of the same name — same
-   * output shape so downstream consumers don't need to change.
-   */
+
   Payment.getRevenueForResearch = async function getRevenueForResearch(researchId) {
     const rows = await Payment.findAll({
       where: { researchId, status: PAYMENT_STATUSES.COMPLETED },

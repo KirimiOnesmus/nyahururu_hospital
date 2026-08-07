@@ -432,7 +432,7 @@ exports.sendDonorRegistrationEmail = async (donorData) => {
   );
 };
 
-// ─── RESEARCH PORTAL EMAILS ───────────────────────────────────────────────────
+//  RESEARCH PORTAL EMAILS 
 
 exports.sendResearcherVerificationEmail = ({ email, name, verifyLink }) =>
   sendMail(
@@ -510,7 +510,7 @@ exports.sendAdminAddedResearcher = ({ email, name, password }) => {
   );
 };
 
-exports.sendProposalSubmitted = ({ email, name, proposalTitle, mpesaReceipt, amount }) =>
+exports.sendProposalSubmitted = ({ email, name, proposalTitle, mpesaReceipt, amount, seruNumber }) =>
   sendMail(
     email,
     `Proposal Submitted — ${PORTAL_NAME}`,
@@ -522,6 +522,7 @@ exports.sendProposalSubmitted = ({ email, name, proposalTitle, mpesaReceipt, amo
       </p>
       ${detailTable([
         ["Proposal Title", proposalTitle],
+        ["SERU Number", seruNumber || "N/A"],
         ["Status", "Under Review"],
         ["M-Pesa Receipt", mpesaReceipt || "N/A"],
         ["Amount Paid", `KES ${amount}`],
@@ -633,8 +634,16 @@ exports.sendProposalRejected = ({ email, name, proposalTitle, stage, reviewerCom
     PORTAL_NAME,
   );
 
+const REVIEW_STAGE_LABELS = {
+  initial_proposal: "Initial Proposal",
+  amendment: "Amendment Review",
+  continuing_review: "Continuing Review",
+  study_closure: "Study Closure Review",
+  proposal: "Proposal Review",
+};
+
 exports.sendNewProposalToReview = ({
-  email, name, proposalTitle, researcherName, stage, discipline, reviewLink,
+  email, name, proposalTitle, researcherName, stage, submissionType, discipline, reviewLink,
 }) =>
   sendMail(
     email,
@@ -646,9 +655,29 @@ exports.sendNewProposalToReview = ({
         ["Title", proposalTitle],
         ["Researcher", researcherName],
         ["Discipline", discipline || "Not specified"],
-        ["Stage", stage === "proposal" ? "Stage 1 — Proposal" : "Stage 3 — Final Paper"],
+        ["Submission Type", REVIEW_STAGE_LABELS[submissionType] || REVIEW_STAGE_LABELS[stage] || stage || "Research Submission"],
       ])}
       ${btn(reviewLink, "Review Submission", "#1A3C6E")}
+    `),
+    PORTAL_NAME,
+  );
+
+exports.sendResubmissionConfirmation = ({ email, name, proposalTitle }) =>
+  sendMail(
+    email,
+    `Revision Received — ${PORTAL_NAME}`,
+    shell(`
+      <h2 style="color:#C75B00;margin-top:0;">Revision Received</h2>
+      <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
+      <p style="color:#374151;line-height:1.7;">
+        Your revised submission has been received and is now back in the review queue.
+        The assigned reviewer(s) will be notified to re-evaluate your work.
+      </p>
+      ${detailTable([["Title", proposalTitle]])}
+      <p style="color:#6B7280;font-size:13px;line-height:1.6;margin-top:16px;">
+        You will receive an email once the reviewer(s) have completed their re-evaluation.
+        Resubmissions are <strong>free of charge</strong>.
+      </p>
     `),
     PORTAL_NAME,
   );
@@ -722,7 +751,7 @@ exports.sendPaymentConfirmation = ({ email, name, mpesaReceipt, amount, purpose 
     email,
     `Payment Confirmed — ${PORTAL_NAME}`,
     shell(`
-      <h2 style="color:#1E7B45;margin-top:0;">Payment Confirmed ✓</h2>
+      <h2 style="color:#1E7B45;margin-top:0;">Payment Confirmed </h2>
       <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
       ${detailTable([
         ["M-Pesa Receipt", mpesaReceipt],
@@ -757,7 +786,7 @@ exports.sendDownloadReceipt = ({
     PORTAL_NAME,
   );
 
-// ─── REVIEWER EMAILS ─────────────────────────────────────────────────────────
+//  REVIEWER EMAILS 
 
 exports.sendReviewerInvite = ({ email, name, inviteLink, invitedBy }) =>
   sendMail(
@@ -819,7 +848,7 @@ exports.sendReviewerRevoked = ({ email, name, revokedBy }) =>
     PORTAL_NAME,
   );
 
-// ─── COMMITTEE EMAILS ────────────────────────────────────────────────────────
+//  COMMITTEE EMAILS 
 
 exports.sendCommitteeInvite = ({ email, name, inviteLink, invitedBy }) =>
   sendMail(
@@ -893,6 +922,211 @@ exports.sendFinalPaperForwardedToCommittee = ({ email, name, proposalTitle }) =>
         ["Status", "Awaiting research committee review"],
         ["Stage", "Final Paper"],
       ])}
+    `),
+    PORTAL_NAME,
+  );
+
+//  Co-Investigator emails 
+
+exports.sendCoInvestigatorInvite = ({ email, name, inviteLink, invitedBy, proposalTitle }) =>
+  sendMail(
+    email,
+    `You've Been Added as a Co-Investigator — ${PORTAL_NAME}`,
+    shell(`
+      <h2 style="color:#1A3C6E;margin-top:0;">Co-Investigator Invitation</h2>
+      <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
+      <p style="color:#374151;line-height:1.7;">
+        <strong>${invitedBy}</strong> has added you as a <strong>Co-Investigator</strong>
+        on the following study:
+      </p>
+      ${detailTable([["Study Title", proposalTitle]])}
+      <p style="color:#374151;line-height:1.7;">
+        As a Co-Investigator you can view the study, its review comments, and documents.
+        Please set your password to activate your account.
+      </p>
+      <div style="background:#EFF6FF;padding:16px 20px;border-left:4px solid #3B82F6;
+                  border-radius:0 6px 6px 0;margin:20px 0;">
+        <p style="color:#1e40af;font-weight:bold;margin:0 0 6px;">Important</p>
+        <p style="color:#1e40af;margin:0;">
+          This invitation expires in <strong>72 hours</strong>. Please set your password promptly.
+        </p>
+      </div>
+      ${btn(inviteLink, "Set Password & Activate Account", "#3B82F6")}
+      <p style="color:#6b7280;font-size:12px;margin-top:20px;padding-top:16px;border-top:1px solid #f3f4f6;">
+        <strong>Or copy this link:</strong><br/>
+        <a href="${inviteLink}" style="color:#3B82F6;word-break:break-all;font-size:11px;">${inviteLink}</a>
+      </p>
+    `),
+    PORTAL_NAME,
+  );
+
+exports.sendCoInvestigatorAdded = ({ email, name, proposalTitle, piName }) =>
+  sendMail(
+    email,
+    `You've Been Added as a Co-Investigator — ${PORTAL_NAME}`,
+    shell(`
+      <h2 style="color:#1A3C6E;margin-top:0;">Co-Investigator Assignment</h2>
+      <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
+      <p style="color:#374151;line-height:1.7;">
+        <strong>${piName}</strong> has added you as a <strong>Co-Investigator</strong>
+        on the following study:
+      </p>
+      ${detailTable([["Study Title", proposalTitle]])}
+      <p style="color:#374151;line-height:1.7;">
+        You can view this study and its documents by logging in to the Research Portal.
+      </p>
+      ${btn(FRONTEND_URL + "/research", "View Study", "#3B82F6")}
+    `),
+    PORTAL_NAME,
+  );
+
+// Chair's change #8: progress-only notification sent to the Research
+// Officer and the other assigned reviewers whenever one reviewer
+// submits — never carries verdict content, per the redaction rule (§5).
+exports.sendReviewerVerdictSubmitted = ({
+  email, name, proposalTitle, submitted, total, forRole = "reviewer",
+}) =>
+  sendMail(
+    email,
+    `Review Progress — ${PORTAL_NAME}`,
+    shell(`
+      <h2 style="color:#1A3C6E;margin-top:0;">Review Progress Update</h2>
+      <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
+      <p style="color:#374151;line-height:1.7;">
+        ${
+          forRole === "research_officer"
+            ? "A reviewer has submitted their verdict on the following submission."
+            : "A fellow reviewer has submitted their verdict on the following submission you're also assigned to."
+        }
+      </p>
+      ${detailTable([
+        ["Title", proposalTitle],
+        ["Reviews In", `${submitted} of ${total}`],
+      ])}
+      <p style="color:#6b7280;font-size:13px;line-height:1.6;">
+        In keeping with the review confidentiality policy, no verdict or comment
+        content is included in this notice.
+      </p>
+    `),
+    PORTAL_NAME,
+  );
+
+// Chair's change #1/#7/#8: the ONLY review-related email a researcher
+// ever receives — sent when the Research Officer releases the Compiled
+// Decision Report. Replaces the researcher-facing branches that used
+// to fire mid-pipeline from the reviewer and committee stages.
+// Truncate long text for email bodies (keep under 500 chars)
+const truncateForEmail = (text, maxLen = 500) => {
+  if (!text) return "";
+  const clean = String(text).trim();
+  if (clean.length <= maxLen) return clean;
+  return clean.slice(0, maxLen).replace(/\s+\S*$/, "") + "… [Full report available on your dashboard]";
+};
+
+exports.sendOfficialVerdict = ({
+  email, name, proposalTitle, decision, committeeComment, decisionLetterUrl, certificateUrl,
+}) => {
+  const DECISION_META = {
+    approved:  { label: "Approved", color: "#1E7B45", bg: "#F0FDF4" },
+    revision:  { label: "Revision Requested", color: "#C75B00", bg: "#FFF7ED" },
+    rejected:  { label: "Not Accepted", color: "#B91C1C", bg: "#FEF2F2" },
+    suspended: { label: "Suspended", color: "#B91C1C", bg: "#FEF2F2" },
+  };
+  const meta = DECISION_META[decision] || DECISION_META.revision;
+  const truncatedComment = truncateForEmail(committeeComment);
+
+  return sendMail(
+    email,
+    `Official Decision Issued — ${PORTAL_NAME}`,
+    shell(`
+      <h2 style="color:${meta.color};margin-top:0;">Official Decision: ${meta.label}</h2>
+      <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
+      <p style="color:#374151;line-height:1.7;">
+        The Research Officer has compiled the review outcome for your submission below.
+      </p>
+      ${detailTable([
+        ["Title", proposalTitle],
+        ["Decision", meta.label],
+      ])}
+      ${truncatedComment ? `
+      <div style="background:${meta.bg};padding:16px;border-left:4px solid ${meta.color};
+                  border-radius:0 6px 6px 0;margin:16px 0;">
+        <p style="color:#374151;font-weight:bold;margin:0 0 6px;">Committee Commentary:</p>
+        <p style="color:#374151;margin:0;line-height:1.7;">${truncatedComment}</p>
+      </div>` : ""}
+      <p style="color:#374151;line-height:1.7;">
+        The full compiled report and your official decision letter are available on your dashboard.
+      </p>
+      ${decisionLetterUrl ? btn(decisionLetterUrl, "View Decision Letter", meta.color) : ""}
+      ${certificateUrl ? btn(certificateUrl, "Download Approval Certificate", "#1E7B45") : ""}
+    `),
+    PORTAL_NAME,
+  );
+};
+
+// Chair's change #9: reminder to a reviewer who hasn't acted within 7
+// days of assignment. Includes the deadline so they can see how much
+// time remains under the extended 4-week window (§6.10).
+exports.sendReviewerReminder = ({ email, name, proposalTitle, deadline }) =>
+  sendMail(
+    email,
+    `Reminder: Review Pending — ${PORTAL_NAME}`,
+    shell(`
+      <h2 style="color:#C75B00;margin-top:0;">Review Still Pending</h2>
+      <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
+      <p style="color:#374151;line-height:1.7;">
+        This is a reminder that you have a review assignment awaiting your verdict.
+      </p>
+      ${detailTable([
+        ["Title", proposalTitle],
+        ["Review Deadline", deadline ? new Date(deadline).toDateString() : "Not set"],
+      ])}
+      ${btn(FRONTEND_URL + "/hmis", "Submit Your Review", "#C75B00")}
+    `),
+    PORTAL_NAME,
+  );
+// ── Research Officer Notifications ──
+
+// Sent to the Research Officer when a new proposal is submitted and paid.
+exports.sendProposalSubmittedToOfficer = ({ email, name, proposalTitle, researcherName, seruNumber, submissionType }) =>
+  sendMail(
+    email,
+    `New Proposal Submitted — ${PORTAL_NAME}`,
+    shell(`
+      <h2 style="color:#1A3C6E;margin-top:0;">New Proposal Submitted</h2>
+      <p style="color:#374151;line-height:1.7;">Dear <strong>${name || "Research Officer"}</strong>,</p>
+      <p style="color:#374151;line-height:1.7;">
+        A new research submission has been received and requires your attention for completeness verification and reviewer assignment.
+      </p>
+      ${detailTable([
+        ["Title", proposalTitle],
+        ["Researcher", researcherName],
+        ["SERU Number", seruNumber || "Pending"],
+        ["Submission Type", REVIEW_STAGE_LABELS[submissionType] || submissionType || "Initial Proposal"],
+        ["Status", "Awaiting Completeness Verification"],
+      ])}
+      ${btn(FRONTEND_URL + "/dashboard/research", "Go to Research Dashboard", "#1A3C6E")}
+    `),
+    PORTAL_NAME,
+  );
+
+// Sent to the Research Officer when a resubmission is received.
+exports.sendResubmissionToOfficer = ({ email, name, proposalTitle, researcherName, round }) =>
+  sendMail(
+    email,
+    `Resubmission Received (Round ${round || 2}) — ${PORTAL_NAME}`,
+    shell(`
+      <h2 style="color:#C75B00;margin-top:0;">Resubmission Received</h2>
+      <p style="color:#374151;line-height:1.7;">Dear <strong>${name || "Research Officer"}</strong>,</p>
+      <p style="color:#374151;line-height:1.7;">
+        A researcher has resubmitted their revised documents. The assigned reviewers will be notified automatically.
+      </p>
+      ${detailTable([
+        ["Title", proposalTitle],
+        ["Researcher", researcherName],
+        ["Round", `${round || 2}`],
+      ])}
+      ${btn(FRONTEND_URL + "/dashboard/research", "View in Dashboard", "#C75B00")}
     `),
     PORTAL_NAME,
   );

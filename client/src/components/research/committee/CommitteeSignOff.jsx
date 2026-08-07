@@ -8,12 +8,14 @@ import {
   FaChevronDown,
   FaShieldAlt,
   FaSpinner,
+  FaFileAlt,
 } from "react-icons/fa";
 import * as research from "../../../api/research";
+import { ASSET_BASE_URL } from "../../../config/env";
 import { useParams, useNavigate } from "react-router-dom";
 
 const DECISION_OPTIONS = [
-  { value: "approved", label: "Approve for Publication" },
+  { value: "approved", label: "Approve Submission" },
   { value: "revision", label: "Return to Reviewer (Request Revisions)" },
   { value: "rejected", label: "Reject" },
 ];
@@ -29,6 +31,35 @@ const fmtDateTime = (d) =>
         hour12: false,
       })
     : "—";
+
+
+const getReviewCriteria = (rv) => {
+  const c = rv?.scores || rv?.criteria;
+  return c && typeof c === "object" ? c : null;
+};
+
+const averageOf = (values) =>
+  values.length
+    ? Number((values.reduce((sum, v) => sum + v, 0) / values.length).toFixed(1))
+    : null;
+
+const computeLiveAggregate = (reviews) => {
+  const perReviewerAverages = reviews
+    .map((rv) => {
+      const criteria = getReviewCriteria(rv);
+      if (!criteria) return null;
+      const values = Object.values(criteria).filter(
+        (v) => typeof v === "number" && !Number.isNaN(v),
+      );
+      return averageOf(values);
+    })
+    .filter((v) => v !== null);
+
+  return {
+    score: averageOf(perReviewerAverages),
+    reviewerCount: perReviewerAverages.length,
+  };
+};
 
 const PageSpinner = ({ label = "Loading…" }) => (
   <div className="flex flex-col items-center justify-center py-24 gap-3">
@@ -49,7 +80,7 @@ const MetricCell = ({ label, children, border }) => (
 );
 
 
-const ComplianceItem = ({ label, met }) => {
+const ComplianceItem = ({ label, met, onToggle }) => {
   const cfg =
     met === true
       ? {
@@ -73,7 +104,10 @@ const ComplianceItem = ({ label, met }) => {
           };
   const { Icon } = cfg;
   return (
-    <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-slate-200 bg-white">
+    <div
+      onClick={onToggle}
+      className={`flex items-center justify-between px-4 py-3 rounded-xl border border-slate-200 bg-white ${onToggle ? "cursor-pointer hover:bg-slate-50 transition-colors" : ""}`}
+    >
       <div className="flex items-center gap-2.5">
         <Icon className={`text-sm shrink-0 ${cfg.iconCls}`} />
         <span className="text-sm font-semibold text-slate-700">{label}</span>
@@ -113,12 +147,14 @@ const AuditStep = ({ label, datetime, isCurrent }) => (
 const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
   const [detail, setDetail] = useState(null);
   const [timeline, setTimeline] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [decision, setDecision] = useState("approved");
   const [comment, setComment] = useState("");
   const [authorized, setAuthorized] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [voteStatus, setVoteStatus] = useState(null); 
+  const [compliance, setCompliance] = useState([]);
 
   const { id } = useParams();
   const navigate = useNavigate();
@@ -132,12 +168,22 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
     }
     setLoading(true);
     try {
-      const [detailRes, timelineRes] = await Promise.all([
+      const [detailRes, timelineRes, reviewHistory] = await Promise.all([
         research.getResearchDetail(recordId),
         research.getRecordTimeline(recordId).catch(() => ({ timeline: [] })),
+        research.getReviewHistory(recordId).catch(() => []),
       ]);
       setDetail(detailRes.paper || detailRes);
       setTimeline(timelineRes.timeline || []);
+      const reviewList = Array.isArray(reviewHistory) ? reviewHistory : (reviewHistory?.reviews ?? []);
+      setReviews(reviewList);
+
+      // If the research has moved past committee review, show finalized state
+      const paper = detailRes.paper || detailRes;
+      const postCommitteeStatuses = ["pending_officer_review", "approved", "rejected", "suspended", "revision_requested"];
+      if (paper.status && postCommitteeStatuses.includes(paper.status)) {
+        setVoteStatus({ finalized: true, votesReceived: "—", votesRequired: "—", votesMax: "—" });
+      }
     } catch {
       notify.error("Failed to load sign-off details");
     } finally {
@@ -148,6 +194,37 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Initialize compliance checklist — pre-fill based on what the reviewer approved
+  useEffect(() => {
+    if (!detail) return;
+    const r = detail;
+    const snapshot = r.proposalReview || {};
+    const finalDecision = snapshot.decision ?? r.reviewDecisionRaw ?? r.reviewDecision;
+    const rvApproved = String(finalDecision || "").toLowerCase() === "approved";
+    const sub = r.closureReport || r.continuingReviewData || {};
+
+    const initial = rvApproved
+      ? [
+          { label: "Ethics Approval Document", met: true },
+          { label: "Conflict of Interest Declared", met: true },
+          { label: "Plagiarism Report Provided", met: true },
+          { label: "Assigned Reviewer Recommended Approval", met: true },
+        ]
+      : [
+          { label: "Ethics Approval Document", met: !!sub.supportingFiles?.ethicsApproval },
+          { label: "Conflict of Interest Declared", met: sub.declarations?.conflictOfInterestDeclared === true },
+          { label: "Plagiarism Report Provided", met: !!sub.plagiarismReportLink },
+          { label: "Assigned Reviewer Recommended Approval", met: false },
+        ];
+    setCompliance(initial);
+  }, [detail]);
+
+  const toggleCompliance = (index) => {
+    setCompliance((prev) =>
+      prev.map((item, i) => i === index ? { ...item, met: !item.met } : item)
+    );
+  };
 
   const handleSubmitVote = async () => {
     if (!authorized) {
@@ -185,7 +262,14 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
         load(); 
       }
     } catch (err) {
-      notify.error(err?.message || "Failed to submit committee vote");
+      const status = err?.response?.status;
+      const msg = err?.response?.data?.message || err?.message || "";
+      if (status === 409 || msg.toLowerCase().includes("already voted")) {
+        setVoteStatus({ finalized: false, votesReceived: "?", votesRequired: "?", votesMax: "?", alreadyVoted: true });
+        notify.error("You have already cast your vote for this round.");
+      } else {
+        notify.error(msg || "Failed to submit committee vote");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -204,53 +288,40 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
   }
 
   const r = detail || {};
-  const submission = r.finalPaperSubmission || {};
+  const submission = r.closureReport || r.continuingReviewData || {};
 
 
-  const snapshot = r.finalPaperReview || {};
-  const isFinalPaperStage = r.stage === "final_paper";
+  const snapshot = r.proposalReview || {};
+  const isSubmission = true; 
+
+  const { score: liveAggregateScore, reviewerCount } =
+    computeLiveAggregate(reviews);
 
   const finalReview = {
     decision:
       snapshot.decision ??
-      (isFinalPaperStage
+      (isSubmission
         ? (r.reviewDecisionRaw ?? r.reviewDecision)
         : undefined),
     comment:
-      snapshot.comment ?? (isFinalPaperStage ? r.reviewComment : undefined),
-    aggregateScore:
-      snapshot.aggregateScore ??
-      (isFinalPaperStage ? r.aggregateScore : undefined),
+      snapshot.comment ?? (isSubmission ? r.reviewComment : undefined),
+
+    computedAvg:
+      snapshot.computedAvg ??
+      liveAggregateScore ??
+      (isSubmission ? r.aggregateScore : undefined),
     reviewedAt:
-      snapshot.reviewedAt ?? (isFinalPaperStage ? r.reviewedAt : undefined),
+      snapshot.reviewedAt ?? (isSubmission ? r.reviewedAt : undefined),
     reviewedBy: snapshot.reviewedBy ?? r.reviewedBy,
   };
 
-  const reviewerApproved =
-    String(finalReview.decision || "").toLowerCase() === "approved";
+  const reviewerApproved = (() => {
+    const r2 = detail || {};
+    const sn = r2.proposalReview || {};
+    const dec = sn.decision ?? r2.reviewDecisionRaw ?? r2.reviewDecision;
+    return String(dec || "").toLowerCase() === "approved";
+  })();
 
-  const compliance = reviewerApproved
-    ? [
-        { label: "Ethics Approval Document", met: true },
-        { label: "Conflict of Interest Declared", met: true },
-        { label: "Plagiarism Report Provided", met: true },
-        { label: "Assigned Reviewer Recommended Approval", met: true },
-      ]
-    : [
-        {
-          label: "Ethics Approval Document",
-          met: !!submission.supportingFiles?.ethicsApproval,
-        },
-        {
-          label: "Conflict of Interest Declared",
-          met: submission.declarations?.conflictOfInterestDeclared === true,
-        },
-        {
-          label: "Plagiarism Report Provided",
-          met: !!submission.plagiarismReportLink,
-        },
-        { label: "Assigned Reviewer Recommended Approval", met: false },
-      ];
   const auditTrail = timeline.length
     ? timeline.map((t, i) => ({
         label: t.stageLabel,
@@ -278,7 +349,7 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
-            Final Committee Sign-off
+            Committee Sign-off
           </h1>
           <div className="flex flex-wrap items-center gap-2 mt-2">
             <span className="text-sm font-bold text-blue-900">
@@ -306,8 +377,8 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
         </div>
         {voteStatus && !voteStatus.finalized && (
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-full">
-            {voteStatus.votesReceived}/{voteStatus.votesMax} committee votes
-            cast — quorum requires {voteStatus.votesRequired}
+            {voteStatus.votesReceived}/{voteStatus.votesRequired} committee votes
+            cast — quorum requires {voteStatus.votesRequired} (up to {voteStatus.votesMax})
           </span>
         )}
       </div>
@@ -330,13 +401,19 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
             <div className="flex divide-x divide-slate-200 border-b border-slate-100">
               <MetricCell label="Aggregate Score">
                 <p className="text-3xl font-bold text-slate-900">
-                  {typeof finalReview.aggregateScore === "number"
-                    ? finalReview.aggregateScore.toFixed(1)
+                  {typeof finalReview.computedAvg === "number"
+                    ? finalReview.computedAvg.toFixed(1)
                     : "—"}
                   <span className="text-base font-semibold text-slate-400">
                     /10
                   </span>
                 </p>
+                {reviewerCount > 0 && (
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    From {reviewerCount} reviewer
+                    {reviewerCount > 1 ? "s'" : "'s"} submitted scores
+                  </p>
+                )}
               </MetricCell>
               <MetricCell label="Reviewer Decision" border>
                 <p className="text-2xl font-bold text-blue-900 capitalize">
@@ -385,7 +462,215 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
             </div>
           </div>
 
+
+          {reviews.length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100">
+                <h2 className="font-bold text-slate-900 text-base">
+                  All Reviewer Assessments ({reviews.length})
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Full comments and scores from each assigned reviewer.
+                </p>
+              </div>
+              <div className="px-6 py-4 space-y-4">
+                {reviews.map((rv, i) => {
+                  const revName = rv.reviewerName || rv.reviewer?.name || `Reviewer ${i + 1}`;
+                  const revEmail = rv.reviewer?.email;
+                  const rec = rv.recommendation || rv.decision;
+                  const isApprove = ["approved", "highly_recommended", "approve"].includes(rec);
+                  const criteria = getReviewCriteria(rv);
+                  return (
+                    <div key={rv.id || i} className="border-l-2 border-blue-900 bg-slate-50/60 rounded-r-xl pl-4 pr-4 py-4">
+                      <div className="flex items-start justify-between gap-3 mb-2 flex-wrap">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-blue-900 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                            {revName.split(" ").filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join("")}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-slate-800">{revName}</p>
+                            {revEmail && <p className="text-xs text-slate-400">{revEmail}</p>}
+                            <p className="text-xs text-slate-500">
+                              {fmtDateTime(rv.submittedAt || rv.reviewedAt || rv.createdAt)}
+                            </p>
+                          </div>
+                        </div>
+                        {rec && (
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border
+                            ${isApprove ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
+                            {isApprove ? "Approve" : rec.replace(/_/g, " ")}
+                          </span>
+                        )}
+                      </div>
+                      {criteria && Object.keys(criteria).length > 0 && (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                          {Object.entries(criteria).map(([key, val]) => (
+                            <div key={key} className="bg-white rounded-lg border border-slate-200 px-3 py-2 text-center">
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-0.5">{key.replace(/_/g, " ")}</p>
+                              <p className="text-sm font-bold text-slate-800">{Number(val).toFixed(1)}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {(rv.comments || rv.comment) && (
+                        <p className="text-sm text-slate-600 leading-relaxed border-t border-slate-200 pt-2 mt-1">{rv.comments || rv.comment}</p>
+                      )}
+                      {Array.isArray(rv.attachments) && rv.attachments.length > 0 && (
+                        <div className="border-t border-slate-200 pt-2 mt-2">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">
+                            Reviewer Attachments
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {rv.attachments.map((att, ai) => {
+                              const url = att.url || att;
+                              const label = att.label || `Attachment ${ai + 1}`;
+                              const token = localStorage.getItem("token");
+                              const fullUrl = url.startsWith("http") ? url : `${ASSET_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+                              const authUrl = token && fullUrl.includes("/uploads/")
+                                ? `${fullUrl}${fullUrl.includes("?") ? "&" : "?"}token=${token}`
+                                : fullUrl;
+                              return (
+                                <a
+                                  key={ai}
+                                  href={authUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-100 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
+                                >
+                                  <FaFileAlt className="text-[10px]" /> {label}
+                                </a>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {(r.abstract || r.methodology || r.objectives) && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+              <h2 className="font-bold text-slate-900 text-base">Research Content</h2>
+              {r.abstract && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Abstract</p>
+                  <p className="text-sm text-slate-700 leading-relaxed">{r.abstract}</p>
+                </div>
+              )}
+              {r.methodology && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Methodology</p>
+                  <p className="text-sm text-slate-700 leading-relaxed">{r.methodology}</p>
+                </div>
+              )}
+              {r.objectives && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Objectives</p>
+                  <p className="text-sm text-slate-700 leading-relaxed">
+                    {Array.isArray(r.objectives) ? r.objectives.join("; ") : r.objectives}
+                  </p>
+                </div>
+              )}
+              {r.proposalFile && (() => {
+                const token = localStorage.getItem("token");
+                const base = r.proposalFile.startsWith("http") ? r.proposalFile : `${ASSET_BASE_URL}${r.proposalFile.startsWith("/") ? "" : "/"}${r.proposalFile}`;
+                const url = token && base.includes("/uploads/")
+                  ? `${base}${base.includes("?") ? "&" : "?"}token=${token}`
+                  : base;
+                return (
+                <div className="flex items-center justify-between py-3 border-t border-slate-100">
+                  <span className="text-sm font-semibold text-slate-800">Proposal Document</span>
+                  <a href={url} target="_blank" rel="noopener noreferrer"
+                    className="text-xs font-semibold text-blue-600 hover:underline">
+                    View / Download
+                  </a>
+                </div>
+                );
+              })()}
+            </div>
+          )}
+
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
+            {voteStatus ? (
+              voteStatus.finalized ? (
+              <div className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                  <FaCheckCircle className="text-blue-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-bold text-blue-800">Committee Review Complete</p>
+                    <p className="text-xs text-blue-700 mt-1">
+                      The committee quorum has been reached and the decision has been finalized.
+                      This submission is now awaiting the Research Officer's review and release.
+                    </p>
+                  </div>
+                </div>
+                {/* Show all committee votes cast */}
+                {reviews.filter((r) => r.reviewerRole === "committee").length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Committee Votes Cast</p>
+                    <div className="space-y-2">
+                      {reviews.filter((r) => r.reviewerRole === "committee").map((rv, i) => {
+                        const isApprove = ["approved", "approve"].includes(rv.decision);
+                        return (
+                          <div key={rv.id || i} className="border border-slate-100 rounded-lg p-3">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-semibold text-slate-600">
+                                {rv.reviewer?.name || rv.reviewerName || `Member ${i + 1}`}
+                              </span>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${isApprove ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
+                                {rv.decision?.replace(/_/g, " ")}
+                              </span>
+                            </div>
+                            {(rv.comment || rv.comments) && (
+                              <p className="text-xs text-slate-500 mt-1">{rv.comment || rv.comments}</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {/* Show final outcome if paper status indicates it */}
+                {r.status && r.status !== "pending_committee_review" && (
+                  <div className="bg-slate-50 rounded-lg p-3">
+                    <p className="text-xs text-slate-400 font-semibold">Final Outcome</p>
+                    <p className="text-sm font-bold text-slate-800 capitalize mt-0.5">
+                      {r.status.replace(/_/g, " ")}
+                    </p>
+                  </div>
+                )}
+              </div>
+              ) : voteStatus.alreadyVoted ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+                <FaCheckCircle className="text-amber-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-bold text-amber-800">You Already Voted</p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    You have already cast your committee vote for this round.
+                    The outcome will be finalized once quorum is reached.
+                  </p>
+                </div>
+              </div>
+              ) : (
+              <>
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3 mb-4">
+                  <FaCheckCircle className="text-green-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-bold text-green-800">Vote Submitted</p>
+                    <p className="text-xs text-green-700 mt-1">
+                      Your committee vote has been recorded. {voteStatus.votesReceived} of {voteStatus.votesRequired} required votes have been cast so far.
+                      The outcome will be finalized once quorum is reached.
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-400">You can close this page — no further action is needed from you.</p>
+              </>
+              )
+            ) : (
+            <>
             <h2 className="font-bold text-slate-900 text-lg mb-1">
               Cast Your Committee Vote
             </h2>
@@ -461,20 +746,24 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
               )}
               Submit Committee Vote
             </button>
+            </>
+            )}
           </div>
         </div>
 
         <div className="space-y-6">
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">
               Compliance Checklist
             </h2>
+            <p className="text-[10px] text-slate-400 mb-4">Click an item to toggle its status.</p>
             <div className="space-y-2.5">
-              {compliance.map((item) => (
+              {compliance.map((item, index) => (
                 <ComplianceItem
                   key={item.label}
                   label={item.label}
                   met={item.met}
+                  onToggle={() => toggleCompliance(index)}
                 />
               ))}
             </div>

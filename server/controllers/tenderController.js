@@ -125,10 +125,11 @@ exports.createTender = async (req, res) => {
       activityLog: [buildActivityEntry(req, "created", "Tender created")],
     });
 
+    emitChange("tenders", "created", { id: tender.id });
+
     res.status(201).json({
       success: true,
       message: "Tender created successfully",
-    emitChange("tenders", "created", { id: tender.id });
       data: tender,
     });
   } catch (error) {
@@ -167,10 +168,11 @@ exports.updateTender = async (req, res) => {
 
     await tender.save();
 
+    emitChange("tenders", "updated", { id: tender.id });
+
     res.status(200).json({
       success: true,
       message: "Tender updated successfully",
-    emitChange("tenders", "updated", { id: tender.id });
       data: tender,
     });
   } catch (error) {
@@ -197,10 +199,11 @@ exports.deleteTender = async (req, res) => {
       return res.status(404).json({ success: false, message: "Tender not found" });
     }
 
+    emitChange("tenders", "deleted", { id: req.params.id });
+
     res.status(200).json({
       success: true,
       message: "Tender deleted successfully",
-    emitChange("tenders", "deleted", { id: req.params.id });
     });
   } catch (error) {
     res.status(500).json({

@@ -33,13 +33,14 @@ router.post(
   "/callback/:webhookToken",
   rateLimit({ windowMs: 5 * 60 * 1000, max: 30 }),
   (req, res, next) => {
+    console.log("[Callback] Incoming request on /callback/:webhookToken");
     const expected = process.env.MPESA_CALLBACK_TOKEN;
     if (!expected) {
-      // Not configured — fail closed rather than silently accepting
-      // unauthenticated callbacks in an environment that forgot to set it.
+      console.error("[Callback] MPESA_CALLBACK_TOKEN not set — rejecting");
       return res.status(503).json({ ResultCode: 1, ResultDesc: "Callback not configured" });
     }
     if (req.params.webhookToken !== expected) {
+      console.warn("[Callback] Token mismatch — got:", req.params.webhookToken);
       return res.status(404).json({ ResultCode: 1, ResultDesc: "Not found" });
     }
     next();
@@ -49,7 +50,7 @@ router.post(
 
 
 router.get("/verify/:checkoutRequestId", ctrl.verifyPayment);
-
+router.get("/status/:checkoutRequestId", ctrl.verifyPayment);
 
 
 router.get(

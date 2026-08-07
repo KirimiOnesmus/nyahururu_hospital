@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Slider, Card, TimeRibbon, News, EventOverlay } from "../components/layouts";
+import { Slider, Card, QuickActions, WelcomeIntro, TimeRibbon, News, EventOverlay } from "../components/layouts";
 import { Header, Partners, Footer } from "../common/layouts";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
@@ -39,9 +39,17 @@ const Home = () => {
 
       <main className="flex-1">
         <EventOverlay />
+
+        {/* Hero */}
         <Slider />
 
-        <section className="max-w-6xl mx-auto px-6 py-12">
+        {/* Quick action strip, mirrors MP Shah's Find a Doctor / Book Appointment row */}
+        <QuickActions />
+
+        <WelcomeIntro />
+
+        {/* Our Services */}
+        <section className="max-w-6xl mx-auto px-6 pt-16 pb-12">
           <div className="flex items-end justify-between mb-8">
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-1">
@@ -97,19 +105,22 @@ const Home = () => {
           )}
         </section>
 
+        {/* Hours, specialist clinics & feedback ribbon */}
         <div className="border-t border-slate-100">
           <TimeRibbon />
         </div>
 
+        {/* Latest News */}
         <div className="border-t border-slate-100">
           <News />
         </div>
 
+        {/* Affiliations */}
         <section className="border-t border-slate-100 py-12 max-w-6xl mx-auto px-6">
           <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-1 text-center">
-            Trusted By
+            Working Together
           </p>
-          <h3 className="text-2xl font-bold text-slate-800 text-center mb-8">Our Partners</h3>
+          <h3 className="text-2xl font-bold text-slate-800 text-center mb-8">Our Affiliations</h3>
           <Partners />
         </section>
       </main>

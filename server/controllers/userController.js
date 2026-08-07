@@ -214,9 +214,10 @@ exports.createUser = asyncHandler(async (req, res) => {
   delete safeUser.password;
   delete safeUser.emailVerificationToken;
   delete safeUser.emailVerificationExpire;
-
-  return sendSuccess(res, 201, "User registered successfully. Please verify your email to activate your account.", {
+  
   emitChange("users", "created", { id: user.id });
+  return sendSuccess(res, 201, "User registered successfully. Please verify your email to activate your account.", {
+
     user: safeUser,
     temporaryPassword,
   });
@@ -371,8 +372,8 @@ exports.updateUser = asyncHandler(async (req, res) => {
 
   const user = await UserData.findByPk(userId, { attributes: { exclude: FULL_EXCLUDE } });
 
-  return sendSuccess(res, 200, "User updated successfully", { user });
   emitChange("users", "updated", { id: userId });
+  return sendSuccess(res, 200, "User updated successfully", { user });
 });
 
 exports.requestPasswordReset = asyncHandler(async (req, res) => {
@@ -393,7 +394,8 @@ exports.requestPasswordReset = asyncHandler(async (req, res) => {
   user.passwordResetExpire = Date.now() + 60 * 60 * 1000;
   await user.save();
 
-  const resetLink = `${process.env.FRONTEND_URL || ""}reset-password?token=${resetToken}&userId=${user.id}`;
+  const frontendBase = (process.env.FRONTEND_URL || "").replace(/\/+$/, "");
+  const resetLink = `${frontendBase}/reset-password?token=${resetToken}&userId=${user.id}`;
 
   try {
     await sendPasswordResetEmail({
@@ -483,8 +485,8 @@ exports.deleteUser = asyncHandler(async (req, res) => {
   }
 
   await target.destroy();
-  return sendSuccess(res, 200, "User deleted successfully");
   emitChange("users", "deleted", { id: userId });
+  return sendSuccess(res, 200, "User deleted successfully");
 });
 
 

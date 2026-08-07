@@ -5,12 +5,17 @@ import {
   FaFlask, FaTachometerAlt, FaFileAlt, FaWallet, FaCertificate,
   FaUserCircle, FaInbox, FaHistory, FaCheckDouble, FaBookOpen,
   FaSignOutAlt, FaBars, FaTimes, FaQuestionCircle,
+  FaEdit, FaClipboardCheck, FaArchive,
 } from "react-icons/fa";
 
 const ROLE_CONFIG = {
   researcher: {
     label: "Researcher",
-    nav: ["dashboard", "submissions", "payments", "certificates", "profile"],
+    nav: [
+      "dashboard", "submissions",
+      "submit-amendment", "submit-continuing-review", "submit-closure",
+      "payments", "certificates", "profile",
+    ],
   },
   reviewer: {
     label: "Reviewer",
@@ -18,7 +23,7 @@ const ROLE_CONFIG = {
   },
   committee: {
     label: "Research Committee",
-    nav: ["dashboard", "final-approvals", "all-research", "profile"],
+    nav: ["dashboard", "all-research", "final-approvals", "profile"],
   },
 };
 
@@ -40,14 +45,17 @@ const navLinkCls = ({ isActive }) =>
 const SidebarContent = ({ role, user, onLogout, onNavigate }) => {
 
   const NAV_ITEMS = {
-    dashboard:         { to: `/research/dashboard/${role}`,         label: "Dashboard",      icon: FaTachometerAlt },
-    submissions:       { to: "/research/dashboard/submissions",     label: "My Submissions", icon: FaFileAlt },
-    payments:          { to: "/research/dashboard/payments",        label: "Payments",       icon: FaWallet },
-    certificates:      { to: "/research/dashboard/certificates",    label: "Certificates",   icon: FaCertificate },
-    "review-queue":    { to: "/research/dashboard/review-queue",    label: "Review Queue",   icon: FaInbox },
-    "review-history":  { to: "/research/dashboard/review-history",  label: "Review History", icon: FaHistory },
-    "final-approvals": { to: "/research/dashboard/final-approvals", label: "Final Approvals",icon: FaCheckDouble },
-    "all-research":    { to: "/research/dashboard/all-research",    label: "All Research",   icon: FaBookOpen },
+    dashboard:                  { to: `/research/dashboard/${role}`,                   label: "Dashboard",         icon: FaTachometerAlt },
+    submissions:                { to: "/research/dashboard/submissions",               label: "My Submissions",    icon: FaFileAlt },
+    "submit-amendment":         { to: "/research/dashboard/submit-amendment",           label: "Submit Amendment",  icon: FaEdit },
+    "submit-continuing-review": { to: "/research/dashboard/submit-continuing-review",   label: "Continuing Review", icon: FaClipboardCheck },
+    "submit-closure":           { to: "/research/dashboard/submit-closure",             label: "Study Closure",     icon: FaArchive },
+    payments:                   { to: "/research/dashboard/payments",                   label: "Payments",          icon: FaWallet },
+    certificates:               { to: "/research/dashboard/certificates",               label: "Certificates",      icon: FaCertificate },
+    "review-queue":             { to: "/research/dashboard/review-queue",               label: "Review Queue",      icon: FaInbox },
+    "review-history":           { to: "/research/dashboard/review-history",             label: "Review History",    icon: FaHistory },
+    "final-approvals":          { to: "/research/dashboard/final-approvals",            label: "Final Approvals",   icon: FaCheckDouble },
+    "all-research":             { to: "/research/dashboard/all-research",               label: "All Research",      icon: FaBookOpen },
   };
 
   const config = ROLE_CONFIG[role] || ROLE_CONFIG.researcher;

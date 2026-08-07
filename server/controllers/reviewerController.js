@@ -1,10 +1,17 @@
 const reviewerService = require("../services/reviewerService");
+const audit = require("../services/auditService");
 const { asyncHandler, sendSuccess } = require("../utils/appError");
 const { getCallerIdentity } = require("../middleware/auth");
 
 exports.inviteReviewer = asyncHandler(async (req, res) => {
   const caller = getCallerIdentity(req);
   const result = await reviewerService.inviteReviewer(req.body, caller);
+
+  audit.log({
+    req, action: result.action === "promoted" ? "role_change" : "create",
+    resource: "reviewer", resourceId: result.reviewer.id,
+    description: `${result.action === "promoted" ? "Promoted" : "Invited"} ${result.reviewer.email} as reviewer`,
+  });
 
   const message =
     result.action === "promoted"
@@ -38,6 +45,11 @@ exports.resendInvite = asyncHandler(async (req, res) => {
 exports.revokeReviewer = asyncHandler(async (req, res) => {
   const caller = getCallerIdentity(req);
   const researcher = await reviewerService.revokeReviewer(req.params.id, caller);
+  audit.log({
+    req, action: "role_change", resource: "reviewer", resourceId: researcher.id,
+    description: `Revoked reviewer access for ${researcher.email}`,
+    severity: "medium",
+  });
   sendSuccess(res, 200, `${researcher.name}'s reviewer access has been revoked.`, {
     researcher,
   });
@@ -48,6 +60,12 @@ exports.revokeReviewer = asyncHandler(async (req, res) => {
 exports.inviteCommitteeMember = asyncHandler(async (req, res) => {
   const caller = getCallerIdentity(req);
   const result = await reviewerService.inviteCommitteeMember(req.body, caller);
+
+  audit.log({
+    req, action: result.action === "invited" ? "create" : "role_change",
+    resource: "committee_member", resourceId: result.member.id,
+    description: `${result.action} committee access for ${result.member.email}`,
+  });
 
   const messages = {
     promoted: `${result.member.name} has been promoted to the Research Committee.`,
@@ -65,6 +83,11 @@ exports.inviteCommitteeMember = asyncHandler(async (req, res) => {
 exports.revokeCommitteeAccess = asyncHandler(async (req, res) => {
   const caller = getCallerIdentity(req);
   const researcher = await reviewerService.revokeCommitteeAccess(req.params.id, caller);
+  audit.log({
+    req, action: "role_change", resource: "committee_member", resourceId: researcher.id,
+    description: `Revoked committee access for ${researcher.email}`,
+    severity: "medium",
+  });
   sendSuccess(res, 200, `${researcher.name}'s Research Committee access has been revoked.`, {
     researcher,
   });

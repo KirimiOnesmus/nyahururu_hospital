@@ -6,14 +6,14 @@ import { getDashboardRoles } from "./config/dashboardRoles";
 import "./App.css";
 import { ToastContainer } from "react-toastify";
 
-/* ─── Global loading fallback ─── */
+
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[60vh]">
     <div className="w-10 h-10 border-2 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
   </div>
 );
 
-/* ─── Public pages (lazy) ─── */
+
 const Home = lazy(() => import("./pages/Home"));
 const About = lazy(() => import("./pages/About"));
 const Services = lazy(() => import("./pages/Services"));
@@ -37,34 +37,38 @@ const ServiceDetails = lazy(() => import("./components/modals/ServiceDetails"));
 const DoctorDetails = lazy(() => import("./components/modals/DoctorDetails"));
 const NewsDetails = lazy(() => import("./components/modals/NewsDetails"));
 
+
 const ResearchPage = lazy(() => import("./pages/research/Research"));
-const PublicResearch = lazy(() => import("./pages/research/PublicResearch"));
 const ResearchRegister = lazy(() => import("./pages/research/Register"));
 const ResearchDashboard = lazy(() => import("./pages/ResearchDashboard"));
 const DashboardIndex = lazy(() => import("./pages/research/DashboardIndex"));
 const Myprofile = lazy(() => import("./pages/research/MyProfile"));
 
-const SubmitProposal = lazy(() => import("./components/research/SubmitProposal"));
-const ResearchProgress = lazy(() => import("./components/research/ResearchProgress"));
-const SubmitFinalPaper = lazy(() => import("./components/research/SubmitFullPaper"));
+
+const SubmitProposal = lazy(() => import("./components/research/researcher/SubmitProposal"));
+const SubmitAmendment = lazy(() => import("./components/research/researcher/SubmitAmendment"));
+const SubmitContinuingReview = lazy(() => import("./components/research/researcher/SubmitContinuingReview"));
+const SubmitStudyClosure = lazy(() => import("./components/research/researcher/SubmitStudyClosure"));
+
+
 const ReviewSubmission = lazy(() => import("./components/research/reviewer/Reviewsubmission"));
+const ReviewHistory = lazy(() => import("./components/research/reviewer/ReviewHistory"));
+const ReviewQueue = lazy(() => import("./components/research/reviewer/ReviewQueue"));
+
 const MySubmissions = lazy(() => import("./components/research/researcher/MySubmission"));
 const Payments = lazy(() => import("./components/research/researcher/Payments"));
 const Certificates = lazy(() => import("./components/research/researcher/Certificates"));
 const ResearchDetails = lazy(() => import("./components/research/researcher/ResearchDetails"));
-const ReviewHistory = lazy(() => import("./components/research/reviewer/ReviewHistory"));
-const ReviewQueue = lazy(() => import("./components/research/reviewer/ReviewQueue"));
+
+
 const CommitteeDashboard = lazy(() => import("./components/research/dashboard/CommitteeDashboard"));
-const ResearcherDashboard = lazy(
-  () => import("./components/research/dashboard/ResearcherDashboard")
-);
+const ResearcherDashboard = lazy(() => import("./components/research/dashboard/ResearcherDashboard"));
 const ReviewerDashboard = lazy(() => import("./components/research/dashboard/ReviewerDashboard"));
 const AllResearch = lazy(() => import("./components/research/committee/AllResearch"));
 const FinalApproval = lazy(() => import("./components/research/committee/FinalApprovals"));
-const CommitteeResearchDetails = lazy(
-  () => import("./components/research/committee/CommitteeResearchDetails")
-);
+const CommitteeResearchDetails = lazy(() => import("./components/research/committee/CommitteeResearchDetails"));
 const CommitteeSignOff = lazy(() => import("./components/research/committee/CommitteeSignOff"));
+
 
 const Sidebar = lazy(() => import("./components/Dashboard/Sidebar"));
 const Dashboard = lazy(() => import("./components/Dashboard/Dashboard"));
@@ -73,6 +77,7 @@ const AppointmentPg = lazy(() => import("./components/Dashboard/AppointmentPage"
 const News = lazy(() => import("./components/Dashboard/NewsPage"));
 const Events = lazy(() => import("./components/Dashboard/EventsPage"));
 const Research = lazy(() => import("./components/Dashboard/ResearchPage"));
+const AdminResearchDetail = lazy(() => import("./components/Dashboard/research/AdminResearchDetail"));
 const FeedbackPg = lazy(() => import("./components/Dashboard/FeedbackPage"));
 const Fraud = lazy(() => import("./components/Dashboard/FraudPage"));
 const Careers = lazy(() => import("./components/Dashboard/CareersPage"));
@@ -88,7 +93,7 @@ const ReportsPage = lazy(() => import("./components/Dashboard/ReportsPage"));
 const Donations = lazy(() => import("./components/Dashboard/Donations"));
 const AuditLogPage = lazy(() => import("./components/Dashboard/AuditLog"));
 
-/* ─── Auth pages (lazy) ─── */
+
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
@@ -126,194 +131,66 @@ function App() {
           <Route path="/doctors/:id" element={<DoctorDetails />} />
           <Route path="/news/:id" element={<NewsDetails />} />
 
-          {/* ── Research ── */}
+          {/* ── Research (SERU-aligned) ── */}
           <Route path="/research" element={<ResearchPage />} />
-          <Route path="/research/public" element={<PublicResearch />} />
           <Route path="/research/register" element={<ResearchRegister />} />
+          <Route path="/research/reset-password" element={<ResetPassword />} />
           <Route path="/research/dashboard" element={<ResearchDashboard />}>
             <Route index element={<DashboardIndex />} />
+
+            {/* Role dashboards */}
             <Route path="researcher" element={<ResearcherDashboard />} />
             <Route path="reviewer" element={<ReviewerDashboard />} />
             <Route path="committee" element={<CommitteeDashboard />} />
-            <Route path="committee-research-detail/:id" element={<CommitteeResearchDetails />} />
-            <Route path="committee-sign-off/:id" element={<CommitteeSignOff />} />
+
+            {/* Researcher — submission forms */}
             <Route path="submit-proposal" element={<SubmitProposal />} />
-            <Route path="research-progress/:id" element={<ResearchProgress />} />
-            <Route path="submit-final/:id" element={<SubmitFinalPaper />} />
+            <Route path="submit-amendment" element={<SubmitAmendment />} />
+            <Route path="submit-continuing-review" element={<SubmitContinuingReview />} />
+            <Route path="submit-closure" element={<SubmitStudyClosure />} />
+
+            {/* Researcher — views */}
             <Route path="view/:id" element={<ResearchDetails />} />
-            <Route path="review/:id" element={<ReviewSubmission />} />
-            <Route path="profile" element={<Myprofile />} />
             <Route path="submissions" element={<MySubmissions />} />
             <Route path="payments" element={<Payments />} />
             <Route path="certificates" element={<Certificates />} />
+            <Route path="profile" element={<Myprofile />} />
+
+            {/* Reviewer */}
+            <Route path="review/:id" element={<ReviewSubmission />} />
             <Route path="review-queue" element={<ReviewQueue />} />
             <Route path="review-history" element={<ReviewHistory />} />
+
+            {/* Committee */}
+            <Route path="committee-research-detail/:id" element={<CommitteeResearchDetails />} />
+            <Route path="committee-sign-off/:id" element={<CommitteeSignOff />} />
             <Route path="final-approvals" element={<FinalApproval />} />
             <Route path="all-research" element={<AllResearch />} />
           </Route>
 
-          {/* ── Admin Dashboard ── */}
+    
           <Route path="/dashboard" element={<Sidebar />}>
-            <Route
-              path="/dashboard"
-              element={
-                <Guarded path="/dashboard">
-                  <Dashboard />
-                </Guarded>
-              }
-            />
-            <Route
-              path="/dashboard/users"
-              element={
-                <Guarded path="/dashboard/users">
-                  <Users />
-                </Guarded>
-              }
-            />
-            <Route
-              path="/dashboard/appointments"
-              element={
-                <Guarded path="/dashboard/appointments">
-                  <AppointmentPg />
-                </Guarded>
-              }
-            />
-            <Route
-              path="/dashboard/news"
-              element={
-                <Guarded path="/dashboard/news">
-                  <News />
-                </Guarded>
-              }
-            />
-            <Route
-              path="/dashboard/events"
-              element={
-                <Guarded path="/dashboard/events">
-                  <Events />
-                </Guarded>
-              }
-            />
-            <Route
-              path="/dashboard/research"
-              element={
-                <Guarded path="/dashboard/research">
-                  <Research />
-                </Guarded>
-              }
-            />
-            <Route
-              path="/dashboard/feedback"
-              element={
-                <Guarded path="/dashboard/feedback">
-                  <FeedbackPg />
-                </Guarded>
-              }
-            />
-            <Route
-              path="/dashboard/fraud"
-              element={
-                <Guarded path="/dashboard/fraud">
-                  <Fraud />
-                </Guarded>
-              }
-            />
-            <Route
-              path="/dashboard/careers"
-              element={
-                <Guarded path="/dashboard/careers">
-                  <Careers />
-                </Guarded>
-              }
-            />
-            <Route
-              path="/dashboard/services"
-              element={
-                <Guarded path="/dashboard/services">
-                  <ServicesList />
-                </Guarded>
-              }
-            />
-            <Route
-              path="/dashboard/profile"
-              element={
-                <Guarded path="/dashboard/profile">
-                  <Profile />
-                </Guarded>
-              }
-            />
-            <Route
-              path="/dashboard/users/edit/:id"
-              element={
-                <Guarded path="/dashboard/users/edit/:id">
-                  <EditUserPage />
-                </Guarded>
-              }
-            />
-            <Route
-              path="/dashboard/inventory"
-              element={
-                <Guarded path="/dashboard/inventory">
-                  <InventoryPage />
-                </Guarded>
-              }
-            />
-            <Route
-              path="/dashboard/logistics"
-              element={
-                <Guarded path="/dashboard/logistics">
-                  <LogisticsPage />
-                </Guarded>
-              }
-            />
-            <Route
-              path="/dashboard/gallery"
-              element={
-                <Guarded path="/dashboard/gallery">
-                  <GalleryPage />
-                </Guarded>
-              }
-            />
-            <Route
-              path="/dashboard/notices"
-              element={
-                <Guarded path="/dashboard/notices">
-                  <NoticePage />
-                </Guarded>
-              }
-            />
-            <Route
-              path="/dashboard/tenders"
-              element={
-                <Guarded path="/dashboard/tenders">
-                  <TenderPage />
-                </Guarded>
-              }
-            />
-            <Route
-              path="/dashboard/reports"
-              element={
-                <Guarded path="/dashboard/reports">
-                  <ReportsPage />
-                </Guarded>
-              }
-            />
-            <Route
-              path="/dashboard/donations"
-              element={
-                <Guarded path="/dashboard/donations">
-                  <Donations />
-                </Guarded>
-              }
-            />
-            <Route
-              path="/dashboard/audit-logs"
-              element={
-                <Guarded path="/dashboard/audit-logs">
-                  <AuditLogPage />
-                </Guarded>
-              }
-            />
+            <Route path="/dashboard" element={<Guarded path="/dashboard"><Dashboard /></Guarded>} />
+            <Route path="/dashboard/users" element={<Guarded path="/dashboard/users"><Users /></Guarded>} />
+            <Route path="/dashboard/appointments" element={<Guarded path="/dashboard/appointments"><AppointmentPg /></Guarded>} />
+            <Route path="/dashboard/news" element={<Guarded path="/dashboard/news"><News /></Guarded>} />
+            <Route path="/dashboard/events" element={<Guarded path="/dashboard/events"><Events /></Guarded>} />
+            <Route path="/dashboard/research" element={<Guarded path="/dashboard/research"><Research /></Guarded>} />
+            <Route path="/dashboard/research/:id" element={<Guarded path="/dashboard/research"><AdminResearchDetail /></Guarded>} />
+            <Route path="/dashboard/feedback" element={<Guarded path="/dashboard/feedback"><FeedbackPg /></Guarded>} />
+            <Route path="/dashboard/fraud" element={<Guarded path="/dashboard/fraud"><Fraud /></Guarded>} />
+            <Route path="/dashboard/careers" element={<Guarded path="/dashboard/careers"><Careers /></Guarded>} />
+            <Route path="/dashboard/services" element={<Guarded path="/dashboard/services"><ServicesList /></Guarded>} />
+            <Route path="/dashboard/profile" element={<Guarded path="/dashboard/profile"><Profile /></Guarded>} />
+            <Route path="/dashboard/users/edit/:id" element={<Guarded path="/dashboard/users/edit/:id"><EditUserPage /></Guarded>} />
+            <Route path="/dashboard/inventory" element={<Guarded path="/dashboard/inventory"><InventoryPage /></Guarded>} />
+            <Route path="/dashboard/logistics" element={<Guarded path="/dashboard/logistics"><LogisticsPage /></Guarded>} />
+            <Route path="/dashboard/gallery" element={<Guarded path="/dashboard/gallery"><GalleryPage /></Guarded>} />
+            <Route path="/dashboard/notices" element={<Guarded path="/dashboard/notices"><NoticePage /></Guarded>} />
+            <Route path="/dashboard/tenders" element={<Guarded path="/dashboard/tenders"><TenderPage /></Guarded>} />
+            <Route path="/dashboard/reports" element={<Guarded path="/dashboard/reports"><ReportsPage /></Guarded>} />
+            <Route path="/dashboard/donations" element={<Guarded path="/dashboard/donations"><Donations /></Guarded>} />
+            <Route path="/dashboard/audit-logs" element={<Guarded path="/dashboard/audit-logs"><AuditLogPage /></Guarded>} />
           </Route>
         </Routes>
       </Suspense>

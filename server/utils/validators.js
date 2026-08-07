@@ -22,13 +22,16 @@ const passwordSchema = z
   .min(8, "Password must be at least 8 characters")
   .max(128, "Password is too long");
 
-const objectIdSchema = z.string().regex(/^[a-f\d]{24}$/i, "Invalid ID format");
+const objectIdSchema = z.union([
+  z.coerce.number().int().positive(),
+  z.string().regex(/^[a-f\d]{24}$/i, "Invalid ID format"),
+  z.string().regex(/^\d+$/).transform(Number),
+]);
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(10),
 });
-
 
 const registerSchema = z.object({
   firstName: z.string().trim().min(1).max(50),
@@ -101,35 +104,60 @@ const updateProfileSchema = z.object({
 // Research validators
 const proposalInitiateSchema = z.object({
   phone: phoneSchema,
-  title: wordCountString(5, 50, "Title"),
-  discipline: z.string().trim().min(1, "Discipline is required").max(100),
-  abstract: wordCountString(50, 300, "Abstract"),
+  title: z.string().trim().min(1, "Title is required").optional(),
+  discipline: z.string().trim().optional(),
+  amount: z.coerce.number().optional(),
+  type: z.string().optional(),
 });
 
-const proposalConfirmSchema = z.object({
-  paymentId: objectIdSchema,
-  title: wordCountString(5, 300, "Title"),
-  discipline: z.string().trim().min(1, "Discipline is required").max(100),
-  abstract: z.string().trim().optional(),
-  background: z.string().trim().optional(),
-  objectives: z.string().trim().optional(),
-  hypotheses: z.string().trim().optional(),
-  literatureReviewSummary: z.string().trim().optional(),
-  methodology: z.string().trim().optional(),
-  expectedOutcome: z.string().trim().optional(),
-  timeline: z.string().trim().optional(),
-  studyDuration: z.string().trim().optional(),
-  studySites: z
-    .union([z.array(z.string().trim()), z.string().trim()])
-    .optional(),
-  teamMembers: z.string().trim().optional(),
-  coInvestigators: z
-    .union([z.array(z.string().trim()), z.string().trim()])
-    .optional(),
-  fundingSource: z.string().trim().optional(),
-  ethicsInformation: z.string().trim().optional(),
-  references: z.string().trim().optional(),
-});
+const proposalConfirmSchema = z
+  .object({
+    paymentId: objectIdSchema,
+    title: z.string().trim().min(1, "Title is required"),
+    discipline: z.string().trim().min(1, "Discipline is required").max(150),
+    abstract: z.string().trim().optional(),
+    background: z.string().trim().optional(),
+    objectives: z
+      .union([z.array(z.string().trim()), z.string().trim()])
+      .optional(),
+    hypotheses: z.string().trim().optional(),
+    literatureReviewSummary: z.string().trim().optional(),
+    methodology: z.string().trim().optional(),
+    expectedOutcome: z.string().trim().optional(),
+    timeline: z.string().trim().optional(),
+    studySites: z.union([z.array(z.any()), z.string().trim()]).optional(),
+    teamMembers: z.string().trim().optional(),
+    coInvestigators: z
+      .union([z.array(z.any()).max(10, "Maximum 10 co-investigators per proposal."), z.string().trim().max(5000)])
+      .optional(),
+    fundingSource: z.string().trim().optional(),
+    ethicsInformation: z.string().trim().optional(),
+    references: z.string().trim().optional(),
+    // SERU-specific fields
+    protocolVersionNumber: z.string().trim().optional(),
+    protocolVersionDate: z.string().trim().optional(),
+    researchProgramme: z.string().trim().optional(),
+    keyPerformanceArea: z.string().trim().optional(),
+    strategy: z.string().trim().optional(),
+    sdg: z.string().trim().optional(),
+    studyImplementationCounties: z
+      .union([z.array(z.string()), z.string().trim()])
+      .optional(),
+    totalFundsNeeded: z.union([z.coerce.number(), z.string()]).optional(),
+    expectedDurationMonths: z.union([z.coerce.number(), z.string()]).optional(),
+    justification: z.string().trim().optional(),
+    inclusionCriteria: z.string().trim().optional(),
+    exclusionCriteria: z.string().trim().optional(),
+    sampleSizeDescription: z.string().trim().optional(),
+    samplingProcedure: z.string().trim().optional(),
+    dataManagementPlan: z.string().trim().optional(),
+    ethicsHumanSubjects: z.string().trim().optional(),
+    ethicsAnimalSubjects: z.string().trim().optional(),
+    budgetSummary: z.string().trim().optional(),
+    budgetJustification: z.string().trim().optional(),
+    expectedApplicationOfResults: z.string().trim().optional(),
+  })
+  .passthrough();
 
 const finalPaperSchema = z.object({
   finalAbstract: z.string().trim().max(5000).optional(),
@@ -167,32 +195,89 @@ const researchAdminQuerySchema = paginationSchema.extend({
     .enum([
       "draft",
       "awaiting_payment",
-      "pending",
+      "submitted",
+      "returned_for_correction",
       "under_review",
       "revision_requested",
+      "pending_committee_review",
       "approved",
       "rejected",
+      "expired",
+      "closed",
       "suspended",
     ])
     .optional(),
   search: z.string().trim().optional(),
 });
 
-const updateDownloadPriceSchema = z.object({
-  downloadPrice: z.number().min(0, "Price cannot be negative"),
-});
-
 const assignReviewerSchema = z.object({
   email: z.string().trim().email("Invalid reviewer email"),
 });
 
-const publicResearchQuerySchema = paginationSchema.extend({
-  search: z.string().trim().optional(),
-  discipline: z.string().trim().optional(),
-  sort: z.enum(["newest", "oldest", "downloads", "price"]).default("newest"),
-  priceMin: z.coerce.number().min(0).optional(),
-  priceMax: z.coerce.number().min(0).optional(),
+
+const cscEndorsementSchema = z.object({
+  cscApprovalDate: z
+    .string()
+    .trim()
+    .refine((v) => !Number.isNaN(Date.parse(v)), "Invalid CSC approval date"),
+  cscReviewDate: z
+    .string()
+    .trim()
+    .refine((v) => !Number.isNaN(Date.parse(v)), "Invalid CSC review date")
+    .optional()
+    .or(z.literal("")),
+  cscComments: z.string().trim().max(2000).optional().or(z.literal("")),
+  cscContactName: z.string().trim().min(1, "CSC contact name is required.").max(200),
+  cscContactEmail: z.string().trim().email("Invalid CSC contact email."),
 });
+
+const returnForCorrectionSchema = z.object({
+  issues: z
+    .array(z.string().trim().min(1).max(300))
+    .min(1, "At least one issue must be listed.")
+    .max(25),
+});
+
+const protocolDeviationSchema = z.object({
+  parentResearchId: objectIdSchema,
+  deviationType: z
+    .enum(["protocol_deviation", "protocol_violation", "safety_event"])
+    .default("protocol_deviation"),
+  severity: z.enum(["minor", "major", "critical"]).default("minor"),
+  description: z.string().trim().min(1, "Description is required.").max(5000),
+  dateOfDeviation: z
+    .string()
+    .trim()
+    .refine((v) => !Number.isNaN(Date.parse(v)), "Invalid date of deviation"),
+  correctiveAction: z.string().trim().max(3000).optional().or(z.literal("")),
+  participantsAffected: z.coerce.number().int().min(0).max(1000000).optional(),
+  atRiskParticipantList: z.string().trim().max(10000).optional().or(z.literal("")),
+  isUrgentSafety: z
+    .union([z.literal("true"), z.literal("false"), z.boolean()])
+    .optional()
+    .transform((v) => v === true || v === "true"),
+});
+
+// G-2
+const coInvestigatorEditAccessSchema = z.object({
+  canEdit: z.union([z.boolean(), z.literal("true"), z.literal("false")]),
+});
+
+const coInvestigatorEditSchema = z
+  .object({
+    abstract: z.string().trim().max(20000).optional(),
+    background: z.string().trim().max(20000).optional(),
+    objectives: z.string().trim().max(20000).optional(),
+    methodology: z.string().trim().max(20000).optional(),
+    expectedOutcome: z.string().trim().max(20000).optional(),
+    timeline: z.string().trim().max(5000).optional(),
+    inclusionCriteria: z.string().trim().max(10000).optional(),
+    exclusionCriteria: z.string().trim().max(10000).optional(),
+    literatureReviewSummary: z.string().trim().max(20000).optional(),
+  })
+  .refine((data) => Object.values(data).some((v) => v !== undefined), {
+    message: "At least one editable field must be provided.",
+  });
 
 const progressSubmitSchema = z
   .object({
@@ -235,18 +320,33 @@ const progressSubmitSchema = z
     });
   });
 
+const multipartCriteriaSchema = z.preprocess((v) => {
+  if (typeof v === "string") {
+    try { return JSON.parse(v); } catch { return {}; }
+  }
+  return v;
+}, criteriaSchema);
+
+// Chair's change #5: reviewers can never produce a "rejected" outcome —
+// enforced here at the schema level (and again in the service, defense
+// in depth) so it can't be bypassed via a direct API call.
 const submitReviewSchema = z.object({
   researchId: objectIdSchema,
-  stage: z.enum(["proposal", "progress", "final_paper"]),
-  decision: z.enum(["approved", "revision", "rejected", "suspended"]),
+  decision: z.enum(["approved", "revision"]),
+  // Chair's change #6: backend ceiling raised 500 → 10,000. The old
+  // 500 figure was a frontend-only display cap with no basis here.
   comment: z
     .string()
     .trim()
     .min(10, "Review comment must be at least 10 characters")
-    .max(5000),
-  criteria: criteriaSchema,
+    .max(10000),
+  // Submitted via multipart alongside file uploads, so this may arrive
+  // as a JSON string rather than a parsed object.
+  criteria: multipartCriteriaSchema,
 });
 
+// Committee retains the power to reject (§6.5 — "decoupled" from the
+// reviewer schema above).
 const submitCommitteeReviewSchema = z.object({
   researchId: objectIdSchema,
   decision: z.enum(["approved", "revision", "rejected", "suspended"]),
@@ -254,9 +354,61 @@ const submitCommitteeReviewSchema = z.object({
     .string()
     .trim()
     .min(10, "Review comment must be at least 10 characters")
-    .max(5000),
+    .max(10000),
   criteria: criteriaSchema,
 });
+
+// Chair's change #3: closeout report file + publication link. The
+// /study-closures route previously had no request-validation schema
+// at all — this whitelists every field the service accepts.
+const studyClosureSchema = z.object({
+  parentResearchId: objectIdSchema,
+  closureReason: z.enum([
+    "completed",
+    "premature_discontinuation",
+    "not_started",
+    "transferred",
+  ]),
+  closureAttestations: z
+    .preprocess((v) => {
+      if (typeof v === "string") {
+        try {
+          return JSON.parse(v);
+        } catch {
+          return v;
+        }
+      }
+      return v;
+    }, z.record(z.string(), z.union([z.boolean(), z.string()])))
+    .optional(),
+  resultsSummary: z.string().trim().max(20000).optional(),
+  publications: z.string().trim().max(5000).optional(),
+  participantIdentifiersDestroyed: z.union([z.boolean(), z.string()]).optional(),
+  specimenDisposalPlan: z.string().trim().max(5000).optional(),
+  dataFutureUsePlan: z.string().trim().max(5000).optional(),
+  investigationalProductDisposal: z.string().trim().max(5000).optional(),
+  publicationLink: z
+    .string()
+    .trim()
+    .max(500)
+    .url("Publication link must be a valid URL")
+    .optional()
+    .or(z.literal("")),
+});
+
+// RO edits to the compiled report before release (§6.1).
+const decisionReportEditSchema = z.object({
+  committeeComment: z.string().trim().max(50000).optional(),
+  finalDecision: z.enum(["approved", "revision", "rejected", "suspended"]).optional(),
+}).passthrough();
+
+// Optional narrative report a committee member can add, feeding into
+// the compiled report (§6.1).
+const committeeReportNoteSchema = z.object({
+  researchId: objectIdSchema,
+  note: z.string().trim().min(1).max(20000),
+});
+
 
 const initiatePaymentSchema = z.object({
   phone: phoneSchema,
@@ -278,7 +430,6 @@ const refundPaymentSchema = z.object({
     .min(5, "Reason must be at least 5 characters")
     .max(500),
 });
-
 
 const inviteReviewerSchema = z.object({
   firstName: z.string().trim().min(1).max(50),
@@ -309,14 +460,13 @@ const updateReviewerSchema = z.object({
 });
 
 const inviteCommitteeSchema = z.object({
-    firstName: z.string().trim().max(50).optional(),
+  firstName: z.string().trim().max(50).optional(),
   lastName: z.string().trim().max(50).optional(),
   email: z.string().trim().toLowerCase().email(),
   institution: z.string().trim().optional(),
   discipline: z.string().trim().optional(),
   specialisations: z.array(z.string()).max(10).optional(),
 });
-
 
 const adminCreateResearcherSchema = z.object({
   firstName: z.string().trim().min(1).max(50),
@@ -329,7 +479,6 @@ const adminCreateResearcherSchema = z.object({
     .optional()
     .or(z.literal("")),
 });
-
 
 const validate =
   (schema, source = "body") =>
@@ -368,12 +517,18 @@ module.exports = {
   proposalConfirmSchema,
   finalPaperSchema,
   researchAdminQuerySchema,
-  updateDownloadPriceSchema,
   assignReviewerSchema,
-  publicResearchQuerySchema,
   reactivateResearchSchema,
   submitReviewSchema,
   submitCommitteeReviewSchema,
+  studyClosureSchema,
+  decisionReportEditSchema,
+  committeeReportNoteSchema,
+  cscEndorsementSchema,
+  returnForCorrectionSchema,
+  protocolDeviationSchema,
+  coInvestigatorEditAccessSchema,
+  coInvestigatorEditSchema,
   initiatePaymentSchema,
   refundPaymentSchema,
   inviteReviewerSchema,

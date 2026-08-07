@@ -133,7 +133,7 @@ const NewsDetails = () => {
             <img
               src={`${BACKEND_URL}${news.imageUrl}`}
               alt={news.title}
-              className="w-fit h-full object-cover"
+              className=" inset-0 w-full h-full object-cover object-center"
             />
           </div>
         )}

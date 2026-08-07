@@ -3,6 +3,7 @@ import MOH from "../../assets/Partners/MOH.png";
 import County from "../../assets/Partners/County Government.png";
 import KMTC from "../../assets/Partners/KMTC.png";
 import SHA from "../../assets/Partners/SHA.png";
+import Laikipia_Uni from "../../assets/Partners/laikipia_university.png"
 
 const Partners = () => {
   const logos = [
@@ -10,6 +11,7 @@ const Partners = () => {
     { image: County, name: "County Government of Laikipia" },
     { image: KMTC, name: "Kenya Medical Training College" },
     { image: SHA, name: "Social Health Authority" },
+    {image:Laikipia_Uni, name:"Laikipia University"}
   ];
   return (
     <div className="px-8 py-4 text-center overflow-hidden">

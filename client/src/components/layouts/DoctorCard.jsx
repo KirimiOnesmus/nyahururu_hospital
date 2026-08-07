@@ -23,7 +23,7 @@ const DoctorCard = ({ doctor }) => {
             <img
               src={`${BACKEND_URL}${doctor.user?.profile?.imageUrl || doctor.profile?.imageUrl}`}
               alt={fullName}
-              className="w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover object-center"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-blue-50">

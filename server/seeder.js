@@ -1,11 +1,5 @@
 "use strict";
 
-/**
-
- * Usage:
- *   node seeder.js
- *   npm run db:bootstrap        # once wired into package.json
- */
 
 
 require("dotenv").config();
@@ -47,7 +41,7 @@ const createSuperAdmin = async () => {
       name: "Super Admin",
       email: SEED_EMAIL,
       password: SEED_PASSWORD,
-      role: "superadmin",
+      role: "admin",
       employeeId,
       rfidTag,
       rfid: rfidTag,

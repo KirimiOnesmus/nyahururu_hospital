@@ -261,7 +261,17 @@ const LoginForm = () => {
                   />
                   <span className="text-slate-600">Remember me</span>
                 </label>
-                <button type="button" className={ghostLinkClass} onClick={() => navigate("/forgot-password")}>
+                <button
+                  type="button"
+                  className={ghostLinkClass}
+                  onClick={() =>
+                    navigate(
+                      loginType === "researcher"
+                        ? "/forgot-password?type=researcher"
+                        : "/forgot-password"
+                    )
+                  }
+                >
                   Forgot password?
                 </button>
               </div>
