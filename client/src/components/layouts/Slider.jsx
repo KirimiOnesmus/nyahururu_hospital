@@ -89,7 +89,7 @@ const Slider = () => {
               }`}
               style={slide.image ? { backgroundImage: `url(${slide.image})` } : undefined}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-slate-900/85 via-slate-900/60 to-slate-900/20" />
+              <div className="absolute inset-0 " />
 
               {!slide.image && (
                 <div
@@ -102,7 +102,7 @@ const Slider = () => {
                 />
               )}
 
-              <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-500" />
+              {/* <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-500" /> */}
 
               <div className="relative z-10 px-10 md:px-20 lg:px-28 max-w-3xl">
                 {slide.eyebrow && (
