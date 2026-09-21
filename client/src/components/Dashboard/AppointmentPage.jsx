@@ -143,10 +143,10 @@ const AppointmentPage = () => {
 
   const columns = [
     {
-      key: "patient", label: "Patient",
+      key: "patient", label: "Patient", priority: "A", mobileSlot: "identity",
       render: (appt) => (
         <div className="flex items-center gap-3">
-          <Avatar name={appt.patientName} className="bg-gradient-to-br from-blue-400 to-indigo-500" />
+          <Avatar name={appt.patientName} />
           <div className="min-w-0">
             <p className="font-semibold text-gray-900 truncate">{appt.patientName || "—"}</p>
             <p className="text-[10px] text-gray-400 truncate">{appt.patientEmail || "—"}</p>
@@ -155,7 +155,7 @@ const AppointmentPage = () => {
       ),
     },
     {
-      key: "service", label: "Service / Doctor",
+      key: "service", label: "Service / Doctor", priority: "B", mobileSlot: "meta",
       render: (appt) => (
         <span className="flex items-center gap-1.5 text-xs text-gray-600">
           <FaUserMd className="text-gray-300 shrink-0" />
@@ -164,7 +164,7 @@ const AppointmentPage = () => {
       ),
     },
     {
-      key: "date", label: "Date & Time",
+      key: "date", label: "Date & Time", priority: "B", mobileSlot: "value",
       render: (appt) => (
         <>
           <p className="text-sm font-semibold text-gray-800">{fmtDate(appt.appointmentDate || appt.date)}</p>
@@ -173,11 +173,11 @@ const AppointmentPage = () => {
       ),
     },
     {
-      key: "status", label: "Status",
+      key: "status", label: "Status", priority: "A", mobileSlot: "status",
       render: (appt) => <StatusBadge status={appt.status} />,
     },
     {
-      key: "actions", label: "Actions", align: "right",
+      key: "actions", label: "Actions", align: "right", priority: "A", mobileSlot: "actions",
       render: (appt) => (
         <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
           <button onClick={() => openModal(appt)} className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 transition-colors cursor-pointer" title="View Details">
@@ -190,7 +190,7 @@ const AppointmentPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8f7f5]">
+    <div className="min-h-screen bg-canvas">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
 
         <PageHeader

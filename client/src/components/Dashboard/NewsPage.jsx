@@ -167,11 +167,11 @@ const NewsPage = () => {
 
   const newsColumns = [
     {
-      key: "thumb", label: "Image",
+      key: "thumb", label: "Image", priority: "C",
       render: (n) => <Thumb url={n.imageUrl} title={n.title} />,
     },
     {
-      key: "title", label: "Title",
+      key: "title", label: "Title", priority: "A", mobileSlot: "identity",
       render: (n) => (
         <div className="max-w-xs">
           <p className="font-semibold text-gray-900 line-clamp-2">{n.title}</p>
@@ -180,7 +180,7 @@ const NewsPage = () => {
       ),
     },
     {
-      key: "author", label: "Author",
+      key: "author", label: "Author", priority: "B", mobileSlot: "status",
       render: (n) => (
         <span className="flex items-center gap-1.5 text-xs text-gray-600">
           <FaUser className="text-gray-300 shrink-0" />{n.author}
@@ -188,7 +188,7 @@ const NewsPage = () => {
       ),
     },
     {
-      key: "date", label: "Date",
+      key: "date", label: "Date", priority: "B", mobileSlot: "value",
       render: (n) => (
         <span className="flex items-center gap-1.5 text-xs text-gray-600">
           <FaCalendarAlt className="text-gray-300 shrink-0" />{fmtDate(n.createdAt)}
@@ -196,7 +196,7 @@ const NewsPage = () => {
       ),
     },
     {
-      key: "actions", label: "Actions", align: "right",
+      key: "actions", label: "Actions", align: "right", priority: "A", mobileSlot: "actions",
       render: (n) => (
         <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
           <button onClick={() => openView(n)} className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 cursor-pointer transition-colors" title="View"><FaEye className="text-sm" /></button>
@@ -208,7 +208,7 @@ const NewsPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8f7f5]">
+    <div className="min-h-screen bg-canvas">
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
 

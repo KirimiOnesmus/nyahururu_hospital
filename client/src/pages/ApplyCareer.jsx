@@ -53,7 +53,7 @@ const ApplyCareer = () => {
   };
   return (
     <div>
-      <div className="sticky top-0 z-50 bg-white/60 backdrop-blur-md">
+      <div className="sticky top-0 z-50 bg-surface border-b border-line">
         <Header />
       </div>
       <div className="main flex-1 px-6 md:px-12 py-10 max-w-3xl mx-auto w-full">

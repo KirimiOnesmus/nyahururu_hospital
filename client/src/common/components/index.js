@@ -20,3 +20,4 @@ export { default as Spinner } from "./Spinner";
 export { default as StatCard } from "./StatCard";
 export { default as StatusBadge } from "./StatusBadge";
 export { default as TextArea } from "./TextArea";
+export { default as ThemeToggle } from "./ThemeToggle";

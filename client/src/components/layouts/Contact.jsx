@@ -1,10 +1,10 @@
-import React from 'react'
-import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaLocationArrow } from "react-icons/fa";
+import React from "react";
+import { IconPhone, IconMail, IconMapPin, IconArrowRight } from "../../common/icons";
 
 const CONTACT_INFO = [
-  { icon: FaPhone,        label: "Phone",    value: "0758 722 031"        },
-  { icon: FaEnvelope,     label: "Email",    value: "info@ncrhospital.com" },
-  { icon: FaMapMarkerAlt, label: "Location", value: "Nyeri-Nyahururu Road" },
+  { icon: IconPhone, label: "Phone", value: "0758 722 031" },
+  { icon: IconMail, label: "Email", value: "info@ncrhospital.com" },
+  { icon: IconMapPin, label: "Location", value: "Nyeri-Nyahururu Road" },
 ];
 
 const LAT = 0.03783;
@@ -17,40 +17,36 @@ const DIRECTIONS_URL = `https://www.google.com/maps/dir/?api=1&destination=${LAT
 
 const Contact = () => {
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="flex flex-col bg-canvas">
       <main className="flex-1 max-w-6xl mx-auto w-full px-6 md:px-10 py-12">
-
         <div className="mb-10">
-          <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-1">
+          <p className="text-xs font-semibold uppercase tracking-widest text-primary mb-1">
             Get in Touch
           </p>
-          <h2 className="text-2xl md:text-3xl font-bold text-slate-800">Contact Us</h2>
+          <h2 className="text-2xl md:text-3xl font-bold text-ink">Contact Us</h2>
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
-
-   
           <aside className="md:col-span-1 flex flex-col gap-4">
             {CONTACT_INFO.map(({ icon: Icon, label, value }) => (
               <div
                 key={label}
-                className="bg-white border border-slate-200 rounded-2xl p-5 flex items-start gap-4"
+                className="bg-surface border border-line rounded-2xl p-5 flex items-start gap-4 shadow-sm"
               >
-                <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
-                  <Icon className="text-blue-600 text-sm" />
+                <div className="w-11 h-11 rounded-lg bg-primary-soft flex items-center justify-center shrink-0">
+                  <Icon className="w-4 h-4 text-primary" aria-hidden="true" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-0.5">
+                  <p className="text-xs font-bold uppercase tracking-widest text-ink-muted mb-0.5">
                     {label}
                   </p>
-                  <p className="text-sm font-semibold text-slate-700">{value}</p>
+                  <p className="text-sm font-semibold text-ink">{value}</p>
                 </div>
               </div>
             ))}
           </aside>
 
- 
-          <div className="md:col-span-2 bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col">
+          <div className="md:col-span-2 bg-surface border border-line rounded-2xl overflow-hidden flex flex-col shadow-sm">
             <div className="relative flex-1 min-h-[360px]">
               <iframe
                 title="Nyahururu County Referral Hospital location"
@@ -61,28 +57,29 @@ const Contact = () => {
               />
             </div>
 
-            <div className="flex items-center justify-between gap-3 p-4 border-t border-slate-100 bg-slate-50">
-              <div className="flex items-center gap-2 text-slate-600 min-w-0">
-                <FaMapMarkerAlt className="text-blue-600 text-sm shrink-0" />
+            <div className="flex items-center justify-between gap-3 p-4 border-t border-line bg-canvas">
+              <div className="flex items-center gap-2 text-ink-muted min-w-0">
+                <IconMapPin className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
                 <span className="text-sm font-medium truncate">
                   Nyeri-Nyahururu Road, Nyahururu
                 </span>
               </div>
-              
-                <a href={DIRECTIONS_URL}
+
+              <a
+                href={DIRECTIONS_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors shrink-0"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary min-h-11 px-4 text-sm font-semibold text-white hover:bg-primary-hover shrink-0"
               >
-                <FaLocationArrow className="text-xs" />
-                Get Directions
+                Get directions
+                <IconArrowRight className="w-4 h-4" aria-hidden="true" />
               </a>
             </div>
           </div>
-</div>
+        </div>
       </main>
     </div>
-  )
-}
+  );
+};
 
-export default Contact
+export default Contact;

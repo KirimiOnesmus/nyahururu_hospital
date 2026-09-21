@@ -127,7 +127,7 @@ const DonorRow = ({ donor, expanded, onToggle, onEdit, onDelete }) => (
       onClick={onToggle}
     >
       <div className="col-span-2 md:col-span-1 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center text-white font-black text-sm shrink-0">
+        <div className="w-9 h-9 rounded-xl bg-danger flex items-center justify-center text-white font-black text-sm shrink-0">
           {donor.fullName?.charAt(0)}
         </div>
         <div className="min-w-0">
@@ -459,7 +459,7 @@ const Donations = () => {
     calculatedStats.byStatus.find((s) => s.id === "registered")?.count || 0;
 
   return (
-    <div className="min-h-screen bg-[#f8f7f5]">
+    <div className="min-h-screen bg-canvas">
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
         <div className="mb-8 fade-up">

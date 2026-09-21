@@ -59,7 +59,7 @@ const Avatar = ({ firstName, lastName, size = "lg" }) => {
   const sz = size === "lg" ? "w-24 h-24 text-2xl" : "w-10 h-10 text-sm";
   return (
     <div
-      className={`${sz} rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-bold text-white border-4 border-white flex-shrink-0`}
+      className={`${sz} rounded-xl bg-primary flex items-center justify-center font-bold text-white border-4 border-white flex-shrink-0`}
     >
       {initials || "?"}
     </div>

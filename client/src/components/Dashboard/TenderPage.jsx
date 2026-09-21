@@ -331,7 +331,7 @@ const TenderPage = () => {
   const selectAll        = ()   => setSelectedTenders(selectedTenders.length === tenders.length ? [] : tenders.map(t=>t.id));
 
   return (
-    <div className="min-h-screen bg-[#f8f7f5]">
+    <div className="min-h-screen bg-canvas">
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
 

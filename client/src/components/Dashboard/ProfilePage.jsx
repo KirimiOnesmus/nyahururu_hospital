@@ -414,7 +414,7 @@ const ProfilePage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-slate-50">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-canvas">
         <InlineSpinner size="lg" />
         <p className="text-slate-500 text-base">Loading profile…</p>
       </div>
@@ -434,7 +434,7 @@ const ProfilePage = () => {
     : "—";
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:px-8 md:py-6">
+    <div className="min-h-screen bg-canvas p-4 md:px-8 md:py-6">
       <div className="max-w-5xl mx-auto">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
           <div>
@@ -496,7 +496,7 @@ const ProfilePage = () => {
                   />
                 ) : (
                   <div
-                    className="w-28 h-28 rounded-full bg-gradient-to-br from-blue-500 to-blue-700
+                    className="w-28 h-28 rounded-full bg-primary
                                   flex items-center justify-center text-white text-3xl font-bold
                                   ring-4 ring-slate-100 select-none"
                   >

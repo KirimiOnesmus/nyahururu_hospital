@@ -1,14 +1,245 @@
 @import "tailwindcss";
-@import url("https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap");
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: "Open Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Source Serif 4", "Georgia", ui-serif, serif;
+
+  --spacing: 0.25rem;
+
+  --color-blue-50: #e8f1f8;
+  --color-blue-100: #d1e3f1;
+  --color-blue-200: #a3c7e3;
+  --color-blue-300: #6ba3cc;
+  --color-blue-400: #3d7fb0;
+  --color-blue-500: #256394;
+  --color-blue-600: #1d4e89;
+  --color-blue-700: #163a67;
+  --color-blue-800: #102a4c;
+  --color-blue-900: #0b1d35;
+
+  --color-canvas: #f7f8fa;
+  --color-surface: #ffffff;
+  --color-ink: #111827;
+  --color-ink-muted: #6b7280;
+  --color-line: #e5e7eb;
+  --color-primary: #1d4e89;
+  --color-primary-hover: #163a67;
+  --color-primary-soft: #e8f1f8;
+  --color-accent: #0f766e;
+  --color-accent-soft: #ccfbf1;
+  --color-success: #047857;
+  --color-warning: #b45309;
+  --color-danger: #b91c1c;
+  --color-info: #1d4e89;
+}
+
+.dark {
+  --color-canvas: #111827;
+  --color-surface: #1c2430;
+  --color-ink: #e5e7eb;
+  --color-ink-muted: #9ca3af;
+  --color-line: #2d3748;
+  --color-primary: #3d8fd4;
+  --color-primary-hover: #5aa3de;
+  --color-primary-soft: #163a67;
+  --color-accent: #2dd4bf;
+  --color-accent-soft: #134e4a;
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-danger: #f87171;
+  --color-info: #3d8fd4;
+}
+
+:root {
+  --canvas: #f7f8fa;
+  --surface: #ffffff;
+  --ink: #111827;
+  --ink-muted: #6b7280;
+  --line: #e5e7eb;
+  --line-strong: #d1d5db;
+  --primary: #1d4e89;
+  --primary-hover: #163a67;
+  --primary-soft: #e8f1f8;
+  --accent: #0f766e;
+  --accent-soft: #ccfbf1;
+  --success: #047857;
+  --success-soft: #d1fae5;
+  --warning: #b45309;
+  --warning-soft: #fef3c7;
+  --danger: #b91c1c;
+  --danger-soft: #fee2e2;
+  --shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.05);
+  --shadow-md: 0 8px 24px -12px rgba(17, 24, 39, 0.12);
+  --focus-ring: 0 0 0 3px rgba(29, 78, 137, 0.28);
+  color-scheme: light;
+}
+
+.dark {
+  --canvas: #111827;
+  --surface: #1c2430;
+  --ink: #e5e7eb;
+  --ink-muted: #9ca3af;
+  --line: #2d3748;
+  --line-strong: #3d4a5c;
+  --primary: #3d8fd4;
+  --primary-hover: #5aa3de;
+  --primary-soft: #163a67;
+  --accent: #2dd4bf;
+  --accent-soft: #134e4a;
+  --success: #34d399;
+  --success-soft: #064e3b;
+  --warning: #fbbf24;
+  --warning-soft: #78350f;
+  --danger: #f87171;
+  --danger-soft: #7f1d1d;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  --focus-ring: 0 0 0 3px rgba(61, 143, 212, 0.4);
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.font-serif-italic {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 500;
+}
+
+/* Dark-mode remaps so existing Tailwind utilities stay readable */
+.dark .bg-white,
+.dark .bg-slate-50,
+.dark .bg-gray-50,
+.dark .bg-\[\#f8f7f5\] {
+  background-color: var(--surface);
+}
+
+.dark .bg-gray-100,
+.dark .bg-slate-100 {
+  background-color: #243040;
+}
+
+.dark .bg-gray-50\/80,
+.dark .bg-slate-50\/50,
+.dark .bg-blue-50\/70 {
+  background-color: rgba(36, 48, 64, 0.7);
+}
+
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark .text-slate-700 {
+  color: var(--ink);
+}
+
+.dark .text-gray-700,
+.dark .text-gray-600,
+.dark .text-slate-600 {
+  color: #d1d5db;
+}
+
+.dark .text-gray-500,
+.dark .text-gray-400,
+.dark .text-slate-500,
+.dark .text-slate-400 {
+  color: var(--ink-muted);
+}
+
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-slate-100,
+.dark .border-slate-200 {
+  border-color: var(--line);
+}
+
+.dark .divide-gray-50 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--line);
+}
+
+.dark .bg-blue-50,
+.dark .hover\:bg-blue-50:hover {
+  background-color: var(--primary-soft);
+}
+
+.dark .text-blue-600,
+.dark .text-blue-700,
+.dark .hover\:text-blue-600:hover,
+.dark .hover\:text-blue-700:hover,
+.dark .hover\:text-blue-800:hover {
+  color: var(--primary);
+}
+
+.dark .bg-emerald-50,
+.dark .hover\:bg-emerald-50:hover {
+  background-color: var(--accent-soft);
+}
+
+.dark .bg-red-50,
+.dark .hover\:bg-red-50:hover,
+.dark .bg-rose-50 {
+  background-color: var(--danger-soft);
+}
+
+.dark .bg-amber-50 {
+  background-color: var(--warning-soft);
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: var(--surface);
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: var(--ink-muted);
 }
 
 @keyframes modalPop {
   from {
     opacity: 0;
-    transform: scale(0.95) translateY(8px);
+    transform: scale(0.97) translateY(8px);
   }
   to {
     opacity: 1;
@@ -16,16 +247,48 @@
   }
 }
 
-@keyframes slide{
-    0%{
-        transform: translateX(100%);
-    }
-    100%{
-        transform: translateX(-100%);
-    }
+@keyframes slide {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
 }
-.animate-slide{
-    animation: slide 25s linear infinite;
-    display: flex;
-    width: calc(100%);
+
+.animate-slide {
+  animation: slide 25s linear infinite;
+  display: flex;
+  width: calc(100%);
+}
+
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.rt-reveal {
+  animation: reveal-in 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .animate-slide {
+    animation: none;
+  }
 }

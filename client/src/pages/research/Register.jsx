@@ -182,12 +182,12 @@ const Register = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center 
-    bg-gradient-to-br from-blue-50 via-white to-blue-50 p-4 py-5">
+    bg-canvas p-4 py-5">
       <div className="w-full max-w-5xl">
         <div className="bg-white rounded-2xl overflow-hidden">
 
      
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-4 text-center">
+          <div className="bg-primary px-8 py-4 text-center">
             <div className="w-20 h-20 bg-white rounded-full mx-auto mb-4 flex items-center justify-center">
               <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}

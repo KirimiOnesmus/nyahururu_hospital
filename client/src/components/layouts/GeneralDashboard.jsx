@@ -284,7 +284,7 @@ const GeneralDashboard = () => {
   const displayRole = user?.role || role;
 
   return (
-    <div className="min-h-screen bg-[#f8f7f5]">
+    <div className="min-h-screen bg-canvas">
 
       {error && (
         <div className="bg-rose-50 border-l-4 border-rose-500 px-6 py-3 flex items-center gap-2">
@@ -296,7 +296,7 @@ const GeneralDashboard = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
 
 
-        <div className="mb-8 bg-gradient-to-br from-blue-600 to-blue-500 rounded-2xl p-8 text-white shadow-lg shadow-blue-200 fade-up">
+        <div className="mb-8 bg-primary rounded-2xl p-8 text-white shadow-md fade-up">
           <div className="flex items-start justify-between gap-6">
             <div className="min-w-0">
               <div className="flex items-center gap-3 mb-2">
@@ -345,7 +345,7 @@ const GeneralDashboard = () => {
 
         
         {visibleActions.length > 0 && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 fade-up stagger-2">
+          <div className="bg-surface rounded-2xl border border-line shadow-sm p-6 fade-up stagger-2">
             <h2 className="text-sm font-black text-gray-700 uppercase tracking-wider mb-5 flex items-center gap-2">
               <FaBriefcase className="text-blue-500" /> Quick Actions
             </h2>

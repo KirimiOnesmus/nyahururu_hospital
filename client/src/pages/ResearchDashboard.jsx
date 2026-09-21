@@ -15,7 +15,7 @@ const PageSpinner = ({ label = "Loading…" }) => (
 
 
 const Shell = ({ children }) => (
-  <div className="min-h-screen flex flex-col bg-slate-50">
+  <div className="min-h-screen flex flex-col bg-canvas">
     <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-10">
       {children}
     </main>
@@ -81,7 +81,7 @@ const ResearchDashboard = () => {
 
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col bg-canvas">
       <div className="lg:pl-64">
         <SideMenu user={user} />
       </div>

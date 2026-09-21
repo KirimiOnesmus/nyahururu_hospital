@@ -196,7 +196,7 @@ const Research = () => {
   }, []);
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex flex-col min-h-screen bg-canvas">
       <div className="sticky top-0 z-50 ">
         <Header />
       </div>
@@ -210,7 +210,7 @@ const Research = () => {
             style={{ backgroundImage: `url(${researchBg})` }}
           />
 
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-900/95 via-slate-900/80 to-blue-900/70" />
+          <div className="absolute inset-0 bg-ink/80" />
           <div className="absolute inset-0 bg-slate-900/40" />
  
           <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3 pointer-events-none" />
@@ -329,7 +329,7 @@ const Research = () => {
           </div>
         </section>
 
-        <section className="bg-gradient-to-br from-gray-50 to-blue-50 py-16">
+        <section className="bg-canvas py-16">
           <div className="max-w-5xl mx-auto px-6">
             <div className="text-center mb-12">
               <span className="inline-block bg-purple-100 text-purple-700 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-4">
@@ -346,7 +346,7 @@ const Research = () => {
 
             <div className="grid md:grid-cols-3 gap-6">
               {LIFECYCLE.map(({ icon: Icon, title, type, desc, badge, badgeColor, bg, iconColor }) => (
-                <div key={title} className={`bg-gradient-to-br ${bg} rounded-xl p-6 transition-shadow hover:shadow-sm`}>
+                <div key={title} className="bg-surface border border-line rounded-xl p-6 shadow-sm">
                   <Icon className={`text-2xl mb-3 ${iconColor}`} />
                   <h3 className="font-bold text-gray-900 text-lg mb-1">{title}</h3>
                   <p className="text-xs text-gray-500 font-semibold mb-3">{type}</p>
@@ -393,7 +393,7 @@ const Research = () => {
         </section>
 
 
-        <section className="bg-gradient-to-br from-gray-50 to-green-50 py-16">
+        <section className="bg-canvas py-16">
           <div className="max-w-5xl mx-auto px-6">
             <div className="text-center mb-12">
               <span className="inline-block bg-green-100 text-green-700 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-4">

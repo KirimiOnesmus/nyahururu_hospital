@@ -91,7 +91,7 @@ const EventOverlay = () => {
             />
           )}
 
-          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-ink/30" />
         </div>
 
         {events.length > 1 && (

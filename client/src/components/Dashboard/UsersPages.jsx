@@ -107,6 +107,8 @@ const UsersPages = () => {
     {
       key: "name",
       label: "User",
+      priority: "A",
+      mobileSlot: "identity",
       render: (user) => (
         <div className="flex items-center gap-3">
           <Avatar name={user.name} />
@@ -120,6 +122,8 @@ const UsersPages = () => {
     {
       key: "email",
       label: "Email",
+      priority: "B",
+      mobileSlot: "meta",
       render: (user) => (
         <span className="flex items-center gap-2 text-gray-600 text-xs">
           <FaEnvelope className="text-gray-300 shrink-0" />
@@ -130,12 +134,16 @@ const UsersPages = () => {
     {
       key: "role",
       label: "Role",
+      priority: "A",
+      mobileSlot: "status",
       render: (user) => <RoleBadge role={user.role} />,
     },
     {
       key: "actions",
       label: "Actions",
       align: "right",
+      priority: "A",
+      mobileSlot: "actions",
       render: (user) => (
         <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
           <button
@@ -165,7 +173,7 @@ const UsersPages = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8f7f5]">
+    <div className="min-h-screen bg-canvas">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
 
         <PageHeader

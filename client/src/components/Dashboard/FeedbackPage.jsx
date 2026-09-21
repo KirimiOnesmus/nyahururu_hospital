@@ -179,7 +179,7 @@ const FeedbackPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-canvas">
       <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
         <div className="mb-6">
           <div className="flex items-center gap-3">
@@ -336,7 +336,7 @@ const FeedbackPage = () => {
             <DataTable
               columns={[
                 {
-                  key: "user", label: "User",
+                  key: "user", label: "User", priority: "A", mobileSlot: "identity",
                   render: (fb) => (
                     <div className="flex items-center gap-3">
                       <Avatar name={fb.name || "?"} />
@@ -348,7 +348,7 @@ const FeedbackPage = () => {
                   ),
                 },
                 {
-                  key: "message", label: "Message",
+                  key: "message", label: "Message", priority: "B", mobileSlot: "meta",
                   render: (fb) => (
                     <div className="max-w-xs">
                       <p className="text-gray-700 text-xs leading-relaxed">{truncate(fb.message, 90)}</p>
@@ -360,8 +360,8 @@ const FeedbackPage = () => {
                     </div>
                   ),
                 },
-                { key: "status", label: "Status", render: (fb) => <LocalStatusBadge status={fb.status} /> },
-                { key: "date", label: "Date", render: (fb) => <span className="text-xs text-gray-500 whitespace-nowrap">{formatDate(fb.createdAt)}</span> },
+                { key: "status", label: "Status", priority: "A", mobileSlot: "status", render: (fb) => <LocalStatusBadge status={fb.status} /> },
+                { key: "date", label: "Date", priority: "B", mobileSlot: "value", render: (fb) => <span className="text-xs text-gray-500 whitespace-nowrap">{formatDate(fb.createdAt)}</span> },
                 {
                   key: "actions", label: "Actions", align: "right",
                   render: (fb) => (
@@ -554,7 +554,7 @@ const FeedbackPage = () => {
                 </div>
               </div>
             </div>
-            <div className="h-3 bg-gradient-to-br from-blue-600 to-blue-700 relative">
+            <div className="h-3 bg-primary relative">
               <div className="absolute inset-x-0 bottom-0 h-3 bg-white rounded-t-2xl" />
             </div>
 
