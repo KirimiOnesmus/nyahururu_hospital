@@ -1,4 +1,5 @@
 const router = require("express").Router();
+const rateLimit = require("express-rate-limit");
 const ctrl = require("../controllers/researchController");
 const upload = require("../middleware/upload");
 const {
@@ -61,11 +62,28 @@ const requireReviewerOrCommittee = [
 ];
 
 
+const publicStatsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      message: "Too many requests. Please try again shortly.",
+    });
+  },
+});
+
+
+router.get("/public/stats", publicStatsLimiter, ctrl.getPublicStats);
+
+
 const uploadProposal = upload("proposal").any();
 const uploadProgress = upload("progress").any();
-const uploadCscEvidence = upload("csc-evidence").any(); // G-5
-const uploadClosure = upload("closure").any(); // Chair's change #3
-const uploadReviewFeedback = upload("review-feedback").array("attachments", 5); // Chair's change #6
+const uploadCscEvidence = upload("csc-evidence").any(); 
+const uploadClosure = upload("closure").any(); 
+const uploadReviewFeedback = upload("review-feedback").array("attachments", 5); 
 
 
 router.get("/reviewer/assigned", ...requireReviewer, ctrl.getAssignedResearch);
@@ -151,9 +169,7 @@ router.get("/:id/protocol-deviations", protectEither, ctrl.getProtocolDeviations
 router.get("/:id/decision-letter", protectEither, ctrl.getDecisionLetter);
 router.get("/:id/decision-letters", protectEither, ctrl.getDecisionLetterHistory);
 
-// Chair's change §6.1: Compiled Decision Report — the one researcher-
-// facing read for review outcomes, plus the RO compile/edit/release
-// workflow and the optional committee narrative note.
+
 router.post("/committee/reports", protectEither, protectCommittee, validate(committeeReportNoteSchema), ctrl.addCommitteeReportNote);
 router.get("/:id/decision-report", protectEither, ctrl.getDecisionReport);
 const uploadOfficerAttachment = upload("officer-reports").single("officerAttachment");

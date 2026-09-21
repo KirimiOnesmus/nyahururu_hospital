@@ -40,9 +40,7 @@ const extractCaller = (req) => {
 
   const user = req.user || null;
   const researcher = req.researcher || null;
-  // userId FK references the `users` table — only set it for staff/admin
-  // users. Researchers live in a separate table; their ID would violate
-  // the FK constraint, so we store it in metadata instead.
+
   return {
     userId: user?.id || null,
     userName: (user || researcher)?.name || `${(user || researcher)?.firstName || ""} ${(user || researcher)?.lastName || ""}`.trim() || null,

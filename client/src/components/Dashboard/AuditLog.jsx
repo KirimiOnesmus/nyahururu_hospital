@@ -225,7 +225,7 @@ const AuditLog = () => {
     fetchLogs();
   }, [fetchLogs]);
 
-  // Real-time audit events via Socket.IO (replaces polling)
+
   useSocket("audit:new", useCallback((newLog) => {
     if (!liveMode) return;
     setLogs((prev) => [newLog, ...prev]);
@@ -450,7 +450,7 @@ const AuditLog = () => {
           icon={FaClipboardCheck}
           actions={
             <div className="flex items-center gap-2">
-              {/* Live mode toggle */}
+         
               <button
                 onClick={() => setLiveMode(!liveMode)}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
@@ -567,7 +567,7 @@ const AuditLog = () => {
             )}
           </div>
 
-          {/* Advanced filters row */}
+
           {showFilters && (
             <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-slate-100">
               <div className="flex items-center gap-2">
@@ -663,7 +663,7 @@ const AuditLog = () => {
             const sev = getSeverity(detailModal.severity);
             return (
               <>
-                {/* Header card */}
+ 
                 <div className={`${m.bg} rounded-xl p-4 mb-5 flex items-center gap-4`}>
                   <div
                     className={`w-12 h-12 rounded-xl bg-white/70 flex items-center justify-center`}

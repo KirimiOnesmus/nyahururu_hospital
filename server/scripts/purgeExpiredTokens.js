@@ -1,24 +1,5 @@
-#!/usr/bin/env node
-"use strict";
 
-/**
- * TokenBlacklist maintenance — deletes rows whose blacklist expiry has
- * passed. Safe to delete because once a JWT's own `exp` claim has
- * passed, it's rejected by verify() with TokenExpiredError anyway; the
- * blacklist entry no longer adds any security.
- *
- * Background: on MongoDB we relied on a TTL index to auto-expire
- * blacklisted tokens. MySQL has no equivalent — rows just accumulate.
- * This script exists to be scheduled (e.g. via cron / systemd timer)
- * so the table doesn't grow unbounded.
- *
- * Usage:
- *   node scripts/purgeExpiredTokens.js
- *   npm run maintenance:purge-tokens
- *
- * Suggested cron: nightly at 03:00 UTC
- *   0 3 * * * cd /path/to/server && node scripts/purgeExpiredTokens.js >> /var/log/ncrh/token-purge.log 2>&1
- */
+"use strict";
 
 require("dotenv").config();
 

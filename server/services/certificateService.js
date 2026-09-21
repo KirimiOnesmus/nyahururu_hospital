@@ -11,9 +11,7 @@ const { CERTIFICATE_TYPES } = require("../constants/researchIndex");
 const CERT_DIR = path.join(process.cwd(), "uploads", "certificates");
 if (!fs.existsSync(CERT_DIR)) fs.mkdirSync(CERT_DIR, { recursive: true });
 
-// studySites is a JSON column that may hold an array, a JSON-encoded
-// array string, or a plain string. Always resolve it to a string array
-// so downstream rendering (which calls .join) is safe.
+
 const normalizeStudySites = (value) => {
   if (Array.isArray(value)) return value.filter((v) => v != null && v !== "");
   if (typeof value === "string") {
@@ -66,7 +64,7 @@ const issueClearanceCertificate = async (researchId, issuedBy) => {
   const validUntil = new Date();
   validUntil.setFullYear(validUntil.getFullYear() + 1);
 
-  // Always label with the parent study's SERU number, regardless of stage.
+ 
   let seruNumber = research.seruNumber;
   if (!seruNumber && research.parentResearchId) {
     const parent = await Research.findByPk(research.parentResearchId, {
@@ -92,7 +90,7 @@ const issueClearanceCertificate = async (researchId, issuedBy) => {
     issuedById: issuedBy,
   });
 
-  // Stage drives the certificate wording (proposal vs continuing review).
+
   cert.stageKey = research.submissionType;
 
   cert.qrCodeDataUrl = await generateVerificationQR(
@@ -120,9 +118,6 @@ const issueCompletionCertificate = async (researchId, issuedBy) => {
   });
   if (!research) throw new AppError("Research not found.", 404);
 
-  // ETHICS_CLEARANCE is the non-approval certificate type (rendered as a
-  // completion certificate — number prefix NCRH-CPL). Reused here for study
-  // closure so no new enum value / migration is required.
   const existing = await Certificate.findOne({
     where: {
       researchId,

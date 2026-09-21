@@ -178,7 +178,7 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
       const reviewList = Array.isArray(reviewHistory) ? reviewHistory : (reviewHistory?.reviews ?? []);
       setReviews(reviewList);
 
-      // If the research has moved past committee review, show finalized state
+     
       const paper = detailRes.paper || detailRes;
       const postCommitteeStatuses = ["pending_officer_review", "approved", "rejected", "suspended", "revision_requested"];
       if (paper.status && postCommitteeStatuses.includes(paper.status)) {
@@ -195,7 +195,7 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
     load();
   }, [load]);
 
-  // Initialize compliance checklist — pre-fill based on what the reviewer approved
+
   useEffect(() => {
     if (!detail) return;
     const r = detail;
@@ -593,6 +593,67 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
             </div>
           )}
 
+          {r.submissionType === "study_closure" && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+              <h2 className="font-bold text-slate-900 text-base">Study Closure Report</h2>
+              {r.closureReason && (
+                <p className="text-sm">
+                  <span className="font-semibold text-slate-700">Reason:</span>{" "}
+                  {String(r.closureReason).replace(/_/g, " ")}
+                </p>
+              )}
+              {r.closureReport?.resultsSummary && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Results Summary</p>
+                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{r.closureReport.resultsSummary}</p>
+                </div>
+              )}
+              {r.closureReport?.specimenDisposalPlan && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Specimen Disposal Plan</p>
+                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{r.closureReport.specimenDisposalPlan}</p>
+                </div>
+              )}
+              {r.publicationLink && (
+                <p className="text-sm">
+                  <span className="font-semibold text-slate-700">Publication:</span>{" "}
+                  <a href={r.publicationLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all">{r.publicationLink}</a>
+                </p>
+              )}
+              {r.closeoutReportFile ? (() => {
+                const token = localStorage.getItem("token");
+                const base = r.closeoutReportFile.startsWith("http") ? r.closeoutReportFile : `${ASSET_BASE_URL}${r.closeoutReportFile.startsWith("/") ? "" : "/"}${r.closeoutReportFile}`;
+                const url = token && base.includes("/uploads/") ? `${base}${base.includes("?") ? "&" : "?"}token=${token}` : base;
+                return (
+                  <div className="flex items-center justify-between py-3 border-t border-slate-100">
+                    <span className="text-sm font-semibold text-slate-800">Closeout Report</span>
+                    <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-blue-600 hover:underline">View / Download</a>
+                  </div>
+                );
+              })() : (
+                <p className="text-sm text-slate-400">No closeout report uploaded.</p>
+              )}
+            </div>
+          )}
+
+          {r.submissionType === "continuing_review" && Array.isArray(r.progressFiles) && r.progressFiles.length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6">
+              <h2 className="font-bold text-slate-900 text-base mb-3">Progress Report Documents</h2>
+              {r.progressFiles.map((f, i) => {
+                const token = localStorage.getItem("token");
+                const raw = f.url || "";
+                const base = raw.startsWith("http") ? raw : `${ASSET_BASE_URL}${raw.startsWith("/") ? "" : "/"}${raw}`;
+                const url = token && base.includes("/uploads/") ? `${base}${base.includes("?") ? "&" : "?"}token=${token}` : base;
+                return (
+                  <div key={i} className="flex items-center justify-between py-3 border-t border-slate-100 first:border-t-0">
+                    <span className="text-sm font-semibold text-slate-800">{f.label || `Progress File ${i + 1}`}</span>
+                    <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-blue-600 hover:underline">View / Download</a>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
             {voteStatus ? (
               voteStatus.finalized ? (
@@ -607,7 +668,7 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
                     </p>
                   </div>
                 </div>
-                {/* Show all committee votes cast */}
+
                 {reviews.filter((r) => r.reviewerRole === "committee").length > 0 && (
                   <div>
                     <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Committee Votes Cast</p>
@@ -633,7 +694,7 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
                     </div>
                   </div>
                 )}
-                {/* Show final outcome if paper status indicates it */}
+
                 {r.status && r.status !== "pending_committee_review" && (
                   <div className="bg-slate-50 rounded-lg p-3">
                     <p className="text-xs text-slate-400 font-semibold">Final Outcome</p>

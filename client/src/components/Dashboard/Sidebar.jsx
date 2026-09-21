@@ -12,15 +12,12 @@ import {
   FaExclamationTriangle,
   FaSignOutAlt,
   FaChevronLeft,
-  FaUser,
+  FaChevronDown,
   FaHospital,
   FaTh,
-  FaCog,
-  FaMoon,
   FaBoxes,
   FaTruck,
   FaImages,
-  FaClipboardList,
   FaBullhorn,
   FaGavel,
   FaClipboardCheck,
@@ -198,8 +195,7 @@ const Sidebar = () => {
     try {
       await api.post("/auth/logout");
     } catch {
-      // Best-effort — still clear the local UI state and redirect even if
-      // the network call fails (e.g. offline, already-expired session).
+      // Ignore errors during logout
     }
     localStorage.removeItem("role");
     localStorage.removeItem("collection");
@@ -299,49 +295,51 @@ const Sidebar = () => {
           })}
         </nav>
 
-        <div className="p-4 border-t border-gray-100">
+
+        <div className="px-3 pt-3 ">
+          <button
+            onClick={handleLogout}
+            title="Logout"
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600
+               hover:bg-red-50 hover:text-red-500 transition-colors cursor-pointer ${
+              collapsed ? "justify-center" : ""
+            }`}
+          >
+            <FaSignOutAlt className="text-base shrink-0" />
+            {!collapsed && <span>Log out</span>}
+          </button>
+        </div>
+
+
+        <div className="p-3 mt-1">
           <Link
             to="/dashboard/profile"
-            className={`flex items-center p-2 rounded-lg hover:bg-gray-50 ${collapsed ? "justify-center" : ""}`}
+            className={`flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer ${
+              collapsed ? "justify-center" : ""
+            }`}
           >
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white font-semibold text-sm">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white font-semibold text-sm shrink-0">
               {role?.charAt(0).toUpperCase()}
             </div>
 
             {!collapsed && (
-              <div className="ml-3 flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 capitalize truncate">
-                  {role || "User"}
-                </p>
-                <p className="text-xs text-gray-500">Admin Manager</p>
-              </div>
-            )}
-
-            {!collapsed && (
-              <button
-                onClick={handleLogout}
-                className="ml-2 p-1.5 rounded-md hover:bg-gray-100 text-gray-400"
-                title="Logout"
-              >
-                <FaSignOutAlt className="text-sm" />
-              </button>
+              <>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 capitalize truncate">
+                    {role || "User"}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">Admin Manager</p>
+                </div>
+                <FaChevronDown className="text-xs text-gray-400 shrink-0" />
+              </>
             )}
           </Link>
-
-          {collapsed && (
-            <button
-              onClick={handleLogout}
-              className="w-full mt-2 p-2 rounded-lg hover:bg-red-50 text-red-500 flex items-center justify-center"
-              title="Logout"
-            >
-              <FaSignOutAlt className="text-lg" />
-            </button>
-          )}
         </div>
 
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-6 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center transition-shadow hidden lg:flex"
+          className="absolute -right-3 top-6 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center
+           justify-center transition-shadow hidden lg:flex cursor-pointer hover:shadow-md"
         >
           <FaChevronLeft
             className={`text-xs text-gray-600 transition-transform ${collapsed ? "rotate-180" : ""}`}

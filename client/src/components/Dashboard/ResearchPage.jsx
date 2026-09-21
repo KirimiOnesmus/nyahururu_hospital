@@ -26,6 +26,7 @@ import {
   FaKey,
   FaUserPlus,
   FaLayerGroup,
+  FaArchive,
   FaMicroscope,
   FaRegFileAlt,
   FaChevronDown,
@@ -53,8 +54,8 @@ const STAGE_META = {
     dotColor: "bg-amber-400",
     icon: FaRegFileAlt,
   },
-  progress: {
-    label: "In Progress",
+  continuing_review: {
+    label: "Continuing Review",
     color: "bg-sky-500",
     lightColor: "bg-sky-50",
     textColor: "text-sky-700",
@@ -62,34 +63,41 @@ const STAGE_META = {
     dotColor: "bg-sky-400",
     icon: FaLayerGroup,
   },
-  final_paper: {
-    label: "Final Paper",
-    color: "bg-emerald-500",
-    lightColor: "bg-emerald-50",
-    textColor: "text-emerald-700",
-    borderColor: "border-emerald-200",
-    dotColor: "bg-emerald-400",
-    icon: FaMicroscope,
+  closed: {
+    label: "Closed",
+    color: "bg-slate-500",
+    lightColor: "bg-slate-50",
+    textColor: "text-slate-700",
+    borderColor: "border-slate-200",
+    dotColor: "bg-slate-400",
+    icon: FaArchive,
   },
 };
 
-// `/research/admin/all` returns every submission row flat — including
-// continuing reviews, amendments, and study closures that are actually
-// children of an already-approved study (parentResearchId set). Those
-// rows never carry a `stage` field, so falling back to "proposal" made
-// a continuing review look like a brand-new proposal. Derive the real
-// label from submissionType (and flag it as a child submission) instead.
+
 const SUBMISSION_TYPE_META = {
   continuing_review: { label: "Continuing Review", dotColor: "bg-purple-400" },
   amendment: { label: "Amendment", dotColor: "bg-indigo-400" },
   study_closure: { label: "Study Closure", dotColor: "bg-slate-400" },
 };
 
+const studyCategory = (study) => {
+  const kids = study.childSubmissions || [];
+  const closed =
+    study.status === "closed" ||
+    kids.some(
+      (c) => c.submissionType === "study_closure" && ["approved", "closed"].includes(c.status),
+    );
+  if (closed) return "closed";
+  if (kids.some((c) => c.submissionType === "continuing_review")) return "continuing_review";
+  return "proposal";
+};
+
 const resolveStageMeta = (item) => {
   if (item.parentResearchId && SUBMISSION_TYPE_META[item.submissionType]) {
     return SUBMISSION_TYPE_META[item.submissionType];
   }
-  return STAGE_META[item.stage || "proposal"] || STAGE_META.proposal;
+  return STAGE_META[studyCategory(item)] || STAGE_META.proposal;
 };
 
 const STATUS_META = {
@@ -114,9 +122,7 @@ const STATUS_META = {
     icon: FaUserTie,
     dot: "bg-violet-400",
   },
-  // Chair's change §4/§6.1 — new status introduced by the review-pipeline
-  // re-architecture: committee has voted, and this now sits with the
-  // Research Officer until they compile and release the decision report.
+
   pending_officer_review: {
     label: "Awaiting Officer Release",
     color: "bg-indigo-100",
@@ -144,6 +150,41 @@ const STATUS_META = {
     textColor: "text-green-700",
     icon: FaCheckCircle,
     dot: "bg-green-500",
+  },
+  closed: {
+    label: "Closed",
+    color: "bg-slate-100",
+    textColor: "text-slate-700",
+    icon: FaArchive,
+    dot: "bg-slate-500",
+  },
+  under_review: {
+    label: "Under Review",
+    color: "bg-blue-100",
+    textColor: "text-blue-700",
+    icon: FaClock,
+    dot: "bg-blue-400",
+  },
+  submitted: {
+    label: "Submitted",
+    color: "bg-blue-100",
+    textColor: "text-blue-700",
+    icon: FaClock,
+    dot: "bg-blue-400",
+  },
+  draft: {
+    label: "Draft",
+    color: "bg-gray-100",
+    textColor: "text-gray-600",
+    icon: FaRegFileAlt,
+    dot: "bg-gray-400",
+  },
+  expired: {
+    label: "Expired",
+    color: "bg-orange-100",
+    textColor: "text-orange-700",
+    icon: FaClock,
+    dot: "bg-orange-400",
   },
   rejected: {
     label: "Rejected",
@@ -425,7 +466,7 @@ const PapersPanel = () => {
   const fetchResearch = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/research/admin/all");
+      const res = await api.get("/research/admin/all", { params: { limit: 50 } });
       const papers = Array.isArray(res.data?.data)
         ? res.data.data
         : Array.isArray(res.data)
@@ -464,9 +505,7 @@ const PapersPanel = () => {
     fetchRevenue();
   }, []);
 
-  // Group children (continuing reviews / amendments / closures) under their
-  // parent study so a study is one row (with its lifecycle nested) rather than
-  // several. Stats and the "showing N" count are per-study too.
+
   const nested = React.useMemo(() => {
     const byId = new Map();
     researchList.forEach((r) => byId.set(r.id, { ...r, childSubmissions: [] }));
@@ -491,7 +530,7 @@ const PapersPanel = () => {
       p.abstract?.toLowerCase().includes(q);
     const kids = item.childSubmissions || [];
     const matchSearch = !q || matchIn(item) || kids.some(matchIn);
-    const matchStage = filterStage === "all" || (item.stage || "proposal") === filterStage;
+    const matchStage = filterStage === "all" || studyCategory(item) === filterStage;
     const matchStatus =
       filterStatus === "all" ||
       item.status === filterStatus ||
@@ -504,10 +543,11 @@ const PapersPanel = () => {
     return acc;
   }, {});
 
+
   const stageCounts = {
-    proposal: nested.filter((r) => (r.stage || "proposal") === "proposal").length,
-    progress: nested.filter((r) => r.stage === "progress").length,
-    final_paper: nested.filter((r) => r.stage === "final_paper").length,
+    proposal: nested.filter((s) => studyCategory(s) === "proposal").length,
+    continuing_review: nested.filter((s) => studyCategory(s) === "continuing_review").length,
+    closed: nested.filter((s) => studyCategory(s) === "closed").length,
   };
 
   const closeAddResearcher = () => {
@@ -593,7 +633,7 @@ const PapersPanel = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {[
           {
-            label: "Total Papers",
+            label: "Total Studies",
             value: nested.length,
             color: "blue",
             icon: FaBookOpen,
@@ -605,20 +645,16 @@ const PapersPanel = () => {
             icon: FaRegFileAlt,
           },
           {
-            label: "Final Papers",
-            value: stageCounts.final_paper,
-            color: "emerald",
-            icon: FaMicroscope,
+            label: "Continuing Review",
+            value: stageCounts.continuing_review,
+            color: "indigo",
+            icon: FaLayerGroup,
           },
           {
-            label: "Awaiting Officer Release",
-            value: nested.filter(
-              (r) =>
-                r.status === "pending_officer_review" ||
-                (r.childSubmissions || []).some((c) => c.status === "pending_officer_review"),
-            ).length,
-            color: "indigo",
-            icon: FaClipboardCheck,
+            label: "Closed",
+            value: stageCounts.closed,
+            color: "emerald",
+            icon: FaArchive,
           },
         ].map(({ label, value, color, icon: Icon }) => (
           <div key={label} className="bg-white rounded-xl p-5 border border-gray-100">
@@ -675,7 +711,7 @@ const PapersPanel = () => {
           {
             key: "all",
             label: "All Stages",
-            count: researchList.length,
+            count: nested.length,
             color: "bg-gray-100 text-gray-600 border-gray-200",
           },
           {
@@ -685,16 +721,16 @@ const PapersPanel = () => {
             color: "bg-amber-50 text-amber-700 border-amber-200",
           },
           {
-            key: "progress",
-            label: "In Progress",
-            count: stageCounts.progress,
+            key: "continuing_review",
+            label: "Continuing Review",
+            count: stageCounts.continuing_review,
             color: "bg-sky-50 text-sky-700 border-sky-200",
           },
           {
-            key: "final_paper",
-            label: "Final Paper",
-            count: stageCounts.final_paper,
-            color: "bg-emerald-50 text-emerald-700 border-emerald-200",
+            key: "closed",
+            label: "Closed",
+            count: stageCounts.closed,
+            color: "bg-slate-100 text-slate-700 border-slate-200",
           },
         ].map(({ key, label, count, color }) => (
           <button
@@ -1313,7 +1349,7 @@ const PapersPanel = () => {
                   <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none" />
                 </div>
 
-                {/* Selected reviewers as removable chips */}
+   
                 {selectedCount > 0 && (
                   <div className="flex flex-wrap gap-2 pt-1">
                     {selectedReviewerIds.map((id) => {

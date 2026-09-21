@@ -162,8 +162,7 @@ export const DASHBOARD_NAV = [
   },
 ];
 
-// Routes that exist but aren't part of the visible nav (edit sub-pages etc.)
-// still need a roles entry so RequireRole can guard them.
+
 export const EXTRA_DASHBOARD_ROUTE_ROLES = {
   "/dashboard/users/edit/:id": ["superadmin", "admin", "it"],
   "/dashboard/profile": ["superadmin", "admin", "it", "doctor", "communication", "research"],

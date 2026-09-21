@@ -619,7 +619,7 @@ const TenderPage = () => {
               <DetailItem icon={FaBullhorn}     label="Scope of Work"      value={selectedTender.scopeOfWork}  full />
             </div>
 
-            {/* Attachments */}
+ 
             <div className="bg-gray-50 rounded-xl p-4 mb-4">
               {(() => { const atts = typeof selectedTender.attachments === "string" ? JSON.parse(selectedTender.attachments) : (selectedTender.attachments || []); return (
               <>

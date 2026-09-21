@@ -113,9 +113,7 @@ const toArray = (v) => {
     .map((s) => s.replace(/^\d+[.)]\s*/, ""));
 };
 
-// The review-history endpoint returns each review's rubric under `criteria`
-// (see sequelize/models/review.js). Some records may carry a `scores` key
-// instead, so we accept either without caring which one is present.
+
 const getReviewCriteria = (rv) => {
   const c = rv?.scores || rv?.criteria;
   return c && typeof c === "object" ? c : null;
@@ -126,8 +124,6 @@ const averageOf = (values) =>
     ? Number((values.reduce((sum, v) => sum + v, 0) / values.length).toFixed(1))
     : null;
 
-// A single reviewer's average across their submitted rubric — criteria are
-// validated 0–10 on the backend (see validateCriteria in researchService.js).
 const criteriaAverage = (rv) => {
   const criteria = getReviewCriteria(rv);
   if (!criteria) return null;
@@ -137,10 +133,7 @@ const criteriaAverage = (rv) => {
   return averageOf(values);
 };
 
-// Shared by both the current-stage reviews and, when this record is a
-// continuing review, the original proposal's own reviews — so the committee
-// can compare the two aggregates side by side. `fallback` supplies the
-// legacy single stored score/criteria fields if no rubric rows exist yet.
+
 const buildAggregate = (reviewsList = [], fallback = {}) => {
   const scores = reviewsList.map((rv) => criteriaAverage(rv)).filter((v) => v !== null);
   const avg = scores.length ? averageOf(scores) : (fallback.aggregateScore ?? fallback.avgScore ?? null);
@@ -197,8 +190,7 @@ const MetaItem = ({ icon: Icon, value }) =>
     </span>
   ) : null;
 
-// value is on a 0–5 scale here (criteria averages are converted before
-// being passed in, since the underlying rubric is scored 0–10).
+
 const StarRating = ({ value }) => {
   const stars = [1, 2, 3, 4, 5];
   return (
@@ -356,8 +348,7 @@ const ReviewerCard = ({ review, index }) => {
   const recommendation = review.recommendation || review.decision;
   const isApprove = ["approved", "highly_recommended", "approve"].includes(recommendation);
   const criteria = getReviewCriteria(review);
-  // Criteria are scored 0–10 on the backend; the star widget is a 0–5
-  // scale, so convert rather than feeding the raw 0–10 average straight in.
+
   const starValue =
     review.overallScore != null
       ? review.overallScore
@@ -432,10 +423,7 @@ const AuditEntry = ({ text, time }) => (
   </div>
 );
 
-// Toggles between the original proposal and the current continuing-review
-// stage when a submission has a parent study, so the committee can flip
-// between "what was approved" and "what's being reported now" without
-// losing their place on the page.
+
 const TabButton = ({ active, onClick, icon: Icon, label, sub }) => (
   <button
     type="button"
@@ -556,14 +544,7 @@ const ProposalPanel = ({ r }) => (
   </>
 );
 
-// A continuing review's own row leaves the proposal fields (abstract,
-// background, objectives, …) NULL — that content lives on the parent study.
-// Its actual written content is the progress-report narrative, which the
-// backend flattens onto `continuingReviewData` (see stageDetailToLegacy in
-// researchService.js), together with `progressFiles` for the uploaded
-// supporting documents. This mirrors the shape the reviewer-facing
-// SubmissionContentTab already renders (Reviewsubmission.jsx), so the
-// committee sees the same content the reviewers scored.
+
 const ProgressPanel = ({ r }) => {
   const cr = r.continuingReviewData || {};
 
@@ -651,6 +632,87 @@ const ProgressPanel = ({ r }) => {
               stageLabel="Continuing Review"
             />
           ))
+        )}
+      </div>
+    </>
+  );
+};
+
+const ClosurePanel = ({ r }) => {
+  const cl = r.closureReport || {};
+  const reason = r.closureReason || cl.closureReason;
+  const REASON_LABELS = {
+    completed: "Study Completed",
+    premature_discontinuation: "Premature Discontinuation",
+    not_started: "Study Not Started",
+    transferred: "Transferred to Another Institution",
+  };
+  const narrative = [
+    { label: "Results Summary", value: cl.resultsSummary },
+    { label: "Publications", value: cl.publications },
+    { label: "Specimen Disposal Plan", value: cl.specimenDisposalPlan },
+    { label: "Data Future-Use Plan", value: cl.dataFutureUsePlan },
+    { label: "Investigational Product Disposal", value: cl.investigationalProductDisposal },
+  ].filter((f) => f.value);
+
+  return (
+    <>
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h2 className="font-bold text-slate-900 text-base">Study Closure Report</h2>
+          {reason && (
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide border bg-slate-50 text-slate-700 border-slate-200">
+              {REASON_LABELS[reason] || reason}
+            </span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="bg-slate-50 rounded-xl border border-slate-200 px-3 py-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              Participant Identifiers Destroyed
+            </p>
+            <p className="text-sm font-semibold text-slate-800 mt-0.5">
+              {cl.participantIdentifiersDestroyed ? "Yes" : "No"}
+            </p>
+          </div>
+          {r.publicationLink && (
+            <div className="bg-slate-50 rounded-xl border border-slate-200 px-3 py-2 col-span-2">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                Publication Link
+              </p>
+              <a href={r.publicationLink} target="_blank" rel="noopener noreferrer"
+                className="text-sm font-semibold text-blue-600 hover:underline break-all mt-0.5 block">
+                {r.publicationLink}
+              </a>
+            </div>
+          )}
+        </div>
+
+        {narrative.map(({ label, value }) => (
+          <div key={label}>
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">{label}</p>
+            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{value}</p>
+          </div>
+        ))}
+
+        {cl.submittedAt && (
+          <p className="text-xs text-slate-400 pt-1 border-t border-slate-100">
+            Submitted {fmtDate(cl.submittedAt)}
+          </p>
+        )}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200 p-6">
+        <h2 className="font-bold text-slate-900 text-base mb-4">Closeout Report Document</h2>
+        {r.closeoutReportFile ? (
+          <DocumentRow label="Closeout Report" url={r.closeoutReportFile} stageLabel="Study Closure" />
+        ) : (
+          <EmptyState
+            icon={FaFileAlt}
+            title="No closeout report uploaded"
+            sub="A closeout report is required when the closure reason is 'Completed'."
+          />
         )}
       </div>
     </>
@@ -966,11 +1028,7 @@ const CommitteeResearchDetails = () => {
       setDetail(paper);
       setReviews(Array.isArray(reviewHistory) ? reviewHistory : (reviewHistory?.reviews ?? []));
 
-      // A continuing review (or amendment / closure) carries a parent study
-      // (`parentResearchId`, flattened by the backend into `parentSummary`
-      // on the detail payload). Pull that study's own peer-review history
-      // too, so the committee can compare "what was originally approved"
-      // against "what's being reported now" — not just the progress data.
+    
       if (paper?.parentResearchId) {
         const parentHistory = await research
           .getReviewHistory(paper.parentResearchId)
@@ -1007,9 +1065,6 @@ const CommitteeResearchDetails = () => {
     }
   }, [detail, activeStage]);
 
-  // Default back to the progress-report tab whenever a different record is
-  // loaded, so switching between queue items never leaves the committee
-  // stranded on the previous record's "Original Proposal" tab.
   useEffect(() => {
     setDetailTab("progress");
   }, [detail?.id]);
@@ -1081,11 +1136,9 @@ const CommitteeResearchDetails = () => {
   const isCommitteeStage = rawStatus === "pending_committee_review";
   const isApproved = ["approved", "closed"].includes(rawStatus);
 
-  // For a continuing review, `parentSummary` (see getResearchById in
-  // researchService.js) carries the FULL original proposal — content, file,
-  // and lifecycle dates — so it needs the same normalisation as `r` before
-  // ProposalPanel/CommitteePanel can render it.
+
   const isContinuingReview = r.submissionType === "continuing_review";
+  const isClosure = r.submissionType === "study_closure";
   const parentProposal = r.parentSummary
     ? {
         ...r.parentSummary,
@@ -1112,8 +1165,7 @@ const CommitteeResearchDetails = () => {
           recommendation: r.reviewDecision,
           comments: r.reviewComment,
           reviewedAt: r.reviewedAt,
-          // aggregateScore is on a 0–10 scale; convert to the 0–5 scale
-          // ReviewerCard's star widget expects.
+
           overallScore: r.aggregateScore != null ? r.aggregateScore / 2 : null,
         },
       ];
@@ -1121,19 +1173,14 @@ const CommitteeResearchDetails = () => {
     return [];
   })();
 
-  // The real aggregate: average each reviewer's own rubric average (0–10
-  // scale, matching how the backend computes aggregateScore — see
-  // averageVoteScore in researchService.js), computed straight from the
-  // actual criteria submitted rather than trusting a single stored field.
+
   const {
     avg: computedAvg,
     scoredCount: scoredReviewerCount,
     aggregatedScores,
   } = buildAggregate(effectiveReviews, r);
 
-  // Same computation for the original proposal's own reviewers, so the
-  // committee can compare the study's initial evaluation against this
-  // continuing-review round side by side.
+
   const parentAggregate = parentProposal ? buildAggregate(parentReviews, parentProposal) : null;
 
   const noteToCommittee = r.finalPaperSubmission?.noteToCommittee || r.noteToCommittee || "";
@@ -1175,7 +1222,12 @@ const CommitteeResearchDetails = () => {
           {parentProposal && (
             <span className="inline-flex items-center gap-1.5 text-sm text-indigo-700">
               <FaBookOpen className="text-xs text-indigo-400 shrink-0" />
-              Continuing review of &ldquo;{parentProposal.title}&rdquo;
+              {(r.submissionType === "study_closure"
+                ? "Study closure of "
+                : r.submissionType === "amendment"
+                  ? "Amendment of "
+                  : "Continuing review of ")}
+              &ldquo;{parentProposal.title}&rdquo;
             </span>
           )}
         </div>
@@ -1296,7 +1348,7 @@ const CommitteeResearchDetails = () => {
             </>
           ) : (
             <>
-              <ProposalPanel r={r} />
+              {isClosure ? <ClosurePanel r={r} /> : <ProposalPanel r={r} />}
 
               {(r.resubmissionCount || 0) > 0 && (
                 <div className="bg-white rounded-2xl border border-slate-200 p-6">

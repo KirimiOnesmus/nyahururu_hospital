@@ -28,13 +28,10 @@ const ALLOWED_MIME_TYPES = {
   proposal:    PDF_MIMES,
   progress:    DOC_MIMES,
   final_paper: [...DOC_MIMES, "text/plain"],
-
-  // Chair's change #3: study-closure closeout report upload.
   closure:         DOC_MIMES,
-  // Chair's change #6: reviewer/committee feedback attachments.
+
   "review-feedback": DOC_MIMES,
 
-  //  Content / CMS modules 
   news:        IMAGE_MIMES,
   events:      IMAGE_MIMES,
   gallery:     [...IMAGE_MIMES, ...VIDEO_MIMES],
@@ -43,7 +40,6 @@ const ALLOWED_MIME_TYPES = {
   tenders:     PDF_MIMES,
   reports:     [...PDF_MIMES, ...DOC_MIMES],
 
-  //  Generic image context (profile photos etc.) 
   images:      IMAGE_MIMES,
 };
 

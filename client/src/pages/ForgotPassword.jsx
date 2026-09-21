@@ -23,9 +23,7 @@ const ForgotPassword = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Researchers and staff live in separate tables with separate reset
-  // endpoints. The login screen passes ?type=researcher for the research
-  // portal so the request hits /researchers/forgot-password.
+
   const isResearcher = searchParams.get("type") === "researcher";
   const endpoint = isResearcher
     ? "/researchers/forgot-password"
@@ -43,8 +41,7 @@ const ForgotPassword = () => {
       await api.post(endpoint, { email: email.trim() });
       setSent(true);
     } catch (err) {
-      // The backend always returns 200 to prevent email enumeration,
-      // but network / 5xx errors can still occur.
+
       const msg = err.response?.data?.message || "Something went wrong. Please try again.";
       notify.error(msg);
     } finally {
@@ -73,7 +70,6 @@ const ForgotPassword = () => {
 
           <div className="p-8">
             {sent ? (
-              /* ── Success state ── */
               <div className="text-center space-y-6">
                 <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 mx-auto flex items-center justify-center">
                   <FaCheckCircle className="text-3xl text-emerald-500" />
@@ -106,7 +102,6 @@ const ForgotPassword = () => {
                 </div>
               </div>
             ) : (
-              /* ── Form state ── */
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="flex flex-col gap-1.5">
                   <label
@@ -152,7 +147,7 @@ const ForgotPassword = () => {
             )}
           </div>
 
-          {/* Footer */}
+    
           {!sent && (
             <div className="px-8 pb-8 text-center border-t border-slate-200 pt-5">
               <button

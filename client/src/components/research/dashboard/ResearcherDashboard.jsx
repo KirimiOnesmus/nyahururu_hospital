@@ -4,9 +4,7 @@ import notify from "../../../common/utils/notify";
 import ResearcherStats from "../ResearcherStatsSection";
 import { API_BASE_URL, ASSET_BASE_URL } from "../../../config/env";
 
-// Build a downloadable URL for an uploaded document. Files served from
-// `/uploads/` require the auth token as a query param (same scheme the
-// detail view uses), so append it when present.
+
 const buildAssetUrl = (path) => {
   if (!path) return null;
   const base = `${ASSET_BASE_URL}${path}`;

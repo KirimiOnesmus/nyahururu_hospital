@@ -30,12 +30,6 @@ const fmtDate = (d, opts = { day: "2-digit", month: "short", year: "numeric" }) 
 const isUpcoming = (date) => new Date(date) >= new Date();
 
 
-
-
-
-
-
-
 const Thumb = ({ url, title, size = "sm" }) => {
   const sizes = { sm: "w-14 h-14", lg: "w-full h-52" };
   const resolved = resolveImage(url);

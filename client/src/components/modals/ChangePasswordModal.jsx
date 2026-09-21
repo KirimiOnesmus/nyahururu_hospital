@@ -73,7 +73,7 @@ const ChangePasswordModal = ({ open, currentPassword, onSuccess, onLogout }) => 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
-        {/* Header */}
+  
         <div className="px-6 pt-6 pb-4 text-center border-b border-slate-100">
           <div className="w-14 h-14 rounded-full bg-amber-50 border border-amber-200 mx-auto mb-3 flex items-center justify-center">
             <FaShieldAlt className="text-2xl text-amber-600" />
@@ -84,9 +84,8 @@ const ChangePasswordModal = ({ open, currentPassword, onSuccess, onLogout }) => 
           </p>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Current password */}
+
           <div>
             <label className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-1 block">
               Current Password
@@ -111,7 +110,7 @@ const ChangePasswordModal = ({ open, currentPassword, onSuccess, onLogout }) => 
             </div>
           </div>
 
-          {/* New password */}
+
           <div>
             <label className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-1 block">
               New Password
@@ -136,7 +135,7 @@ const ChangePasswordModal = ({ open, currentPassword, onSuccess, onLogout }) => 
             </div>
           </div>
 
-          {/* Password strength rules */}
+
           {newPassword && (
             <div className="bg-slate-50 rounded-xl p-3 space-y-1.5">
               {PASSWORD_RULES.map((rule, i) => {
@@ -157,7 +156,7 @@ const ChangePasswordModal = ({ open, currentPassword, onSuccess, onLogout }) => 
             </div>
           )}
 
-          {/* Confirm password */}
+
           <div>
             <label className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-1 block">
               Confirm New Password
@@ -185,7 +184,7 @@ const ChangePasswordModal = ({ open, currentPassword, onSuccess, onLogout }) => 
             )}
           </div>
 
-          {/* Actions */}
+
           <div className="pt-2 space-y-3">
             <button
               type="submit"

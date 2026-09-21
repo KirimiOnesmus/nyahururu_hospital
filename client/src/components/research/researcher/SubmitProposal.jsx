@@ -394,7 +394,7 @@ const StepMethodology = ({ form, setField, errors, acucFile, setAcucFile, insura
           placeholder={fields[2].placeholder} className={`${inputCls(errors.expectedOutcome)} resize-none`} />
       </Field>
 
-      {/* SERU-specific methodology fields */}
+
       <Field label="Inclusion Criteria" error={errors.inclusionCriteria} hint="Who can participate?">
         <textarea rows={2} value={form.inclusionCriteria}
           onChange={(e) => setField("inclusionCriteria", e.target.value)}
@@ -969,7 +969,7 @@ const SubmitProposal = ({ onClose, onSubmitted }) => {
     dataManagementPlan: "",
     ethicsHumanSubjects: "",
     ethicsAnimalSubjects: "",
-    isInvestigationalProduct: false, // F-10/F-14: drives IND review window + insurance-certificate requirement
+    isInvestigationalProduct: false, 
     budgetSummary: "",
     budgetJustification: "",
     expectedApplicationOfResults: "",

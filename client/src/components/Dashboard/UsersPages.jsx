@@ -65,7 +65,7 @@ const UsersPages = () => {
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
-  // Real-time updates via Socket.IO
+
   useSocket("users:created", fetchUsers);
   useSocket("users:updated", fetchUsers);
   useSocket("users:deleted", fetchUsers);

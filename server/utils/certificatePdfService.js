@@ -4,15 +4,13 @@ const fs = require("fs");
 
 const LOGO_PATH = path.join(__dirname, "..", "assets", "ncrh-logo.png");
 
-// Theme (research / health)
+
 const NAVY = "#1f3a5f";
 const TEAL = "#1a8f7a";
 const TEAL_DARK = "#12655a";
 const INK = "#334155";
 const MUTED = "#64748b";
 
-// Per-stage title + grammar. stageKey is the approved submission's type
-// (or "study_closure" for a completion certificate).
 const STAGE = {
   initial_proposal: {
     band: "PROPOSAL APPROVAL",
@@ -52,7 +50,7 @@ const renderCertificatePdf = (cert) => {
     const W = doc.page.width;
     const H = doc.page.height;
     const stage = stageConfig(cert);
-    const seru = cert.researchCode || "\u2014"; // parent SERU number
+    const seru = cert.researchCode || "\u2014"; 
 
     // ---- Frame ----
     doc.save();

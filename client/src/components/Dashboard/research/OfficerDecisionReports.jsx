@@ -7,8 +7,6 @@ import {
 import notify from "../../../common/utils/notify";
 import * as research from "../../../api/research";
 
-// Mirrors backend REVIEW_DECISIONS (constants/researchIndex.js) — the RO
-// may confirm the committee's recommendation or override it entirely.
 const DECISION_OPTIONS = [
   { value: "approved", label: "Approved", color: "text-green-700 bg-green-50 border-green-200" },
   { value: "revision", label: "Revision Requested", color: "text-amber-700 bg-amber-50 border-amber-200" },

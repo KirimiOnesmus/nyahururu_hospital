@@ -63,7 +63,7 @@ const VerifyEmail = () => {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-100 px-4">
         <div className="bg-white rounded-lg p-10 max-w-md w-full text-center">
-          <div className="text-5xl mb-6">❌</div>
+          <div className="text-5xl mb-6">X</div>
           <h2 className="text-2xl font-bold text-gray-800 mb-4">Verification Failed</h2>
           <p className="text-red-600 bg-red-50 p-4 rounded mb-8 text-sm">
             {error}
@@ -102,14 +102,14 @@ const VerifyEmail = () => {
   
           <div className="bg-blue-50 border-l-4 border-blue-500 p-5 mb-8 text-left rounded">
             <p className="text-gray-800 font-semibold mb-3 flex items-center">
-              <span className="mr-2">📧</span> Check Your Email
+           Check Your Email
             </p>
             <p className="text-gray-700 text-sm mb-4">
               A temporary password has been sent to your registered email address.
             </p>
             
             <p className="text-gray-800 font-semibold mb-2 flex items-center">
-              <span className="mr-2">🔐</span> Next Steps
+        
             </p>
             <ol className="text-gray-700 text-sm space-y-1 ml-6 list-decimal">
               <li>Check your email for the password</li>

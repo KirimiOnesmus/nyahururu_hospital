@@ -396,14 +396,12 @@ const studyClosureSchema = z.object({
     .or(z.literal("")),
 });
 
-// RO edits to the compiled report before release (§6.1).
 const decisionReportEditSchema = z.object({
   committeeComment: z.string().trim().max(50000).optional(),
   finalDecision: z.enum(["approved", "revision", "rejected", "suspended"]).optional(),
 }).passthrough();
 
-// Optional narrative report a committee member can add, feeding into
-// the compiled report (§6.1).
+
 const committeeReportNoteSchema = z.object({
   researchId: objectIdSchema,
   note: z.string().trim().min(1).max(20000),

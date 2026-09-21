@@ -217,9 +217,7 @@ const Certificates = () => {
     load();
   }, [load]);
 
-  // Stage-aware label/icon, derived from the certificate type and the linked
-  // submission (a continuing-review approval and a proposal approval share the
-  // same certificate type, so we look at the submission to tell them apart).
+  
   const stageInfo = (cert) => {
     if (cert.type === "ethics_clearance") {
       return { ...CERT_TYPES.completion, label: "Study Closure Certificate", stage: "Closure" };

@@ -31,8 +31,6 @@ const items = [
   },
 ];
 
-// A single drawn-on heartbeat trace — stands in for "we're watching around
-// the clock," which is the one idea every item on this ribbon shares.
 const PulseDivider = () => (
   <svg
     viewBox="0 0 800 40"
@@ -56,8 +54,8 @@ const TimeRibbon = () => {
   const navigate = useNavigate();
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-blue-700 via-blue-600 to-teal-500 py-16 px-6">
-      {/* Ambient depth — quiet, not a spotlight effect */}
+    <section className="relative overflow-hidden bg-blue-500 py-16 px-6">
+
       <div className="pointer-events-none absolute -top-24 -left-24 w-72 h-72 rounded-full bg-white/10 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-32 -right-16 w-96 h-96 rounded-full bg-teal-300/20 blur-3xl" />
 
@@ -80,7 +78,7 @@ const TimeRibbon = () => {
             <div
               key={title}
               className="group relative flex flex-col bg-white rounded-2xl p-6 pt-5
-                         border-t-[3px] border-amber-400
+                        
                          shadow-[0_12px_30px_-12px_rgba(6,40,44,0.45)]
                          hover:-translate-y-0.5 hover:shadow-[0_18px_36px_-12px_rgba(6,40,44,0.55)]
                          transition-all duration-200"

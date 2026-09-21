@@ -27,11 +27,6 @@ const resolveImage = (url) => {
 
 
 
-
-
-
-
-
 const Thumb = ({ url, title, size = "sm" }) => {
   const sizes = { sm: "w-14 h-14", lg: "w-full h-52" };
   const resolved = resolveImage(url);
@@ -73,7 +68,6 @@ const NewsPage = () => {
 
   useEffect(() => { fetchNews(); }, [fetchNews]);
 
-  // Real-time updates via Socket.IO
   useSocket("news:created", fetchNews);
   useSocket("news:updated", fetchNews);
   useSocket("news:deleted", fetchNews);

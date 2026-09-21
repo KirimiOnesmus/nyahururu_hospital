@@ -1442,9 +1442,7 @@ const submitStudyClosure = async (researcher, body, file) => {
         researcherId: researcher.id,
         submissionType: SUBMISSION_TYPES.STUDY_CLOSURE,
         parentResearchId,
-        // A closure has no reviewer stage: it goes straight to the committee to
-        // vote on, then the research officer releases the decision. So it enters
-        // the committee queue immediately (issue #7).
+
         status: RESEARCH_STATUSES.PENDING_COMMITTEE_REVIEW,
         seruNumber: parentResearch.seruNumber,
         centre: parentResearch.centre,
@@ -2151,10 +2149,6 @@ const getAssignedResearch = async (
     distinct: true,
   });
 
-  // Reviewer assignments stay flat here (the queue merges its active and
-  // completed fetches on the client and groups there). Every child carries a
-  // `parentSummary` so the UI can nest it under, or label it with, its parent
-  // study instead of showing it as a separate assignment.
   const plain = papers.map((p) => p.toJSON());
   const childParentIds = [
     ...new Set(plain.filter((p) => p.parentResearchId).map((p) => p.parentResearchId)),
@@ -3401,7 +3395,7 @@ const getDashboardStats = async () => {
     totalReviewers,
     totalCommitteeMembers,
   ] = await Promise.all([
-    Research.count(),
+    Research.count({ where: { parentResearchId: null } }),
     Research.count({
       where: {
         submissionType: SUBMISSION_TYPES.INITIAL_PROPOSAL,
@@ -3465,6 +3459,49 @@ const getDashboardStats = async () => {
     },
     users: { totalResearchers, totalReviewers, totalCommitteeMembers },
   };
+};
+
+
+let _publicStatsCache = null;
+let _publicStatsCachedAt = 0;
+const PUBLIC_STATS_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+const getPublicResearchStats = async () => {
+  const now = Date.now();
+  if (_publicStatsCache && now - _publicStatsCachedAt < PUBLIC_STATS_TTL_MS) {
+    return _publicStatsCache;
+  }
+
+  const [protocolsReviewed, researchers, approvalsIssued] = await Promise.all([
+
+    Research.count({
+      where: {
+        parentResearchId: null,
+        status: {
+          [Op.notIn]: [RESEARCH_STATUSES.DRAFT, RESEARCH_STATUSES.AWAITING_PAYMENT],
+        },
+      },
+    }),
+
+    Researcher.count({
+      where: {
+        role: RESEARCHER_ROLES.RESEARCHER,
+        isActive: true,
+        status: RESEARCHER_STATUSES.ACTIVE,
+      },
+    }),
+
+    Research.count({
+      where: {
+        parentResearchId: null,
+        status: RESEARCH_STATUSES.APPROVED,
+      },
+    }),
+  ]);
+
+  _publicStatsCache = { protocolsReviewed, researchers, approvalsIssued };
+  _publicStatsCachedAt = now;
+  return _publicStatsCache;
 };
 
 const getResearcherRevenue = async (researcher, researchId, caller = {}) => {
@@ -3829,6 +3866,7 @@ module.exports = {
   reactivateResearch,
   deleteResearch,
   getDashboardStats,
+  getPublicResearchStats,
   getResearcherRevenue,
   getReviewerWorkload,
   getCoInvestigatorStudies,

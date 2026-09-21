@@ -18,3 +18,5 @@ export { default as Tenders } from "./TenderPage";
 export { default as Downloads } from "./Downloads";
 export {default as VerifyEmail} from "./VerifyEmail"
 export {default as ResearchDashboard} from "./ResearchDashboard"
+export{default as PrivacyPolicy} from "./PrivacyPolicy"
+export{default as ServiceTerms} from "./ServiceTerms"

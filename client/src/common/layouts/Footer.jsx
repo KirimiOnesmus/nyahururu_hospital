@@ -17,13 +17,13 @@ const Footer = () => {
     // { label: "Tenders", path: "/tenders" },
     { label: "Downloads", path: "/downloads" },
     { label: "Research", path: "/research" },
-    {label:"Gallery" , path:"/gallery"}
+    { label: "Gallery", path: "/gallery" },
   ];
 
   const contactInfo = [
-    { icon: FaPhoneAlt, label: "0712 345 678", type: "phone" },
+    { icon: FaPhoneAlt, label: "0758 722 031", type: "phone" },
     { icon: MdEmail, label: "nyahururuhospital@gmail.com", type: "email" },
-    { icon: MdLocationOn, label: "Along Nyahururu–Nakuru Road", type: "location" },
+    { icon: MdLocationOn, label: "Nyeri-Nyahururu Road", type: "location" },
   ];
 
   const socialLinks = [
@@ -37,22 +37,19 @@ const Footer = () => {
     { label: "Laikipia County Government", path: "https://laikipia.go.ke/" },
     { label: "Social Health Authority", path: "https://sha.go.ke/" },
     { label: "Kenya Medical Training College", path: "https://kmtc.ac.ke/" },
-    {label:"Laikipia University", path:"https://www.laikipia.ac.ke/"}
+    { label: "Laikipia University", path: "https://www.laikipia.ac.ke/" },
   ];
 
   return (
     <footer className="bg-white border-t border-slate-200 mt-auto">
       <div className="max-w-7xl mx-auto px-6 md:px-10">
-
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 py-12">
-
-       
           <div className="flex flex-col items-start gap-3">
             <img src={logo} alt="Nyahururu Hospital logo" className="h-16" />
             <p className="text-xs text-slate-500 leading-relaxed">
               Providing quality healthcare services to our community.
             </p>
-           
+
             <div className="flex gap-3 pt-1">
               {socialLinks.map(({ icon: Icon, label, url }) => (
                 <a
@@ -82,7 +79,6 @@ const Footer = () => {
             </ul>
           </div>
 
-      
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">
               Quick Links
@@ -101,7 +97,6 @@ const Footer = () => {
             </ul>
           </div>
 
-     
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">
               External Links
@@ -123,19 +118,28 @@ const Footer = () => {
           </div>
         </div>
 
-      
         <div className="border-t border-slate-100 py-5 flex flex-col sm:flex-row justify-between items-center gap-3">
           <p className="text-xs text-slate-400">
             &copy; {currentYear} Nyahururu Hospital. All rights reserved.
           </p>
-          <a
-            href="https://onesmuskirimi.netlify.app/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-blue-500 hover:text-blue-700 transition-colors duration-150 font-medium"
-          >
-            Design &amp; Development by Onesmus Kirimi – ITR Limited
-          </a>
+
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => navigate("/privacy-policy")}
+              className="text-xs text-slate-500 hover:text-blue-600 transition-colors cursor-pointer"
+            >
+              Privacy Policy
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate("/terms-of-service")}
+              className="text-xs text-slate-500 hover:text-blue-600 transition-colors cursor-pointer"
+            >
+              Terms of Service
+            </button>
+          </div>
         </div>
       </div>
     </footer>

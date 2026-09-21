@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../../api/axios";
 import { Header, Footer } from "../../common/layouts";
+import researchBg from "../../assets/research.jpg";
 import {
   FaFlask,
   FaFileAlt,
@@ -23,9 +25,9 @@ import {
 } from "react-icons/fa";
 
 const STATS = [
-  { icon: FaFileAlt, value: "120+", label: "Protocols Reviewed" },
-  { icon: FaUsers, value: "80+", label: "Researchers" },
-  { icon: FaCheckCircle, value: "95+", label: "Approvals Issued" },
+  { icon: FaFileAlt, key: "protocolsReviewed", label: "Protocols Reviewed" },
+  { icon: FaUsers, key: "researchers", label: "Researchers" },
+  { icon: FaCheckCircle, key: "approvalsIssued", label: "Approvals Issued" },
   { icon: FaChartBar, value: "6", label: "Research Programmes" },
 ];
 
@@ -178,21 +180,46 @@ const colorMap = {
 
 const Research = () => {
   const navigate = useNavigate();
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .get("/research/public/stats")
+      .then((res) => {
+        if (alive) setStats(res.data?.data?.stats || null);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-      <div className="sticky top-0 z-50 bg-white/60 backdrop-blur-md">
+      <div className="sticky top-0 z-50 ">
         <Header />
       </div>
 
       <main className="flex-grow">
-        {/* ── Hero ── */}
-        <section className="relative bg-blue-500 text-white overflow-hidden">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full translate-x-1/3 -translate-y-1/3 pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-72 h-72 bg-white/5 rounded-full -translate-x-1/3 translate-y-1/3 pointer-events-none" />
+
+        <section className="relative text-white overflow-hidden">
+
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url(${researchBg})` }}
+          />
+
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-900/95 via-slate-900/80 to-blue-900/70" />
+          <div className="absolute inset-0 bg-slate-900/40" />
+ 
+          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3 pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-72 h-72 bg-green-400/10 rounded-full blur-3xl -translate-x-1/3 translate-y-1/3 pointer-events-none" />
+         
+          <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-500" />
 
           <div className="relative max-w-5xl mx-auto px-6 py-20 md:py-28 text-center">
-            <div className="inline-flex items-center gap-2 bg-white/15 border border-white/25 rounded-full px-4 py-1.5 text-sm font-semibold mb-6 backdrop-blur-sm">
+            <div className="inline-flex items-center gap-2 bg-white/10 border border-white/25 rounded-full px-4 py-1.5 text-sm font-semibold mb-6 backdrop-blur-sm">
               <FaFlask className="text-green-400" />
               NCRH Research Ethics Portal
             </div>
@@ -231,35 +258,31 @@ const Research = () => {
               </button>
             </div>
 
-            <p className="mt-5 text-blue-200 text-sm">
-              For reviewers & committee members —{" "}
-              <button
-                onClick={() => navigate("/hmis")}
-                className="text-white font-semibold underline underline-offset-2
-                  hover:text-green-400 cursor-pointer transition-colors"
-              >
-                sign in here
-              </button>
-            </p>
+      
           </div>
         </section>
 
-        {/* ── Stats bar ── */}
         <section className="bg-white border-b border-gray-100">
           <div className="max-w-5xl mx-auto px-6 py-10 grid grid-cols-2 md:grid-cols-4 gap-6">
-            {STATS.map(({ icon: Icon, value, label }) => (
-              <div key={label} className="flex flex-col items-center text-center gap-2">
-                <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
-                  <Icon className="text-xl text-blue-600" />
+            {STATS.map(({ icon: Icon, key, value, label }) => {
+              const display = key
+                ? stats
+                  ? stats[key] ?? 0
+                  : "…"
+                : value;
+              return (
+                <div key={label} className="flex flex-col items-center text-center gap-2">
+                  <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
+                    <Icon className="text-xl text-blue-600" />
+                  </div>
+                  <span className="text-2xl font-extrabold text-gray-900">{display}</span>
+                  <span className="text-sm text-gray-500">{label}</span>
                 </div>
-                <span className="text-2xl font-extrabold text-gray-900">{value}</span>
-                <span className="text-sm text-gray-500">{label}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
-        {/* ── About ── */}
         <section className="max-w-5xl mx-auto px-6 py-16">
           <div className="grid md:grid-cols-2 gap-10 items-center">
             <div>
@@ -306,7 +329,6 @@ const Research = () => {
           </div>
         </section>
 
-        {/* ── Lifecycle ── */}
         <section className="bg-gradient-to-br from-gray-50 to-blue-50 py-16">
           <div className="max-w-5xl mx-auto px-6">
             <div className="text-center mb-12">
@@ -342,7 +364,7 @@ const Research = () => {
           </div>
         </section>
 
-        {/* ── Submission Types ── */}
+      
         <section className="max-w-5xl mx-auto px-6 py-16">
           <div className="text-center mb-12">
             <span className="inline-block bg-amber-100 text-amber-700 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-4">
@@ -370,7 +392,7 @@ const Research = () => {
           </div>
         </section>
 
-        {/* ── How It Works ── */}
+
         <section className="bg-gradient-to-br from-gray-50 to-green-50 py-16">
           <div className="max-w-5xl mx-auto px-6">
             <div className="text-center mb-12">
@@ -406,7 +428,7 @@ const Research = () => {
           </div>
         </section>
 
-        {/* ── Additional features ── */}
+
         <section className="max-w-5xl mx-auto px-6 py-16">
           <div className="text-center mb-12">
             <span className="inline-block bg-indigo-100 text-indigo-700 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-4">
@@ -430,36 +452,7 @@ const Research = () => {
           </div>
         </section>
 
-        {/* ── CTA ── */}
-        <section className="bg-blue-500 text-white py-16">
-          <div className="max-w-3xl mx-auto px-6 text-center">
-            <h2 className="text-3xl font-extrabold mb-4">
-              Ready to Submit Your Research?
-            </h2>
-            <p className="text-blue-100 text-lg mb-8 max-w-xl mx-auto">
-              Join researchers across Laikipia County and beyond. Register today
-              and submit your first research proposal for ethics review.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button
-                onClick={() => navigate("/research/register")}
-                className="flex items-center justify-center gap-2 bg-white text-blue-700
-                  font-bold px-8 py-4 rounded-xl hover:bg-blue-50
-                  transition-all duration-200 hover:-translate-y-0.5 cursor-pointer"
-              >
-                <FaUserCheck /> Create Account
-              </button>
-              <button
-                onClick={() => navigate("/hmis")}
-                className="flex items-center justify-center gap-2 border-2 border-white/40
-                  text-white font-bold px-8 py-4 rounded-xl hover:bg-white/10
-                  transition-all duration-200 hover:-translate-y-0.5 cursor-pointer"
-              >
-                <FaArrowRight /> Log In
-              </button>
-            </div>
-          </div>
-        </section>
+
       </main>
 
       <Footer />

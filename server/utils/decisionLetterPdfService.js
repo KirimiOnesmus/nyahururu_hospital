@@ -14,8 +14,7 @@ const DECISION_LABEL = {
 
 const DECISION_BODY = {
   approved: (letter) => {
-    // The stage is woven into the approval sentence so it reads naturally
-    // (e.g. "the continuing review is granted approval …").
+
     const STAGE_SUBJECT = {
       initial_proposal: "the research proposal",
       amendment: "the protocol amendment",
@@ -149,7 +148,7 @@ doc.moveDown(0.9);
     const seruNum = letter.seruNumber || letter.letterNumber || "—";
     const genDate = letter.decisionDate ? new Date(letter.decisionDate) : new Date();
     const dateStr = formatLetterDate(genDate);
-    // Letter should be collected within two weeks of generation.
+
     const collectBy = new Date(genDate);
     collectBy.setDate(collectBy.getDate() + 14);
     const collectStr = formatLetterDate(collectBy);

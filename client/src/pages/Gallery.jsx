@@ -264,7 +264,7 @@ const Gallery = () => {
         </section>
 
 
-        <section className="max-w-6xl mx-auto px-6 sticky top-[64px] z-30">
+        <section className="max-w-7xl mx-auto px-6 top-[64px] z-30">
           <div className="bg-white/95 backdrop-blur rounded-2xl border border-slate-100 shadow-sm p-4 md:p-5">
             <div className="flex flex-col md:flex-row gap-3 mb-4">
               <div className="relative flex-1">
@@ -375,7 +375,7 @@ const Gallery = () => {
           </div>
         </section>
 
-        <section className="max-w-6xl mx-auto px-6 py-10">
+        <section className="max-w-7xl mx-auto px-6 py-10">
           {loading ? (
             <SkeletonGrid gridSize={gridSize} />
           ) : errored ? (

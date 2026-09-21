@@ -254,22 +254,6 @@ const Careers = () => {
     fetchCareers();
   }, []);
 
-  // useEffect(() => {
-  //   const fetchCareers = async () => {
-  //     try {
-  //       const res = await publicApi.get("/jobs");
-  //       const data = Array.isArray(res.data)
-  //         ? res.data
-  //         : res.data?.careers ?? res.data?.data ?? [];
-  //       setCareers(data);
-  //     } catch (error) {
-  //       console.error("Failed to fetch jobs:", error);
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
-  //   fetchCareers();
-  // }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">

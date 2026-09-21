@@ -7,3 +7,4 @@ export { default as GeneralDashboard } from "./GeneralDashboard";
 export { default as EventOverlay } from "./EventOverlay";
 export { default as QuickActions } from "./QuickActions";
 export { default as WelcomeIntro } from "./WelcomeIntro";
+export{default  as Contact} from "./Contact";

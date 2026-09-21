@@ -77,7 +77,6 @@ const GalleryPage = () => {
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
   useEffect(() => { fetchGallery(); }, [fetchGallery]);
 
-  // Real-time updates via Socket.IO
   useSocket("gallery:created", fetchGallery);
   useSocket("gallery:updated", fetchGallery);
   useSocket("gallery:deleted", fetchGallery);

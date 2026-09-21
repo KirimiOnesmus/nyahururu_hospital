@@ -980,9 +980,7 @@ exports.sendCoInvestigatorAdded = ({ email, name, proposalTitle, piName }) =>
     PORTAL_NAME,
   );
 
-// Chair's change #8: progress-only notification sent to the Research
-// Officer and the other assigned reviewers whenever one reviewer
-// submits — never carries verdict content, per the redaction rule (§5).
+
 exports.sendReviewerVerdictSubmitted = ({
   email, name, proposalTitle, submitted, total, forRole = "reviewer",
 }) =>
@@ -1011,11 +1009,7 @@ exports.sendReviewerVerdictSubmitted = ({
     PORTAL_NAME,
   );
 
-// Chair's change #1/#7/#8: the ONLY review-related email a researcher
-// ever receives — sent when the Research Officer releases the Compiled
-// Decision Report. Replaces the researcher-facing branches that used
-// to fire mid-pipeline from the reviewer and committee stages.
-// Truncate long text for email bodies (keep under 500 chars)
+
 const truncateForEmail = (text, maxLen = 500) => {
   if (!text) return "";
   const clean = String(text).trim();
@@ -1064,9 +1058,7 @@ exports.sendOfficialVerdict = ({
   );
 };
 
-// Chair's change #9: reminder to a reviewer who hasn't acted within 7
-// days of assignment. Includes the deadline so they can see how much
-// time remains under the extended 4-week window (§6.10).
+
 exports.sendReviewerReminder = ({ email, name, proposalTitle, deadline }) =>
   sendMail(
     email,
@@ -1087,7 +1079,7 @@ exports.sendReviewerReminder = ({ email, name, proposalTitle, deadline }) =>
   );
 // ── Research Officer Notifications ──
 
-// Sent to the Research Officer when a new proposal is submitted and paid.
+
 exports.sendProposalSubmittedToOfficer = ({ email, name, proposalTitle, researcherName, seruNumber, submissionType }) =>
   sendMail(
     email,
@@ -1110,7 +1102,7 @@ exports.sendProposalSubmittedToOfficer = ({ email, name, proposalTitle, research
     PORTAL_NAME,
   );
 
-// Sent to the Research Officer when a resubmission is received.
+
 exports.sendResubmissionToOfficer = ({ email, name, proposalTitle, researcherName, round }) =>
   sendMail(
     email,

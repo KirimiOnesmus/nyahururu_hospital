@@ -73,7 +73,6 @@ const InventoryPage = () => {
 
   useEffect(() => { fetchInventory(); }, [fetchInventory]);
 
-  // Real-time updates via Socket.IO
   useSocket("inventory:created", fetchInventory);
   useSocket("inventory:updated", fetchInventory);
   useSocket("inventory:deleted", fetchInventory);

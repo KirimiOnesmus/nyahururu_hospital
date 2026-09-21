@@ -228,7 +228,16 @@ const ResearcherStatsSection = ({ myResearch = [], isLoading = false }) => {
     rejected: myResearch.filter((r) => r.status === "rejected").length,
     downloads: myResearch.reduce((s, r) => s + (r.downloads || 0), 0),
     views: myResearch.reduce((s, r) => s + (r.views || 0), 0),
-    published: myResearch.filter((r) => r.isPublished).length,
+    published: myResearch.filter(
+      (r) =>
+        r.status === "closed" ||
+        (Array.isArray(r.childSubmissions) &&
+          r.childSubmissions.some(
+            (c) =>
+              c.submissionType === "study_closure" &&
+              ["approved", "closed"].includes(c.status),
+          )),
+    ).length,
   };
 
   const acceptanceRate = stats.total > 0 ? Math.round((stats.approved / stats.total) * 100) : 0;

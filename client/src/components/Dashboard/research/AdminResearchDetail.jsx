@@ -16,9 +16,7 @@ import * as research from "../../../api/research";
 import RevisionComparison from "../../research/RevisionComparison";
 import { ASSET_BASE_URL } from "../../../config/env";
 
-/* ────────────────────────────────────────────────────────────────── */
-/*  Metadata maps                                                    */
-/* ────────────────────────────────────────────────────────────────── */
+
 
 const STAGE_META = {
   proposal:    { label: "Proposal",     color: "bg-amber-500",   light: "bg-amber-50",   text: "text-amber-700",   border: "border-amber-200", dot: "bg-amber-400",   icon: FaRegFileAlt },
@@ -66,9 +64,7 @@ const resolveUrl = (url) => {
   return base;
 };
 
-/* ────────────────────────────────────────────────────────────────── */
-/*  Reusable building blocks                                         */
-/* ────────────────────────────────────────────────────────────────── */
+
 
 const InfoRow = ({ icon: Icon, label, value, mono }) => (
   <div className="flex items-start gap-3 py-2.5">
@@ -118,9 +114,6 @@ const CriteriaBar = ({ label, score, max = 10 }) => {
   );
 };
 
-/* ────────────────────────────────────────────────────────────────── */
-/*  Main page component                                              */
-/* ────────────────────────────────────────────────────────────────── */
 
 const AdminResearchDetail = () => {
   const { id } = useParams();
@@ -128,21 +121,12 @@ const AdminResearchDetail = () => {
 
   const [paper, setPaper] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // Multi-reviewer assignments
   const [reviewerAssignments, setReviewerAssignments] = useState([]);
   const [reviews, setReviews] = useState([]);
-
-  // Decision report (Chair's §6.1)
   const [decisionReport, setDecisionReport] = useState(null);
-
-  // Protocol deviations
   const [deviations, setDeviations] = useState([]);
-
-  // Revenue
   const [revenue, setRevenue] = useState(null);
 
-  // Decision letters
   const [decisionLetters, setDecisionLetters] = useState([]);
 
   const fetchAll = useCallback(async () => {
@@ -207,20 +191,20 @@ const AdminResearchDetail = () => {
   const statusMeta = STATUS_META[paper.status] || STATUS_META.pending;
   const StatusIcon = statusMeta.icon;
 
-  // Merge review data with reviewer assignments for a complete picture
+
   const enrichedReviewers = reviewerAssignments.map((assignment) => {
-    // Get ALL reviews by this reviewer, not just the first one
+  
     const matchedReviews = reviews.filter(
       (r) => r.reviewerId === assignment.reviewerId || r.reviewerId === assignment.reviewer?.id
     );
-    // The latest review is the "current" one
+
     const latestReview = matchedReviews.length > 0
       ? matchedReviews.sort((a, b) => new Date(b.submittedAt || b.createdAt) - new Date(a.submittedAt || a.createdAt))[0]
       : null;
     return { ...assignment, review: latestReview, allReviews: matchedReviews };
   });
 
-  // Reviews not matched to assignments (legacy single-reviewer)
+
   const matchedReviewerIds = new Set(
     reviewerAssignments.flatMap((a) => [a.reviewerId, a.reviewer?.id].filter(Boolean))
   );
@@ -234,7 +218,7 @@ const AdminResearchDetail = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        {/* ── Back navigation ── */}
+
         <button
           onClick={() => navigate("/dashboard/research")}
           className="flex items-center gap-2 text-gray-500 hover:text-gray-700 text-sm mb-5 cursor-pointer transition-colors"
@@ -242,7 +226,6 @@ const AdminResearchDetail = () => {
           <FaArrowLeft className="text-xs" /> Back to Research Management
         </button>
 
-        {/* ── Header banner ── */}
         <div className={`${stageMeta.color} rounded-2xl px-6 py-5 mb-6`}>
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -286,22 +269,16 @@ const AdminResearchDetail = () => {
           </div>
         </div>
 
-        {/* ── Status pipeline ── */}
+
         <div className="bg-white rounded-xl border border-gray-100 p-5 mb-6">
           <ReviewPipeline status={paper.status} totalReviewers={totalReviewers} submittedReviewers={submittedReviewers} />
         </div>
 
-        {/* ── Grid layout ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left column: 2/3 */}
+
           <div className="lg:col-span-2 space-y-5">
 
-            {/* Continuing-review progress report: this submission's own row
-                leaves abstract/background/etc. NULL (those live on the
-                parent study), so the actual written content is the
-                progress-report narrative the backend flattens onto
-                `continuingReviewData`. Was previously not rendered at all,
-                making every continuing review look empty here. */}
+
             {paper.submissionType === "continuing_review" && (
               <Section title="Continuing Review — Progress Report" icon={FaBookOpen} defaultOpen>
                 <div className="space-y-4 pt-3">
@@ -341,7 +318,6 @@ const AdminResearchDetail = () => {
               </Section>
             )}
 
-            {/* Abstract & Content */}
             <Section title="Research Details" icon={FaBookOpen}>
               <div className="space-y-4 pt-3">
                 {paper.abstract && (
@@ -391,7 +367,7 @@ const AdminResearchDetail = () => {
               </Section>
             )}
 
-            {/* Assigned Reviewers + Scores */}
+
             <Section
               title="Assigned Reviewers & Feedback"
               icon={FaUserTie}
@@ -418,7 +394,7 @@ const AdminResearchDetail = () => {
               </div>
             </Section>
 
-            {/* Committee Comment */}
+
             {paper.committeeComment && (
               <Section title="Committee Comment" icon={FaCrown} defaultOpen>
                 <div className="bg-violet-50 border border-violet-100 rounded-lg p-4 mt-3">
@@ -427,10 +403,9 @@ const AdminResearchDetail = () => {
               </Section>
             )}
 
-            {/* Decision Report (Chair's §6.1) */}
+
             <DecisionReportSection report={decisionReport} researchId={id} onRefresh={fetchAll} />
 
-            {/* Protocol Deviations */}
             {deviations.length > 0 && (
               <Section title="Protocol Deviations" icon={FaExclamationTriangle} badge={deviations.length} badgeColor="bg-red-100 text-red-700" defaultOpen={false}>
                 <div className="space-y-3 pt-3">
@@ -465,7 +440,7 @@ const AdminResearchDetail = () => {
           {/* Right column: 1/3 */}
           <div className="space-y-5">
 
-            {/* Key Info Card */}
+
             <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-1">
               <h3 className="text-sm font-bold text-gray-900 mb-3">Key Information</h3>
               <InfoRow icon={FaHashtag} label="Research ID" value={paper.researchId || paper.id} mono />
@@ -478,7 +453,7 @@ const AdminResearchDetail = () => {
               {paper.resubmissionCount > 0 && <InfoRow icon={FaRedo} label="Resubmissions" value={paper.resubmissionCount} />}
             </div>
 
-            {/* Revenue Card */}
+
             {revenue && (revenue.proposalIncome > 0 || revenue.totalIncome > 0) && (
               <div className="bg-white rounded-xl border border-gray-100 p-5">
                 <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
@@ -499,7 +474,7 @@ const AdminResearchDetail = () => {
               </div>
             )}
 
-            {/* CSC Endorsement */}
+
             <div className="bg-white rounded-xl border border-gray-100 p-5">
               <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
                 <FaStamp className="text-teal-500" /> CSC Endorsement
@@ -526,7 +501,6 @@ const AdminResearchDetail = () => {
               )}
             </div>
 
-            {/* Completeness Status */}
             {(paper.completenessVerifiedAt || paper.completenessIssues?.length > 0 || paper.status === "returned_for_correction") && (
               <div className="bg-white rounded-xl border border-gray-100 p-5">
                 <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
@@ -551,7 +525,7 @@ const AdminResearchDetail = () => {
               </div>
             )}
 
-            {/* Decision Letters */}
+
             {decisionLetters.length > 0 && (
               <div className="bg-white rounded-xl border border-gray-100 p-5">
                 <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
@@ -575,7 +549,7 @@ const AdminResearchDetail = () => {
               </div>
             )}
 
-            {/* Documents on file */}
+
             {(paper.proposalFile || paper.fileUrl) && (
               <div className="bg-white rounded-xl border border-gray-100 p-5">
                 <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
@@ -598,9 +572,7 @@ const AdminResearchDetail = () => {
               </div>
             )}
 
-            {/* Continuing-review supporting documents. Was previously
-                never rendered on this page, even though the backend
-                already returns them as `progressFiles`. */}
+
             {Array.isArray(paper.progressFiles) && paper.progressFiles.length > 0 && (
               <div className="bg-white rounded-xl border border-gray-100 p-5">
                 <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
@@ -626,7 +598,7 @@ const AdminResearchDetail = () => {
               </div>
             )}
 
-            {/* Timestamps */}
+
             <div className="bg-white rounded-xl border border-gray-100 p-5">
               <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
                 <FaHistory className="text-gray-400" /> Timeline
@@ -645,9 +617,6 @@ const AdminResearchDetail = () => {
   );
 };
 
-/* ────────────────────────────────────────────────────────────────── */
-/*  Review Pipeline visual                                           */
-/* ────────────────────────────────────────────────────────────────── */
 
 const PIPELINE_STAGES = [
   { key: "submitted",  label: "Submitted",  statuses: ["submitted", "returned_for_correction"] },
@@ -691,9 +660,6 @@ const ReviewPipeline = ({ status, totalReviewers, submittedReviewers }) => {
   );
 };
 
-/* ────────────────────────────────────────────────────────────────── */
-/*  Reviewer Card (shows one reviewer + their feedback)              */
-/* ────────────────────────────────────────────────────────────────── */
 
 const ReviewerCard = ({ assignment, index }) => {
   const [expanded, setExpanded] = useState(false);
@@ -767,7 +733,7 @@ const ReviewerCard = ({ assignment, index }) => {
             </div>
           ) : (
             <>
-              {/* Criteria Scores */}
+
               {criteriaEntries.length > 0 && (
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Evaluation Criteria</p>
@@ -779,7 +745,6 @@ const ReviewerCard = ({ assignment, index }) => {
                 </div>
               )}
 
-              {/* Comment */}
               {review?.comment && (
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Reviewer Comment</p>
@@ -789,7 +754,7 @@ const ReviewerCard = ({ assignment, index }) => {
                 </div>
               )}
 
-              {/* Attachments (Chair's change #6) */}
+
               {review?.attachments?.length > 0 && (
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Attachments</p>
@@ -820,10 +785,6 @@ const ReviewerCard = ({ assignment, index }) => {
   );
 };
 
-/* ────────────────────────────────────────────────────────────────── */
-/*  Decision Report Section (Chair's §6.1/§6.8)                      */
-/*  RO can edit and release from here                                */
-/* ────────────────────────────────────────────────────────────────── */
 
 const DecisionReportSection = ({ report, researchId, onRefresh }) => {
   const [draftComment, setDraftComment] = useState(report?.committeeComment || "");
@@ -886,7 +847,6 @@ const DecisionReportSection = ({ report, researchId, onRefresh }) => {
           </div>
         )}
 
-        {/* Identity-redacted reviewer feedback */}
         {report.reviewerComments?.length > 0 && (
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2 flex items-center gap-1.5">
@@ -916,7 +876,7 @@ const DecisionReportSection = ({ report, researchId, onRefresh }) => {
           </div>
         )}
 
-        {/* Officer's compiled report */}
+
         <div>
           <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 mb-1.5">
             <FaEdit className="text-[8px]" /> Officer's Compiled Report
@@ -937,7 +897,7 @@ const DecisionReportSection = ({ report, researchId, onRefresh }) => {
           </div>
         </div>
 
-        {/* File attachment */}
+
         <div>
           <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 mb-1.5">
             <FaPaperclip className="text-[8px]" /> Attach Supporting Document
@@ -961,7 +921,6 @@ const DecisionReportSection = ({ report, researchId, onRefresh }) => {
           )}
         </div>
 
-        {/* Final decision selector */}
         <div>
           <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">Final Decision</label>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -980,7 +939,6 @@ const DecisionReportSection = ({ report, researchId, onRefresh }) => {
           </div>
         </div>
 
-        {/* Action buttons */}
         {!isReleased && (
           <div className="flex gap-2 pt-2 border-t border-gray-100">
             <button

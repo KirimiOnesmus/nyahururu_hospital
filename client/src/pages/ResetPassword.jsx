@@ -35,9 +35,7 @@ const ResetPassword = () => {
   const userId = searchParams.get("userId");
   const email = searchParams.get("email");
 
-  // Staff reset links carry ?userId=…; researcher reset links carry
-  // ?email=… (they hit different tables/endpoints). Mode is derived from
-  // whichever identifier the emailed link contains.
+
   const isResearcher = !userId && !!email;
 
   const [newPassword, setNewPassword] = useState("");
@@ -127,7 +125,7 @@ const ResetPassword = () => {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
       <div className="w-full max-w-lg">
         <div className="bg-white rounded-2xl border border-slate-200">
-          {/* Header */}
+
           <div className="px-8 pt-8 pb-6 text-center border-b border-slate-200">
             <div className="w-14 h-14 rounded-full bg-blue-50 border border-blue-100 mx-auto mb-4 flex items-center justify-center">
               <FaShieldAlt className="text-2xl text-blue-700" />
@@ -161,7 +159,7 @@ const ResetPassword = () => {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
-                {/* New password */}
+
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-1 block">
                     New Password
@@ -208,7 +206,7 @@ const ResetPassword = () => {
                   </div>
                 )}
 
-                {/* Confirm password */}
+
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-1 block">
                     Confirm Password
@@ -257,7 +255,7 @@ const ResetPassword = () => {
             )}
           </div>
 
-          {/* Footer */}
+
           {!success && (
             <div className="px-8 pb-8 text-center border-t border-slate-200 pt-5">
               <button

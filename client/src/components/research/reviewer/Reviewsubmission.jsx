@@ -69,18 +69,12 @@ const CRITERIA_BY_TYPE = {
 
 const getCriteria = (type) => CRITERIA_BY_TYPE[type] || [];
 
-// Chair's change #5: reviewers can no longer reject outright — only
-// the committee can.
 const DECISION_OPTIONS = [
   { value: "approved", label: "Approve"         },
   { value: "revision", label: "Revision Needed" },
 ];
 
-// Chair's change #6: reviewers can attach supporting documents to their
-// feedback. Mirrors the backend's "review-feedback" upload bucket
-// (middleware/upload.js) — kept in sync so the UI rejects bad files
-// before hitting the network, while the server remains the source of
-// truth (magic-byte verification happens there, not here).
+
 const MAX_ATTACHMENTS = 5;
 const MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024; // 50MB
 const ALLOWED_ATTACHMENT_EXTENSIONS = [".pdf", ".docx", ".csv", ".xls", ".xlsx", ".zip"];
@@ -262,11 +256,7 @@ const ScoreSlider = ({ label, value, onChange, disabled }) => (
 
 
 const SubmissionContentTab = ({ item }) => {
-  // A continuing review's own row leaves the proposal fields (abstract,
-  // background, objectives, …) NULL — that content lives on the parent
-  // study. Its actual written content is the progress-report narrative,
-  // which the backend flattens onto `continuingReviewData`. Render that
-  // instead of falling through to "No written content available".
+
   if (item.submissionType === "continuing_review") {
     const cr = item.continuingReviewData || {};
     const sections = [
@@ -532,8 +522,6 @@ const ReviewSubmission = () => {
     setScores(Object.fromEntries(criteriaList.map((c) => [c.key, 5])));
     setLoading(false);
 
-    // On a revision, open the Changes tab first so the reviewer
-    // immediately sees what the researcher altered.
     if ((loaded.resubmissionCount || 0) > 0) setTab("changes");
 
   
@@ -542,10 +530,6 @@ const ReviewSubmission = () => {
       const reviewList = Array.isArray(reviews) ? reviews : [];
       setReviewHistory(reviewList);
 
-      // The review history returned to a reviewer contains only their
-      // own submissions (per the redaction layer), newest round first.
-      // The reviewer is expected to submit one review per round; the
-      // current round is resubmissionCount + 1.
       const currentRound = (loaded.resubmissionCount || 0) + 1;
       const myReviews = reviewList.filter(
         (r) => r.reviewerRole === "reviewer" || reviewList.length === 1
@@ -555,8 +539,7 @@ const ReviewSubmission = () => {
         .sort((a, b) => (b.round || 0) - (a.round || 0))[0];
 
       if (myReview) {
-        // Pre-fill with their most recent answers as an editable
-        // starting point for the new round.
+
         setExistingReview(myReview);
         setDecision(myReview.decision || "");
         setFeedback(myReview.comment || "");
@@ -564,9 +547,7 @@ const ReviewSubmission = () => {
           setScores(myReview.criteria);
         }
 
-        // Lock the form ONLY when they've already reviewed THIS round.
-        // A stale review from an earlier round must not block the
-        // reviewer from evaluating the revision.
+
         if ((myReview.round || 0) >= currentRound) {
           setAlreadyReviewed(true);
         }

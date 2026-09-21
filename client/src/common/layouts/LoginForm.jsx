@@ -99,8 +99,7 @@ const LoginForm = () => {
           localStorage.setItem("collection", "users");
           joinRole(data.user.role);
 
-          // If backend says the user must change their temporary password,
-          // show the modal instead of navigating to the dashboard.
+
           if (data.mustChangePassword) {
             setTempPassword(password);
             setShowChangePassword(true);
@@ -300,7 +299,7 @@ const LoginForm = () => {
         </div>
       </div>
 
-      {/* First-login password change modal */}
+
       <ChangePasswordModal
         open={showChangePassword}
         currentPassword={tempPassword}

@@ -32,6 +32,8 @@ const Downloads = lazy(() => import("./pages/Downloads"));
 const Gallery = lazy(() => import("./pages/Gallery"));
 const Tenders = lazy(() => import("./pages/TenderPage"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const ServiceTerms = lazy(() => import("./pages/ServiceTerms"));
 
 const ServiceDetails = lazy(() => import("./components/modals/ServiceDetails"));
 const DoctorDetails = lazy(() => import("./components/modals/DoctorDetails"));
@@ -130,6 +132,8 @@ function App() {
           <Route path="/services/:id" element={<ServiceDetails />} />
           <Route path="/doctors/:id" element={<DoctorDetails />} />
           <Route path="/news/:id" element={<NewsDetails />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms-of-service" element={<ServiceTerms />} />
 
           {/* ── Research (SERU-aligned) ── */}
           <Route path="/research" element={<ResearchPage />} />

@@ -34,8 +34,7 @@ const SubmitStudyClosure = () => {
     publicationLink: "",
   });
 
-  // SOP-4 exclusion attestations — the committee requires each to be
-  // confirmed before a study can be closed (enforced server-side too).
+
   const [attestations, setAttestations] = useState({
     noActiveParticipants: false,
     noOutstandingAdverseEvents: false,
@@ -50,10 +49,7 @@ const SubmitStudyClosure = () => {
     try {
       setFetchingParent(true);
       const res = await research.getMyResearch({ submissionType: "initial_proposal", limit: 100 });
-      // A study can only be closed once. Exclude any study that already has a
-      // closure — whether it's still under review or already approved — so the
-      // researcher can't start a second closure. (They can view the existing
-      // one from My Submissions.)
+
       const hasClosure = (p) =>
         Array.isArray(p.childSubmissions) &&
         p.childSubmissions.some((c) => c.submissionType === "study_closure");
@@ -93,8 +89,6 @@ const SubmitStudyClosure = () => {
     if (!form.closureReason) return notify.error("Closure reason is required.");
     if (!form.resultsSummary.trim()) return notify.error("Results summary is required.");
 
-    // Closeout report file is mandatory only when the study is being closed
-    // as "completed" (matches the backend rule).
     if (form.closureReason === "completed" && !closeoutFile) {
       return notify.error("A closeout report file is required when the reason is 'Completed'.");
     }

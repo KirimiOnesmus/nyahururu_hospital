@@ -15,7 +15,6 @@ import {
 import * as research from "../../../api/research";
 
 
-// Payment status is read straight off each research item's payment fields
 
 const PAY_STATUS_CONFIG = {
   completed: {

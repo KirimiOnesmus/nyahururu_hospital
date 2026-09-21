@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Slider, Card, QuickActions, WelcomeIntro, TimeRibbon, News, EventOverlay } from "../components/layouts";
+import { Slider, Card, QuickActions, WelcomeIntro, TimeRibbon, News, EventOverlay,Contact } from "../components/layouts";
 import { Header, Partners, Footer } from "../common/layouts";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
@@ -40,15 +40,14 @@ const Home = () => {
       <main className="flex-1">
         <EventOverlay />
 
-        {/* Hero */}
+     
         <Slider />
 
-        {/* Quick action strip, mirrors MP Shah's Find a Doctor / Book Appointment row */}
         <QuickActions />
 
         <WelcomeIntro />
 
-        {/* Our Services */}
+
         <section className="max-w-6xl mx-auto px-6 pt-16 pb-12">
           <div className="flex items-end justify-between mb-8">
             <div>
@@ -105,23 +104,24 @@ const Home = () => {
           )}
         </section>
 
-        {/* Hours, specialist clinics & feedback ribbon */}
-        <div className="border-t border-slate-100">
+        <section className="border-t border-slate-100">
           <TimeRibbon />
-        </div>
+        </section>
 
-        {/* Latest News */}
-        <div className="border-t border-slate-100">
+      
+        <section className="border-t border-slate-100">
           <News />
-        </div>
+        </section>
 
-        {/* Affiliations */}
         <section className="border-t border-slate-100 py-12 max-w-6xl mx-auto px-6">
           <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-1 text-center">
             Working Together
           </p>
           <h3 className="text-2xl font-bold text-slate-800 text-center mb-8">Our Affiliations</h3>
           <Partners />
+        </section>
+        <section   className="border-t border-slate-100">
+          <Contact />
         </section>
       </main>
 

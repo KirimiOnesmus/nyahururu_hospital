@@ -175,20 +175,7 @@ exports.updateAppointmentStatus = async (req, res) => {
         console.error("Failed to send status update email:", err),
       );
 
-    // if (appointment.phone) {
-    //   smsServices
-    //     .sendAppointmentStatusUpdate(
-    //       appointment.phone,
-    //       appointment.patientName,
-    //       appointment.service,
-    //       appointment.appointmentDate,
-    //       appointment.time,
-    //       status
-    //     )
-    //     .catch((err) =>
-    //       console.error("Failed to send status update SMS:", err)
-    //     );
-    // }
+
 
     res.json({ message: `Appointment ${status}`, appointment });
     emitChange("appointments", "updated", { id: appointment.id, status });

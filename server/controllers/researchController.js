@@ -57,10 +57,7 @@ exports.confirmProposalSubmission = asyncHandler(async (req, res) => {
       ["proposalFile", "proposal", "pdf"].includes(f.fieldname),
     );
 
-  // F-14: SOP-1 §6.5/§10.6/Annex 3 conditionally require an ACUC approval
-  // letter (animal studies) and a clinical-trial insurance certificate
-  // (investigational-product studies). These ride on the same multipart
-  // upload as the main proposal file.
+
   const acucApprovalDoc = req.files?.find?.((f) =>
     ["acucApprovalDoc", "acucApproval"].includes(f.fieldname),
   );
@@ -313,8 +310,7 @@ exports.addCommitteeReportNote = asyncHandler(async (req, res) => {
   sendSuccess(res, 200, "Note added to decision report.", { report });
 });
 
-// Chair's change #6.1: researcher-facing read, and the RO's/committee's
-// pre-release view of the draft.
+
 exports.getDecisionReport = asyncHandler(async (req, res) => {
   const report = await researchService.getDecisionReport(req.params.id, {
     researcher: req.researcher || null,
@@ -326,7 +322,7 @@ exports.getDecisionReport = asyncHandler(async (req, res) => {
   sendSuccess(res, 200, "Decision report fetched.", { report });
 });
 
-// Chair's change #6.1: Research Officer edits the draft before release.
+
 exports.updateDecisionReport = asyncHandler(async (req, res) => {
   const updates = { ...req.body };
   if (req.file) {
@@ -345,8 +341,6 @@ exports.updateDecisionReport = asyncHandler(async (req, res) => {
   sendSuccess(res, 200, "Decision report updated.", { report });
 });
 
-// Chair's change #1/#7/#8: releases the report — the one action that
-// turns the compiled draft into the researcher's official outcome.
 exports.releaseDecisionReport = asyncHandler(async (req, res) => {
   const { research, report } = await researchService.releaseDecisionReport(
     req.user || req.researcher,
@@ -524,13 +518,18 @@ exports.getDashboardStats = asyncHandler(async (req, res) => {
   sendSuccess(res, 200, "Dashboard stats fetched.", { stats });
 });
 
-// F-12: Reviewer workload reporting
+
+exports.getPublicStats = asyncHandler(async (req, res) => {
+  const stats = await researchService.getPublicResearchStats();
+  res.set("Cache-Control", "public, max-age=120");
+  sendSuccess(res, 200, "Public research stats fetched.", { stats });
+});
+
+
 exports.getReviewerWorkload = asyncHandler(async (req, res) => {
   const workload = await researchService.getReviewerWorkload();
   sendSuccess(res, 200, "Reviewer workload fetched.", workload);
 });
-
-// F-3: Co-investigator handlers
 
 exports.getCoInvestigatorStudies = asyncHandler(async (req, res) => {
   const studies = await researchService.getCoInvestigatorStudies(req.researcher.id);
@@ -545,7 +544,6 @@ exports.getResearchCoInvestigators = asyncHandler(async (req, res) => {
   sendSuccess(res, 200, "Co-investigators fetched.", { coInvestigators });
 });
 
-// G-2: PI delegates (or revokes) a co-investigator's edit access
 exports.setCoInvestigatorEditAccess = asyncHandler(async (req, res) => {
   const assignment = await researchService.setCoInvestigatorEditAccess(
     req.params.id,
@@ -563,7 +561,7 @@ exports.setCoInvestigatorEditAccess = asyncHandler(async (req, res) => {
   });
 });
 
-// G-2: Co-investigator with canEdit=true updates delegated sections
+
 exports.coInvestigatorEditResearch = asyncHandler(async (req, res) => {
   const research = await researchService.coInvestigatorEditResearch(
     req.researcher,
@@ -579,7 +577,7 @@ exports.coInvestigatorEditResearch = asyncHandler(async (req, res) => {
   });
 });
 
-// F-4 / G-5: CSC endorsement
+
 exports.recordCscEndorsement = asyncHandler(async (req, res) => {
   const adminId = req.researcher?.id || req.user?.id;
   const evidenceFile = req.files?.find?.((f) =>
@@ -600,7 +598,7 @@ exports.recordCscEndorsement = asyncHandler(async (req, res) => {
   });
 });
 
-// F-5: Administrative completeness
+
 exports.returnForCorrection = asyncHandler(async (req, res) => {
   const adminId = req.researcher?.id || req.user?.id;
   const research = await researchService.returnForCorrection(req.params.id, req.body, adminId);
@@ -625,7 +623,7 @@ exports.markCompletenessVerified = asyncHandler(async (req, res) => {
   });
 });
 
-// F-6: Protocol deviations
+
 exports.submitProtocolDeviation = asyncHandler(async (req, res) => {
   const files = req.files || [];
   const deviation = await researchService.submitProtocolDeviation(req.researcher, req.body, files);
@@ -640,7 +638,7 @@ exports.getProtocolDeviations = asyncHandler(async (req, res) => {
   sendSuccess(res, 200, "Protocol deviations fetched.", { deviations });
 });
 
-// F-15: download the decision letter PDF for a study
+
 exports.getDecisionLetter = asyncHandler(async (req, res) => {
   const research = await researchService.getDecisionLetter(req.params.id, {
     researcher: req.researcher || null,
@@ -652,8 +650,7 @@ exports.getDecisionLetter = asyncHandler(async (req, res) => {
     decisionLetterIssuedAt: research.decisionLetterIssuedAt,
   });
 });
-// Decision letter history — supports the researcher-facing
-// DecisionLetterButton which calls GET /research/:id/decision-letters
+
 exports.getDecisionLetterHistory = asyncHandler(async (req, res) => {
   const letters = await researchService.getDecisionLetterHistory(req.params.id, {
     researcher: req.researcher || null,

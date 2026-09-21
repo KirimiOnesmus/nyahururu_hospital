@@ -265,16 +265,12 @@ export const getAssignedResearch = async (filters = {}) => {
   return unwrapList(await api.get(`/research/reviewer/assigned?${p}`));
 };
 export const submitReview = async (researchId, { decision, comment, criteria, attachments = [] }) => {
-  // Chair's change #6: reviewers can attach supporting documents to their
-  // feedback. Only switch to multipart when there are files — keeps the
-  // request as plain JSON (current behavior) otherwise.
+ 
   if (Array.isArray(attachments) && attachments.length > 0) {
     const fd = new FormData();
     fd.append("researchId", researchId);
     fd.append("decision", decision);
     fd.append("comment", comment);
-    // Backend's multipartCriteriaSchema expects criteria as a JSON string
-    // when submitted alongside files.
     fd.append("criteria", JSON.stringify(criteria));
     attachments.forEach((file) => fd.append("attachments", file));
     const response = await api.post("/research/reviews", fd);
@@ -369,10 +365,8 @@ export const getRecordTimeline = async (researchId) => {
   return { timeline: r.data?.data?.timeline ?? [] };
 };
 
-//  Research Officer — Compiled Decision Report workflow (Chair's §6.1/§6.8) 
+//  Research Officer — Compiled Decision Report workflow . 
 
-// The Research Officer's release queue: research sitting at
-// PENDING_OFFICER_REVIEW, each paired with its draft Compiled Decision Report.
 export const getOfficerQueue = async (filters = {}) => {
   const { page = 1, limit = 20 } = filters;
   const p = new URLSearchParams({ page, limit });
@@ -380,15 +374,13 @@ export const getOfficerQueue = async (filters = {}) => {
   return { records: r.data?.data ?? [], ...r.data?.meta };
 };
 
-// Researcher-facing read; also used by staff/committee to preview the
-// draft pre-release. Returns null if nothing exists yet.
+// Researcher-facing read.
 export const getDecisionReport = async (researchId) => {
   const r = await api.get(`/research/${researchId}/decision-report`);
   return r.data?.data?.report ?? null;
 };
 
-// RO edits the committee commentary and/or overrides the final decision
-// before releasing it to the researcher.
+
 export const updateDecisionReport = async (researchId, reportId, updates) => {
   const hasFile = updates.officerAttachmentFile instanceof File;
   let r;
@@ -407,12 +399,16 @@ export const updateDecisionReport = async (researchId, reportId, updates) => {
   return r.data?.data?.report;
 };
 
-// The one action that turns the compiled draft into the researcher's
-// official outcome — issues the decision letter and the single
-// researcher-facing email.
+
 export const releaseDecisionReport = async (researchId, reportId) => {
   const r = await api.post(`/research/${researchId}/decision-reports/${reportId}/release`);
   return r.data?.data;
+};
+
+
+export const getPublicResearchStats = async () => {
+  const r = await api.get("/research/public/stats");
+  return r.data?.data?.stats ?? { protocolsReviewed: 0, researchers: 0, approvalsIssued: 0 };
 };
 
 //  Admin / Research Officer — dashboard 
@@ -481,6 +477,7 @@ export const KENYAN_COUNTIES = [
   "Samburu","Siaya","Taita-Taveta","Tana River","Tharaka-Nithi",
   "Trans-Nzoia","Turkana","Uasin Gishu","Vihiga","Wajir","West Pokot",
 ];
+
 //  Researcher — Certificates 
 
 export const getMyCertificates = async () => {

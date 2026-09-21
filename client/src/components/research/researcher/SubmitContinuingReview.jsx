@@ -38,9 +38,7 @@ const SubmitContinuingReview = () => {
     try {
       setFetchingParent(true);
       const res = await research.getMyResearch({ submissionType: "initial_proposal", limit: 100 });
-      // A study already has a continuing review "in flight" if any of its
-      // child CRs is still moving through review. Those must not appear as
-      // eligible for a new continuing review until the current one is resolved.
+
       const IN_FLIGHT = [
         "submitted",
         "under_review",
@@ -64,8 +62,7 @@ const SubmitContinuingReview = () => {
     }
   }, []);
 
-  // Revise mode: load the existing continuing review and auto-fill the form
-  // so the researcher edits and resubmits the SAME record.
+
   const loadForRevision = useCallback(async () => {
     try {
       setFetchingParent(true);
@@ -82,7 +79,6 @@ const SubmitContinuingReview = () => {
         isLastYear: Boolean(data.isLastYear),
       });
       setExistingDocs(Array.isArray(cr?.progressFiles) ? cr.progressFiles : []);
-      // Lock the target to this CR; no parent picker in revise mode.
       setSelectedParent({ id: cr.parentResearchId || cr.id, title: cr.title });
     } catch {
       notify.error("Failed to load the continuing review for revision.");
@@ -124,8 +120,7 @@ const SubmitContinuingReview = () => {
     e.preventDefault();
     if (!selectedParent) return notify.error("Select the research for continuing review.");
     if (!form.progressSummary.trim()) return notify.error("Progress summary is required.");
-    // On a fresh submission at least one document is required; on a revision
-    // the originally-uploaded documents are kept unless new ones are attached.
+
     if (!isRevise && files.length === 0)
       return notify.error("Upload at least one supporting document (e.g. annual progress report).");
 

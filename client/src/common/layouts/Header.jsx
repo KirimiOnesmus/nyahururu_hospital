@@ -47,6 +47,9 @@ const Header = () => {
 
   useEffect(() => {
     const handleOutside = (e) => {
+      
+      if (mobileMenuRef.current && mobileMenuRef.current.contains(e.target)) return;
+
       if (navRef.current && !navRef.current.contains(e.target)) {
         setActiveDropdown(null);
       }
@@ -139,7 +142,7 @@ const Header = () => {
               href="tel:+254712345678"
               className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors"
             >
-              <MdPhone className="text-base" /> +254 712 345 678
+              <MdPhone className="text-base" /> +254 758 722 031
             </a>
             <button
               onClick={() => goTo("/ambulance-services")}
@@ -151,7 +154,7 @@ const Header = () => {
         </div>
       </div>
 
-      {/* Main nav */}
+
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex items-center justify-between py-3">
           <button
@@ -284,7 +287,7 @@ const Header = () => {
       {isOpen && (
         <>
           <div
-            className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+            className="fixed inset-0 bg-black/50 blur-5xl z-40 lg:hidden"
             onClick={() => setIsOpen(false)}
           />
 

@@ -16,7 +16,7 @@ const extractToken = (req) => {
   if (req.cookies && req.cookies.jwt) {
     return req.cookies.jwt;
   }
-  // Support token in query string for file downloads (e.g. PDF viewer)
+
   if (req.query && req.query.token) {
     return req.query.token;
   }

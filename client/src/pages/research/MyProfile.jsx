@@ -603,96 +603,82 @@ const MyProfile = ({ onBack }) => {
               </div>
             )}
 
-            {activeTab === "publications" && (
+            {activeTab === "publications" && (() => {
+              const isClosed = (p) =>
+                p.status === "closed" ||
+                (Array.isArray(p.childSubmissions) &&
+                  p.childSubmissions.some(
+                    (c) =>
+                      c.submissionType === "study_closure" &&
+                      ["approved", "closed"].includes(c.status),
+                  ));
+              const publications = papers.filter(isClosed);
+              const closedAtOf = (p) => {
+                const closure = (p.childSubmissions || []).find(
+                  (c) => c.submissionType === "study_closure",
+                );
+                return closure?.updatedAt || closure?.createdAt || p.updatedAt || p.createdAt;
+              };
+              return (
               <div className="space-y-3">
-                {papers.length === 0 ? (
+                {publications.length === 0 ? (
                   <div className="text-center py-12 bg-gray-50 rounded-xl">
-                    <FaFileAlt className="text-gray-300 text-4xl mx-auto mb-3" />
-                    <p className="text-gray-400 font-medium">
-                      No submissions yet
+                    <FaBook className="text-gray-300 text-4xl mx-auto mb-3" />
+                    <p className="text-gray-400 font-medium">No publications yet</p>
+                    <p className="text-gray-400 text-xs mt-1">
+                      A study appears here once it has been formally closed.
                     </p>
                   </div>
                 ) : (
-                  papers.map((paper) => {
-                    const statusLabel =
-                      paper.status === "approved"
-                        ? "Approved"
-                        : paper.status === "rejected" ||
-                            paper.status === "revision_requested"
-                          ? "Needs Revision"
-                          : paper.status === "pending_committee_review"
-                            ? "With Committee"
-                            : "Under Review";
-
-                    const statusCls =
-                      paper.status === "approved"
-                        ? "bg-green-100 text-green-700"
-                        : paper.status === "rejected" ||
-                            paper.status === "revision_requested"
-                          ? "bg-red-100 text-red-700"
-                          : paper.status === "pending_committee_review"
-                            ? "bg-indigo-100 text-indigo-700"
-                            : "bg-yellow-100 text-yellow-700";
-
+                  publications.map((paper) => {
+                    const closedAt = closedAtOf(paper);
                     return (
                       <div
                         key={paper.id}
                         className="flex items-start gap-3 p-4 rounded-lg border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 transition-all"
                       >
-                        <div
-                          className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                            paper.status === "approved"
-                              ? "bg-green-100"
-                              : "bg-yellow-100"
-                          }`}
-                        >
-                          <FaFileAlt
-                            className={
-                              paper.status === "approved"
-                                ? "text-green-600"
-                                : "text-yellow-600"
-                            }
-                          />
+                        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-slate-100">
+                          <FaBook className="text-slate-600" />
                         </div>
 
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-gray-900 text-sm leading-snug">
                             {paper.title}
                           </p>
-                          <p className="text-xs text-gray-400 mt-0.5 capitalize">
-                            Stage: {paper.stage?.replace("_", " ") ?? "—"}
-                          </p>
+                          {paper.seruNumber && (
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              SERU No. {paper.seruNumber}
+                            </p>
+                          )}
                           <p className="text-xs text-gray-400 mt-0.5">
-                            {new Date(paper.createdAt).toLocaleDateString(
-                              "en-KE",
-                              {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                              },
-                            )}
+                            Closed{" "}
+                            {closedAt
+                              ? new Date(closedAt).toLocaleDateString("en-KE", {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                })
+                              : "—"}
                           </p>
                           {paper.downloads > 0 && (
                             <div className="flex gap-4 mt-2 text-xs text-gray-500">
                               <span className="flex items-center gap-1">
-                                <FaDownload className="text-blue-400" />{" "}
-                                {paper.downloads} downloads
+                                <FaDownload className="text-blue-400" /> {paper.downloads} downloads
                               </span>
                             </div>
                           )}
                         </div>
 
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-xs font-bold flex-shrink-0 whitespace-nowrap ${statusCls}`}
-                        >
-                          {statusLabel}
+                        <span className="px-2.5 py-1 rounded-full text-xs font-bold flex-shrink-0 whitespace-nowrap bg-slate-100 text-slate-700">
+                          Closed
                         </span>
                       </div>
                     );
                   })
                 )}
               </div>
-            )}
+              );
+            })()}
           </div>
         </div>
 

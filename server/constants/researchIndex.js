@@ -28,9 +28,6 @@ const RESEARCH_STATUSES = Object.freeze({
   UNDER_REVIEW:             "under_review",
   REVISION_REQUESTED:       "revision_requested",
   PENDING_COMMITTEE_REVIEW: "pending_committee_review",
-  // Chair's change #8: committee finalization no longer transitions
-  // straight to a researcher-facing outcome. It holds here until the
-  // Research Officer explicitly releases the Compiled Decision Report.
   PENDING_OFFICER_REVIEW:   "pending_officer_review",
   APPROVED:                 "approved",
   REJECTED:                 "rejected",
@@ -89,16 +86,12 @@ const REVIEWER_ASSIGNMENT_STATUS = Object.freeze({
 
 
 const REVIEW_WINDOW_DAYS = Object.freeze({
-  // Chair's change #10: initial-proposal review window extended from 3
-  // to 4 weeks. Only affects newly assigned reviews (assignReviewers).
+
   [SUBMISSION_TYPES.INITIAL_PROPOSAL]:  28,
   [SUBMISSION_TYPES.AMENDMENT]:         14,
   [SUBMISSION_TYPES.CONTINUING_REVIEW]: 14,
   [SUBMISSION_TYPES.STUDY_CLOSURE]:     21,
 });
-
-// Chair's change #9: reviewers get a reminder email if no action is
-// taken within this many days of assignment.
 const REVIEWER_REMINDER_DAYS = 7;
 
 const REVIEW_DECISION_DISPLAY = Object.freeze({

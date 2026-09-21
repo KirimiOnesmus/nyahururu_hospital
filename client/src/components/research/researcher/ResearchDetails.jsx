@@ -238,10 +238,7 @@ const safeArray = (val) => {
   return [];
 };
 
-// Renders the continuing-review (SERU Type B) payload: the progress-report
-// narrative plus the mandatory supporting documents uploaded at this stage.
-// The proposal itself is rendered by the normal Submission stage (which now
-// falls back to the parent proposal's content for continuing reviews).
+
 const ContinuingReviewPanel = ({ paper }) => {
   const cr = paper?.continuingReviewData || {};
   const files = safeArray(paper?.progressFiles);
@@ -322,11 +319,6 @@ const ContinuingReviewPanel = ({ paper }) => {
 const mapResearchToProject = (paper, reviews = []) => {
   if (!paper) return null;
 
-  // A continuing review / amendment / closure is a continuation of an
-  // approved study. Its own row leaves the proposal fields (abstract,
-  // background, objectives, …) NULL because those live on the parent, so
-  // we fall back to the parent proposal (returned as `parentSummary`) when
-  // rendering the underlying proposal content.
   const parent = paper.parentSummary || {};
 
   const reviewerReviews = reviews
