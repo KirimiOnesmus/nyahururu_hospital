@@ -1,48 +1,64 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-const crypto = require('crypto');
-const User = require('./models/userModel');
-require('dotenv').config();
+"use strict";
 
-const connectDB = require('./config/db');
-const { BCRYPT_SALT_ROUNDS } = require('./constants/authConfig');
-const { generateEmployeeId, generateRFID } = require('./utils/generateIds');
 
-connectDB();
+
+require("dotenv").config();
+
+const { User, sequelize } = require("./sequelize/models");
+const { generateEmployeeId, generateRFID } = require("./utils/generateIds");
+
+const SEED_EMAIL    = process.env.SEED_SUPERADMIN_EMAIL    || "superadmin@ncrh.com";
+const SEED_PASSWORD = process.env.SEED_SUPERADMIN_PASSWORD || "SuperSecure123!";
 
 const createSuperAdmin = async () => {
-  const existing = await User.findOne({ role: 'superadmin' });
-  if (existing) {
-    console.log('Super Admin already exists');
-    process.exit();
+  try {
+    await sequelize.authenticate();
+
+ 
+    if (process.env.NODE_ENV === "production" && !process.env.SEED_SUPERADMIN_PASSWORD) {
+      console.error(
+        "[seeder] Refusing to seed with the default superadmin password in production. " +
+        "Set SEED_SUPERADMIN_PASSWORD in the environment and re-run.",
+      );
+      process.exitCode = 1;
+      return;
+    }
+
+    const existing = await User.findOne({ where: { role: "superadmin" } });
+    if (existing) {
+      console.log(` Admin already exists (${existing.email}). Nothing to do.`);
+      return;
+    }
+
+ 
+    const employeeId = await generateEmployeeId("superadmin", User);
+    const rfidTag = generateRFID(employeeId);
+
+
+    const superAdmin = await User.create({
+      firstName: "Super",
+      lastName: "Admin",
+      name: "Super Admin",
+      email: SEED_EMAIL,
+      password: SEED_PASSWORD,
+      role: "admin",
+      employeeId,
+      rfidTag,
+      rfid: rfidTag,
+      emailVerified: true,
+
+      mustChangePassword: true,
+    });
+
+    console.log(`Super Admin created: ${superAdmin.email}`);
+    console.log(`  Temporary password: ${SEED_PASSWORD}`);
+    console.log(`  (mustChangePassword=true — change on first login)`);
+  } catch (err) {
+    console.error("[seeder] failed:", err.message);
+    process.exitCode = 1;
+  } finally {
+    await sequelize.close();
   }
-
-  // M6: standardized on bcryptjs (was native `bcrypt`, now removed from
-  // package.json — see the backend security review, M6) with the shared
-  // configurable work factor.
-  const hashedPassword = await bcrypt.hash('SuperSecure123!', BCRYPT_SALT_ROUNDS);
-  const employeeId = await generateEmployeeId('superadmin', User);
-  const rfidTag = generateRFID(employeeId);
-
-  const superAdmin = new User({
-    firstName: 'Super',
-    lastName: 'Admin',
-    name: 'Super Admin',
-    email: 'superadmin@ncrh.com',
-    password: hashedPassword,
-    role: 'superadmin',
-    employeeId,
-    rfidTag,
-    rfid: rfidTag,
-    // Seeded accounts are trusted out-of-band — mark verified directly so
-    // this account isn't blocked by the C1 email-verification login gate.
-    emailVerified: true,
-    mustChangePassword: true,
-  });
-
-  await superAdmin.save();
-  console.log('Super Admin created successfully. Temporary password: SuperSecure123! (change on first login).');
-  process.exit();
 };
 
 createSuperAdmin();

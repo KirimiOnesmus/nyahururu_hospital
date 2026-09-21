@@ -5,10 +5,14 @@ const { AppError } = require("../utils/appError");
 const rateLimit = require("express-rate-limit");
 
 
-const validId = (param) => (req, res, next) =>
-  Types.ObjectId.isValid(req.params[param])
-    ? next()
-    : next(new AppError(`Invalid ${param}.`, 400));
+
+const validId = (param) => (req, res, next) => {
+  const value = req.params[param];
+  if (!/^\d+$/.test(String(value))) {
+    return next(new AppError(`Invalid ${param}.`, 400));
+  }
+  next();
+};
 
 
 const verifyLimiter = rateLimit({

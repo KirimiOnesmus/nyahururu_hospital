@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const {
   getAllReports,
   getReportById,
@@ -17,20 +18,29 @@ const createUploader = require('../middleware/upload');
 
 const upload = createUploader('reports');
 
-// Public routes (with authentication)
 router.get('/',  getAllReports); 
 router.get('/category/:category',  getReportsByCategory);
 router.get('/:id/download',  downloadReport);
 router.get('/:id',getReportById);
 
-
-// Protected routes (create/edit/delete)
-router.post('/', verifyToken,authorizeRoles('admin'), upload.single('file'), createReport);
-router.put('/:id', verifyToken,authorizeRoles('admin'), upload.single('file'), updateReport);
-router.delete('/:id', verifyToken,authorizeRoles('admin'), deleteReport);
+router.post('/', verifyToken,authorizeRoles('admin', 'it'), upload.single('file'), createReport);
+router.put('/:id', verifyToken,authorizeRoles('admin','it'), upload.single('file'), updateReport);
+router.delete('/:id', verifyToken,authorizeRoles('admin', 'it'), deleteReport);
 router.post('/bulk-delete', verifyToken, authorizeRoles('admin'),bulkDeleteReports);
 
-// Comments
-router.post('/:id/comments', addComment);
+
+const commentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      message: "Too many comments submitted. Please try again later.",
+    });
+  },
+});
+router.post('/:id/comments', commentLimiter, addComment);
 
 module.exports = router;

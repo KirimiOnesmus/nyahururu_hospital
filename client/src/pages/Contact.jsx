@@ -1,5 +1,5 @@
 import React from "react";
-import { Header, Footer } from "../components/layouts";
+import { Header, Footer } from "../common/layouts";
 const Contact = () => {
   return (
     <div>

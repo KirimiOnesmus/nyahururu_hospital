@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
+import { useSocket } from "../../api/socket";
 import api from "../../api/axios";
 import {
   FaAmbulance, FaPlus, FaSearch, FaEdit, FaTrash, FaCheckCircle,
@@ -6,7 +7,11 @@ import {
   FaMapMarkerAlt, FaPhone, FaSave, FaCalendarAlt, FaChevronDown,
   FaTimes, FaFilter,
 } from "react-icons/fa";
-import { toast } from "react-toastify";
+import notify from "../../common/utils/notify";
+import {
+  Modal, Spinner, EmptyState, StatCard, Button, SearchBox, Input, TextArea, Select, FormField, PageHeader, StatusBadge, Avatar, DataTable,
+} from "../../common/components";
+
 
 
 const VEHICLE_STATUS_CONFIG = {
@@ -42,17 +47,7 @@ const fmtDT   = (d) => d ? new Date(d).toLocaleString("en-KE") : "—";
 const toID    = (d) => d ? d.split("T")[0] : "";
 
 
-const StatCard = ({ label, value, accent, icon: Icon }) => (
-  <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm hover:shadow-md transition-shadow">
-    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${accent.bg}`}>
-      <Icon className={`text-base ${accent.icon}`} />
-    </div>
-    <div>
-      <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">{label}</p>
-      <p className={`text-xl font-black ${accent.num}`}>{value ?? 0}</p>
-    </div>
-  </div>
-);
+
 
 const VehicleBadge = ({ status }) => {
   const c = VEHICLE_STATUS_CONFIG[status] || VEHICLE_STATUS_CONFIG.Available;
@@ -83,59 +78,6 @@ const EmergencyBadge = ({ level }) => {
   );
 };
 
-const Spinner = ({ text }) => (
-  <div className="flex flex-col items-center justify-center py-16 gap-3">
-    <div className="w-10 h-10 border-2 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
-    <p className="text-sm text-gray-400">{text}</p>
-  </div>
-);
-
-const Empty = ({ icon: Icon, text }) => (
-  <div className="flex flex-col items-center justify-center py-16 gap-3">
-    <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center">
-      <Icon className="text-2xl text-gray-300" />
-    </div>
-    <p className="text-sm text-gray-400">{text}</p>
-  </div>
-);
-
-
-const Modal = ({ open, onClose, title, subtitle, children, maxW = "max-w-xl" }) => {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div
-        className={`bg-white rounded-2xl shadow-2xl w-full ${maxW} max-h-[90vh] overflow-y-auto`}
-        style={{ animation: "modalPop .22s cubic-bezier(.34,1.56,.64,1) both" }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
-          <div>
-            <h2 className="text-lg font-black text-gray-900">{title}</h2>
-            {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
-          </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100 cursor-pointer transition-colors shrink-0">
-            <FaTimes className="text-gray-400" />
-          </button>
-        </div>
-        <div className="p-6">{children}</div>
-      </div>
-    </div>
-  );
-};
-
-const Field = ({ label, required, children }) => (
-  <div>
-    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-      {label}{required && <span className="text-red-400 ml-0.5">*</span>}
-    </label>
-    {children}
-  </div>
-);
-
-const inputCls = "w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white";
-
-
 const LogisticsPage = () => {
   const [vehicles,        setVehicles]        = useState([]);
   const [bookings,        setBookings]        = useState([]);
@@ -162,7 +104,7 @@ const LogisticsPage = () => {
       const res = await api.get("/vehicles");
       setVehicles(Array.isArray(res.data) ? res.data : res.data.data || []);
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error fetching vehicles");
+      notify.error(err.response?.data?.message || "Error fetching vehicles");
       setVehicles([]);
     } finally {
       setLoadingVehicles(false);
@@ -175,7 +117,7 @@ const LogisticsPage = () => {
       const res = await api.get("/ambulance-bookings");
       setBookings(Array.isArray(res.data) ? res.data : res.data.data || []);
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error fetching bookings");
+      notify.error(err.response?.data?.message || "Error fetching bookings");
       setBookings([]);
     } finally {
       setLoadingBookings(false);
@@ -238,25 +180,25 @@ const LogisticsPage = () => {
 
   const handleVehicleSubmit = async (e) => {
     e.preventDefault();
-    if (!vehicleForm.plate.trim()) { toast.error("Plate number is required"); return; }
-    if (!vehicleForm.type)         { toast.error("Vehicle type is required"); return; }
+    if (!vehicleForm.plate.trim()) { notify.error("Plate number is required"); return; }
+    if (!vehicleForm.type)         { notify.error("Vehicle type is required"); return; }
 
     setSubmitting(true);
     try {
       if (editingVehicle) {
-        await api.put(`/vehicles/${editingVehicle._id}`, vehicleForm);
+        await api.put(`/vehicles/${editingVehicle.id}`, vehicleForm);
 
-        setVehicles(prev => prev.map(v => v._id === editingVehicle._id ? { ...v, ...vehicleForm } : v));
-        toast.success("Vehicle updated");
+        setVehicles(prev => prev.map(v => v.id === editingVehicle.id ? { ...v, ...vehicleForm } : v));
+        notify.success("Vehicle updated");
       } else {
         const res = await api.post("/vehicles", vehicleForm);
         const newV = res.data.data || res.data;
         setVehicles(prev => [newV, ...prev]);
-        toast.success("Vehicle added");
+        notify.success("Vehicle added");
       }
       setVehicleModal(false);
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error saving vehicle");
+      notify.error(err.response?.data?.message || "Error saving vehicle");
     } finally {
       setSubmitting(false);
     }
@@ -267,10 +209,10 @@ const LogisticsPage = () => {
     try {
       await api.delete(`/vehicles/${id}`);
 
-      setVehicles(prev => prev.filter(v => v._id !== id));
-      toast.success("Vehicle deleted");
+      setVehicles(prev => prev.filter(v => v.id !== id));
+      notify.success("Vehicle deleted");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error deleting vehicle");
+      notify.error(err.response?.data?.message || "Error deleting vehicle");
     }
   };
 
@@ -286,13 +228,13 @@ const LogisticsPage = () => {
     if (!editingBooking) return;
     setSubmitting(true);
     try {
-      await api.put(`/ambulance-bookings/${editingBooking._id}/status`, { status: bookingStatus });
+      await api.put(`/ambulance-bookings/${editingBooking.id}/status`, { status: bookingStatus });
    
-      setBookings(prev => prev.map(b => b._id === editingBooking._id ? { ...b, status: bookingStatus } : b));
-      toast.success("Booking status updated");
+      setBookings(prev => prev.map(b => b.id === editingBooking.id ? { ...b, status: bookingStatus } : b));
+      notify.success("Booking status updated");
       setBookingModal(false);
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error updating booking");
+      notify.error(err.response?.data?.message || "Error updating booking");
     } finally {
       setSubmitting(false);
     }
@@ -302,10 +244,10 @@ const LogisticsPage = () => {
     if (!window.confirm("Cancel this booking?")) return;
     try {
       await api.put(`/ambulance-bookings/${id}/cancel`, { reason: "Cancelled by admin" });
-      setBookings(prev => prev.map(b => b._id === id ? { ...b, status: "Cancelled" } : b));
-      toast.success("Booking cancelled");
+      setBookings(prev => prev.map(b => b.id === id ? { ...b, status: "Cancelled" } : b));
+      notify.success("Booking cancelled");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error cancelling booking");
+      notify.error(err.response?.data?.message || "Error cancelling booking");
     }
   };
 
@@ -316,14 +258,6 @@ const LogisticsPage = () => {
 
   return (
     <div className="min-h-screen bg-[#f8f7f5]">
-      <style>{`
-        @keyframes modalPop {
-          from { opacity:0; transform:scale(0.94) translateY(10px); }
-          to   { opacity:1; transform:scale(1) translateY(0); }
-        }
-        .fade-up { animation: fadeUp .3s ease both; }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-      `}</style>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
 
@@ -350,14 +284,14 @@ const LogisticsPage = () => {
         </div>
 
       
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
 
      
           <div className="flex border-b border-gray-100 px-2 pt-2">
             {TABS.map(({ key, label, icon: Icon }) => (
               <button key={key} onClick={() => setActiveTab(key)}
                 className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold rounded-t-xl transition-all cursor-pointer ${
-                  activeTab === key ? "bg-blue-600 text-white shadow-sm" : "text-gray-400 hover:text-gray-700 hover:bg-gray-50"
+                  activeTab === key ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-700 hover:bg-gray-50"
                 }`}>
                 <Icon className="text-xs" />{label}
               </button>
@@ -386,70 +320,61 @@ const LogisticsPage = () => {
                   </select>
                 </div>
                 <button onClick={() => openVehicleModal()}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 cursor-pointer shadow-sm shadow-blue-200 transition-colors shrink-0">
+                  className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 cursor-pointer  transition-colors shrink-0">
                   <FaPlus className="text-xs" /> Add Vehicle
                 </button>
               </div>
 
               {loadingVehicles ? <Spinner text="Loading vehicles…" /> : filteredVehicles.length === 0 ? (
-                <Empty icon={FaAmbulance} text="No vehicles found" />
+                <EmptyState icon={FaAmbulance} text="No vehicles found" />
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-gray-50 border-b border-gray-100">
-                        {["Plate","Type","Status","Driver","Next Service",""].map((h,i) => (
-                          <th key={i} className={`px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider ${i === 5 ? "text-right" : "text-left"}`}>
-                            {h || "Actions"}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {filteredVehicles.map(v => {
-                        const serviceDue = v.nextService && new Date(v.nextService) <= new Date();
-                        return (
-                          <tr key={v._id} className="hover:bg-gray-50/80 transition-colors group">
-                            <td className="px-5 py-4">
-                              <p className="font-black text-gray-900 font-mono">{v.plate}</p>
-                              {v.make && <p className="text-[10px] text-gray-400">{v.make} {v.model} {v.year}</p>}
-                            </td>
-                            <td className="px-5 py-4 text-xs text-gray-600">{v.type}</td>
-                            <td className="px-5 py-4"><VehicleBadge status={v.status} /></td>
-                            <td className="px-5 py-4">
-                              <span className="flex items-center gap-1.5 text-xs text-gray-600">
-                                <FaUserMd className="text-gray-300 shrink-0" />{v.driver || "—"}
-                              </span>
-                            </td>
-                            <td className="px-5 py-4">
-                              <span className={`text-xs font-semibold ${serviceDue ? "text-rose-600" : "text-gray-500"}`}>
-                                {fmtDate(v.nextService)}
-                                {serviceDue && <span className="ml-1 text-[9px] bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded-full">Due!</span>}
-                              </span>
-                            </td>
-                            <td className="px-5 py-4">
-                              <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => openVehicleModal(v)}
-                                  className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 cursor-pointer transition-colors" title="Edit">
-                                  <FaEdit className="text-sm" />
-                                </button>
-                                <button onClick={() => handleDeleteVehicle(v._id)}
-                                  className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer transition-colors" title="Delete">
-                                  <FaTrash className="text-sm" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                  <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/60">
-                    <p className="text-xs text-gray-400">
-                      <span className="font-semibold text-gray-600">{filteredVehicles.length}</span> of {vehicles.length} vehicles
-                    </p>
+                <>
+                  <DataTable
+                    columns={[
+                      {
+                        key: "plate", label: "Plate",
+                        render: (v) => (
+                          <>
+                            <p className="font-black text-gray-900 font-mono">{v.plate}</p>
+                            {v.make && <p className="text-[10px] text-gray-400">{v.make} {v.model} {v.year}</p>}
+                          </>
+                        ),
+                      },
+                      { key: "type", label: "Type", render: (v) => <span className="text-xs text-gray-600">{v.type}</span> },
+                      { key: "status", label: "Status", render: (v) => <VehicleBadge status={v.status} /> },
+                      {
+                        key: "driver", label: "Driver",
+                        render: (v) => <span className="flex items-center gap-1.5 text-xs text-gray-600"><FaUserMd className="text-gray-300 shrink-0" />{v.driver || "—"}</span>,
+                      },
+                      {
+                        key: "nextService", label: "Next Service",
+                        render: (v) => {
+                          const serviceDue = v.nextService && new Date(v.nextService) <= new Date();
+                          return (
+                            <span className={`text-xs font-semibold ${serviceDue ? "text-rose-600" : "text-gray-500"}`}>
+                              {fmtDate(v.nextService)}
+                              {serviceDue && <span className="ml-1 text-[9px] bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded-full">Due!</span>}
+                            </span>
+                          );
+                        },
+                      },
+                      {
+                        key: "actions", label: "Actions", align: "right",
+                        render: (v) => (
+                          <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => openVehicleModal(v)} className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 cursor-pointer transition-colors" title="Edit"><FaEdit className="text-sm" /></button>
+                            <button onClick={() => handleDeleteVehicle(v.id)} className="p-2 rounded-xl text-rose-400 hover:bg-rose-50 cursor-pointer transition-colors" title="Delete"><FaTrash className="text-sm" /></button>
+                          </div>
+                        ),
+                      },
+                    ]}
+                    data={filteredVehicles}
+                    rowKey={(v) => v.id}
+                  />
+                  <div className="px-5 py-3 border-t border-gray-100 bg-white rounded-b-2xl">
+                    <p className="text-xs text-gray-400"><span className="font-semibold text-gray-600">{filteredVehicles.length}</span> of {vehicles.length} vehicles</p>
                   </div>
-                </div>
+                </>
               )}
             </div>
           )}
@@ -473,27 +398,27 @@ const LogisticsPage = () => {
               </div>
 
               {loadingBookings ? <Spinner text="Loading bookings…" /> : filteredBookings.length === 0 ? (
-                <Empty icon={FaCalendarAlt} text="No bookings found" />
+                <EmptyState icon={FaCalendarAlt} text="No bookings found" />
               ) : (
                 <div className="space-y-3">
                   {filteredBookings.map(b => (
-                    <div key={b._id} className="bg-gray-50 border border-gray-100 rounded-2xl overflow-hidden">
+                    <div key={b.id} className="bg-gray-50 border border-gray-100 rounded-2xl overflow-hidden">
                 
                       <button
                         className="w-full text-left p-4 grid grid-cols-2 md:grid-cols-5 gap-4 items-center hover:bg-gray-100/60 transition-colors cursor-pointer"
-                        onClick={() => setExpandedBooking(expandedBooking === b._id ? null : b._id)}
+                        onClick={() => setExpandedBooking(expandedBooking === b.id ? null : b.id)}
                       >
                 
                         <div>
                           <p className="font-semibold text-gray-900 text-sm">{b.patientName}</p>
-                          <p className="text-[10px] text-gray-400 font-mono">#{b._id?.slice(-6)}</p>
+                          <p className="text-[10px] text-gray-400 font-mono">#{String(b.id ?? "").slice(-6)}</p>
                         </div>
 
                         <EmergencyBadge level={b.emergencyLevel} />
 
                         <div className="hidden md:block text-xs">
-                          {b.vehicleId
-                            ? <><p className="font-semibold text-gray-800 font-mono">{b.vehicleId?.plate || "—"}</p><p className="text-gray-400">{b.vehicleId?.driver || "—"}</p></>
+                          {(b.vehicle || b.vehicleId)
+                            ? <><p className="font-semibold text-gray-800 font-mono">{(b.vehicle || b.vehicleId)?.plate || "—"}</p><p className="text-gray-400">{(b.vehicle || b.vehicleId)?.driver || "—"}</p></>
                             : <span className="text-gray-400 italic">Unassigned</span>
                           }
                         </div>
@@ -502,12 +427,12 @@ const LogisticsPage = () => {
 
                         <div className="flex items-center gap-1.5 text-xs text-gray-600">
                           <FaPhone className="text-gray-300 shrink-0" />{b.phone}
-                          <FaChevronDown className={`ml-auto text-gray-300 text-xs transition-transform ${expandedBooking === b._id ? "rotate-180" : ""}`} />
+                          <FaChevronDown className={`ml-auto text-gray-300 text-xs transition-transform ${expandedBooking === b.id ? "rotate-180" : ""}`} />
                         </div>
                       </button>
 
           
-                      {expandedBooking === b._id && (
+                      {expandedBooking === b.id && (
                         <div className="border-t border-gray-200 bg-white p-5">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                    
@@ -541,7 +466,7 @@ const LogisticsPage = () => {
                               <FaEdit className="text-xs" /> Update Status
                             </button>
                             {b.status !== "Completed" && b.status !== "Cancelled" && (
-                              <button onClick={() => handleCancelBooking(b._id)}
+                              <button onClick={() => handleCancelBooking(b.id)}
                                 className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl cursor-pointer transition-colors">
                                 <FaTimes className="text-xs" /> Cancel
                               </button>
@@ -566,48 +491,48 @@ const LogisticsPage = () => {
       <Modal open={vehicleModal} onClose={() => setVehicleModal(false)}
         title={editingVehicle ? "Edit Vehicle" : "Add New Vehicle"}
         subtitle={editingVehicle ? "Update vehicle information" : "Register a new vehicle to the fleet"}
-        maxW="max-w-2xl">
+        size="lg">
         <form onSubmit={handleVehicleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Plate Number" required>
+            <FormField label="Plate Number" required>
               <input value={vehicleForm.plate} onChange={e => setVField("plate", e.target.value)}
-                placeholder="e.g., KAA 123X" className={inputCls} required />
-            </Field>
-            <Field label="Vehicle Type" required>
-              <select value={vehicleForm.type} onChange={e => setVField("type", e.target.value)} className={inputCls} required>
+                placeholder="e.g., KAA 123X" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" required />
+            </FormField>
+            <FormField label="Vehicle Type" required>
+              <select value={vehicleForm.type} onChange={e => setVField("type", e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" required>
                 <option value="">Select Type</option>
                 {["Ambulance","Service Van","Delivery Truck","Staff Transport"].map(t => <option key={t} value={t}>{t}</option>)}
               </select>
-            </Field>
-            <Field label="Driver Name">
+            </FormField>
+            <FormField label="Driver Name">
               <input value={vehicleForm.driver} onChange={e => setVField("driver", e.target.value)}
-                placeholder="e.g., John Kamau" className={inputCls} />
-            </Field>
-            <Field label="Status">
-              <select value={vehicleForm.status} onChange={e => setVField("status", e.target.value)} className={inputCls}>
+                placeholder="e.g., John Kamau" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" />
+            </FormField>
+            <FormField label="Status">
+              <select value={vehicleForm.status} onChange={e => setVField("status", e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white">
                 <option value="Available">Available</option>
                 <option value="In Use">In Use</option>
                 <option value="Maintenance">Maintenance</option>
               </select>
-            </Field>
-            <Field label="Last Service Date">
-              <input type="date" value={vehicleForm.lastService} onChange={e => setVField("lastService", e.target.value)} className={inputCls} />
-            </Field>
-            <Field label="Next Service Due">
-              <input type="date" value={vehicleForm.nextService} onChange={e => setVField("nextService", e.target.value)} className={inputCls} />
-            </Field>
-            <Field label="Make">
-              <input value={vehicleForm.make} onChange={e => setVField("make", e.target.value)} placeholder="e.g., Toyota" className={inputCls} />
-            </Field>
-            <Field label="Model">
-              <input value={vehicleForm.model} onChange={e => setVField("model", e.target.value)} placeholder="e.g., HiAce" className={inputCls} />
-            </Field>
-            <Field label="Year">
-              <input type="number" value={vehicleForm.year} onChange={e => setVField("year", e.target.value)} placeholder="e.g., 2020" className={inputCls} />
-            </Field>
-            <Field label="Mileage (km)">
-              <input type="number" value={vehicleForm.mileage} onChange={e => setVField("mileage", e.target.value)} placeholder="0" className={inputCls} />
-            </Field>
+            </FormField>
+            <FormField label="Last Service Date">
+              <input type="date" value={vehicleForm.lastService} onChange={e => setVField("lastService", e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" />
+            </FormField>
+            <FormField label="Next Service Due">
+              <input type="date" value={vehicleForm.nextService} onChange={e => setVField("nextService", e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" />
+            </FormField>
+            <FormField label="Make">
+              <input value={vehicleForm.make} onChange={e => setVField("make", e.target.value)} placeholder="e.g., Toyota" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" />
+            </FormField>
+            <FormField label="Model">
+              <input value={vehicleForm.model} onChange={e => setVField("model", e.target.value)} placeholder="e.g., HiAce" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" />
+            </FormField>
+            <FormField label="Year">
+              <input type="number" value={vehicleForm.year} onChange={e => setVField("year", e.target.value)} placeholder="e.g., 2020" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" />
+            </FormField>
+            <FormField label="Mileage (km)">
+              <input type="number" value={vehicleForm.mileage} onChange={e => setVField("mileage", e.target.value)} placeholder="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" />
+            </FormField>
           </div>
 
           <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
@@ -616,7 +541,7 @@ const LogisticsPage = () => {
               Cancel
             </button>
             <button type="submit" disabled={submitting}
-              className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 cursor-pointer shadow-sm shadow-blue-200 transition-colors">
+              className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 cursor-pointer  transition-colors">
               {submitting
                 ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Saving…</>
                 : <><FaSave className="text-xs" />{editingVehicle ? "Update Vehicle" : "Add Vehicle"}</>
@@ -631,13 +556,13 @@ const LogisticsPage = () => {
         subtitle={editingBooking?.patientName}
         maxW="max-w-md">
         <form onSubmit={handleBookingStatusUpdate} className="space-y-5">
-          <Field label="New Status" required>
-            <select value={bookingStatus} onChange={e => setBookingStatus(e.target.value)} className={inputCls}>
+          <FormField label="New Status" required>
+            <select value={bookingStatus} onChange={e => setBookingStatus(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white">
               {["Pending","Waiting","Assigned","In Transit","Arrived","Completed","Cancelled"].map(s => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
-          </Field>
+          </FormField>
 
           <div className="flex items-center gap-2 text-xs text-gray-400">
             Will change to: <BookingBadge status={bookingStatus} />

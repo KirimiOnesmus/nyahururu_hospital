@@ -5,8 +5,8 @@ export { default as About } from "./About";
 export { default as Feedback } from "./Feedback";
 export { default as ReportFraud } from "./ReportFraud";
 export { default as Appointment } from "./Appointment";
-export { default as Career } from "./Careers";
-export { default as BloodDonation } from "./BloodDonation";
+export { default as Career } from "./Careers"; 
+export { default as BloodDonation } from "./BloodDonation"; 
 export { default as FinancialAid } from "./FinancialAid";
 export { default as HMIS } from "./Hmis";
 export { default as Dashboard } from "../components/Dashboard/Dashboard";
@@ -18,3 +18,5 @@ export { default as Tenders } from "./TenderPage";
 export { default as Downloads } from "./Downloads";
 export {default as VerifyEmail} from "./VerifyEmail"
 export {default as ResearchDashboard} from "./ResearchDashboard"
+export{default as PrivacyPolicy} from "./PrivacyPolicy"
+export{default as ServiceTerms} from "./ServiceTerms"

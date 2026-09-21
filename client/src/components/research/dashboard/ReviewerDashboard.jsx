@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import notify from "../../../common/utils/notify";
 import {
   FaCheckCircle,
   FaClock,
@@ -15,37 +15,21 @@ import {
 } from "react-icons/fa";
 import * as research from "../../../api/research";
 
-const ACTIVE_STATUSES = ["under_review", "pending", "revision_requested"];
+const ACTIVE_STATUSES = ["under_review", "submitted", "revision_requested"];
 
-const STAGE_LABELS = {
-  proposal: "Proposal",
-  progress: "Progress",
-  final_paper: "Final Paper",
+const TYPE_LABELS = {
+  initial_proposal: "Proposal",
+  amendment: "Amendment",
+  continuing_review: "Continuing Review",
+  study_closure: "Study Closure",
 };
 
-const STAGE_COLORS = {
-  proposal: " text-blue-700 border-blue-200",
-  progress: "text-amber-700 border-amber-200",
-  final_paper: " text-green-700 border-green-200",
+const TYPE_COLORS = {
+  initial_proposal: "text-blue-700 border-blue-200",
+  amendment: "text-amber-700 border-amber-200",
+  continuing_review: "text-teal-700 border-teal-200",
+  study_closure: "text-red-700 border-red-200",
 };
-
-const RUBRIC = [
-  {
-    key: "originality",
-    label: "Originality",
-    body: "Does the study contribute new knowledge or innovative clinical techniques to the Kenyan medical landscape?",
-  },
-  {
-    key: "ethics",
-    label: "Ethics",
-    body: "Adherence to IRB guidelines, patient confidentiality, and informed consent protocols for vulnerable populations.",
-  },
-  {
-    key: "feasibility",
-    label: "Feasibility",
-    body: "Logical methodology, adequate budget, and technical capacity of the Nyahururu Hospital facilities.",
-  },
-];
 
 const fmt = (d) =>
   d
@@ -64,7 +48,6 @@ const reviewerFilterCls = (active) =>
        : "bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600"
    }`;
 
-//  Local building blocks
 const Spinner = ({ size = 10, color = "border-t-indigo-600" }) => (
   <div
     className={`w-${size} h-${size} border-4 border-slate-200 ${color}
@@ -102,31 +85,30 @@ const ScoreCell = ({ value }) =>
     </span>
   );
 
-//  Reviewer Dashboard
 const ReviewerDashboard = ({ user }) => {
   const navigate = useNavigate();
 
   const [allAssigned, setAllAssigned] = useState([]);
   const [search, setSearch] = useState("");
-  const [stageFilter, setStage] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await research.getAssignedResearch({
-        stage: stageFilter === "all" ? undefined : stageFilter,
+        submissionType: typeFilter === "all" ? undefined : typeFilter,
         search: search || undefined,
         page: 1,
         limit: 100,
       });
       setAllAssigned(Array.isArray(res.papers) ? res.papers : []);
     } catch (err) {
-      toast.error(err.message || "Failed to load review queue");
+      notify.error(err.message || "Failed to load review queue");
     } finally {
       setLoading(false);
     }
-  }, [stageFilter, search]);
+  }, [typeFilter, search]);
 
   useEffect(() => {
     const t = setTimeout(load, 300);
@@ -135,39 +117,61 @@ const ReviewerDashboard = ({ user }) => {
 
   const queue = useMemo(
     () => allAssigned.filter((q) => ACTIVE_STATUSES.includes(q.status)),
-    [allAssigned],
+    [allAssigned]
   );
 
   const decided = useMemo(
     () => allAssigned.filter((q) => !ACTIVE_STATUSES.includes(q.status)),
-    [allAssigned],
+    [allAssigned]
+  );
+
+  // Count/show distinct studies: a proposal and its continuing reviews are one
+  // study, so the cards and the preview list don't triple-count.
+  const studyKey = (q) => q.parentResearchId || q.id;
+  const queueByStudy = useMemo(() => {
+    const map = new Map();
+    for (const q of queue) {
+      const k = studyKey(q);
+      const prev = map.get(k);
+      if (
+        !prev ||
+        new Date(q.assignedAt || q.createdAt || 0) >
+          new Date(prev.assignedAt || prev.createdAt || 0)
+      ) {
+        map.set(k, q);
+      }
+    }
+    return [...map.values()];
+  }, [queue]);
+
+  const allStudyCount = useMemo(
+    () => new Set(allAssigned.map(studyKey)).size,
+    [allAssigned]
   );
 
   const scoringProgress =
-    allAssigned.length === 0
+    allStudyCount === 0
       ? 0
-      : Math.round((decided.length / allAssigned.length) * 100);
+      : Math.round(((allStudyCount - queueByStudy.length) / allStudyCount) * 100);
 
   const avgTurnaroundDays = useMemo(() => {
     const withDates = decided.filter((h) => h.assignedAt && h.reviewedAt);
     if (withDates.length === 0) return null;
     const totalDays = withDates.reduce((sum, h) => {
-      const diff =
-        (new Date(h.reviewedAt) - new Date(h.assignedAt)) /
-        (1000 * 60 * 60 * 24);
+      const diff = (new Date(h.reviewedAt) - new Date(h.assignedAt)) / (1000 * 60 * 60 * 24);
       return sum + diff;
     }, 0);
     return (totalDays / withDates.length).toFixed(1);
   }, [decided]);
 
-  const handleReview = (item) =>
-    navigate(`/research/dashboard/review/${item._id}`);
+  const handleReview = (item) => navigate(`/research/dashboard/review/${item.id}`);
 
   const STAGE_FILTERS = [
     { id: "all", label: "All" },
-    { id: "proposal", label: "Proposals" },
-    { id: "progress", label: "Progress" },
-    { id: "final_paper", label: "Final papers" },
+    { id: "initial_proposal", label: "Proposals" },
+    { id: "amendment", label: "Amendments" },
+    { id: "continuing_review", label: "CRRs" },
+    { id: "study_closure", label: "Closures" },
   ];
 
   return (
@@ -181,23 +185,21 @@ const ReviewerDashboard = ({ user }) => {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <FaShieldAlt className="text-yellow-300 text-sm" />
-              <p className="text-indigo-200 text-sm font-medium">
-                Reviewer panel
-              </p>
+              <p className="text-indigo-200 text-sm font-medium">Reviewer panel</p>
             </div>
             <h2 className="text-2xl font-bold tracking-tight">
               {user?.firstName} {user?.lastName}
             </h2>
             <p className="text-indigo-200 text-sm mt-1">{user?.institution}</p>
           </div>
-          {queue.length > 0 && (
+          {queueByStudy.length > 0 && (
             <div
               className="flex items-center gap-2 bg-red-500/30 border border-red-400/40
               rounded-xl px-4 py-2 self-start sm:self-auto"
             >
               <FaBell className="text-red-300 animate-pulse" />
               <span className="text-white text-sm font-bold">
-                {queue.length} assigned item{queue.length !== 1 ? "s" : ""}
+                {queueByStudy.length} assigned item{queueByStudy.length !== 1 ? "s" : ""}
               </span>
             </div>
           )}
@@ -212,7 +214,7 @@ const ReviewerDashboard = ({ user }) => {
             </p>
             <FaInbox className="text-indigo-400" />
           </div>
-          <p className="text-3xl font-bold text-slate-900">{queue.length}</p>
+          <p className="text-3xl font-bold text-slate-900">{queueByStudy.length}</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-5">
@@ -222,9 +224,7 @@ const ReviewerDashboard = ({ user }) => {
             </p>
             <FaChartBar className="text-indigo-400" />
           </div>
-          <p className="text-3xl font-bold text-slate-900 mb-2">
-            {scoringProgress}%
-          </p>
+          <p className="text-3xl font-bold text-slate-900 mb-2">{scoringProgress}%</p>
           <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
             <div
               className="h-full bg-indigo-600 rounded-full transition-all"
@@ -247,20 +247,20 @@ const ReviewerDashboard = ({ user }) => {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-3">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid">
+        <div className=" space-y-6">
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div className="px-2 py-4 border-b border-slate-100 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
                   <FaInbox className="text-indigo-500" />
                   My review queue
-                  {queue.length > 0 && (
+                  {queueByStudy.length > 0 && (
                     <span
                       className="bg-red-100 text-red-600 text-xs font-bold
                       px-2 py-0.5 rounded-full"
                     >
-                      {queue.length}
+                      {queueByStudy.length}
                     </span>
                   )}
                 </h3>
@@ -290,8 +290,8 @@ const ReviewerDashboard = ({ user }) => {
                     <button
                       key={s.id}
                       type="button"
-                      onClick={() => setStage(s.id)}
-                      className={reviewerFilterCls(stageFilter === s.id)}
+                      onClick={() => setTypeFilter(s.id)}
+                      className={reviewerFilterCls(typeFilter === s.id)}
                     >
                       {s.label}
                     </button>
@@ -302,7 +302,7 @@ const ReviewerDashboard = ({ user }) => {
 
             {loading ? (
               <PageSpinner label="Loading review queue…" />
-            ) : queue.length === 0 ? (
+            ) : queueByStudy.length === 0 ? (
               <EmptyState
                 icon={FaCheckCircle}
                 title="All caught up!"
@@ -310,17 +310,18 @@ const ReviewerDashboard = ({ user }) => {
               />
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm table-fixed">
+                  <colgroup>
+                    <col className="w-[34%]" />
+                    <col className="w-[13%]" />
+                    <col className="w-[13%]" />
+                    <col className="w-[17%]" />
+                    <col className="w-[13%]" />
+                    <col className="w-[10%]" />
+                  </colgroup>
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-100">
-                      {[
-                        "Title",
-                        "Research ID",
-                        "Stage",
-                        "Submitted",
-                        "Status",
-                        "",
-                      ].map((h, i) => (
+                      {["Title", "Research ID", "Stage", "Submitted", "Status", ""].map((h, i) => (
                         <th
                           key={h || i}
                           className={`px-6 py-3 text-xs font-bold uppercase
@@ -333,34 +334,36 @@ const ReviewerDashboard = ({ user }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {queue.map((item) => (
+                    {queueByStudy.map((item) => (
                       <tr
-                        key={item._id}
+                        key={item.id}
                         className="border-b border-slate-100 last:border-0
                         hover:bg-slate-50/60 transition-colors"
                       >
-                      
-                        <td className="px-6 py-4 max-w-xs">
-                          <p className="text-sm font-semibold text-slate-900 leading-snug">
+                        <td className="px-6 py-4 min-w-0">
+                          <p
+                            className="text-sm font-semibold text-slate-900 leading-snug truncate"
+                            title={item.title}
+                          >
                             {item.title}
                           </p>
-                          <div className="flex items-center gap-2 mt-1 text-xs text-slate-400">
-            
-                            {item.resubmissionCount > 0 && (
-                              <span
-                                className="bg-purple-100 text-purple-700 border border-purple-200
-        px-2 py-0.5 rounded-full font-semibold text-[10px]"
-                              >
-                                Resubmission #{item.resubmissionCount}
-                              </span>
-                            )}
-                          </div>
+                          {item.resubmissionCount > 0 && (
+                            <span
+                              className="inline-flex items-center gap-1 mt-1 bg-orange-50 text-orange-700
+                              border border-orange-200 px-2 py-0.5 rounded-full
+                              font-bold text-[10px] whitespace-nowrap"
+                            >
+                              Review Round {item.resubmissionCount + 1}
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4">
                           {item.researchId ? (
                             <span
-                              className="text-xs font-bold text-indigo-700 bg-indigo-50
-      border border-indigo-200 px-2.5 py-1 rounded-lg"
+                              className="inline-block max-w-full truncate align-middle
+                              text-xs font-bold text-indigo-700 bg-indigo-50
+                              border border-indigo-200 px-2.5 py-1 rounded-lg"
+                              title={item.researchId}
                             >
                               {item.researchId}
                             </span>
@@ -370,10 +373,11 @@ const ReviewerDashboard = ({ user }) => {
                         </td>
                         <td className="px-6 py-4">
                           <span
-                            className={`text-xs  
-    ${STAGE_COLORS[item.stage] || " text-slate-600 "}`}
+                            className={`block truncate text-xs font-semibold
+    ${TYPE_COLORS[item.submissionType] || "text-slate-600"}`}
+                            title={TYPE_LABELS[item.submissionType] || item.submissionType}
                           >
-                            {STAGE_LABELS[item.stage] || item.stage}
+                            {TYPE_LABELS[item.submissionType] || item.submissionType}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -386,7 +390,7 @@ const ReviewerDashboard = ({ user }) => {
                         </td>
                         <td className="px-6 py-4">
                           <span
-                            className={`text-xs font-bold whitespace-nowrap
+                            className={`block truncate text-xs font-bold
     ${item.status === "revision_requested" ? "text-purple-700" : "text-amber-700"}`}
                           >
                             {item.status === "revision_requested"
@@ -413,41 +417,7 @@ const ReviewerDashboard = ({ user }) => {
             )}
           </div>
         </div>
-
-        <div className="space-y-5">
-          <div className="bg-blue-700 rounded-2xl py-5 px-3 text-white">
-            <h3 className="font-bold text-sm mb-4">Scoring Rubric</h3>
-            <div className="space-y-4">
-              {RUBRIC.map((r) => (
-                <div key={r.key}>
-                  <p className="text-xs font-bold uppercase tracking-widest text-white mb-1">
-                    {r.label}
-                  </p>
-                  <p className="text-xs text-white leading-relaxed">{r.body}</p>
-                </div>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => toast.info("Reviewer guidelines PDF coming soon")}
-              className="w-full mt-5 flex items-center justify-center gap-2 bg-white/40
-                hover:bg-white/20 text-white text-xs font-semibold py-2.5 rounded-xl
-                transition-colors cursor-pointer"
-            >
-              <FaDownload className="text-xs" /> Download Guidelines (PDF)
-            </button>
-          </div>
-        </div>
       </div>
-
-      <style>{`
-        .line-clamp-2 {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-      `}</style>
     </div>
   );
 };

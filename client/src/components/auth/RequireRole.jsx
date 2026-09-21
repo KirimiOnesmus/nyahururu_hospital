@@ -1,35 +1,32 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { getUserRole, isAuthenticated } from "../../api/auth";
+import { getUserRole, isAuthenticated, isResearcher } from "../../api/auth";
 
-/**
- * Wraps a single route's element and checks the logged-in user's role
- * against an allow-list before rendering its children.
- *
- * FH1 (security review): previously Sidebar.jsx only checked "is there a
- * token at all" — any authenticated staff role could load the React
- * component tree for every /dashboard/* and /research/dashboard/* route,
- * relying entirely on the backend to reject the underlying API calls.
- * This adds a client-side fail-closed check that mirrors each route's
- * backend authorizeRoles(...) list (see src/config/dashboardRoles.js),
- * so the UI itself refuses to render for the wrong role instead of
- * quietly leaking a partial/broken screen.
- *
- * Usage:
- *   <Route
- *     path="/dashboard/users"
- *     element={
- *       <RequireRole roles={getDashboardRoles("/dashboard/users")}>
- *         <Users />
- *       </RequireRole>
- *     }
- *   />
- */
+
 const RequireRole = ({ roles, children, loginPath = "/hmis", deniedPath }) => {
   const location = useLocation();
 
   if (!isAuthenticated()) {
     return <Navigate to={loginPath} replace state={{ from: location }} />;
+  }
+
+  if (isResearcher()) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+        <div className="max-w-md text-center bg-white border border-slate-200 rounded-2xl p-8">
+          <h1 className="text-xl font-bold text-slate-900 mb-2">Wrong portal</h1>
+          <p className="text-sm text-slate-500 leading-relaxed mb-4">
+            You are signed in as a researcher. The staff dashboard is not available for researcher accounts.
+          </p>
+          <a
+            href="/research/dashboard"
+            className="inline-block px-5 py-2.5 rounded-xl bg-blue-700 text-white text-sm font-semibold hover:bg-blue-800 transition-colors"
+          >
+            Go to Research Dashboard
+          </a>
+        </div>
+      </div>
+    );
   }
 
   const role = getUserRole();

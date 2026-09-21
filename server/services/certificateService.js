@@ -1,15 +1,36 @@
-const Certificate = require("../models/CertificateModel");
-const Research = require("../models/researchModel");
-const Researcher = require("../models/ResearcherModel");
+"use strict";
+
+const fs = require("fs");
+const path = require("path");
+const { Certificate, Research, Researcher } = require("../sequelize/models");
 const { generateVerificationQR } = require("../utils/qrServices");
 const { renderCertificatePdf } = require("../utils/certificatePdfService");
 const { AppError } = require("../utils/appError");
 const { CERTIFICATE_TYPES } = require("../constants/researchIndex");
-const fs = require("fs");
-const path = require("path");
 
 const CERT_DIR = path.join(process.cwd(), "uploads", "certificates");
 if (!fs.existsSync(CERT_DIR)) fs.mkdirSync(CERT_DIR, { recursive: true });
+
+
+const normalizeStudySites = (value) => {
+  if (Array.isArray(value)) return value.filter((v) => v != null && v !== "");
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        return Array.isArray(parsed)
+          ? parsed.filter((v) => v != null && v !== "")
+          : [String(parsed)];
+      } catch {
+        return [trimmed];
+      }
+    }
+    return [trimmed];
+  }
+  return [];
+};
 
 const _persistPdf = async (certificateNumber, buffer) => {
   const filename = `${certificateNumber}.pdf`;
@@ -18,133 +39,148 @@ const _persistPdf = async (certificateNumber, buffer) => {
   return { url: `/uploads/certificates/${filename}`, key: filename };
 };
 
-// Issue clearance certificate (called after proposal approval)
+
+const RESEARCHER_SNAPSHOT_ATTRS = ["id", "name", "firstName", "institution"];
 
 const issueClearanceCertificate = async (researchId, issuedBy) => {
-  const research = await Research.findById(researchId).populate(
-    "researcher",
-    "name firstName institution",
-  );
+  const research = await Research.findByPk(researchId, {
+    include: [
+      { model: Researcher, as: "researcher", attributes: RESEARCHER_SNAPSHOT_ATTRS },
+    ],
+  });
   if (!research) throw new AppError("Research not found.", 404);
 
-  const existing = await Certificate.findOne({
-    research: researchId,
-    type: CERTIFICATE_TYPES.PROPOSAL_APPROVAL,
-    status: Certificate.CERT_STATUSES.ACTIVE,
-  });
-  if (existing) return existing; // idempotent — don't double-issue
 
-  const certificateNumber = await Certificate.generateCertificateNumber(
-    CERTIFICATE_TYPES.PROPOSAL_APPROVAL,
-  );
-  const token = Certificate.signToken(certificateNumber);
-  const qrCodeDataUrl = await generateVerificationQR(certificateNumber, token);
+  const existing = await Certificate.findOne({
+    where: {
+      researchId,
+      type: CERTIFICATE_TYPES.PROPOSAL_APPROVAL,
+      status: Certificate.CERT_STATUSES.ACTIVE,
+    },
+  });
+  if (existing) return existing;
 
   const validFrom = new Date();
   const validUntil = new Date();
   validUntil.setFullYear(validUntil.getFullYear() + 1);
 
+ 
+  let seruNumber = research.seruNumber;
+  if (!seruNumber && research.parentResearchId) {
+    const parent = await Research.findByPk(research.parentResearchId, {
+      attributes: ["seruNumber", "researchId"],
+    });
+    seruNumber = parent?.seruNumber || parent?.researchId;
+  }
+  seruNumber = seruNumber || research.researchId;
+
   const cert = await Certificate.create({
     type: CERTIFICATE_TYPES.PROPOSAL_APPROVAL,
-    certificateNumber,
-    research: research._id,
-    researcher: research.researcher._id,
+    researchId: research.id,
+    researcherId: research.researcher.id,
     researchTitle: research.title,
     researcherName: research.researcher.name || research.researcher.firstName,
     institution: research.researcher.institution,
-    studySites: research.studySites || [],
-    researchCode: research.researchId,
+    studySites: normalizeStudySites(research.studySites),
+    researchCode: seruNumber,
     committeeApprovalStatement:
       "This research proposal has been reviewed and approved by the Nyahururu Hospital Research & Ethics Committee in accordance with institutional research governance policy.",
     validFrom,
     validUntil,
-    verificationToken: token,
-    qrCodeDataUrl,
-    issuedBy,
+    issuedById: issuedBy,
   });
 
+
+  cert.stageKey = research.submissionType;
+
+  cert.qrCodeDataUrl = await generateVerificationQR(
+    cert.certificateNumber,
+    cert.verificationToken,
+  );
+
   const pdfBuffer = await renderCertificatePdf(cert);
-  const { url, key } = await _persistPdf(certificateNumber, pdfBuffer);
+  const { url, key } = await _persistPdf(cert.certificateNumber, pdfBuffer);
   cert.pdfFile = url;
   cert.pdfFileKey = key;
   await cert.save();
 
-  research.clearanceCertificate = cert._id;
+  research.clearanceCertificateId = cert.id;
   await research.save();
 
   return cert;
 };
 
-// Issue completion certificate (called after publication — admin can only
-
 const issueCompletionCertificate = async (researchId, issuedBy) => {
-  const research = await Research.findById(researchId).populate(
-    "researcher",
-    "name firstName institution",
-  );
+  const research = await Research.findByPk(researchId, {
+    include: [
+      { model: Researcher, as: "researcher", attributes: RESEARCHER_SNAPSHOT_ATTRS },
+    ],
+  });
   if (!research) throw new AppError("Research not found.", 404);
 
   const existing = await Certificate.findOne({
-    research: researchId,
-    type: CERTIFICATE_TYPES.PUBLICATION,
-    status: Certificate.CERT_STATUSES.ACTIVE,
+    where: {
+      researchId,
+      type: CERTIFICATE_TYPES.ETHICS_CLEARANCE,
+      status: Certificate.CERT_STATUSES.ACTIVE,
+    },
   });
   if (existing) return existing;
 
-  const certificateNumber = await Certificate.generateCertificateNumber(
-    CERTIFICATE_TYPES.PUBLICATION,
-  );
-  const token = Certificate.signToken(certificateNumber);
-  const qrCodeDataUrl = await generateVerificationQR(certificateNumber, token);
-
   const cert = await Certificate.create({
-    type: CERTIFICATE_TYPES.PUBLICATION,
-    certificateNumber,
-    research: research._id,
-    researcher: research.researcher._id,
+    type: CERTIFICATE_TYPES.ETHICS_CLEARANCE,
+    researchId: research.id,
+    researcherId: research.researcher.id,
     researchTitle: research.title,
     researcherName: research.researcher.name || research.researcher.firstName,
     institution: research.researcher.institution,
-    studySites: research.studySites || [],
+    studySites: normalizeStudySites(research.studySites),
     researchCode: research.researchId,
-    publicationDate: research.publishedAt || new Date(),
-    journalName: research.journalName,
+    publicationDate: new Date(),
     completionStatement:
-      "This certifies that the above research has successfully completed all review stages and has been published in the Nyahururu Hospital Research Repository.",
-    verificationToken: token,
-    qrCodeDataUrl,
-    issuedBy,
+      "This certifies that the above research study has been formally closed with the approval of the Nyahururu Hospital Research & Ethics Committee, having satisfied all closure requirements.",
+    issuedById: issuedBy,
   });
 
+  cert.stageKey = "study_closure";
+
+  cert.qrCodeDataUrl = await generateVerificationQR(
+    cert.certificateNumber,
+    cert.verificationToken,
+  );
+
   const pdfBuffer = await renderCertificatePdf(cert);
-  const { url, key } = await _persistPdf(certificateNumber, pdfBuffer);
+  const { url, key } = await _persistPdf(cert.certificateNumber, pdfBuffer);
   cert.pdfFile = url;
   cert.pdfFileKey = key;
   await cert.save();
 
-  research.completionCertificate = cert._id;
+  research.completionCertificateId = cert.id;
   await research.save();
 
   return cert;
 };
 
-// PUBLIC — Verify certificate via QR scan
+//  PUBLIC: verify a certificate via QR scan 
 
 const verifyCertificate = async (certificateNumber, token) => {
   if (!certificateNumber || !token) {
     throw new AppError("Certificate number and token are required.", 400);
   }
 
-  
-  if (!valid) {
+  const tokenValid = Certificate.verifyToken(certificateNumber, token);
+  if (!tokenValid) {
     throw new AppError("Invalid or tampered verification code.", 400);
   }
 
-  const cert = await Certificate.findOne({ certificateNumber })
-    .select(
-      "type certificateNumber researchTitle researcherName institution status issuedAt createdAt validFrom validUntil publicationDate journalName revokedAt revokedReason",
-    )
-    .lean();
+  const cert = await Certificate.findOne({
+    where: { certificateNumber },
+    attributes: [
+      "type", "certificateNumber", "researchTitle", "researcherName",
+      "institution", "status", "createdAt", "validFrom", "validUntil",
+      "publicationDate", "journalName", "revokedAt", "revokedReason",
+    ],
+  });
 
   if (!cert) throw new AppError("Certificate not found.", 404);
 
@@ -158,33 +194,42 @@ const verifyCertificate = async (certificateNumber, token) => {
   return { valid, expired: !!isExpired, certificate: cert };
 };
 
+
 const getCertificatesForResearcher = async (researcherId) => {
-  return Certificate.find({ researcher: researcherId })
-    .sort({ createdAt: -1 })
-    .select("-verificationToken") 
-    .lean();
+  return Certificate.findAll({
+    where: { researcherId },
+    order: [["createdAt", "DESC"]],
+    attributes: { exclude: ["verificationToken"] },
+    include: [
+      {
+        model: Research,
+        as: "research",
+        attributes: ["id", "submissionType", "seruNumber", "researchId", "parentResearchId"],
+        required: false,
+      },
+    ],
+  });
 };
 
-// ADMIN — Revoke
+const getCertificatesForResearch = async (researchId) => {
+  return Certificate.findAll({
+    where: { researchId },
+    order: [["createdAt", "DESC"]],
+  });
+};
 
 const revokeCertificate = async (certificateId, revokedBy, reason) => {
-  if (!reason?.trim())
+  if (!reason?.trim()) {
     throw new AppError("A reason is required to revoke a certificate.", 400);
+  }
 
-  const cert = await Certificate.findById(certificateId);
+  const cert = await Certificate.findByPk(certificateId);
   if (!cert) throw new AppError("Certificate not found.", 404);
   if (cert.status === Certificate.CERT_STATUSES.REVOKED) {
     throw new AppError("Certificate is already revoked.", 400);
   }
-
   await cert.revoke(revokedBy, reason.trim());
   return cert;
-};
-
-const getCertificatesForResearch = async (researchId) => {
-  return Certificate.find({ research: researchId })
-    .sort({ createdAt: -1 })
-    .lean();
 };
 
 module.exports = {
@@ -193,5 +238,5 @@ module.exports = {
   verifyCertificate,
   revokeCertificate,
   getCertificatesForResearch,
-   getCertificatesForResearcher,
+  getCertificatesForResearcher,
 };

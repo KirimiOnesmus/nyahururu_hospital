@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   FaPlus,
   FaTrash,
@@ -20,22 +21,28 @@ import {
   FaFilePdf,
   FaFileAlt,
   FaImage,
-  FaDownload,
   FaPhone,
   FaShieldAlt,
   FaKey,
   FaUserPlus,
   FaLayerGroup,
+  FaArchive,
   FaMicroscope,
   FaRegFileAlt,
   FaChevronDown,
-  FaGlobe,
   FaMoneyBillWave,
+  FaStamp,
+  FaExclamationTriangle,
+  FaClipboardCheck,
+  FaChartBar,
 } from "react-icons/fa";
 import { MdSchool } from "react-icons/md";
-import { toast } from "react-toastify";
+import notify from "../../common/utils/notify";
 import api from "../../api/axios";
 import * as research from "../../api/research";
+import {DataTable} from "../../common/components"
+import OfficerDecisionReports from "./research/OfficerDecisionReports";
+import ReviewerWorkloadPanel from "./research/ReviewerWorkloadPanel";
 
 const STAGE_META = {
   proposal: {
@@ -47,8 +54,8 @@ const STAGE_META = {
     dotColor: "bg-amber-400",
     icon: FaRegFileAlt,
   },
-  progress: {
-    label: "In Progress",
+  continuing_review: {
+    label: "Continuing Review",
     color: "bg-sky-500",
     lightColor: "bg-sky-50",
     textColor: "text-sky-700",
@@ -56,15 +63,41 @@ const STAGE_META = {
     dotColor: "bg-sky-400",
     icon: FaLayerGroup,
   },
-  final_paper: {
-    label: "Final Paper",
-    color: "bg-emerald-500",
-    lightColor: "bg-emerald-50",
-    textColor: "text-emerald-700",
-    borderColor: "border-emerald-200",
-    dotColor: "bg-emerald-400",
-    icon: FaMicroscope,
+  closed: {
+    label: "Closed",
+    color: "bg-slate-500",
+    lightColor: "bg-slate-50",
+    textColor: "text-slate-700",
+    borderColor: "border-slate-200",
+    dotColor: "bg-slate-400",
+    icon: FaArchive,
   },
+};
+
+
+const SUBMISSION_TYPE_META = {
+  continuing_review: { label: "Continuing Review", dotColor: "bg-purple-400" },
+  amendment: { label: "Amendment", dotColor: "bg-indigo-400" },
+  study_closure: { label: "Study Closure", dotColor: "bg-slate-400" },
+};
+
+const studyCategory = (study) => {
+  const kids = study.childSubmissions || [];
+  const closed =
+    study.status === "closed" ||
+    kids.some(
+      (c) => c.submissionType === "study_closure" && ["approved", "closed"].includes(c.status),
+    );
+  if (closed) return "closed";
+  if (kids.some((c) => c.submissionType === "continuing_review")) return "continuing_review";
+  return "proposal";
+};
+
+const resolveStageMeta = (item) => {
+  if (item.parentResearchId && SUBMISSION_TYPE_META[item.submissionType]) {
+    return SUBMISSION_TYPE_META[item.submissionType];
+  }
+  return STAGE_META[studyCategory(item)] || STAGE_META.proposal;
 };
 
 const STATUS_META = {
@@ -75,13 +108,27 @@ const STATUS_META = {
     icon: FaClock,
     dot: "bg-blue-400",
   },
-
+  returned_for_correction: {
+    label: "Returned for Correction",
+    color: "bg-orange-100",
+    textColor: "text-orange-700",
+    icon: FaRedo,
+    dot: "bg-orange-400",
+  },
   pending_committee_review: {
     label: "Awaiting Committee",
     color: "bg-violet-100",
     textColor: "text-violet-700",
     icon: FaUserTie,
     dot: "bg-violet-400",
+  },
+
+  pending_officer_review: {
+    label: "Awaiting Officer Release",
+    color: "bg-indigo-100",
+    textColor: "text-indigo-700",
+    icon: FaClipboardCheck,
+    dot: "bg-indigo-400",
   },
   revision_requested: {
     label: "Revision Requested",
@@ -103,6 +150,41 @@ const STATUS_META = {
     textColor: "text-green-700",
     icon: FaCheckCircle,
     dot: "bg-green-500",
+  },
+  closed: {
+    label: "Closed",
+    color: "bg-slate-100",
+    textColor: "text-slate-700",
+    icon: FaArchive,
+    dot: "bg-slate-500",
+  },
+  under_review: {
+    label: "Under Review",
+    color: "bg-blue-100",
+    textColor: "text-blue-700",
+    icon: FaClock,
+    dot: "bg-blue-400",
+  },
+  submitted: {
+    label: "Submitted",
+    color: "bg-blue-100",
+    textColor: "text-blue-700",
+    icon: FaClock,
+    dot: "bg-blue-400",
+  },
+  draft: {
+    label: "Draft",
+    color: "bg-gray-100",
+    textColor: "text-gray-600",
+    icon: FaRegFileAlt,
+    dot: "bg-gray-400",
+  },
+  expired: {
+    label: "Expired",
+    color: "bg-orange-100",
+    textColor: "text-orange-700",
+    icon: FaClock,
+    dot: "bg-orange-400",
   },
   rejected: {
     label: "Rejected",
@@ -139,7 +221,6 @@ const formatKES = (n) =>
     maximumFractionDigits: 0,
   }).format(n || 0);
 
-//  Shared sub-components
 const ROLE_META = {
   admin: {
     label: "Committee",
@@ -189,7 +270,10 @@ const EMPTY_INVITE = {
 
 const TOP_TABS = [
   { key: "papers", label: "Research Papers", icon: FaBookOpen },
+
+  { key: "decisions", label: "Decision Reports", icon: FaClipboardCheck },
   { key: "reviewers", label: "Reviewer Management", icon: FaUserTie },
+  { key: "workload", label: "Reviewer Workload", icon: FaChartBar },
 ];
 
 const ResearchPage = () => {
@@ -204,12 +288,9 @@ const ResearchPage = () => {
             </div>
             <div className="flex flex-col">
               {" "}
-              <h1 className="text-3xl font-bold text-gray-900 mb-1">
-                Research Management
-              </h1>
+              <h1 className="text-3xl font-bold text-gray-900 mb-1">Research Management</h1>
               <p className="text-gray-500 text-sm">
-                Manage research papers across all stages and reviewer
-                assignments
+                Manage research papers across all stages and reviewer assignments
               </p>
             </div>
           </div>
@@ -221,7 +302,7 @@ const ResearchPage = () => {
               onClick={() => setTopTab(key)}
               className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold cursor-pointer transition-all duration-200 ${
                 topTab === key
-                  ? "bg-blue-600 text-white shadow-sm"
+                  ? "bg-blue-600 text-white"
                   : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
               }`}
             >
@@ -231,32 +312,28 @@ const ResearchPage = () => {
           ))}
         </div>
         {topTab === "papers" && <PapersPanel />}
+        {topTab === "decisions" && <OfficerDecisionReports />}
         {topTab === "reviewers" && <ReviewersPanel />}
+        {topTab === "workload" && <ReviewerWorkloadPanel />}
       </div>
     </div>
   );
 };
 
 const PapersPanel = () => {
+  const navigate = useNavigate();
   const [researchList, setResearchList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStage, setFilterStage] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [categoryColorMap, setCategoryColorMap] = useState({});
-  const [downloadingId, setDownloadingId] = useState(null);
-  const [publishingId, setPublishingId] = useState(null);
   const [revenue, setRevenue] = useState({
     totalIncome: 0,
     proposalIncome: 0,
-    downloadIncome: 0,
     byResearch: [],
   });
   const [revenueLoading, setRevenueLoading] = useState(false);
-
-  const [viewModal, setViewModal] = useState(false);
-  const [selectedResearch, setSelectedResearch] = useState(null);
-
   const [addResearcherOpen, setAddResearcherOpen] = useState(false);
   const [researcherForm, setResearcherForm] = useState(EMPTY_RESEARCHER);
   const [researcherLoading, setResearcherLoading] = useState(false);
@@ -264,13 +341,132 @@ const PapersPanel = () => {
 
   const [assignReviewerOpen, setAssignReviewerOpen] = useState(false);
   const [assignTarget, setAssignTarget] = useState(null);
-  const [assignReviewerEmail, setAssignReviewerEmail] = useState("");
+  const [availableReviewers, setAvailableReviewers] = useState([]);
+  const [selectedReviewerIds, setSelectedReviewerIds] = useState([]);
+  const [existingReviewers, setExistingReviewers] = useState([]);
+  const [reviewerSearch, setReviewerSearch] = useState("");
   const [assignLoading, setAssignLoading] = useState(false);
+  const [reviewersLoading, setReviewersLoading] = useState(false);
+
+  const [cscModalOpen, setCscModalOpen] = useState(false);
+  const [cscTarget, setCscTarget] = useState(null);
+  const [cscForm, setCscForm] = useState({
+    cscApprovalDate: "", cscReviewDate: "", cscComments: "",
+    cscContactName: "", cscContactEmail: "",
+  });
+  const [cscEvidenceFile, setCscEvidenceFile] = useState(null);
+  const [cscSaving, setCscSaving] = useState(false);
+
+  const openCscModal = (item) => {
+    setCscTarget(item);
+    setCscForm({
+      cscApprovalDate: item.cscApprovalDate?.slice(0, 10) || "",
+      cscReviewDate: item.cscReviewDate?.slice(0, 10) || "",
+      cscComments: item.cscComments || "",
+      cscContactName: item.cscContactName || "",
+      cscContactEmail: item.cscContactEmail || "",
+    });
+    setCscEvidenceFile(null);
+    setCscModalOpen(true);
+  };
+
+  const submitCscEndorsement = async () => {
+    if (!cscTarget) return;
+    if (!cscForm.cscApprovalDate) return notify.error("CSC approval date is required.");
+    if (!cscForm.cscContactName.trim() || !cscForm.cscContactEmail.trim()) {
+      return notify.error("The attesting CSC contact's name and email are required.");
+    }
+    if (!cscEvidenceFile) {
+      return notify.error("Please attach the signed CSC evidence letter (per SOP-1 §10).");
+    }
+    setCscSaving(true);
+    try {
+      await research.recordCscEndorsement(cscTarget.id, { ...cscForm, evidenceFile: cscEvidenceFile });
+      notify.success("CSC endorsement recorded.");
+      setCscModalOpen(false);
+      setCscTarget(null);
+      fetchResearch();
+    } catch (err) {
+      notify.error(err.response?.data?.message || err.message || "Failed to record CSC endorsement");
+    } finally {
+      setCscSaving(false);
+    }
+  };
+
+
+  const [completenessModalOpen, setCompletenessModalOpen] = useState(false);
+  const [completenessTarget, setCompletenessTarget] = useState(null);
+  const [completenessIssues, setCompletenessIssues] = useState([""]);
+  const [completenessSaving, setCompletenessSaving] = useState(false);
+  const [verifyingId, setVerifyingId] = useState(null);
+
+  const openCompletenessModal = (item) => {
+    setCompletenessTarget(item);
+    setCompletenessIssues(
+      Array.isArray(item.completenessIssues) && item.completenessIssues.length
+        ? item.completenessIssues
+        : [""],
+    );
+    setCompletenessModalOpen(true);
+  };
+
+  const submitReturnForCorrection = async () => {
+    if (!completenessTarget) return;
+    const cleanIssues = completenessIssues.map((i) => i.trim()).filter(Boolean);
+    if (!cleanIssues.length) return notify.error("List at least one issue.");
+    setCompletenessSaving(true);
+    try {
+      await research.returnForCorrection(completenessTarget.id, cleanIssues);
+      notify.success("Proposal returned for correction.");
+      setCompletenessModalOpen(false);
+      setCompletenessTarget(null);
+      fetchResearch();
+    } catch (err) {
+      notify.error(err.response?.data?.message || err.message || "Failed to return proposal");
+    } finally {
+      setCompletenessSaving(false);
+    }
+  };
+
+  const handleVerifyCompleteness = async (item) => {
+    setVerifyingId(item.id);
+    try {
+      await research.markCompletenessVerified(item.id);
+      notify.success("Completeness verified.");
+      fetchResearch();
+    } catch (err) {
+      notify.error(err.response?.data?.message || err.message || "Failed to verify completeness");
+    } finally {
+      setVerifyingId(null);
+    }
+  };
+
+  const [deviationsModalOpen, setDeviationsModalOpen] = useState(false);
+  const [deviationsTarget, setDeviationsTarget] = useState(null);
+  const [deviationsList, setDeviationsList] = useState([]);
+  const [deviationsLoading, setDeviationsLoading] = useState(false);
+
+  const openDeviationsModal = async (item) => {
+    setDeviationsTarget(item);
+    setDeviationsModalOpen(true);
+    setDeviationsLoading(true);
+    try {
+      const list = await research.getProtocolDeviations(item.id);
+      setDeviationsList(list);
+    } catch (err) {
+      notify.error(err.response?.data?.message || err.message || "Failed to load protocol deviations");
+      setDeviationsList([]);
+    } finally {
+      setDeviationsLoading(false);
+    }
+  };
+
+  const MIN_REVIEWERS = 2;
 
   const fetchResearch = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/research/admin/all");
+      const res = await api.get("/research/admin/all", { params: { limit: 50 } });
       const papers = Array.isArray(res.data?.data)
         ? res.data.data
         : Array.isArray(res.data)
@@ -280,9 +476,7 @@ const PapersPanel = () => {
       setCategoryColorMap(buildCategoryColorMap(papers));
     } catch (err) {
       console.error("Research Fetch error:", err);
-      toast.error(
-        err.response?.data?.message || "Error fetching research papers",
-      );
+      notify.error(err.response?.data?.message || "Error fetching research papers");
       setResearchList([]);
     } finally {
       setLoading(false);
@@ -296,12 +490,11 @@ const PapersPanel = () => {
       setRevenue({
         totalIncome: data.totalIncome ?? 0,
         proposalIncome: data.proposalIncome ?? 0,
-        downloadIncome: data.downloadIncome ?? 0,
         byResearch: data.byResearch ?? [],
       });
     } catch (err) {
       console.error("Revenue fetch error:", err);
-      toast.error(err.message || "Failed to fetch revenue data");
+      notify.error(err.message || "Failed to fetch revenue data");
     } finally {
       setRevenueLoading(false);
     }
@@ -312,16 +505,36 @@ const PapersPanel = () => {
     fetchRevenue();
   }, []);
 
-  const filtered = researchList.filter((item) => {
+
+  const nested = React.useMemo(() => {
+    const byId = new Map();
+    researchList.forEach((r) => byId.set(r.id, { ...r, childSubmissions: [] }));
+    const top = [];
+    researchList.forEach((r) => {
+      const node = byId.get(r.id);
+      if (r.parentResearchId && byId.has(r.parentResearchId)) {
+        byId.get(r.parentResearchId).childSubmissions.push(node);
+      } else {
+        top.push(node);
+      }
+    });
+    return top;
+  }, [researchList]);
+
+  const filtered = nested.filter((item) => {
     const q = searchTerm.toLowerCase();
-    const matchSearch =
-      item.title?.toLowerCase().includes(q) ||
-      item.researcher?.name?.toLowerCase().includes(q) ||
-      item.author?.toLowerCase().includes(q) ||
-      item.abstract?.toLowerCase().includes(q);
-    const matchStage =
-      filterStage === "all" || (item.stage || "proposal") === filterStage;
-    const matchStatus = filterStatus === "all" || item.status === filterStatus;
+    const matchIn = (p) =>
+      p.title?.toLowerCase().includes(q) ||
+      p.researcher?.name?.toLowerCase().includes(q) ||
+      p.author?.toLowerCase().includes(q) ||
+      p.abstract?.toLowerCase().includes(q);
+    const kids = item.childSubmissions || [];
+    const matchSearch = !q || matchIn(item) || kids.some(matchIn);
+    const matchStage = filterStage === "all" || studyCategory(item) === filterStage;
+    const matchStatus =
+      filterStatus === "all" ||
+      item.status === filterStatus ||
+      kids.some((c) => c.status === filterStatus);
     return matchSearch && matchStage && matchStatus;
   });
 
@@ -330,11 +543,11 @@ const PapersPanel = () => {
     return acc;
   }, {});
 
+
   const stageCounts = {
-    proposal: researchList.filter((r) => (r.stage || "proposal") === "proposal")
-      .length,
-    progress: researchList.filter((r) => r.stage === "progress").length,
-    final_paper: researchList.filter((r) => r.stage === "final_paper").length,
+    proposal: nested.filter((s) => studyCategory(s) === "proposal").length,
+    continuing_review: nested.filter((s) => studyCategory(s) === "continuing_review").length,
+    closed: nested.filter((s) => studyCategory(s) === "closed").length,
   };
 
   const closeAddResearcher = () => {
@@ -351,77 +564,68 @@ const PapersPanel = () => {
     try {
       await api.post("/researchers/admin/create", researcherForm);
       setResearcherSubmitted(true);
-      toast.success("Researcher added! Login credentials sent via email.");
+      notify.success("Researcher added! Login credentials sent via email.");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to add researcher");
+      notify.error(err.response?.data?.message || "Failed to add researcher");
     } finally {
       setResearcherLoading(false);
     }
   };
 
-const handleDownload = async (item) => {
-  try {
-    setDownloadingId(item._id);
-    const fileUrl = item.fileUrl || item.proposalFile;
-    if (!fileUrl) {
-      toast.error("No PDF available for download");
-      return;
-    }
-    const link = document.createElement("a");
-    link.href = fileUrl;
-    link.download = `${item.title || "research"}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("Download started");
-  } catch (err) {
-    toast.error("Download failed");
-    console.error(err);
-  } finally {
-    setDownloadingId(null);
-  }
-};
-
-  const handlePublish = async (item) => {
-    if (
-      !window.confirm(
-        `Publish "${item.title}"? This will make it publicly visible.`,
-      )
-    )
-      return;
-    try {
-      setPublishingId(item._id);
-      await research.publishResearch(item._id);
-      toast.success("Research published successfully!");
-      fetchResearch();
-    } catch (err) {
-      toast.error(err.message || "Failed to publish");
-    } finally {
-      setPublishingId(null);
-    }
-  };
-
-  const handleAssignReviewer = async (e) => {
+  const handleAssignReviewers = async (e) => {
     e.preventDefault();
+    const selectedEmails = availableReviewers
+      .filter((r) => selectedReviewerIds.includes(r.id))
+      .map((r) => r.email);
+    if (selectedEmails.length < MIN_REVIEWERS) {
+      notify.error(`At least ${MIN_REVIEWERS} reviewers are required.`);
+      return;
+    }
     setAssignLoading(true);
     try {
-      await research.assignReviewer(assignTarget._id, assignReviewerEmail);
-      toast.success("Reviewer assigned successfully!");
+      await research.assignReviewers(assignTarget.id, selectedEmails);
+      notify.success(`${selectedEmails.length} reviewer(s) assigned successfully!`);
       setAssignReviewerOpen(false);
-      setAssignReviewerEmail("");
+      setSelectedReviewerIds([]);
+      setExistingReviewers([]);
       setAssignTarget(null);
+      setReviewerSearch("");
       fetchResearch();
     } catch (err) {
-      toast.error(err.message || "Failed to assign reviewer");
+      notify.error(err.response?.data?.message || err.message || "Failed to assign reviewers");
     } finally {
       setAssignLoading(false);
     }
   };
 
-  const openAssignModal = (item) => {
+  const openAssignModal = async (item) => {
     setAssignTarget(item);
-    setAssignReviewerEmail(item.assignedReviewer?.email || "");
     setAssignReviewerOpen(true);
+    setReviewerSearch("");
+    setReviewersLoading(true);
+    try {
+      const [reviewerData, existing] = await Promise.all([
+        research.listReviewers(),
+        research.getResearchReviewers(item.id).catch(() => []),
+      ]);
+      const allReviewers = reviewerData.reviewers ?? [];
+      setAvailableReviewers(allReviewers);
+      setExistingReviewers(existing);
+      const existingIds = existing.map((r) => r.reviewer?.id || r.reviewerId).filter(Boolean);
+      setSelectedReviewerIds(existingIds);
+    } catch {
+      setAvailableReviewers([]);
+      setExistingReviewers([]);
+      setSelectedReviewerIds([]);
+    } finally {
+      setReviewersLoading(false);
+    }
+  };
+
+  const toggleReviewer = (id) => {
+    setSelectedReviewerIds((prev) =>
+      prev.includes(id) ? prev.filter((rid) => rid !== id) : [...prev, id]
+    );
   };
 
   return (
@@ -429,8 +633,8 @@ const handleDownload = async (item) => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {[
           {
-            label: "Total Papers",
-            value: researchList.length,
+            label: "Total Studies",
+            value: nested.length,
             color: "blue",
             icon: FaBookOpen,
           },
@@ -441,28 +645,23 @@ const handleDownload = async (item) => {
             icon: FaRegFileAlt,
           },
           {
-            label: "Final Papers",
-            value: stageCounts.final_paper,
-            color: "emerald",
-            icon: FaMicroscope,
+            label: "Continuing Review",
+            value: stageCounts.continuing_review,
+            color: "indigo",
+            icon: FaLayerGroup,
           },
           {
-            label: "Published",
-            value: researchList.filter((r) => r.isPublished).length,
-            color: "purple",
-            icon: FaGlobe,
+            label: "Closed",
+            value: stageCounts.closed,
+            color: "emerald",
+            icon: FaArchive,
           },
         ].map(({ label, value, color, icon: Icon }) => (
-          <div
-            key={label}
-            className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm"
-          >
+          <div key={label} className="bg-white rounded-xl p-5 border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-500 mb-1">{label}</p>
-                <h3 className={`text-2xl font-bold text-${color}-600`}>
-                  {value}
-                </h3>
+                <h3 className={`text-2xl font-bold text-${color}-600`}>{value}</h3>
               </div>
               <div
                 className={`w-11 h-11 bg-${color}-50 rounded-lg flex items-center justify-center`}
@@ -474,8 +673,7 @@ const handleDownload = async (item) => {
         ))}
       </div>
 
-      {/* Revenue / income cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         {[
           {
             label: "Total Income",
@@ -489,17 +687,8 @@ const handleDownload = async (item) => {
             color: "amber",
             icon: FaRegFileAlt,
           },
-          {
-            label: "Download Income",
-            value: revenue.downloadIncome,
-            color: "blue",
-            icon: FaDownload,
-          },
         ].map(({ label, value, color, icon: Icon }) => (
-          <div
-            key={label}
-            className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm"
-          >
+          <div key={label} className="bg-white rounded-xl p-5 border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-500 mb-1">{label}</p>
@@ -507,7 +696,7 @@ const handleDownload = async (item) => {
                   {revenueLoading ? "…" : formatKES(value)}
                 </h3>
               </div>
-              <div 
+              <div
                 className={`w-11 h-11 bg-${color}-50 rounded-lg flex items-center justify-center`}
               >
                 <Icon className={`text-lg text-${color}-600`} />
@@ -522,7 +711,7 @@ const handleDownload = async (item) => {
           {
             key: "all",
             label: "All Stages",
-            count: researchList.length,
+            count: nested.length,
             color: "bg-gray-100 text-gray-600 border-gray-200",
           },
           {
@@ -532,16 +721,16 @@ const handleDownload = async (item) => {
             color: "bg-amber-50 text-amber-700 border-amber-200",
           },
           {
-            key: "progress",
-            label: "In Progress",
-            count: stageCounts.progress,
+            key: "continuing_review",
+            label: "Continuing Review",
+            count: stageCounts.continuing_review,
             color: "bg-sky-50 text-sky-700 border-sky-200",
           },
           {
-            key: "final_paper",
-            label: "Final Paper",
-            count: stageCounts.final_paper,
-            color: "bg-emerald-50 text-emerald-700 border-emerald-200",
+            key: "closed",
+            label: "Closed",
+            count: stageCounts.closed,
+            color: "bg-slate-100 text-slate-700 border-slate-200",
           },
         ].map(({ key, label, count, color }) => (
           <button
@@ -550,7 +739,7 @@ const handleDownload = async (item) => {
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border cursor-pointer transition-all
               ${
                 filterStage === key
-                  ? "ring-2 ring-offset-1 ring-blue-400 shadow-sm " + color
+                  ? "ring-2 ring-offset-1 ring-blue-400 " + color
                   : color + " opacity-70 hover:opacity-100"
               }`}
           >
@@ -562,7 +751,7 @@ const handleDownload = async (item) => {
         ))}
       </div>
 
-      <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm mb-4">
+      <div className="bg-white rounded-xl p-4 border border-gray-100 mb-4">
         <div className="flex flex-col md:flex-row gap-3">
           <div className="flex-1 relative">
             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
@@ -581,10 +770,11 @@ const handleDownload = async (item) => {
               className="px-3 py-2 border border-gray-200 rounded-lg text-sm cursor-pointer outline-none focus:ring focus:ring-blue-500"
             >
               <option value="all">All Statuses</option>
+              <option value="submitted">Submitted</option>
+              <option value="returned_for_correction">Returned for Correction</option>
               <option value="pending">Under Review</option>
-              <option value="pending_committee_review">
-                Awaiting Committee
-              </option>
+              <option value="pending_committee_review">Awaiting Committee</option>
+              <option value="pending_officer_review">Awaiting Officer Release</option>
               <option value="revision_requested">Revision Requested</option>
               <option value="suspended">Suspended</option>
               <option value="approved">Approved</option>
@@ -596,7 +786,7 @@ const handleDownload = async (item) => {
         {(filterStage !== "all" || filterStatus !== "all" || searchTerm) && (
           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100 flex-wrap">
             <span className="text-xs text-gray-400">
-              Showing {filtered.length} of {researchList.length} papers
+              Showing {filtered.length} of {nested.length} papers
             </span>
             {[
               filterStage !== "all" && {
@@ -619,10 +809,7 @@ const handleDownload = async (item) => {
                   className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full border border-blue-100"
                 >
                   {chip.label}
-                  <button
-                    onClick={chip.clear}
-                    className="hover:text-red-500 cursor-pointer ml-0.5"
-                  >
+                  <button onClick={chip.clear} className="hover:text-red-500 cursor-pointer ml-0.5">
                     <FaTimes className="text-[9px]" />
                   </button>
                 </span>
@@ -641,20 +828,16 @@ const handleDownload = async (item) => {
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
         {loading ? (
           <div className="p-12 text-center">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto" />
-            <p className="text-gray-500 mt-3 text-sm">
-              Loading research papers…
-            </p>
+            <p className="text-gray-500 mt-3 text-sm">Loading research papers…</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="p-12 text-center">
             <FaBookOpen className="text-4xl text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-400 text-sm">
-              No research papers match your filters
-            </p>
+            <p className="text-gray-400 text-sm">No research papers match your filters</p>
             <button
               onClick={() => {
                 setFilterStage("all");
@@ -667,520 +850,228 @@ const handleDownload = async (item) => {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-left">
-                    Title
-                  </th>
-                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-left">
-                    Author
-                  </th>
-                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">
-                    Stage
-                  </th>
-                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">
-                    Status
-                  </th>
-                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-left">
-                    Assigned Reviewer
-                  </th>
-                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">
-                    Downloads
-                  </th>
-                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">
-                    Income
-                  </th>
-                  <th className="px-5 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filtered.map((item) => {
-                  const stage = item.stage || "proposal";
-                  const stageMeta = STAGE_META[stage] || STAGE_META.proposal;
-                  const statusMeta =
-                    STATUS_META[item.status] || STATUS_META.pending;
+          <DataTable
+            columns={[
+              {
+                key: "title",
+                label: "Title",
+                render: (item) => (
+                  <div className="flex items-start gap-3 min-w-0 max-w-[280px]">
+                    {item.thumbnailUrl && (
+                      <img
+                        src={item.thumbnailUrl}
+                        alt={item.title}
+                        className="w-10 h-10 rounded-lg object-cover shrink-0"
+                      />
+                    )}
+                    <div className="min-w-0">
+                      <p
+                        className="font-semibold text-gray-900 truncate hover:text-blue-600 cursor-pointer transition-colors"
+                        title={item.title}
+                        onClick={() => navigate(`/dashboard/research/${item.id}`)}
+                      >
+                        {item.title}
+                      </p>
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                key: "author",
+                label: "Author",
+                render: (item) => (
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <FaUser className="text-gray-400 text-xs shrink-0" />
+                    <span className="truncate text-xs">
+                      {item.researcher?.name || item.author || "Unknown"}
+                    </span>
+                  </div>
+                ),
+              },
+              {
+                key: "stage",
+                label: "Stage",
+                align: "center",
+                render: (item) => {
+                  const stageMeta = resolveStageMeta(item);
+                  return (
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span className={`w-2 h-2 rounded-full ${stageMeta.dotColor}`} />
+                      <span className="inline-block text-[10px] font-bold px-2 py-1 rounded-full bg-gray-100 text-gray-700 uppercase tracking-wider">
+                        {stageMeta.label}
+                      </span>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: "status",
+                label: "Status",
+                align: "center",
+                render: (item) => {
+                  const statusMeta = STATUS_META[item.status] || STATUS_META.pending;
                   const StatusIcon = statusMeta.icon;
-                  const hasFile = item.fileUrl || item.proposalFile;
-                  const canPublish =
-                    stage === "final_paper" &&
-                    item.status === "approved" &&
-                    Boolean(item.committeeReviewedBy) &&
-                    !item.isPublished;
-
+                  return (
+                    <div
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg ${statusMeta.color}`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${statusMeta.dot} shrink-0`} />
+                      <StatusIcon className={`text-[10px] ${statusMeta.textColor}`} />
+                      <span className={`text-[11px] font-semibold ${statusMeta.textColor}`}>
+                        {statusMeta.label}
+                      </span>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: "reviewer",
+                label: "Assigned Reviewer",
+                render: (item) => {
+                  const assignedReviewer =
+                    item.assignedReviewer && typeof item.assignedReviewer === "object"
+                      ? item.assignedReviewer
+                      : null;
+                  return assignedReviewer ? (
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-gray-800 truncate">
+                        {assignedReviewer.name ||
+                          `${assignedReviewer.firstName ?? ""} ${assignedReviewer.lastName ?? ""}`.trim() ||
+                          "—"}
+                      </p>
+                      {assignedReviewer.email && (
+                        <p className="text-[10px] text-gray-400 truncate">
+                          {assignedReviewer.email}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-xs text-gray-400 italic">
+                      <FaUserTie className="text-gray-300" /> Unassigned
+                    </span>
+                  );
+                },
+              },
+              {
+                key: "income",
+                label: "Proposal Fee",
+                align: "right",
+                render: (item) => {
+                  const itemRevenue = revenueByResearch[item.id];
+                  return !itemRevenue || itemRevenue.proposalIncome === 0 ? (
+                    <span className="text-xs text-gray-300">—</span>
+                  ) : (
+                    <span className="text-xs font-bold text-gray-800">
+                      {formatKES(itemRevenue.proposalIncome)}
+                    </span>
+                  );
+                },
+              },
+              {
+                key: "actions",
+                label: "Actions",
+                align: "right",
+                render: (item) => {
                   const ASSIGNABLE_STATUSES = [
+                    "submitted",
                     "pending",
                     "under_review",
                     "revision_requested",
                     "rejected",
                   ];
-                  const canAssignReviewer =
-                    ASSIGNABLE_STATUSES.includes(item.status) &&
-                    !item.isPublished;
-
+                  const canAssignReviewer = ASSIGNABLE_STATUSES.includes(item.status);
                   const assignedReviewer =
-                    item.assignedReviewer &&
-                    typeof item.assignedReviewer === "object"
+                    item.assignedReviewer && typeof item.assignedReviewer === "object"
                       ? item.assignedReviewer
                       : null;
-
-                  const itemRevenue = revenueByResearch[item._id];
-
                   return (
-                    <tr
-                      key={item._id}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-5 py-4">
-                        <div className="flex items-start gap-3 min-w-0">
-                          {item.thumbnailUrl && (
-                            <img
-                              src={item.thumbnailUrl}
-                              alt={item.title}
-                              className="w-10 h-10 rounded-lg object-cover shrink-0"
-                            />
-                          )}
-                          <div className="min-w-0">
-                            <p
-                              className="font-semibold text-gray-900 truncate hover:text-blue-600 cursor-pointer transition-colors"
-                              onClick={() => {
-                                setSelectedResearch(item);
-                                setViewModal(true);
-                              }}
-                            >
-                              {item.title}
-                            </p>
-                            {item.isPublished && (
-                              <span className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded bg-green-50 text-green-700 mt-0.5">
-                                Published
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-2 text-gray-600">
-                          <FaUser className="text-gray-400 text-xs shrink-0" />
-                          <span className="truncate text-xs">
-                            {item.researcher?.name || item.author || "Unknown"}
-                          </span>
-                        </div>
-                      </td>
-
-                      <td className="px-5 py-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <span
-                            className={`w-2 h-2 rounded-full ${stageMeta.dotColor}`}
-                          />
-                          <span className="inline-block text-[10px] font-bold px-2 py-1 rounded-full bg-gray-100 text-gray-700 uppercase tracking-wider">
-                            {stageMeta.label}
-                          </span>
-                        </div>
-                      </td>
-
-                      <td className="px-5 py-4 text-center">
-                        <div
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg ${statusMeta.color}`}
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => navigate(`/dashboard/research/${item.id}`)}
+                        className="p-2 rounded-xl text-blue-600 hover:bg-blue-50 cursor-pointer transition-colors"
+                        title="View details"
+                      >
+                        <FaEye className="text-sm" />
+                      </button>
+                      {canAssignReviewer && (
+                        <button
+                          onClick={() => openDeviationsModal(item)}
+                          className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 cursor-pointer transition-colors"
+                          title="View protocol deviations"
                         >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${statusMeta.dot} shrink-0`}
-                          />
-                          <StatusIcon
-                            className={`text-[10px] ${statusMeta.textColor}`}
-                          />
-                          <span
-                            className={`text-[11px] font-semibold ${statusMeta.textColor}`}
-                          >
-                            {statusMeta.label}
-                          </span>
-                        </div>
-                      </td>
-
-                      <td className="px-5 py-4">
-                        {assignedReviewer ? (
-                          <div className="flex items-center gap-2">
-                            <div className="min-w-0">
-                              <p className="text-xs font-semibold text-gray-800 truncate">
-                                {assignedReviewer.name ||
-                                  `${assignedReviewer.firstName ?? ""} ${assignedReviewer.lastName ?? ""}`.trim() ||
-                                  "—"}
-                              </p>
-                              {assignedReviewer.email && (
-                                <p className="text-[10px] text-gray-400 truncate">
-                                  {assignedReviewer.email}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs text-gray-400 italic">
-                            <FaUserTie className="text-gray-300" /> Unassigned
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="px-5 py-4 text-center">
-                        <span className="text-gray-600 font-semibold text-xs">
-                          {item.downloads ?? 0}
-                        </span>
-                      </td>
-
-                      <td className="px-5 py-4 text-right">
-                        {!itemRevenue || itemRevenue.totalIncome === 0 ? (
-                          <span className="text-xs text-gray-300">—</span>
-                        ) : (
-                          <div className="flex flex-col items-end">
-                            <span className="text-xs font-bold text-gray-800">
-                              {formatKES(itemRevenue.totalIncome)}
-                            </span>
-                            <span className="text-[10px] text-gray-400">
-                              P: {formatKES(itemRevenue.proposalIncome)} · D:{" "}
-                              {formatKES(itemRevenue.downloadIncome)}
-                            </span>
-                          </div>
-                        )}
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <div className="flex items-center justify-end gap-1">
-                          {hasFile && (
-                            <button
-                              onClick={() => handleDownload(item)}
-                              disabled={downloadingId === item._id}
-                              className="p-2 rounded-lg text-green-600 hover:bg-green-50 cursor-pointer transition-colors disabled:opacity-50"
-                              title="Download PDF"
-                            >
-                              {downloadingId === item._id ? (
-                                <div className="w-4 h-4 border-2 border-green-400 border-t-green-600 rounded-full animate-spin" />
-                              ) : (
-                                <FaDownload className="text-sm" />
-                              )}
-                            </button>
-                          )}
-
+                          <FaExclamationTriangle className="text-sm" />
+                        </button>
+                      )}
+                      {canAssignReviewer && item.status === "submitted" && (
+                        <>
                           <button
-                            onClick={() => {
-                              setSelectedResearch(item);
-                              setViewModal(true);
-                            }}
-                            className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 cursor-pointer transition-colors"
-                            title="View details"
+                            onClick={() => openCompletenessModal(item)}
+                            className="p-2 rounded-xl text-amber-600 hover:bg-amber-50 cursor-pointer transition-colors"
+                            title="Return for correction"
                           >
-                            <FaEye className="text-sm" />
+                            <FaRedo className="text-sm" />
                           </button>
-
-                          {canAssignReviewer && (
-                            <button
-                              onClick={() => openAssignModal(item)}
-                              className={`p-2 rounded-lg cursor-pointer transition-colors ${
-                                assignedReviewer
-                                  ? "text-purple-500 hover:bg-purple-50 ring-1 ring-purple-200"
-                                  : "text-purple-600 hover:bg-purple-50"
-                              }`}
-                              title={
-                                assignedReviewer
-                                  ? "Re-assign reviewer"
-                                  : "Assign reviewer"
-                              }
-                            >
-                              <FaUserTie className="text-sm" />
-                            </button>
-                          )}
-
-                          {canPublish && (
-                            <button
-                              onClick={() => handlePublish(item)}
-                              disabled={publishingId === item._id}
-                              className="p-2 rounded-lg text-emerald-600 hover:bg-emerald-50 cursor-pointer transition-colors disabled:opacity-50"
-                              title="Publish paper"
-                            >
-                              {publishingId === item._id ? (
-                                <div className="w-4 h-4 border-2 border-emerald-400 border-t-emerald-600 rounded-full animate-spin" />
-                              ) : (
-                                <FaGlobe className="text-sm" />
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                          <button
+                            onClick={() => handleVerifyCompleteness(item)}
+                            disabled={verifyingId === item.id}
+                            className="p-2 rounded-xl text-green-600 hover:bg-green-50 cursor-pointer transition-colors disabled:opacity-50"
+                            title="Verify completeness"
+                          >
+                            {verifyingId === item.id ? (
+                              <div className="w-4 h-4 border-2 border-green-400 border-t-green-600 rounded-full animate-spin" />
+                            ) : (
+                              <FaCheckCircle className="text-sm" />
+                            )}
+                          </button>
+                        </>
+                      )}
+                      {item.status === "returned_for_correction" && (
+                        <button
+                          onClick={() => openCompletenessModal(item)}
+                          className="p-2 rounded-xl text-amber-500 hover:bg-amber-50 ring-1 ring-amber-200 cursor-pointer transition-colors"
+                          title="View/edit correction issues"
+                        >
+                          <FaRedo className="text-sm" />
+                        </button>
+                      )}
+                      {canAssignReviewer && item.submissionType === "initial_proposal" && (
+                        <button
+                          onClick={() => openCscModal(item)}
+                          className={`p-2 rounded-xl cursor-pointer transition-colors ${item.cscApprovalDate ? "text-teal-500 hover:bg-teal-50 ring-1 ring-teal-200" : "text-teal-600 hover:bg-teal-50"}`}
+                          title={item.cscApprovalDate ? "CSC endorsement recorded" : "Record CSC endorsement"}
+                        >
+                          <FaStamp className="text-sm" />
+                        </button>
+                      )}
+                      {canAssignReviewer && (
+                        <button
+                          onClick={() => openAssignModal(item)}
+                          className={`p-2 rounded-xl cursor-pointer transition-colors ${assignedReviewer ? "text-purple-500 hover:bg-purple-50 ring-1 ring-purple-200" : "text-purple-600 hover:bg-purple-50"}`}
+                          title={assignedReviewer ? "Manage reviewers" : "Assign reviewers"}
+                        >
+                          <FaUserTie className="text-sm" />
+                        </button>
+                      )}
+                    </div>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
+                },
+              },
+            ]}
+            data={filtered}
+            rowKey={(item) => item.id}
+            expandable={{
+              getChildren: (row) => row.childSubmissions,
+              childUsesColumns: true,
+            }}
+          />
         )}
       </div>
 
-      {viewModal &&
-        selectedResearch &&
-        (() => {
-          const stage = selectedResearch.stage || "proposal";
-          const stageMeta = STAGE_META[stage] || STAGE_META.proposal;
-          const statusMeta =
-            STATUS_META[selectedResearch.status] || STATUS_META.pending;
-          const assignedReviewer =
-            selectedResearch.assignedReviewer &&
-            typeof selectedResearch.assignedReviewer === "object"
-              ? selectedResearch.assignedReviewer
-              : null;
-          const modalRevenue = revenueByResearch[selectedResearch._id];
-
-          return (
-            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-                <div className={`${stageMeta.color} px-6 py-4 rounded-t-2xl`}>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                          {stageMeta.label}
-                        </span>
-                        <span className="bg-white/20 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
-                          {statusMeta.label}
-                        </span>
-                        {selectedResearch.isPublished && (
-                          <span className="bg-white/20 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
-                            Published
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="text-xl font-bold text-white leading-tight">
-                        {selectedResearch.title}
-                      </h3>
-                      <div className="flex items-center gap-3 mt-1 text-white text-sm flex-wrap">
-                        <span className="flex items-center gap-1">
-                          <FaUser className="text-xs" />
-                          {selectedResearch.researcher?.name ||
-                            selectedResearch.author ||
-                            "Unknown"}
-                        </span>
-
-                        {selectedResearch.researcher?.institution && (
-                          <p className="text-sm text-white flex items-center gap-1">
-                            <FaUniversity />{" "}
-                            {selectedResearch.researcher.institution}
-                          </p>
-                        )}
-                        {selectedResearch.researcher?.email && (
-                          <p className="text-sm text-white flex items-center gap-1 ">
-                            <FaEnvelope /> {selectedResearch.researcher.email}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setViewModal(false)}
-                      className="p-2 cursor-pointer rounded-lg bg-white/20 hover:bg-white/30 transition-colors ml-4 shrink-0"
-                    >
-                      <FaTimes className="text-white" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="p-6 space-y-4">
-                  {selectedResearch.thumbnailUrl && (
-                    <img
-                      src={selectedResearch.thumbnailUrl}
-                      alt={selectedResearch.title}
-                      className="w-full h-56 object-cover rounded-lg"
-                    />
-                  )}
-
-                  <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                      Abstract
-                    </p>
-                    <p className="text-sm text-gray-700 leading-relaxed">
-                      {selectedResearch.abstract || "No abstract available"}
-                    </p>
-                  </div>
-
-                  {selectedResearch.background && (
-                    <div>
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                        Background
-                      </p>
-                      <p className="text-sm text-gray-700 leading-relaxed">
-                        {selectedResearch.background}
-                      </p>
-                    </div>
-                  )}
-
-                  {selectedResearch.methodology && (
-                    <div>
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                        Methodology
-                      </p>
-                      <p className="text-sm text-gray-700 leading-relaxed">
-                        {selectedResearch.methodology}
-                      </p>
-                    </div>
-                  )}
-
-                  {(selectedResearch.fileUrl ||
-                    selectedResearch.proposalFile) && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <FaFilePdf className="text-2xl text-green-600" />
-                        <div>
-                          <p className="font-semibold text-gray-900 text-sm">
-                            PDF Document
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {selectedResearch.isPublished
-                              ? `Price: KES ${selectedResearch.downloadPrice}`
-                              : "Full document available"}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleDownload(selectedResearch)}
-                        disabled={downloadingId === selectedResearch._id}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white cursor-pointer rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
-                      >
-                        {downloadingId === selectedResearch._id ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                            Downloading…
-                          </>
-                        ) : (
-                          <>
-                            <FaDownload /> Download
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  )}
-
-                  {modalRevenue && modalRevenue.totalIncome > 0 && (
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                        Revenue Breakdown
-                      </p>
-                      <div className="grid grid-cols-3 gap-3 text-center">
-                        <div>
-                          <p className="text-[10px] text-gray-500 uppercase">
-                            Proposal Fee
-                          </p>
-                          <p className="text-sm font-bold text-amber-700">
-                            {formatKES(modalRevenue.proposalIncome)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] text-gray-500 uppercase">
-                            Download Sales
-                            {modalRevenue.downloadCount
-                              ? ` (${modalRevenue.downloadCount})`
-                              : ""}
-                          </p>
-                          <p className="text-sm font-bold text-blue-700">
-                            {formatKES(modalRevenue.downloadIncome)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] text-gray-500 uppercase">
-                            Total
-                          </p>
-                          <p className="text-sm font-bold text-emerald-700">
-                            {formatKES(modalRevenue.totalIncome)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {assignedReviewer && (
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                        Assigned Reviewer
-                      </p>
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                          {(
-                            assignedReviewer.name ||
-                            assignedReviewer.firstName ||
-                            "?"
-                          )
-                            .charAt(0)
-                            .toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-gray-900">
-                            {assignedReviewer.name ||
-                              `${assignedReviewer.firstName ?? ""} ${assignedReviewer.lastName ?? ""}`.trim()}
-                          </p>
-                          {assignedReviewer.email && (
-                            <p className="text-xs text-gray-500 flex items-center gap-1 truncate">
-                              <FaEnvelope className="text-[10px]" />{" "}
-                              {assignedReviewer.email}
-                            </p>
-                          )}
-                          {assignedReviewer.institution && (
-                            <p className="text-xs text-gray-400 flex items-center gap-1 truncate">
-                              <MdSchool /> {assignedReviewer.institution}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedResearch.reviewComment && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                        Reviewer Comment
-                      </p>
-                      <p className="text-sm text-gray-700">
-                        {selectedResearch.reviewComment}
-                      </p>
-                    </div>
-                  )}
-
-                  {selectedResearch.status === "pending_committee_review" && (
-                    <div className="bg-violet-50 border border-violet-200 rounded-lg p-4 flex items-start gap-3">
-                      <FaUserTie className="text-violet-500 text-sm mt-0.5 shrink-0" />
-                      <p className="text-sm text-violet-700">
-                        The assigned reviewer has approved this final paper. It
-                        is now awaiting sign-off from the Research Committee
-                        before it can be published.
-                      </p>
-                    </div>
-                  )}
-
-                  {selectedResearch.committeeComment && (
-                    <div className="bg-violet-50 border border-violet-200 rounded-lg p-4">
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                        Research Committee Comment
-                      </p>
-                      <p className="text-sm text-gray-700">
-                        {selectedResearch.committeeComment}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="flex justify-end pt-2 border-t border-gray-100">
-                    <button
-                      onClick={() => setViewModal(false)}
-                      className="px-4 py-2 border border-gray-200 hover:text-white rounded-lg text-sm hover:bg-red-500 cursor-pointer transition-colors"
-                    >
-                      Close
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
 
       {addResearcherOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden"
+            className="bg-white rounded-2xl w-full max-w-xl overflow-hidden"
             style={{
               animation: "modalPop .25s cubic-bezier(.34,1.56,.64,1) both",
             }}
@@ -1197,12 +1088,8 @@ const handleDownload = async (item) => {
                   <FaUserPlus className="text-white text-base" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white leading-tight">
-                    Add Researcher
-                  </h3>
-                  <p className="text-blue-200 text-xs">
-                    Account created by admin
-                  </p>
+                  <h3 className="text-lg font-bold text-white leading-tight">Add Researcher</h3>
+                  <p className="text-blue-200 text-xs">Account created by admin</p>
                 </div>
               </div>
             </div>
@@ -1211,17 +1098,12 @@ const handleDownload = async (item) => {
             </div>
 
             {!researcherSubmitted ? (
-              <form
-                onSubmit={handleAddResearcher}
-                className="px-6 pb-6 pt-2 space-y-4"
-              >
+              <form onSubmit={handleAddResearcher} className="px-6 pb-6 pt-2 space-y-4">
                 <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
                   <FaKey className="text-amber-500 text-sm mt-0.5 flex-shrink-0" />
                   <p className="text-xs text-amber-700 leading-relaxed">
-                    A secure password will be{" "}
-                    <span className="font-semibold">auto-generated</span> and
-                    sent to the researcher's email along with their login
-                    credentials.
+                    A secure password will be <span className="font-semibold">auto-generated</span>{" "}
+                    and sent to the researcher's email along with their login credentials.
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -1313,19 +1195,13 @@ const handleDownload = async (item) => {
                 <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-2">
                   <FaCheckCircle className="text-green-500 text-3xl" />
                 </div>
-                <h4 className="text-lg font-bold text-gray-900">
-                  Account Created!
-                </h4>
+                <h4 className="text-lg font-bold text-gray-900">Account Created!</h4>
                 <p className="text-sm text-gray-500 leading-relaxed max-w-xs">
                   <span className="font-semibold text-gray-700">
                     {researcherForm.firstName} {researcherForm.lastName}
                   </span>{" "}
-                  has been added as a researcher. Login instructions have been
-                  sent to{" "}
-                  <span className="font-semibold text-blue-600">
-                    {researcherForm.email}
-                  </span>
-                  .
+                  has been added as a researcher. Login instructions have been sent to{" "}
+                  <span className="font-semibold text-blue-600">{researcherForm.email}</span>.
                 </p>
                 <div className="flex gap-2 mt-3">
                   <button
@@ -1350,21 +1226,38 @@ const handleDownload = async (item) => {
         </div>
       )}
 
-      {assignReviewerOpen && assignTarget && (
+      {assignReviewerOpen && assignTarget && (() => {
+        const closeAssignModal = () => {
+          setAssignReviewerOpen(false);
+          setAssignTarget(null);
+          setSelectedReviewerIds([]);
+          setExistingReviewers([]);
+          setReviewerSearch("");
+        };
+
+        const q = reviewerSearch.trim().toLowerCase();
+        const visibleReviewers = availableReviewers.filter((r) => {
+          if (!q) return true;
+          return (
+            r.name?.toLowerCase().includes(q) ||
+            r.email?.toLowerCase().includes(q) ||
+            r.institution?.toLowerCase().includes(q)
+          );
+        });
+        const selectedCount = selectedReviewerIds.length;
+        const canSubmit = selectedCount >= MIN_REVIEWERS;
+
+        return (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+            className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]"
             style={{
               animation: "modalPop .25s cubic-bezier(.34,1.56,.64,1) both",
             }}
           >
-            <div className="relative bg-gradient-to-br from-purple-600 to-purple-700 px-6 pt-6 pb-8">
+            <div className="relative bg-purple-700 px-6 pt-6 pb-8 shrink-0">
               <button
-                onClick={() => {
-                  setAssignReviewerOpen(false);
-                  setAssignTarget(null);
-                  setAssignReviewerEmail("");
-                }}
+                onClick={closeAssignModal}
                 className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors cursor-pointer"
               >
                 <FaTimes className="text-white text-xs" />
@@ -1375,91 +1268,125 @@ const handleDownload = async (item) => {
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-lg font-bold text-white leading-tight">
-                    {assignTarget.assignedReviewer &&
-                    typeof assignTarget.assignedReviewer === "object"
-                      ? "Re-assign Reviewer"
-                      : "Assign Reviewer"}
+                    Assign Reviewers
                   </h3>
-                  <p className="text-purple-200 text-xs truncate">
-                    {assignTarget.title}
-                  </p>
+                  <p className="text-purple-200 text-xs truncate">{assignTarget.title}</p>
                 </div>
               </div>
             </div>
-            <div className="h-3 bg-gradient-to-br from-purple-600 to-purple-700 relative">
+            <div className="h-3 bg-gradient-to-br from-purple-600 to-purple-700 relative shrink-0">
               <div className="absolute inset-x-0 bottom-0 h-3 bg-white rounded-t-2xl" />
             </div>
 
             <form
-              onSubmit={handleAssignReviewer}
-              className="px-6 pb-6 pt-2 space-y-4"
+              onSubmit={handleAssignReviewers}
+              className="px-6 pb-6 pt-2 space-y-4 overflow-y-auto flex-1 min-h-0"
             >
-              {assignTarget.assignedReviewer &&
-                typeof assignTarget.assignedReviewer === "object" && (
-                  <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-                    <FaUserTie className="text-amber-500 text-sm mt-0.5 shrink-0" />
-                    <div>
-                      <p className="text-xs font-semibold text-amber-800 mb-0.5">
-                        Already assigned
-                      </p>
-                      <p className="text-xs text-amber-700">
-                        Currently assigned to{" "}
-                        <span className="font-semibold">
-                          {assignTarget.assignedReviewer.name ||
-                            `${assignTarget.assignedReviewer.firstName ?? ""} ${assignTarget.assignedReviewer.lastName ?? ""}`.trim()}
-                        </span>
-                        {assignTarget.assignedReviewer.email &&
-                          ` (${assignTarget.assignedReviewer.email})`}
-                        . Submitting will replace them.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
               <div className="flex items-start gap-3 bg-purple-50 border border-purple-200 rounded-xl px-4 py-3">
                 <FaShieldAlt className="text-purple-500 text-sm mt-0.5 flex-shrink-0" />
                 <p className="text-xs text-purple-700 leading-relaxed">
-                  Enter the email of an existing{" "}
-                  <span className="font-semibold">reviewer or admin</span>. They
-                  will receive a notification to review this paper.
+                  Select at least <span className="font-semibold">{MIN_REVIEWERS} reviewers</span>{" "}
+                  from the registered reviewer pool. Each selected reviewer will be notified.
                 </p>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                  Reviewer Email <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <FaEnvelope className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
-                  <input
-                    type="email"
-                    required
-                    value={assignReviewerEmail}
-                    onChange={(e) => setAssignReviewerEmail(e.target.value)}
-                    placeholder="reviewer@institution.ac.ke"
-                    className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-shadow"
-                  />
+              {existingReviewers.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                  <p className="text-xs font-semibold text-amber-800 mb-1.5">Currently assigned</p>
+                  <div className="space-y-1">
+                    {existingReviewers.map((r, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs text-amber-700">
+                        <FaUserTie className="text-amber-500 text-[10px] shrink-0" />
+                        <span className="font-medium">{r.reviewer?.name || r.name || "Reviewer"}</span>
+                        <span className="text-amber-500">({r.reviewer?.email || r.email})</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-amber-600 mt-1.5">
+                    Submitting will update the full reviewer list.
+                  </p>
                 </div>
-                <p className="text-[11px] text-gray-400 mt-1">
-                  Must be a registered reviewer or research admin.
-                </p>
+              )}
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-gray-700">
+                    Reviewers <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-[11px] text-gray-400">
+                    {selectedCount} selected · minimum {MIN_REVIEWERS}
+                  </span>
+                </div>
+
+                {/* Select dropdown to add reviewers */}
+                <div className="relative">
+                  {reviewersLoading ? (
+                    <div className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-400">
+                      <div className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
+                      Loading reviewers…
+                    </div>
+                  ) : (
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        const id = Number(e.target.value) || e.target.value;
+                        if (id && !selectedReviewerIds.includes(id)) {
+                          setSelectedReviewerIds((prev) => [...prev, id]);
+                        }
+                      }}
+                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent cursor-pointer appearance-none bg-white"
+                    >
+                      <option value="">— Select a reviewer to add —</option>
+                      {availableReviewers
+                        .filter((r) => !selectedReviewerIds.includes(r.id))
+                        .map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name} — {r.email}{r.institution ? ` (${r.institution})` : ""}
+                          </option>
+                        ))}
+                    </select>
+                  )}
+                  <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none" />
+                </div>
+
+   
+                {selectedCount > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {selectedReviewerIds.map((id) => {
+                      const r = availableReviewers.find((rev) => rev.id === id);
+                      if (!r) return null;
+                      return (
+                        <span key={id} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 border border-purple-200 rounded-full text-xs font-semibold text-purple-700">
+                          {r.name}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedReviewerIds((prev) => prev.filter((rid) => rid !== id))}
+                            className="text-purple-400 hover:text-red-500 cursor-pointer"
+                          >
+                            <FaTimes className="text-[9px]" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {availableReviewers.length === 0 && !reviewersLoading && (
+                  <p className="text-xs text-gray-400 text-center py-2">No reviewers available yet.</p>
+                )}
               </div>
 
               <div className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 space-y-1">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                   Paper being assigned
                 </p>
-                <p className="text-sm font-semibold text-gray-900 truncate">
-                  {assignTarget.title}
-                </p>
+                <p className="text-sm font-semibold text-gray-900 truncate">{assignTarget.title}</p>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-200 text-gray-700 uppercase tracking-wider">
                     {STAGE_META[assignTarget.stage || "proposal"]?.label}
                   </span>
                   <span className="text-[10px] text-gray-500">
-                    {assignTarget.researcher?.name ||
-                      assignTarget.author ||
-                      "Unknown author"}
+                    {assignTarget.researcher?.name || assignTarget.author || "Unknown author"}
                   </span>
                 </div>
               </div>
@@ -1467,19 +1394,15 @@ const handleDownload = async (item) => {
               <div className="flex justify-end gap-3 pt-1">
                 <button
                   type="button"
-                  onClick={() => {
-                    setAssignReviewerOpen(false);
-                    setAssignTarget(null);
-                    setAssignReviewerEmail("");
-                  }}
+                  onClick={closeAssignModal}
                   className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-red-500 hover:text-white hover:border-red-500 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={assignLoading}
-                  className="flex items-center gap-2 px-5 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700 disabled:opacity-60 cursor-pointer transition-colors"
+                  disabled={assignLoading || !canSubmit}
+                  className="flex items-center gap-2 px-5 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer transition-colors"
                 >
                   {assignLoading ? (
                     <>
@@ -1488,11 +1411,7 @@ const handleDownload = async (item) => {
                     </>
                   ) : (
                     <>
-                      <FaUserTie />{" "}
-                      {assignTarget.assignedReviewer &&
-                      typeof assignTarget.assignedReviewer === "object"
-                        ? "Re-assign"
-                        : "Assign Reviewer"}
+                      <FaUserTie /> Assign {selectedCount} Reviewer{selectedCount !== 1 ? "s" : ""}
                     </>
                   )}
                 </button>
@@ -1500,14 +1419,250 @@ const handleDownload = async (item) => {
             </form>
           </div>
         </div>
+        );
+      })()}
+
+      {cscModalOpen && cscTarget && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-teal-600 px-6 py-4 flex items-center justify-between sticky top-0">
+              <div>
+                <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                  <FaStamp /> CSC Endorsement
+                </h3>
+                <p className="text-teal-100 text-xs truncate max-w-lg">{cscTarget.title}</p>
+              </div>
+              <button onClick={() => setCscModalOpen(false)} className="text-white/80 hover:text-white cursor-pointer">
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-gray-500">
+                Reviewer assignment is blocked until Centre Scientific Committee (CSC) endorsement
+                is recorded here, per SOP-1 to 10. A supporting evidence document (e.g. the signed
+                Secretary letter) and the attesting contact's details are required.
+              </p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">CSC Approval Date *</label>
+                  <input type="date" value={cscForm.cscApprovalDate}
+                    onChange={(e) => setCscForm((f) => ({ ...f, cscApprovalDate: e.target.value }))}
+                    className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">CSC Review Date</label>
+                  <input type="date" value={cscForm.cscReviewDate}
+                    onChange={(e) => setCscForm((f) => ({ ...f, cscReviewDate: e.target.value }))}
+                    className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">Attesting CSC Contact Name *</label>
+                  <input type="text" value={cscForm.cscContactName}
+                    onChange={(e) => setCscForm((f) => ({ ...f, cscContactName: e.target.value }))}
+                    placeholder="e.g. Dr. Jane Doe, CSC Secretary"
+                    className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">Attesting CSC Contact Email *</label>
+                  <input type="email" value={cscForm.cscContactEmail}
+                    onChange={(e) => setCscForm((f) => ({ ...f, cscContactEmail: e.target.value }))}
+                    placeholder="jane.doe@example.org"
+                    className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-gray-600">Comments</label>
+                <textarea rows={2} value={cscForm.cscComments}
+                  onChange={(e) => setCscForm((f) => ({ ...f, cscComments: e.target.value }))}
+                  className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none" />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-gray-600">
+                  Evidence Document (signed CSC letter) *
+                </label>
+                <input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                  onChange={(e) => setCscEvidenceFile(e.target.files[0] || null)}
+                  className="w-full mt-1 text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg
+                    file:border-0 file:bg-teal-50 file:text-teal-700 file:text-xs file:font-semibold" />
+                {cscEvidenceFile && <p className="text-xs text-emerald-600 mt-1">Selected: {cscEvidenceFile.name}</p>}
+                {!cscEvidenceFile && cscTarget.cscEvidenceFile && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Evidence already on file — select a new file only to replace it.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+              <button onClick={() => setCscModalOpen(false)}
+                className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer">
+                Cancel
+              </button>
+              <button onClick={submitCscEndorsement} disabled={cscSaving}
+                className="px-4 py-2 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-lg cursor-pointer disabled:opacity-50">
+                {cscSaving ? "Saving…" : "Record Endorsement"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
-      <style>{`
-        @keyframes modalPop {
-          from { opacity: 0; transform: scale(0.93) translateY(12px); }
-          to   { opacity: 1; transform: scale(1)    translateY(0);    }
-        }
-      `}</style>
+      {completenessModalOpen && completenessTarget && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-amber-500 px-6 py-4 flex items-center justify-between sticky top-0">
+              <div>
+                <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                  <FaRedo /> Administrative Completeness
+                </h3>
+                <p className="text-amber-100 text-xs truncate">{completenessTarget.title}</p>
+              </div>
+              <button onClick={() => setCompletenessModalOpen(false)} className="text-white/80 hover:text-white cursor-pointer">
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-gray-500">
+                List each missing or incorrect item. The proposal will be returned to the
+                researcher with these issues and cannot proceed to CSC endorsement or reviewer
+                assignment until resubmitted.
+              </p>
+
+              <div className="space-y-2">
+                {completenessIssues.map((issue, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={issue}
+                      onChange={(e) => {
+                        const next = [...completenessIssues];
+                        next[idx] = e.target.value;
+                        setCompletenessIssues(next);
+                      }}
+                      placeholder={`Issue ${idx + 1} (e.g. "Budget breakdown missing")`}
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    />
+                    {completenessIssues.length > 1 && (
+                      <button
+                        onClick={() => setCompletenessIssues(completenessIssues.filter((_, i) => i !== idx))}
+                        className="p-2 text-gray-400 hover:text-red-500 cursor-pointer"
+                      >
+                        <FaTrash className="text-xs" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  onClick={() => setCompletenessIssues([...completenessIssues, ""])}
+                  className="text-xs font-semibold text-amber-600 hover:underline cursor-pointer"
+                >
+                  Add another issue
+                </button>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+              <button onClick={() => setCompletenessModalOpen(false)}
+                className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer">
+                Cancel
+              </button>
+              <button onClick={submitReturnForCorrection} disabled={completenessSaving}
+                className="px-4 py-2 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 rounded-lg cursor-pointer disabled:opacity-50">
+                {completenessSaving ? "Saving…" : "Return for Correction"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deviationsModalOpen && deviationsTarget && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+            <div className="bg-rose-600 px-6 py-4 flex items-center justify-between sticky top-0">
+              <div>
+                <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                  <FaExclamationTriangle /> Protocol Deviations
+                </h3>
+                <p className="text-rose-100 text-xs truncate">{deviationsTarget.title}</p>
+              </div>
+              <button onClick={() => setDeviationsModalOpen(false)} className="text-white/80 hover:text-white cursor-pointer">
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {deviationsLoading ? (
+                <div className="flex justify-center py-10">
+                  <div className="w-6 h-6 border-2 border-rose-300 border-t-rose-600 rounded-full animate-spin" />
+                </div>
+              ) : deviationsList.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">No protocol deviations reported for this study.</p>
+              ) : (
+                <div className="space-y-3">
+                  {deviationsList.map((d) => {
+                    const sevStyle = d.severity === "critical" ? "bg-red-100 text-red-700"
+                      : d.severity === "major" ? "bg-amber-100 text-amber-700"
+                      : "bg-gray-100 text-gray-600";
+                    return (
+                      <div key={d.id} className="border border-gray-100 rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${sevStyle}`}>
+                              {d.severity?.toUpperCase()}
+                            </span>
+                            <span className="text-xs text-gray-400 capitalize">
+                              {d.deviationType?.replace(/_/g, " ")}
+                            </span>
+                            {d.isUrgentSafety && (
+                              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-red-600 text-white">
+                                URGENT SAFETY
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-gray-400">
+                            {d.dateOfDeviation ? new Date(d.dateOfDeviation).toLocaleDateString() : ""}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-700">{d.description}</p>
+                        {d.correctiveAction && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            <span className="font-semibold">Corrective action:</span> {d.correctiveAction}
+                          </p>
+                        )}
+                        {d.researcher?.name && (
+                          <p className="text-[11px] text-gray-400 mt-1">
+                            Reported by {d.researcher.name}
+                            {d.participantsAffected ? ` · ${d.participantsAffected} participant(s) affected` : ""}
+                          </p>
+                        )}
+                        {d.deadline && (
+                          <p className="text-[11px] text-gray-400 mt-1">
+                            Response due: {new Date(d.deadline).toLocaleDateString()}
+                          </p>
+                        )}
+                        {d.atRiskParticipantList && (
+                          <div className="mt-2 bg-red-50 border border-red-100 rounded-lg p-2">
+                            <p className="text-[11px] font-semibold text-red-600">At-risk participant details</p>
+                            <p className="text-xs text-red-700">{d.atRiskParticipantList}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
@@ -1543,7 +1698,7 @@ const ReviewersPanel = () => {
       const data = await research.listReviewers();
       setReviewers(data.reviewers ?? []);
     } catch {
-      toast.error("Failed to load reviewers");
+      notify.error("Failed to load reviewers");
     }
   };
 
@@ -1555,7 +1710,7 @@ const ReviewersPanel = () => {
       });
       setResearchers(data.researchers ?? []);
     } catch {
-      toast.error("Failed to load researchers");
+      notify.error("Failed to load researchers");
     }
   };
 
@@ -1564,7 +1719,7 @@ const ReviewersPanel = () => {
       const data = await research.listAllResearchers({ limit: 200 });
       setAllMembers(data.researchers ?? []);
     } catch {
-      toast.error("Failed to load all members");
+      notify.error("Failed to load all members");
     }
   };
 
@@ -1579,11 +1734,9 @@ const ReviewersPanel = () => {
   }, []);
 
   const committeeMembers = reviewers.filter(
-    (r) => r.role === "research_committee" || r.isCommittee === true,
+    (r) => r.role === "research_committee" || r.isCommittee === true
   );
-  const activeReviewers = reviewers.filter(
-    (r) => r.role === "reviewer" && !r.isCommittee,
-  );
+  const activeReviewers = reviewers.filter((r) => r.role === "reviewer" && !r.isCommittee);
 
   const SOURCE_MAP = {
     reviewers: activeReviewers,
@@ -1628,12 +1781,12 @@ const ReviewersPanel = () => {
     setInviteLoading(true);
     try {
       const result = await research.inviteReviewer(inviteForm);
-      toast.success(result.message);
+      notify.success(result.message);
       setInviteOpen(false);
       setInviteForm(EMPTY_INVITE);
       refreshAll();
     } catch (err) {
-      toast.error(err.message || "Failed to invite reviewer");
+      notify.error(err.message || "Failed to invite reviewer");
     } finally {
       setInviteLoading(false);
     }
@@ -1644,12 +1797,12 @@ const ReviewersPanel = () => {
     setCommitteeInviteLoading(true);
     try {
       const result = await research.inviteCommitteeMember(committeeInviteForm);
-      toast.success(result.message);
+      notify.success(result.message);
       setCommitteeInviteOpen(false);
       setCommitteeInviteForm(EMPTY_INVITE);
       refreshAll();
     } catch (err) {
-      toast.error(err.message || "Failed to invite committee member");
+      notify.error(err.message || "Failed to invite committee member");
     } finally {
       setCommitteeInviteLoading(false);
     }
@@ -1661,9 +1814,9 @@ const ReviewersPanel = () => {
     try {
       await api.post("/researchers/admin/create", researcherForm);
       setResearcherSubmitted(true);
-      toast.success("Researcher added! Login credentials sent via email.");
+      notify.success("Researcher added! Login credentials sent via email.");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to add researcher");
+      notify.error(err.response?.data?.message || "Failed to add researcher");
     } finally {
       setResearcherLoading(false);
     }
@@ -1672,44 +1825,43 @@ const ReviewersPanel = () => {
   const handleRevoke = async (member) => {
     if (!window.confirm(`Revoke reviewer access for ${member.name}?`)) return;
     try {
-      const result = await research.revokeReviewer(member._id);
-      toast.success(result.message);
-      if (drawer?._id === member._id) setDrawer(null);
+      const result = await research.revokeReviewer(member.id);
+      notify.success(result.message);
+      if (drawer?.id === member.id) setDrawer(null);
       refreshAll();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to revoke reviewer");
+      notify.error(err.response?.data?.message || "Failed to revoke reviewer");
     }
   };
 
   const handlePromote = async (member) => {
-    if (!window.confirm(`Promote ${member.name} to Research Committee?`))
-      return;
+    if (!window.confirm(`Promote ${member.name} to Research Committee?`)) return;
     try {
-      const result = await research.promoteToAdmin(member._id, member.email);
-      toast.success(result.message);
-      if (drawer?._id === member._id) setDrawer({ ...drawer });
+      const result = await research.promoteToAdmin(member.id, member.email);
+      notify.success(result.message);
+      if (drawer?.id === member.id) setDrawer({ ...drawer });
       refreshAll();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Promotion failed");
+      notify.error(err.response?.data?.message || "Promotion failed");
     }
   };
 
   const handleResend = async (member) => {
     try {
-      const result = await research.resendInvite(member._id);
-      toast.success(result.message);
+      const result = await research.resendInvite(member.id);
+      notify.success(result.message);
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to resend invite");
+      notify.error(err.response?.data?.message || "Failed to resend invite");
     }
   };
 
   const handleAssignAsReviewer = async (member) => {
     try {
       const result = await research.inviteReviewer({ email: member.email });
-      toast.success(result.message);
+      notify.success(result.message);
       refreshAll();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed");
+      notify.error(err.response?.data?.message || "Failed");
     }
   };
 
@@ -1748,16 +1900,11 @@ const ReviewersPanel = () => {
             icon: FaUser,
           },
         ].map(({ label, value, color, icon: Icon }) => (
-          <div
-            key={label}
-            className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm"
-          >
+          <div key={label} className="bg-white rounded-xl p-5 border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-500 mb-1">{label}</p>
-                <h3 className={`text-2xl font-bold text-${color}-600`}>
-                  {value}
-                </h3>
+                <h3 className={`text-2xl font-bold text-${color}-600`}>{value}</h3>
               </div>
               <div
                 className={`w-11 h-11 bg-${color}-50 rounded-lg flex items-center justify-center`}
@@ -1781,17 +1928,13 @@ const ReviewersPanel = () => {
               key={key}
               onClick={() => switchTab(key)}
               className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-                memberTab === key
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-500 hover:bg-gray-50"
+                memberTab === key ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-50"
               }`}
             >
               {label}
               <span
                 className={`ml-1.5 text-xs font-bold px-1.5 py-0.5 rounded-full ${
-                  memberTab === key
-                    ? "bg-white/20 text-white"
-                    : "bg-gray-100 text-gray-500"
+                  memberTab === key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
                 }`}
               >
                 {SOURCE_MAP[key]?.length ?? 0}
@@ -1803,17 +1946,14 @@ const ReviewersPanel = () => {
         <div className="relative">
           <button
             onClick={() => setActionMenuOpen((p) => !p)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 shadow-sm cursor-pointer transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 cursor-pointer transition-colors"
           >
             <FaPlus /> Add Member <FaChevronDown className="text-xs ml-1" />
           </button>
           {actionMenuOpen && (
             <>
-              <div
-                className="fixed inset-0 z-10"
-                onClick={() => setActionMenuOpen(false)}
-              />
-              <div className="absolute right-0 mt-2 w-52 bg-white border border-gray-100 rounded-xl shadow-lg z-20 overflow-hidden">
+              <div className="fixed inset-0 z-10" onClick={() => setActionMenuOpen(false)} />
+              <div className="absolute right-0 mt-2 w-52 bg-white border border-gray-100 rounded-xl z-20 overflow-hidden">
                 <button
                   onClick={() => {
                     setInviteOpen(true);
@@ -1854,7 +1994,7 @@ const ReviewersPanel = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm mb-4">
+      <div className="bg-white rounded-xl p-4 border border-gray-100 mb-4">
         <div className="flex flex-col md:flex-row gap-3">
           <div className="flex-1 relative">
             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
@@ -1905,10 +2045,7 @@ const ReviewersPanel = () => {
                   className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full border border-blue-100"
                 >
                   {chip.label}
-                  <button
-                    onClick={chip.clear}
-                    className="hover:text-red-500 cursor-pointer ml-0.5"
-                  >
+                  <button onClick={chip.clear} className="hover:text-red-500 cursor-pointer ml-0.5">
                     <FaTimes className="text-[9px]" />
                   </button>
                 </span>
@@ -1926,7 +2063,7 @@ const ReviewersPanel = () => {
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
         {loading ? (
           <div className="p-12 text-center">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto" />
@@ -1953,14 +2090,7 @@ const ReviewersPanel = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  {[
-                    "Member",
-                    "Institution",
-                    "Discipline",
-                    "Role",
-                    "Status",
-                    "",
-                  ].map((h) => (
+                  {["Member", "Institution", "Discipline", "Role", "Status", ""].map((h) => (
                     <th
                       key={h}
                       className={`px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider ${h ? "text-left" : "text-right"}`}
@@ -1972,36 +2102,22 @@ const ReviewersPanel = () => {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filtered.map((member) => (
-                  <tr
-                    key={member._id}
-                    className="hover:bg-gray-50 transition-colors"
-                  >
+                  <tr key={member.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
                           {member.name?.charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0">
-                          <p className="font-semibold text-gray-900 truncate">
-                            {member.name}
-                          </p>
-                          <p className="text-xs text-gray-400 truncate">
-                            {member.email}
-                          </p>
+                          <p className="font-semibold text-gray-900 truncate">{member.name}</p>
+                          <p className="text-xs text-gray-400 truncate">{member.email}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-4 text-gray-600 text-xs">
-                      {member.institution || "—"}
-                    </td>
-                    <td className="px-5 py-4 text-gray-600 text-xs">
-                      {member.discipline || "—"}
-                    </td>
+                    <td className="px-5 py-4 text-gray-600 text-xs">{member.institution || "—"}</td>
+                    <td className="px-5 py-4 text-gray-600 text-xs">{member.discipline || "—"}</td>
                     <td className="px-5 py-4">
-                      <RoleBadge
-                        role={member.role}
-                        isCommittee={member.isCommittee}
-                      />
+                      <RoleBadge role={member.role} isCommittee={member.isCommittee} />
                     </td>
                     <td className="px-5 py-4">
                       {member.emailVerified ? (
@@ -2074,15 +2190,13 @@ const ReviewersPanel = () => {
 
       {inviteOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl">
+          <div className="bg-white rounded-2xl w-full max-w-xl">
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">
-                  Invite Reviewer
-                </h3>
+                <h3 className="text-lg font-bold text-gray-900">Invite Reviewer</h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Enter an existing researcher's email to promote them, or fill
-                  all fields to create a new account.
+                  Enter an existing researcher's email to promote them, or fill all fields to create
+                  a new account.
                 </p>
               </div>
               <button
@@ -2106,16 +2220,13 @@ const ReviewersPanel = () => {
                     type="email"
                     required
                     value={inviteForm.email}
-                    onChange={(e) =>
-                      setInviteForm((p) => ({ ...p, email: e.target.value }))
-                    }
+                    onChange={(e) => setInviteForm((p) => ({ ...p, email: e.target.value }))}
                     placeholder="reviewer@institution.ac.ke"
                     className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
                 <p className="text-xs text-gray-400 mt-1">
-                  If this email belongs to an existing researcher they'll be
-                  promoted automatically.
+                  If this email belongs to an existing researcher they'll be promoted automatically.
                 </p>
               </div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider pt-1">
@@ -2133,9 +2244,7 @@ const ReviewersPanel = () => {
                     <input
                       type="text"
                       value={inviteForm[name]}
-                      onChange={(e) =>
-                        setInviteForm((p) => ({ ...p, [name]: e.target.value }))
-                      }
+                      onChange={(e) => setInviteForm((p) => ({ ...p, [name]: e.target.value }))}
                       placeholder={ph}
                       className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring focus:ring-blue-500 focus:border-transparent"
                     />
@@ -2172,9 +2281,7 @@ const ReviewersPanel = () => {
                     <input
                       type="text"
                       value={inviteForm[name]}
-                      onChange={(e) =>
-                        setInviteForm((p) => ({ ...p, [name]: e.target.value }))
-                      }
+                      onChange={(e) => setInviteForm((p) => ({ ...p, [name]: e.target.value }))}
                       placeholder={ph}
                       className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring focus:ring-blue-500 focus:border-transparent"
                     />
@@ -2216,15 +2323,13 @@ const ReviewersPanel = () => {
 
       {committeeInviteOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl">
+          <div className="bg-white rounded-2xl w-full max-w-xl">
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">
-                  Invite Committee Member
-                </h3>
+                <h3 className="text-lg font-bold text-gray-900">Invite Committee Member</h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Enter an existing member's email to grant committee access, or
-                  fill all fields to create a new account.
+                  Enter an existing member's email to grant committee access, or fill all fields to
+                  create a new account.
                 </p>
               </div>
               <button
@@ -2259,8 +2364,8 @@ const ReviewersPanel = () => {
                   />
                 </div>
                 <p className="text-xs text-gray-400 mt-1">
-                  Existing researchers or reviewers will be promoted to the
-                  Research Committee automatically.
+                  Existing researchers or reviewers will be promoted to the Research Committee
+                  automatically.
                 </p>
               </div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider pt-1">
@@ -2368,7 +2473,7 @@ const ReviewersPanel = () => {
       {addResearcherOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden"
+            className="bg-white rounded-2xl w-full max-w-xl overflow-hidden"
             style={{
               animation: "modalPop .25s cubic-bezier(.34,1.56,.64,1) both",
             }}
@@ -2389,12 +2494,8 @@ const ReviewersPanel = () => {
                   <FaUserPlus className="text-white text-base" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white leading-tight">
-                    Add Researcher
-                  </h3>
-                  <p className="text-blue-200 text-xs">
-                    Account created by admin
-                  </p>
+                  <h3 className="text-lg font-bold text-white leading-tight">Add Researcher</h3>
+                  <p className="text-blue-200 text-xs">Account created by admin</p>
                 </div>
               </div>
             </div>
@@ -2402,17 +2503,12 @@ const ReviewersPanel = () => {
               <div className="absolute inset-x-0 bottom-0 h-3 bg-white rounded-t-2xl" />
             </div>
             {!researcherSubmitted ? (
-              <form
-                onSubmit={handleAddResearcher}
-                className="px-6 pb-6 pt-2 space-y-4"
-              >
+              <form onSubmit={handleAddResearcher} className="px-6 pb-6 pt-2 space-y-4">
                 <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
                   <FaKey className="text-amber-500 text-sm mt-0.5 flex-shrink-0" />
                   <p className="text-xs text-amber-700 leading-relaxed">
-                    A secure password will be{" "}
-                    <span className="font-semibold">auto-generated</span> and
-                    sent to the researcher's email along with their login
-                    credentials.
+                    A secure password will be <span className="font-semibold">auto-generated</span>{" "}
+                    and sent to the researcher's email along with their login credentials.
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -2523,19 +2619,13 @@ const ReviewersPanel = () => {
                 <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-2">
                   <FaCheckCircle className="text-green-500 text-3xl" />
                 </div>
-                <h4 className="text-lg font-bold text-gray-900">
-                  Account Created!
-                </h4>
+                <h4 className="text-lg font-bold text-gray-900">Account Created!</h4>
                 <p className="text-sm text-gray-500 leading-relaxed max-w-xs">
                   <span className="font-semibold text-gray-700">
                     {researcherForm.firstName} {researcherForm.lastName}
                   </span>{" "}
-                  has been added as a researcher. Login instructions have been
-                  sent to{" "}
-                  <span className="font-semibold text-blue-600">
-                    {researcherForm.email}
-                  </span>
-                  .
+                  has been added as a researcher. Login instructions have been sent to{" "}
+                  <span className="font-semibold text-blue-600">{researcherForm.email}</span>.
                 </p>
                 <div className="flex gap-2 mt-3">
                   <button
@@ -2575,10 +2665,7 @@ const ReviewersPanel = () => {
           >
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
               <h3 className="font-bold text-gray-900">Member Details</h3>
-              <button
-                onClick={() => setDrawer(null)}
-                className="p-1.5 rounded-lg cursor-pointer"
-              >
+              <button onClick={() => setDrawer(null)} className="p-1.5 rounded-lg cursor-pointer">
                 <FaTimes className="text-gray-400 hover:text-red-500 text-xl" />
               </button>
             </div>
@@ -2589,10 +2676,7 @@ const ReviewersPanel = () => {
                 </div>
                 <p className="font-bold text-gray-900 text-lg">{drawer.name}</p>
                 <p className="text-sm text-gray-400">{drawer.email}</p>
-                <RoleBadge
-                  role={drawer.role}
-                  isCommittee={drawer.isCommittee}
-                />
+                <RoleBadge role={drawer.role} isCommittee={drawer.isCommittee} />
                 {drawer.emailVerified ? (
                   <span className="text-xs text-green-600 flex items-center gap-1">
                     <FaCheckCircle /> Account active
@@ -2669,13 +2753,6 @@ const ReviewersPanel = () => {
           </div>
         </div>
       )}
-
-      <style>{`
-        @keyframes modalPop {
-          from { opacity: 0; transform: scale(0.93) translateY(12px); }
-          to   { opacity: 1; transform: scale(1) translateY(0); }
-        }
-      `}</style>
     </>
   );
 };

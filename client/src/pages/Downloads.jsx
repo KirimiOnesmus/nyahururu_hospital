@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Header, Footer } from "../components/layouts";
+import { Header, Footer } from "../common/layouts";
 import api from "../api/axios";
 import {
   FaFileAlt,
@@ -15,7 +15,7 @@ import {
   FaSpinner,
   FaExclamationTriangle,
 } from "react-icons/fa";
-import { toast } from "react-toastify";
+import notify from "../common/utils/notify";
 
 const EXT_ICONS = {
   pdf: <FaFilePdf className="text-red-500 text-3xl" />,
@@ -92,8 +92,8 @@ const ReportCard = ({ report, onDownload, isDownloading }) => (
         </span>
       )}
       <Meta icon={FaCalendarAlt}>{formatDate(report.createdAt)}</Meta>
-      {report.createdBy?.name && (
-        <Meta icon={FaUser}>{report.createdBy.name}</Meta>
+      {(report.uploader?.name || report.createdBy?.name) && (
+        <Meta icon={FaUser}>{report.uploader?.name || report.createdBy?.name}</Meta>
       )}
       {formatSize(report.fileSize) && (
         <span className="text-xs text-slate-400">
@@ -199,10 +199,10 @@ const Downloads = () => {
   });
 
   const handleDownload = async (report) => {
-    setDownloading((prev) => ({ ...prev, [report._id]: true }));
+    setDownloading((prev) => ({ ...prev, [report.id]: true }));
 
     try {
-      const response = await api.get(`/reports/${report._id}/download`, {
+      const response = await api.get(`/reports/${report.id}/download`, {
         responseType: "blob",
       });
 
@@ -215,11 +215,11 @@ const Downloads = () => {
       link.remove();
       window.URL.revokeObjectURL(url);
 
-      toast.success(`"${report.title}" downloaded.`);
+      notify.success(`"${report.title}" downloaded.`);
     } catch {
-      toast.error("Download failed. Please try again.");
+      notify.error("Download failed. Please try again.");
     } finally {
-      setDownloading((prev) => ({ ...prev, [report._id]: false }));
+      setDownloading((prev) => ({ ...prev, [report.id]: false }));
     }
   };
 
@@ -276,10 +276,10 @@ const Downloads = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredReports.map((report) => (
               <ReportCard
-                key={report._id}
+                key={report.id}
                 report={report}
                 onDownload={handleDownload}
-                isDownloading={!!downloading[report._id]}
+                isDownloading={!!downloading[report.id]}
               />
             ))}
           </div>

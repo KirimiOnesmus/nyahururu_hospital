@@ -1,17 +1,20 @@
+import { disconnectSocket } from "./socket";
 import api from './axios';
 
 
 
 export const loginUser = async (email, password) => {
   try {
+
+    localStorage.removeItem('token');
+    localStorage.removeItem('researcher');
+
     const res = await api.post('/auth/login', { email, password });
-    // Backend wraps payloads as { success, message, data }, matching every
-    // other endpoint in this app (see registerResearcher, loginResearcher
-    // below) — this was the one spot still reading the un-wrapped shape,
-    // so the token never saved and the caller never saw `user`/`role`.
     const data = res.data?.data || res.data;
-    if (data.token) {
-      localStorage.setItem('token', data.token);
+
+    if (data.user?.role) {
+      localStorage.setItem('role', data.user.role);
+      localStorage.setItem('collection', 'users');
     }
     return data;
   } catch (error) {
@@ -109,7 +112,7 @@ export const getResearcherProfile = async () => {
 
 export const updateResearcherProfile = async (updates) => {
   try {
-    const response = await api.put('/researchers/profile', updates);
+    const response = await api.patch('/researchers/profile', updates);
    
         const data = response.data.data || response.data;
    
@@ -131,7 +134,7 @@ export const changeResearcherPassword = async (
   confirmPassword
 ) => {
   try {
-    const response = await api.post('/researchers/change-password', {
+    const response = await api.patch('/researchers/change-password', {
       currentPassword,
       newPassword,
       confirmPassword,
@@ -181,6 +184,7 @@ export const resetResearcherPassword = async (
 };
 
 export const logout = () => {
+  disconnectSocket();
   localStorage.removeItem('token');
   localStorage.removeItem('role');
   localStorage.removeItem('collection');
@@ -188,8 +192,9 @@ export const logout = () => {
 };
 
 
+
 export const isAuthenticated = () => {
-  return !!localStorage.getItem('token');
+  return !!localStorage.getItem('role');
 };
 
 export const getToken = () => {

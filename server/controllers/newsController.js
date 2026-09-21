@@ -1,35 +1,57 @@
-const News = require("../models/newsModel");
+const emitChange = require("../utils/emitChange");
+"use strict";
+
+const { News } = require("../sequelize/models");
+const logger = require("../utils/logger");
+const { getPagination, buildMeta } = require("../utils/pagination");
 
 exports.getAllNews = async (req, res) => {
   try {
-    const news = await News.find().sort({ createdAt: -1 });
-    res.json(news);
+    const { requestedPaging, page, limit, offset } = getPagination(req.query);
+    const { rows: news, count: total } = await News.findAndCountAll({
+      order: [["createdAt", "DESC"]],
+      limit,
+      offset,
+    });
+    if (!requestedPaging) return res.json(news);
+    return res.json({ data: news, meta: buildMeta(page, limit, total, news.length, offset) });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
 exports.getNewsById = async (req, res) => {
   try {
-    const item = await News.findById(req.params.id);
+    const item = await News.findByPk(req.params.id);
     if (!item) return res.status(404).json({ message: "News not found" });
     res.json(item);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
+
+
 exports.getActiveNews = async (req, res) => {
   try {
-    const news = await News.find().sort({ createdAt: -1 });
-    res.json(news);
+    const { requestedPaging, page, limit, offset } = getPagination(req.query);
+    const { rows: news, count: total } = await News.findAndCountAll({
+      order: [["createdAt", "DESC"]],
+      limit,
+      offset,
+    });
+    if (!requestedPaging) return res.json(news);
+    return res.json({ data: news, meta: buildMeta(page, limit, total, news.length, offset) });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
 exports.createNews = async (req, res) => {
   try {
-    const { title, content, author } = req.body; 
+    const { title, content, author } = req.body;
 
     if (!title || !content) {
       return res.status(400).json({ message: "Title and content are required" });
@@ -37,17 +59,13 @@ exports.createNews = async (req, res) => {
 
     const imageUrl = req.file ? `/uploads/news/${req.file.filename}` : null;
 
-    const newNews = await News.create({
-      title,
-      content,
-      author,
-      imageUrl,
-    });
+    const newNews = await News.create({ title, content, author, imageUrl });
 
     res.status(201).json({ message: "News created successfully", newNews });
+    emitChange("news", "created", { id: newNews.id });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
@@ -57,30 +75,32 @@ exports.updateNews = async (req, res) => {
     const imageUrl = req.file ? `/uploads/news/${req.file.filename}` : undefined;
 
     const updateData = { title, content, author };
-    if (imageUrl) updateData.imageUrl = imageUrl;
+    if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
 
-    const updatedNews = await News.findByIdAndUpdate(req.params.id, updateData, {
-      new: true,
-    });
+    const news = await News.findByPk(req.params.id);
+    if (!news) return res.status(404).json({ message: "News not found" });
 
-    if (!updatedNews) {
-      return res.status(404).json({ message: "News not found" });
-    }
+    news.set(updateData);
+    await news.save();
 
-    res.json({ message: "News updated successfully", updatedNews });
+    res.json({ message: "News updated successfully", updatedNews: news });
+    emitChange("news", "updated", { id: news.id });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
 exports.deleteNews = async (req, res) => {
   try {
-    const deletedNews = await News.findByIdAndDelete(req.params.id);
-    if (!deletedNews)
-      return res.status(404).json({ message: "News not found" });
+    const news = await News.findByPk(req.params.id);
+    if (!news) return res.status(404).json({ message: "News not found" });
+
+    await news.destroy();
     res.json({ message: "News deleted successfully" });
+    emitChange("news", "deleted", { id: req.params.id });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };

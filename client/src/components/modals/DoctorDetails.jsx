@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 import { ASSET_BASE_URL } from "../../config/env";
-import { Header, Footer } from "../../components/layouts";
+import { Header, Footer } from "../../common/layouts";
 import {
   FaUserMd,
   FaGraduationCap,
@@ -14,15 +14,12 @@ import {
 
 const BACKEND_URL = ASSET_BASE_URL;
 
-
 const Shell = ({ children }) => (
   <div className="min-h-screen flex flex-col bg-slate-100">
     <div className="sticky top-0 z-50 bg-white border-b border-slate-200">
       <Header />
     </div>
-    <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-10">
-      {children}
-    </main>
+    <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-10">{children}</main>
     <Footer />
   </div>
 );
@@ -49,7 +46,6 @@ const DoctorDetails = () => {
     fetchDoctor();
   }, [id]);
 
-
   if (loading) {
     return (
       <Shell>
@@ -60,7 +56,6 @@ const DoctorDetails = () => {
       </Shell>
     );
   }
-
 
   if (error || !doctor) {
     return (
@@ -82,22 +77,22 @@ const DoctorDetails = () => {
     );
   }
 
-
   const fullName =
-    doctor?.userId?.firstName && doctor?.userId?.lastName
-      ? `Dr. ${doctor.userId.firstName} ${doctor.userId.lastName}`
-      : doctor?.userId?.firstName
-      ? `Dr. ${doctor.userId.firstName}`
-      : "Doctor";
+    (doctor?.user?.firstName || doctor?.userId?.firstName) &&
+    (doctor?.user?.lastName || doctor?.userId?.lastName)
+      ? `Dr. ${doctor.user?.firstName || doctor.userId?.firstName} ${doctor.user?.lastName || doctor.userId?.lastName}`
+      : doctor?.user?.firstName || doctor?.userId?.firstName
+        ? `Dr. ${doctor.user?.firstName || doctor.userId?.firstName}`
+        : "Doctor";
 
   const education = doctor.education || doctor.profile?.educationalQualification;
-  const avatarSrc = doctor.profile?.imageUrl
-    ? `${BACKEND_URL}${doctor.profile.imageUrl}`
-    : null;
+  const avatarSrc =
+    doctor.user?.profile?.imageUrl || doctor.profile?.imageUrl
+      ? `${BACKEND_URL}${doctor.user?.profile?.imageUrl || doctor.profile?.imageUrl}`
+      : null;
 
   return (
     <Shell>
-      
       <button
         onClick={() => navigate("/doctors")}
         className="flex items-center gap-2 text-sm font-semibold text-slate-500
@@ -106,13 +101,8 @@ const DoctorDetails = () => {
         <FaArrowLeft className="text-xs" /> Back to Specialists
       </button>
 
-      
       <div className="bg-blue-50 border border-slate-200 rounded-2xl overflow-hidden mb-6">
-       
-     
-
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 p-8">
-     
           <div className="shrink-0">
             {avatarSrc ? (
               <img
@@ -127,19 +117,20 @@ const DoctorDetails = () => {
             )}
           </div>
 
-        
           <div className="text-center sm:text-left">
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-800 mb-1">
-              {fullName}
-            </h1>
-            <p className="flex items-center justify-center sm:justify-start gap-1.5
-                          text-blue-600 font-semibold text-sm mb-3">
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-800 mb-1">{fullName}</h1>
+            <p
+              className="flex items-center justify-center sm:justify-start gap-1.5
+                          text-blue-600 font-semibold text-sm mb-3"
+            >
               <FaStethoscope className="text-xs" />
               {doctor.speciality || "General Practitioner"}
             </p>
             {doctor.department && (
-              <span className="inline-block px-3 py-1 rounded-full bg-slate-100 border border-slate-200
-                               text-slate-600 text-xs font-semibold">
+              <span
+                className="inline-block px-3 py-1 rounded-full bg-slate-100 border border-slate-200
+                               text-slate-600 text-xs font-semibold"
+              >
                 {doctor.department}
               </span>
             )}
@@ -147,13 +138,8 @@ const DoctorDetails = () => {
         </div>
       </div>
 
-
       <div className="grid md:grid-cols-3 gap-6">
-
-     
         <div className="md:col-span-2 flex flex-col gap-6">
-
-       
           <div className="bg-white border border-slate-200 rounded-2xl p-6">
             <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-100">
               <FaUserMd className="text-blue-500 text-sm" />
@@ -163,12 +149,13 @@ const DoctorDetails = () => {
             </div>
             <p className="text-slate-700 text-[0.97rem] leading-relaxed">
               {doctor.bio || (
-                <span className="text-slate-400 italic">No professional bio available at this time.</span>
+                <span className="text-slate-400 italic">
+                  No professional bio available at this time.
+                </span>
               )}
             </p>
           </div>
 
-      
           <div className="bg-white border border-slate-200 rounded-2xl p-6">
             <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-100">
               <FaGraduationCap className="text-blue-500 text-sm" />
@@ -193,26 +180,32 @@ const DoctorDetails = () => {
               </h2>
             </div>
 
-            {doctor.availability?.length > 0 ? (
-              <div className="divide-y divide-slate-100">
-                {doctor.availability.map((slot, i) => (
-                  <div key={i} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
-                    <FaClock className="text-blue-400 text-xs mt-1 shrink-0" />
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">{slot.day}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {slot.startTime} – {slot.endTime}
-                      </p>
+            {(() => {
+              const avail =
+                typeof doctor.availability === "string"
+                  ? JSON.parse(doctor.availability)
+                  : doctor.availability || [];
+              return avail.length > 0 ? (
+                <div className="divide-y divide-slate-100">
+                  {avail.map((slot, i) => (
+                    <div key={i} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                      <FaClock className="text-blue-400 text-xs mt-1 shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">{slot.day}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {slot.startTime} – {slot.endTime}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center py-6 gap-2 text-center">
-                <FaClock className="text-3xl text-slate-300" />
-                <p className="text-slate-400 text-sm">Schedule not available.</p>
-              </div>
-            )}
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center py-6 gap-2 text-center">
+                  <FaClock className="text-3xl text-slate-300" />
+                  <p className="text-slate-400 text-sm">Schedule not available.</p>
+                </div>
+              );
+            })()}
 
             <button
               onClick={() => navigate("/appointment")}

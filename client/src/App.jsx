@@ -1,110 +1,113 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
-import ScrollBehaviour from "./components/layouts/scrollBehaviour";
-import {
-  Doctors,
-  Home,
-  Services,
-  About,
-  Feedback,
-  ReportFraud,
-  Appointment,
-  Career,
-  BloodDonation,
-  FinancialAid,
-  HMIS,
-  ApplyCareer,
-  AmbulanceServices,
-  BloodRegistration,
-  Downloads,
-  Tenders,
-  VerifyEmail,
-  ResearchDashboard,
-} from "./pages/index";
-import {
-  Dashboard,
-  AppointmentPage,
-  Events,
-  FeedbackPage,
-  Fraud,
-  News,
-  Research,
-  Sidebar,
-  Users,
-  Careers,
-  ServicesList,
-  Profile,
-  Hospital,
-  EditUserPage,
-  InventoryPage,
-  LogisticsPage,
-  GalleryPage,
-  NoticePage,
-  TenderPage,
-  ReportsPage,
-  Donations,
-} from "./components/Dashboard";
-import {
-  ServiceDetails,
-  DoctorDetails,
-  NewsDetails,
-} from "./components/modals";
-import {
-  ResearchPage,
-  PublicResearch,
-  ResearchRegister,
-  Myprofile,
-  DashboardIndex,
-} from "./pages/research";
-
-//  Research dashboard children
-
-import {
-  SubmitProposal,
-  ResearchProgress,
-  SubmitFinalPaper,
-  ReviewSubmission,
-  MySubmissions,
-  Payments,
-  Certificates,
-  ResearchDetails,
-  ReviewHistory,
-  ReviewQueue,
-  CommitteeDashboard,
-  ResearcherDashboard,
-  ReviewerDashboard,
-  AllResearch,
-  FinalApproval,
-  CommitteeResearchDetails,
-  CommitteeSignOff,
-} from "./components/research";
-
+import ScrollBehaviour from "./common/layouts/scrollBehaviour";
+import RequireRole from "./components/auth/RequireRole";
+import { getDashboardRoles } from "./config/dashboardRoles";
 import "./App.css";
 import { ToastContainer } from "react-toastify";
 
+
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="w-10 h-10 border-2 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
+  </div>
+);
+
+
+const Home = lazy(() => import("./pages/Home"));
+const About = lazy(() => import("./pages/About"));
+const Services = lazy(() => import("./pages/Services"));
+const Doctors = lazy(() => import("./pages/Doctors"));
+const Feedback = lazy(() => import("./pages/Feedback"));
+const ReportFraud = lazy(() => import("./pages/ReportFraud"));
+const Appointment = lazy(() => import("./pages/Appointment"));
+const Career = lazy(() => import("./pages/Careers"));
+const BloodDonation = lazy(() => import("./pages/BloodDonation"));
+const FinancialAid = lazy(() => import("./pages/FinancialAid"));
+const HMIS = lazy(() => import("./pages/Hmis"));
+const ApplyCareer = lazy(() => import("./pages/ApplyCareer"));
+const AmbulanceServices = lazy(() => import("./pages/AmbulanceServices"));
+const BloodRegistration = lazy(() => import("./pages/BloodRegistration"));
+const Downloads = lazy(() => import("./pages/Downloads"));
+const Gallery = lazy(() => import("./pages/Gallery"));
+const Tenders = lazy(() => import("./pages/TenderPage"));
+const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const ServiceTerms = lazy(() => import("./pages/ServiceTerms"));
+
+const ServiceDetails = lazy(() => import("./components/modals/ServiceDetails"));
+const DoctorDetails = lazy(() => import("./components/modals/DoctorDetails"));
+const NewsDetails = lazy(() => import("./components/modals/NewsDetails"));
+
+
+const ResearchPage = lazy(() => import("./pages/research/Research"));
+const ResearchRegister = lazy(() => import("./pages/research/Register"));
+const ResearchDashboard = lazy(() => import("./pages/ResearchDashboard"));
+const DashboardIndex = lazy(() => import("./pages/research/DashboardIndex"));
+const Myprofile = lazy(() => import("./pages/research/MyProfile"));
+
+
+const SubmitProposal = lazy(() => import("./components/research/researcher/SubmitProposal"));
+const SubmitAmendment = lazy(() => import("./components/research/researcher/SubmitAmendment"));
+const SubmitContinuingReview = lazy(() => import("./components/research/researcher/SubmitContinuingReview"));
+const SubmitStudyClosure = lazy(() => import("./components/research/researcher/SubmitStudyClosure"));
+
+
+const ReviewSubmission = lazy(() => import("./components/research/reviewer/Reviewsubmission"));
+const ReviewHistory = lazy(() => import("./components/research/reviewer/ReviewHistory"));
+const ReviewQueue = lazy(() => import("./components/research/reviewer/ReviewQueue"));
+
+const MySubmissions = lazy(() => import("./components/research/researcher/MySubmission"));
+const Payments = lazy(() => import("./components/research/researcher/Payments"));
+const Certificates = lazy(() => import("./components/research/researcher/Certificates"));
+const ResearchDetails = lazy(() => import("./components/research/researcher/ResearchDetails"));
+
+
+const CommitteeDashboard = lazy(() => import("./components/research/dashboard/CommitteeDashboard"));
+const ResearcherDashboard = lazy(() => import("./components/research/dashboard/ResearcherDashboard"));
+const ReviewerDashboard = lazy(() => import("./components/research/dashboard/ReviewerDashboard"));
+const AllResearch = lazy(() => import("./components/research/committee/AllResearch"));
+const FinalApproval = lazy(() => import("./components/research/committee/FinalApprovals"));
+const CommitteeResearchDetails = lazy(() => import("./components/research/committee/CommitteeResearchDetails"));
+const CommitteeSignOff = lazy(() => import("./components/research/committee/CommitteeSignOff"));
+
+
+const Sidebar = lazy(() => import("./components/Dashboard/Sidebar"));
+const Dashboard = lazy(() => import("./components/Dashboard/Dashboard"));
+const Users = lazy(() => import("./components/Dashboard/UsersPages"));
+const AppointmentPg = lazy(() => import("./components/Dashboard/AppointmentPage"));
+const News = lazy(() => import("./components/Dashboard/NewsPage"));
+const Events = lazy(() => import("./components/Dashboard/EventsPage"));
+const Research = lazy(() => import("./components/Dashboard/ResearchPage"));
+const AdminResearchDetail = lazy(() => import("./components/Dashboard/research/AdminResearchDetail"));
+const FeedbackPg = lazy(() => import("./components/Dashboard/FeedbackPage"));
+const Fraud = lazy(() => import("./components/Dashboard/FraudPage"));
+const Careers = lazy(() => import("./components/Dashboard/CareersPage"));
+const ServicesList = lazy(() => import("./components/Dashboard/Services"));
+const Profile = lazy(() => import("./components/Dashboard/ProfilePage"));
+const EditUserPage = lazy(() => import("./components/Dashboard/EditUserPage"));
+const InventoryPage = lazy(() => import("./components/Dashboard/InventoryPage"));
+const LogisticsPage = lazy(() => import("./components/Dashboard/LogisticsPage"));
+const GalleryPage = lazy(() => import("./components/Dashboard/GalleryPage"));
+const NoticePage = lazy(() => import("./components/Dashboard/NoticesManagement"));
+const TenderPage = lazy(() => import("./components/Dashboard/TenderPage"));
+const ReportsPage = lazy(() => import("./components/Dashboard/ReportsPage"));
+const Donations = lazy(() => import("./components/Dashboard/Donations"));
+const AuditLogPage = lazy(() => import("./components/Dashboard/AuditLog"));
+
+
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+
+const Guarded = ({ path, children }) => (
+  <RequireRole roles={getDashboardRoles(path)}>{children}</RequireRole>
+);
+
 function App() {
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-white z-50">
-        <div className="flex flex-col justify-center items-center gap-4">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600" />
-        </div>
-      </div>
-    );
-  }
   return (
-    <>
-      <BrowserRouter>
-        <ScrollBehaviour />
+    <BrowserRouter>
+      <ScrollBehaviour />
+      <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
@@ -117,89 +120,86 @@ function App() {
           <Route path="/blood-donation" element={<BloodDonation />} />
           <Route path="/financial-aid" element={<FinancialAid />} />
           <Route path="/hmis" element={<HMIS />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/ambulance-services" element={<AmbulanceServices />} />
           <Route path="/blood-registration" element={<BloodRegistration />} />
-          {/* <Route path="/events" element={<EventsPage/>}/> */}
           <Route path="/downloads" element={<Downloads />} />
+          <Route path="gallery" element={<Gallery />} />
           <Route path="/tenders" element={<Tenders />} />
-
-          <Route path="/research" element={<ResearchPage />} />
-          <Route path="/research/public" element={<PublicResearch />} />
-          <Route path="/research/register" element={<ResearchRegister />} />
-          {/* Research Dashboard */}
-          <Route path="/research/dashboard" element={<ResearchDashboard />}>
-            <Route index element={<DashboardIndex />} />
-
-            <Route path="researcher" element={<ResearcherDashboard />} />
-            <Route path="reviewer" element={<ReviewerDashboard />} />
-            <Route path="committee" element={<CommitteeDashboard />} />
-            <Route
-              path="committee-research-detail/:id"
-              element={<CommitteeResearchDetails />}
-            />
-            <Route
-              path="committee-sign-off/:id"
-              element={<CommitteeSignOff />}
-            />
-            <Route path="submit-proposal" element={<SubmitProposal />} />
-            <Route
-              path="research-progress/:id"
-              element={<ResearchProgress />}
-            />
-
-            <Route path="submit-final/:id" element={<SubmitFinalPaper />} />
-            <Route path="view/:id" element={<ResearchDetails />} />
-            <Route path="review/:id" element={<ReviewSubmission />} />
-            <Route path="profile" element={<Myprofile />} />
-            <Route path="submissions" element={<MySubmissions />} />
-            <Route path="payments" element={<Payments />} />
-            <Route path="certificates" element={<Certificates />} />
-            <Route path="review-queue" element={<ReviewQueue />} />
-            <Route path="review-history" element={<ReviewHistory />} />
-            <Route path="final-approvals" element={<FinalApproval />} />
-            <Route path="all-research" element={<AllResearch />} />
-          </Route>
-
-          <Route path="verify-email" element={<VerifyEmail />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/apply/:id" element={<ApplyCareer />} />
           <Route path="/services/:id" element={<ServiceDetails />} />
           <Route path="/doctors/:id" element={<DoctorDetails />} />
           <Route path="/news/:id" element={<NewsDetails />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms-of-service" element={<ServiceTerms />} />
 
-          {/* //Hospital Dashboard */}
+          {/* ── Research (SERU-aligned) ── */}
+          <Route path="/research" element={<ResearchPage />} />
+          <Route path="/research/register" element={<ResearchRegister />} />
+          <Route path="/research/reset-password" element={<ResetPassword />} />
+          <Route path="/research/dashboard" element={<ResearchDashboard />}>
+            <Route index element={<DashboardIndex />} />
+
+            {/* Role dashboards */}
+            <Route path="researcher" element={<ResearcherDashboard />} />
+            <Route path="reviewer" element={<ReviewerDashboard />} />
+            <Route path="committee" element={<CommitteeDashboard />} />
+
+            {/* Researcher — submission forms */}
+            <Route path="submit-proposal" element={<SubmitProposal />} />
+            <Route path="submit-amendment" element={<SubmitAmendment />} />
+            <Route path="submit-continuing-review" element={<SubmitContinuingReview />} />
+            <Route path="submit-closure" element={<SubmitStudyClosure />} />
+
+            {/* Researcher — views */}
+            <Route path="view/:id" element={<ResearchDetails />} />
+            <Route path="submissions" element={<MySubmissions />} />
+            <Route path="payments" element={<Payments />} />
+            <Route path="certificates" element={<Certificates />} />
+            <Route path="profile" element={<Myprofile />} />
+
+            {/* Reviewer */}
+            <Route path="review/:id" element={<ReviewSubmission />} />
+            <Route path="review-queue" element={<ReviewQueue />} />
+            <Route path="review-history" element={<ReviewHistory />} />
+
+            {/* Committee */}
+            <Route path="committee-research-detail/:id" element={<CommitteeResearchDetails />} />
+            <Route path="committee-sign-off/:id" element={<CommitteeSignOff />} />
+            <Route path="final-approvals" element={<FinalApproval />} />
+            <Route path="all-research" element={<AllResearch />} />
+          </Route>
+
+    
           <Route path="/dashboard" element={<Sidebar />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/dashboard/users" element={<Users />} />
-
-            <Route
-              path="/dashboard/appointments"
-              element={<AppointmentPage />}
-            />
-            <Route path="/dashboard/news" element={<News />} />
-            <Route path="/dashboard/events" element={<Events />} />
-            <Route path="/dashboard/research" element={<Research />} />
-            <Route path="/dashboard/feedback" element={<FeedbackPage />} />
-            <Route path="/dashboard/fraud" element={<Fraud />} />
-            <Route path="/dashboard/careers" element={<Careers />} />
-            <Route path="/dashboard/services" element={<ServicesList />} />
-            <Route path="/dashboard/profile" element={<Profile />} />
-            <Route path="/dashboard/hospitals" element={<Hospital />} />
-            <Route
-              path="/dashboard/users/edit/:id"
-              element={<EditUserPage />}
-            />
-            <Route path="/dashboard/inventory" element={<InventoryPage />} />
-            <Route path="/dashboard/logistics" element={<LogisticsPage />} />
-            <Route path="/dashboard/gallery" element={<GalleryPage />} />
-            <Route path="/dashboard/notices" element={<NoticePage />} />
-            <Route path="/dashboard/tenders" element={<TenderPage />} />
-            <Route path="/dashboard/reports" element={<ReportsPage />} />
-            <Route path="/dashboard/donations" element={<Donations />} />
+            <Route path="/dashboard" element={<Guarded path="/dashboard"><Dashboard /></Guarded>} />
+            <Route path="/dashboard/users" element={<Guarded path="/dashboard/users"><Users /></Guarded>} />
+            <Route path="/dashboard/appointments" element={<Guarded path="/dashboard/appointments"><AppointmentPg /></Guarded>} />
+            <Route path="/dashboard/news" element={<Guarded path="/dashboard/news"><News /></Guarded>} />
+            <Route path="/dashboard/events" element={<Guarded path="/dashboard/events"><Events /></Guarded>} />
+            <Route path="/dashboard/research" element={<Guarded path="/dashboard/research"><Research /></Guarded>} />
+            <Route path="/dashboard/research/:id" element={<Guarded path="/dashboard/research"><AdminResearchDetail /></Guarded>} />
+            <Route path="/dashboard/feedback" element={<Guarded path="/dashboard/feedback"><FeedbackPg /></Guarded>} />
+            <Route path="/dashboard/fraud" element={<Guarded path="/dashboard/fraud"><Fraud /></Guarded>} />
+            <Route path="/dashboard/careers" element={<Guarded path="/dashboard/careers"><Careers /></Guarded>} />
+            <Route path="/dashboard/services" element={<Guarded path="/dashboard/services"><ServicesList /></Guarded>} />
+            <Route path="/dashboard/profile" element={<Guarded path="/dashboard/profile"><Profile /></Guarded>} />
+            <Route path="/dashboard/users/edit/:id" element={<Guarded path="/dashboard/users/edit/:id"><EditUserPage /></Guarded>} />
+            <Route path="/dashboard/inventory" element={<Guarded path="/dashboard/inventory"><InventoryPage /></Guarded>} />
+            <Route path="/dashboard/logistics" element={<Guarded path="/dashboard/logistics"><LogisticsPage /></Guarded>} />
+            <Route path="/dashboard/gallery" element={<Guarded path="/dashboard/gallery"><GalleryPage /></Guarded>} />
+            <Route path="/dashboard/notices" element={<Guarded path="/dashboard/notices"><NoticePage /></Guarded>} />
+            <Route path="/dashboard/tenders" element={<Guarded path="/dashboard/tenders"><TenderPage /></Guarded>} />
+            <Route path="/dashboard/reports" element={<Guarded path="/dashboard/reports"><ReportsPage /></Guarded>} />
+            <Route path="/dashboard/donations" element={<Guarded path="/dashboard/donations"><Donations /></Guarded>} />
+            <Route path="/dashboard/audit-logs" element={<Guarded path="/dashboard/audit-logs"><AuditLogPage /></Guarded>} />
           </Route>
         </Routes>
-        <ToastContainer />
-      </BrowserRouter>
-    </>
+      </Suspense>
+      <ToastContainer />
+    </BrowserRouter>
   );
 }
 

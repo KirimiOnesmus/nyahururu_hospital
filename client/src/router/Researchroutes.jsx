@@ -1,10 +1,10 @@
-import { createBrowserRouter } from "react-router-dom";
-
 import ResearchDashboard from "../pages/ResearchDashboard";
 import DashboardIndex from "../pages/research/DashboardIndex";
 
-import SubmitProposal from "../components/research/SubmitProposal";
-import SubmitFinalPaper from "../components/research/SubmitFullPaper";
+import SubmitProposal from "../components/research/researcher/SubmitProposal";
+import SubmitAmendment from "../components/research/researcher/SubmitAmendment";
+import SubmitContinuingReview from "../components/research/SubmitContinuingReview";
+import SubmitStudyClosure from "../components/research/SubmitStudyClosure";
 import ViewProposalDetails from "../components/research/Viewproposaldetails";
 import ReviewSubmission from "../components/research/ReviewSubmission";
 import MyProfile from "../pages/research/MyProfile";
@@ -18,21 +18,31 @@ export const researchRoutes = {
     { path: "dashboard", element: <DashboardIndex /> },
 
     { path: "submit-proposal", element: <SubmitProposal /> },
-    { path: "submit-final/:id", element: <SubmitFinalPaper /> },
-    { path: "view/:id", element: <ViewProposalDetails /> },
+    { path: "submit-amendment", element: <SubmitAmendment /> },
+    { path: "submit-continuing-review", element: <SubmitContinuingReview /> },
+    { path: "submit-closure", element: <SubmitStudyClosure /> },
 
+   
+    { path: "view/:id", element: <ViewProposalDetails /> },
     { path: "review/:id", element: <ReviewSubmission /> },
 
-
+   
     { path: "profile", element: <MyProfile /> },
 
-    { path: "submissions", element: <DashboardIndex /> },
-    { path: "payments", element: <DashboardIndex /> },
-    { path: "certificates", element: <DashboardIndex /> },
-    { path: "review-queue", element: <DashboardIndex /> },
-    { path: "review-history", element: <DashboardIndex /> },
-    { path: "final-approvals", element: <DashboardIndex /> },
-    { path: "all-research", element: <DashboardIndex /> },
+  
+    { path: "dashboard/researcher", element: <DashboardIndex /> },
+    { path: "dashboard/reviewer", element: <DashboardIndex /> },
+    { path: "dashboard/committee", element: <DashboardIndex /> },
+    { path: "dashboard/submissions", element: <DashboardIndex /> },
+    { path: "dashboard/submit-amendment", element: <SubmitAmendment /> },
+    { path: "dashboard/submit-continuing-review", element: <SubmitContinuingReview /> },
+    { path: "dashboard/submit-closure", element: <SubmitStudyClosure /> },
+    { path: "dashboard/payments", element: <DashboardIndex /> },
+    { path: "dashboard/certificates", element: <DashboardIndex /> },
+    { path: "dashboard/review-queue", element: <DashboardIndex /> },
+    { path: "dashboard/review-history", element: <DashboardIndex /> },
+    { path: "dashboard/final-approvals", element: <DashboardIndex /> },
+    { path: "dashboard/all-research", element: <DashboardIndex /> },
+    { path: "dashboard/profile", element: <MyProfile /> },
   ],
 };
-

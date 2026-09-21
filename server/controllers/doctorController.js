@@ -1,36 +1,61 @@
-const Doctor = require("../models/doctorModel");
-const UserData = require("../models/userModel");
-const Profile = require("../models/ProfileModel");
+"use strict";
+
+const { Op } = require("sequelize");
+const logger = require("../utils/logger");
+const { Doctor, User, Profile } = require("../sequelize/models");
+const { getPagination, buildMeta } = require("../utils/pagination");
+
+
+const USER_INCLUDE = {
+  model: User,
+  as: "user",
+  attributes: ["id", "firstName", "lastName", "email", "role", "createdAt", "photo"],
+  include: [{ model: Profile, as: "profile" }],
+};
+
+const iLike = (raw) => {
+  const escaped = String(raw).replace(/[\\%_]/g, (m) => `\\${m}`);
+  return { [Op.like]: `%${escaped}%` };
+};
+
+
+const requireDoctorForUser = async (userId) => {
+  const user = await User.findByPk(userId);
+  if (!user) return { error: { status: 404, message: "User not found" } };
+  if (user.role !== "doctor") {
+    return { error: { status: 403, message: "Only doctors can perform this action" } };
+  }
+  return { user };
+};
+
+
 
 exports.updateDoctorProfile = async (req, res) => {
   try {
     const userId = req.user.id;
     const { speciality, education, bio, department } = req.body;
 
-    let user = await UserData.findOne({ userId });
+    const { user, error } = await requireDoctorForUser(userId);
+    if (error) return res.status(error.status).json({ message: error.message });
 
-    if (user.role !== "doctor") {
-      return res.status(403).json({
-        message: "Only doctors can update their profile !",
-      });
+    const [doctor, created] = await Doctor.findOrCreate({
+      where: { userId },
+      defaults: { userId, speciality, education, bio, department, availability: [] },
+    });
+
+    if (!created) {
+      if (speciality !== undefined) doctor.speciality = speciality;
+      if (education !== undefined) doctor.education = education;
+      if (bio !== undefined) doctor.bio = bio;
+      if (department !== undefined) doctor.department = department;
+      await doctor.save();
     }
-    let doctor = await Doctor.findOne({ userId });
-    if (!doctor) {
-      doctor = new Doctor({
-        userId,
-        speciality,
-        education,
-        bio,
-        department,
-      });
-    } else {
-      if (speciality) doctor.speciality = speciality;
-      if (education) doctor.education = education;
-      if (bio) doctor.bio = bio;
-      if (department) doctor.department = department;
-      doctor.updatedAt = Date.now();
+
+    if (department !== undefined && user.department !== department) {
+      user.department = department;
+      await user.save();
     }
-    await doctor.save();
+
     res.status(200).json({
       success: true,
       message: "Doctor profile updated successfully",
@@ -41,7 +66,6 @@ exports.updateDoctorProfile = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error updating doctor profile",
-      error: error.message,
     });
   }
 };
@@ -50,28 +74,25 @@ exports.updateAvailability = async (req, res) => {
   try {
     const userId = req.user.id;
     const { availability } = req.body;
+
     if (!availability || !Array.isArray(availability)) {
       return res.status(400).json({
         message: "Please provide valid availability data",
       });
     }
-    const user = await UserData.findById(userId);
-    if (user.role !== "doctor") {
-      return res.status(403).json({
-        message: "Only doctors can update availability",
-      });
-    }
-    let doctor = await Doctor.findOne({ userId });
 
+    const { error } = await requireDoctorForUser(userId);
+    if (error) return res.status(error.status).json({ message: error.message });
+
+    const doctor = await Doctor.findOne({ where: { userId } });
     if (!doctor) {
       return res.status(404).json({
-        message:
-          "Doctor profile not found. Please create doctor profile first.",
+        message: "Doctor profile not found. Please create doctor profile first.",
       });
     }
 
+ 
     doctor.availability = availability;
-    doctor.updatedAt = Date.now();
     await doctor.save();
 
     res.status(200).json({
@@ -84,7 +105,6 @@ exports.updateAvailability = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error updating availability",
-      error: error.message,
     });
   }
 };
@@ -93,30 +113,20 @@ exports.toggleAvailability = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const user = await UserData.findById(userId);
-    if (user.role !== "doctor") {
-      return res.status(403).json({
-        message: "Only doctors can toggle availability",
-      });
-    }
+    const { error } = await requireDoctorForUser(userId);
+    if (error) return res.status(error.status).json({ message: error.message });
 
-    const doctor = await Doctor.findOne({ userId });
-
+    const doctor = await Doctor.findOne({ where: { userId } });
     if (!doctor) {
-      return res.status(404).json({
-        message: "Doctor profile not found",
-      });
+      return res.status(404).json({ message: "Doctor profile not found" });
     }
 
     doctor.isAvailableNow = !doctor.isAvailableNow;
-    doctor.updatedAt = Date.now();
     await doctor.save();
 
     res.status(200).json({
       success: true,
-      message: `Availability set to ${
-        doctor.isAvailableNow ? "available" : "unavailable"
-      }`,
+      message: `Availability set to ${doctor.isAvailableNow ? "available" : "unavailable"}`,
       data: { isAvailableNow: doctor.isAvailableNow },
     });
   } catch (error) {
@@ -124,93 +134,61 @@ exports.toggleAvailability = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error toggling availability",
-      error: error.message,
     });
   }
 };
+
+
 
 exports.getAllDoctors = async (req, res) => {
   try {
     const { speciality, department, available } = req.query;
 
-    let query = {};
-    if (speciality) {
-      query.speciality = { $regex: speciality, $options: "i" };
-    }
-    if (department) {
-      query.department = { $regex: department, $options: "i" };
-    }
-    if (available === "true") {
-      query.isAvailableNow = true;
-    }
+    const where = {};
+    if (speciality) where.speciality = iLike(speciality);
+    if (department) where.department = iLike(department);
+    if (available === "true") where.isAvailableNow = true;
 
-    const doctors = await Doctor.find(query)
-      .populate("userId", "firstName lastName email role createdAt photo")
-      .sort({ rating: -1 });
-
-    // Also get profile info for each doctor
-    const doctorsWithProfiles = await Promise.all(
-      doctors.map(async (doctor) => {
-        if (!doctor.userId) {
-          return {
-            ...doctor.toObject(),
-            profile: null,
-          };
-        }
-        const profile = await Profile.findOne({ userId: doctor.userId._id });
-        return {
-          ...doctor.toObject(),
-          profile,
-        };
-      })
-    );
+    const { page, limit, offset } = getPagination(req.query);
+    const { rows: doctors, count: total } = await Doctor.findAndCountAll({
+      where,
+      include: [USER_INCLUDE],
+      order: [["rating", "DESC"]],
+      limit,
+      offset,
+    });
 
     res.status(200).json({
       success: true,
-      count: doctorsWithProfiles.length,
-      data: doctorsWithProfiles,
+      count: doctors.length,
+      data: doctors,
+      meta: buildMeta(page, limit, total, doctors.length, offset),
     });
   } catch (error) {
     console.error("Error fetching doctors:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching doctors",
-      error: error.message,
     });
   }
 };
 
 exports.getDoctorById = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    const doctor = await Doctor.findById(id).populate(
-      "userId",
-      "firstName lastName email role createdAt photo"
-    );
+    const doctor = await Doctor.findByPk(req.params.id, {
+      include: [USER_INCLUDE],
+    });
 
     if (!doctor) {
-      return res.status(404).json({
-        message: "Doctor not found",
-      });
+      return res.status(404).json({ message: "Doctor not found" });
     }
 
-    // Get profile info  
-    const profile = await Profile.findOne({ userId: doctor.userId._id });
-
-    res.status(200).json({
-      success: true,
-      data: {
-        ...doctor.toObject(),
-        profile,
-      },
-    });
+    res.status(200).json({ success: true, data: doctor });
   } catch (error) {
     console.error("Error fetching doctor:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching doctor",
-      error: error.message,
     });
   }
 };
@@ -219,11 +197,11 @@ exports.getDoctorsByDepartment = async (req, res) => {
   try {
     const { department } = req.params;
 
-    const doctors = await Doctor.find({
-      department: { $regex: department, $options: "i" },
-    })
-      .populate("userId", "firstName lastName email role photo")
-      .sort({ rating: -1 });
+    const doctors = await Doctor.findAll({
+      where: { department: iLike(department) },
+      include: [USER_INCLUDE],
+      order: [["rating", "DESC"]],
+    });
 
     res.status(200).json({
       success: true,
@@ -235,7 +213,6 @@ exports.getDoctorsByDepartment = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error fetching doctors by department",
-      error: error.message,
     });
   }
 };

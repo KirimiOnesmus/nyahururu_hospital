@@ -18,9 +18,7 @@ const requireAdmin = [
 
 
 
-//  PUBLIC
 
-// Public — no auth required, since anonymous purchases are the primary use case
 router.post(
   "/initiate",
   rateLimit({ windowMs: 15 * 60 * 1000, max: 20 }),
@@ -31,27 +29,18 @@ router.post(
 
 //  DARAJA WEBHOOK 
 
-// C4: the callback URL now includes a random, unguessable path segment
-// (set MPESA_CALLBACK_TOKEN and register
-// https://yourdomain.com/api/payments/callback/<token> with Daraja instead
-// of the bare /callback path). Combined with the server-to-server status
-// re-verification in paymentService.processCallback, a request that
-// doesn't know the token — or one that does but claims a status Safaricom
-// itself won't confirm — can no longer forge a completed payment.
-// Also rate-limited (M3): legitimate Daraja traffic for one checkout is a
-// handful of requests; anything hammering this path is either a
-// misconfigured retry storm or an attacker guessing the token.
 router.post(
   "/callback/:webhookToken",
   rateLimit({ windowMs: 5 * 60 * 1000, max: 30 }),
   (req, res, next) => {
+    console.log("[Callback] Incoming request on /callback/:webhookToken");
     const expected = process.env.MPESA_CALLBACK_TOKEN;
     if (!expected) {
-      // Not configured — fail closed rather than silently accepting
-      // unauthenticated callbacks in an environment that forgot to set it.
+      console.error("[Callback] MPESA_CALLBACK_TOKEN not set — rejecting");
       return res.status(503).json({ ResultCode: 1, ResultDesc: "Callback not configured" });
     }
     if (req.params.webhookToken !== expected) {
+      console.warn("[Callback] Token mismatch — got:", req.params.webhookToken);
       return res.status(404).json({ ResultCode: 1, ResultDesc: "Not found" });
     }
     next();
@@ -61,9 +50,9 @@ router.post(
 
 
 router.get("/verify/:checkoutRequestId", ctrl.verifyPayment);
+router.get("/status/:checkoutRequestId", ctrl.verifyPayment);
 
 
-// Download token
 router.get(
   "/download-token/:paymentId/research/:researchId",
    optionalResearcher,
@@ -73,7 +62,7 @@ router.get(
  
 router.get(
   "/research/:researchId/download",
-  rateLimit({ windowMs: 15 * 60 * 1000, max: 10 }), // token-guessing throttle, defense in depth alongside the token itself
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 10 }), 
   ctrl.downloadResearchPaper
 );
 

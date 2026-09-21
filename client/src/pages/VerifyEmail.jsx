@@ -21,7 +21,7 @@ const VerifyEmail = () => {
           return;
         }
 
-        // Call backend verification endpoint
+
         const response = await api.post('/users/verify-email', {
           token,
           userId,
@@ -43,11 +43,11 @@ const VerifyEmail = () => {
     verifyEmail();
   }, [searchParams]);
 
-  // Loading State
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-100 px-4">
-        <div className="bg-white rounded-lg p-10 max-w-md w-full shadow-lg text-center">
+        <div className="bg-white rounded-lg p-10 max-w-md w-full text-center">
           <div className="flex justify-center mb-6">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-blue-500"></div>
           </div>
@@ -58,12 +58,12 @@ const VerifyEmail = () => {
     );
   }
 
-  // Error State
+
   if (error) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-100 px-4">
-        <div className="bg-white rounded-lg p-10 max-w-md w-full shadow-lg text-center">
-          <div className="text-5xl mb-6">❌</div>
+        <div className="bg-white rounded-lg p-10 max-w-md w-full text-center">
+          <div className="text-5xl mb-6">X</div>
           <h2 className="text-2xl font-bold text-gray-800 mb-4">Verification Failed</h2>
           <p className="text-red-600 bg-red-50 p-4 rounded mb-8 text-sm">
             {error}
@@ -82,14 +82,14 @@ const VerifyEmail = () => {
     );
   }
 
-  // Success State
+
   if (success) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-100 px-4">
-        <div className="bg-white rounded-lg p-10 max-w-md w-full shadow-lg text-center">
+        <div className="bg-white rounded-lg p-10 max-w-md w-full text-center">
    
           
-          {/* Heading */}
+    
           <h2 className="text-2xl font-bold text-gray-800 mb-3">
             Email Verified Successfully!
           </h2>
@@ -102,14 +102,14 @@ const VerifyEmail = () => {
   
           <div className="bg-blue-50 border-l-4 border-blue-500 p-5 mb-8 text-left rounded">
             <p className="text-gray-800 font-semibold mb-3 flex items-center">
-              <span className="mr-2">📧</span> Check Your Email
+           Check Your Email
             </p>
             <p className="text-gray-700 text-sm mb-4">
               A temporary password has been sent to your registered email address.
             </p>
             
             <p className="text-gray-800 font-semibold mb-2 flex items-center">
-              <span className="mr-2">🔐</span> Next Steps
+        
             </p>
             <ol className="text-gray-700 text-sm space-y-1 ml-6 list-decimal">
               <li>Check your email for the password</li>

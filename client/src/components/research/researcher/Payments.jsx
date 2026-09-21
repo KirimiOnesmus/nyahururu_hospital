@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { toast } from "react-toastify";
+import notify from "../../../common/utils/notify";
 import {
   FaFileInvoiceDollar,
   FaReceipt,
@@ -14,8 +14,7 @@ import {
 } from "react-icons/fa";
 import * as research from "../../../api/research";
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-// Payment status is read straight off each research item's payment fields
+
 
 const PAY_STATUS_CONFIG = {
   completed: {
@@ -50,7 +49,7 @@ const STATUS_FILTERS = [
   { id: "failed", label: "Failed" },
 ];
 
-// ─── Local building blocks ───────────────────────────────────────────────────
+
 const PageSpinner = ({ label = "Loading…" }) => (
   <div className="flex flex-col items-center justify-center py-16 gap-3">
     <div className="w-10 h-10 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
@@ -83,26 +82,26 @@ const StatCard = ({
   <div className="bg-white rounded-2xl border border-slate-200 p-5">
     <div className="flex items-start justify-between mb-3">
       <div
-        className={`w-11 h-11 rounded-xl flex items-center justify-center ${iconBg}`}
+        className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconBg}`}
       >
-        <Icon className={`text-lg ${iconColor}`} />
+        <Icon className={`text-base ${iconColor}`} />
       </div>
       {badge && (
         <span
-          className={`text-[11px] font-bold px-2 py-1 rounded-full ${badgeCls}`}
+          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeCls}`}
         >
           {badge}
         </span>
       )}
     </div>
-    <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-1">
+    <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-1">
       {label}
     </p>
     <p className="text-2xl font-bold text-slate-900">{value}</p>
   </div>
 );
 
-// ─── Payments & Financials page ──────────────────────────────────────────────
+
 const Payments = () => {
   const [papers, setPapers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -115,7 +114,7 @@ const Payments = () => {
       const res = await research.getMyResearch();
       setPapers(Array.isArray(res.papers) ? res.papers : []);
     } catch {
-      toast.error("Failed to load your payment records");
+      notify.error("Failed to load your payment records");
     } finally {
       setLoading(false);
     }
@@ -125,7 +124,6 @@ const Payments = () => {
     load();
   }, [load]);
 
-  // Each paper carries its own one-time payment (per the spec doc, fee is
 
   const transactions = useMemo(
     () =>
@@ -135,7 +133,7 @@ const Payments = () => {
           id:
             p.submissionPayment?.mpesaReceiptNumber ||
             p.submissionPayment?.checkoutRequestId ||
-            p._id,
+            p.id,
           receiptNumber: p.submissionPayment?.mpesaReceiptNumber,
           title: p.title,
           researchId: p.researchId,
@@ -145,7 +143,7 @@ const Payments = () => {
             p.createdAt,
           amount: p.submissionPayment?.amount,
           status: p.submissionPayment?.status || "pending",
-          researchItemId: p._id,
+          researchItemId: p.id,
         })),
     [papers],
   );
@@ -177,17 +175,17 @@ const Payments = () => {
 
   const handleDownloadReceipt = (txn) => {
     if (!txn.receiptNumber) {
-      toast.error("No receipt available for this transaction yet");
+      notify.error("No receipt available for this transaction yet");
       return;
     }
-    toast.success(
+    notify.success(
       `Receipt ${txn.receiptNumber} — check your email for the official PDF`,
     );
   };
 
   const handleDownloadStatement = () => {
     if (transactions.length === 0) {
-      toast.error("No transactions to export yet");
+      notify.error("No transactions to export yet");
       return;
     }
     const rows = transactions.map((t) => ({
@@ -214,13 +212,13 @@ const Payments = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">
             Payments & Financials
           </h1>
-          <p className="text-slate-500 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Your one-time M-Pesa submission fees and receipts, per the research
             portal's single-payment policy.
           </p>
@@ -228,15 +226,15 @@ const Payments = () => {
         <button
           type="button"
           onClick={handleDownloadStatement}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200
-            text-slate-600 text-sm font-semibold hover:border-slate-300 transition-colors
+          className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200
+            text-slate-600 text-xs font-semibold hover:border-slate-300 transition-colors
             cursor-pointer whitespace-nowrap"
         >
-          <FaDownload className="text-xs" /> Download Statement
+          <FaDownload className="text-[10px]" /> Download Statement
         </button>
       </div>
 
-      {/* Stat cards */}
+
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard
           icon={FaFileInvoiceDollar}
@@ -264,16 +262,16 @@ const Payments = () => {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Transaction history */}
+
         <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
-            <h3 className="font-bold text-slate-900 text-base">
+          <div className="px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+            <h3 className="font-bold text-slate-900 text-sm">
               Transaction History
             </h3>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="px-3.5 py-2 rounded-xl border border-slate-200 text-sm text-slate-700
+              className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs text-slate-700
                 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10
                 transition-all bg-white"
             >
@@ -309,7 +307,7 @@ const Payments = () => {
                       ].map((h, i) => (
                         <th
                           key={h || i}
-                          className={`px-6 py-3 text-xs font-bold uppercase
+                          className={`px-5 py-2.5 text-[11px] font-bold uppercase
                           tracking-widest text-slate-400 ${i === 3 ? "text-right" : "text-left"}`}
                         >
                           {h}
@@ -328,37 +326,37 @@ const Payments = () => {
                           className="border-b border-slate-100 last:border-0
                           hover:bg-slate-50/60 transition-colors"
                         >
-                          <td className="px-6 py-4 text-sm font-bold text-blue-700 whitespace-nowrap">
+                          <td className="px-5 py-3.5 text-xs font-bold text-blue-700 whitespace-nowrap">
                             {t.receiptNumber || "—"}
                           </td>
-                          <td className="px-6 py-4 text-sm text-slate-800 max-w-xs">
-                            <p className="font-semibold leading-snug">
+                          <td className="px-5 py-3.5 text-xs text-slate-800 max-w-xs">
+                            <p className="font-semibold leading-snug truncate" title={t.title}>
                               {t.title}
                             </p>
                             {t.researchId && (
-                              <p className="text-xs text-slate-400 mt-0.5">
+                              <p className="text-[11px] text-slate-400 mt-0.5">
                                 {t.researchId}
                               </p>
                             )}
                           </td>
-                          <td className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap">
+                          <td className="px-5 py-3.5 text-xs text-slate-600 whitespace-nowrap">
                             {fmtDate(t.date)}
                           </td>
-                          <td className="px-6 py-4 text-sm font-bold text-slate-900 text-right whitespace-nowrap">
+                          <td className="px-5 py-3.5 text-xs font-bold text-slate-900 text-right whitespace-nowrap">
                             {Number(t.amount || 0).toLocaleString("en-KE", {
                               minimumFractionDigits: 2,
                             })}
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-5 py-3.5">
                             <span
-                              className={`inline-flex items-center gap-1.5 text-xs font-semibold
-                              px-3 py-1 rounded-full border ${sc.cls}`}
+                              className={`inline-flex items-center gap-1 text-[11px] font-semibold
+                              px-2.5 py-1 rounded-full border ${sc.cls}`}
                             >
                               <span className="w-1.5 h-1.5 rounded-full bg-current" />{" "}
                               {sc.label}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-right">
+                          <td className="px-5 py-3.5 text-right">
                             <button
                               type="button"
                               onClick={() => handleDownloadReceipt(t)}
@@ -377,11 +375,11 @@ const Payments = () => {
               </div>
 
               <div
-                className="px-6 py-4 border-t border-slate-100 flex items-center justify-between
+                className="px-5 py-3.5 border-t border-slate-100 flex items-center justify-between
                 bg-slate-50 flex-wrap gap-3"
               >
-                <p className="text-sm text-slate-500">
-                  Showing {(page - 1) * PAGE_SIZE + 1}-
+                <p className="text-xs text-slate-500">
+                  Showing {(page - 1) * PAGE_SIZE + 1}–
                   {Math.min(page * PAGE_SIZE, filtered.length)} of{" "}
                   {filtered.length} transactions
                 </p>
@@ -414,16 +412,16 @@ const Payments = () => {
           )}
         </div>
 
-        {/* Sidebar */}
+    
         <div className="space-y-5">
           <div className="bg-white rounded-2xl border border-slate-200 p-5">
             <div className="flex items-center gap-2 mb-3">
-              <FaShieldAlt className="text-emerald-500" />
-              <h3 className="font-bold text-slate-900 text-sm">
+              <FaShieldAlt className="text-emerald-500 text-sm" />
+              <h3 className="font-bold text-slate-900 text-xs">
                 Payment Policy
               </h3>
             </div>
-            <p className="text-sm text-slate-500 leading-relaxed">
+            <p className="text-xs text-slate-500 leading-relaxed">
               Nyahururu Hospital charges a single, one-time M-Pesa submission
               fee per research proposal. Once paid, it unlocks every subsequent
               stage — progress submission, final paper review, and publication —
@@ -432,12 +430,12 @@ const Payments = () => {
           </div>
 
           <div className="bg-blue-500 rounded-2xl p-5 text-white">
-            <h3 className="font-bold text-sm mb-3">Payment Support</h3>
-            <p className="text-xs text-slate-300 leading-relaxed mb-4">
+            <h3 className="font-bold text-xs mb-3">Payment Support</h3>
+            <p className="text-[11px] text-slate-300 leading-relaxed mb-4">
               Need help with a failed payment or reconciling a receipt? Our
               finance office is available weekdays, 8 AM – 5 PM.
             </p>
-            <div className="space-y-2 text-sm">
+            <div className="space-y-2 text-xs">
               <a
                 href="tel:+2547000000"
                 className="flex items-center gap-2.5 text-slate-200

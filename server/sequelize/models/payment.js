@@ -1,0 +1,174 @@
+"use strict";
+
+const {
+  PAYMENT_TYPES,
+  PAYMENT_STATUSES,
+} = require("../../constants/researchIndex");
+
+const TYPE_VALUES = Object.values(PAYMENT_TYPES);
+const STATUS_VALUES = Object.values(PAYMENT_STATUSES);
+
+const SECRET_COLUMNS = ["downloadToken", "downloadTokenExpire"];
+
+module.exports = (sequelize, DataTypes) => {
+  const Payment = sequelize.define(
+    "Payment",
+    {
+      id: {
+        type: DataTypes.BIGINT.UNSIGNED,
+        autoIncrement: true,
+        primaryKey: true,
+      },
+      researcherId: {
+        type: DataTypes.BIGINT.UNSIGNED,
+        allowNull: true,
+        references: { model: "researchers", key: "id" },
+   
+        onDelete: "SET NULL",
+        onUpdate: "CASCADE",
+      },
+      type: {
+        type: DataTypes.ENUM(...TYPE_VALUES),
+        allowNull: false,
+      },
+      researchId: {
+        type: DataTypes.BIGINT.UNSIGNED,
+        allowNull: true,
+        references: { model: "submissions", key: "id" },
+        onDelete: "RESTRICT",
+        onUpdate: "CASCADE",
+      },
+
+
+      amount: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: false,
+        validate: { min: { args: [0.01], msg: "Amount must be greater than zero" } },
+      },
+      currency: {
+        type: DataTypes.STRING(10),
+        allowNull: false,
+        defaultValue: "KES",
+      },
+
+      phone: {
+        type: DataTypes.STRING(30),
+        allowNull: false,
+      },
+      buyerEmail: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        defaultValue: null,
+        set(value) {
+          this.setDataValue("buyerEmail", value ? value.trim().toLowerCase() : value);
+        },
+      },
+
+
+      merchantRequestId: DataTypes.STRING(100),
+
+      checkoutRequestId: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        unique: true,
+      },
+
+      mpesaReceiptNumber: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        unique: true,
+      },
+
+      transactionDate: DataTypes.STRING(30),
+      status: {
+        type: DataTypes.ENUM(...STATUS_VALUES),
+        allowNull: false,
+        defaultValue: PAYMENT_STATUSES.PENDING,
+      },
+
+      // Chair's change #4: payment record captures the SERU number.
+      // Populated inside the same transaction as proposal submission
+      // (see confirmProposalSubmission), the moment the SERU number is
+      // generated — so it's never out of sync with the research record.
+      seruNumber: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+      },
+
+      resultCode: DataTypes.STRING(20),
+      resultDesc: DataTypes.STRING(500),
+      refundedAt: DataTypes.DATE,
+      refundReason: DataTypes.STRING(500),
+      refundCode: DataTypes.STRING(50),
+      refundAmount: DataTypes.DECIMAL(12, 2),
+
+
+      downloadToken: DataTypes.STRING(255),
+      downloadTokenExpire: DataTypes.DATE,
+      downloadedAt: DataTypes.DATE,
+    },
+    {
+      tableName: "payments",
+      defaultScope: {
+        attributes: { exclude: SECRET_COLUMNS },
+      },
+      scopes: {
+        withSecrets: { attributes: { include: SECRET_COLUMNS } },
+      },
+      indexes: [
+        { unique: true, fields: ["checkout_request_id"] },
+        { unique: true, fields: ["mpesa_receipt_number"] },
+        { fields: ["status", "type"] },
+        { fields: ["researcher_id", "type"] },
+        { fields: ["research_id", "status"] },
+        { fields: ["created_at"] },
+        { fields: ["phone"] },
+        { fields: ["seru_number"] },
+      ],
+    },
+  );
+
+
+  Object.defineProperty(Payment.prototype, "isRevenue", {
+    get() {
+      return this.status === PAYMENT_STATUSES.COMPLETED;
+    },
+  });
+  Object.defineProperty(Payment.prototype, "isRefundable", {
+    get() {
+      return this.status === PAYMENT_STATUSES.COMPLETED && !this.refundedAt;
+    },
+  });
+
+
+  Payment.getRevenueForResearch = async function getRevenueForResearch(researchId) {
+    const rows = await Payment.findAll({
+      where: { researchId, status: PAYMENT_STATUSES.COMPLETED },
+      attributes: ["type", "amount"],
+      raw: true,
+    });
+
+    const proposalRows = rows.filter((r) => r.type === PAYMENT_TYPES.PROPOSAL_SUBMISSION);
+    const downloadRows = rows.filter((r) => r.type === PAYMENT_TYPES.PAPER_DOWNLOAD);
+    const sum = (list) => list.reduce((s, r) => s + Number(r.amount), 0);
+
+    return {
+      proposalRevenue: sum(proposalRows),
+      downloadRevenue: sum(downloadRows),
+      downloadCount: downloadRows.length,
+      totalRevenue: sum(rows),
+    };
+  };
+
+  Payment.associate = (models) => {
+    Payment.belongsTo(models.Researcher, { foreignKey: "researcherId", as: "researcher" });
+    if (models.Research) {
+      Payment.belongsTo(models.Research, { foreignKey: "researchId", as: "research" });
+    }
+  };
+
+  Payment.TYPES = TYPE_VALUES;
+  Payment.STATUSES = STATUS_VALUES;
+
+  return Payment;
+};

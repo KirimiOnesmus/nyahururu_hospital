@@ -1,4 +1,3 @@
-
 import axios from 'axios';
 import { API_BASE_URL } from '../config/env';
 
@@ -7,18 +6,21 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000, 
+  timeout: 30000,
+  withCredentials: true,
 });
 
 
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-     if (config.data instanceof FormData) {
+    if (config.data instanceof FormData) {
       delete config.headers['Content-Type'];
+    }
+
+    const collection = localStorage.getItem('collection');
+    const token = localStorage.getItem('token');
+    if (token && collection === 'researchers') {
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
@@ -30,26 +32,35 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-
-     const status = error.response?.status;
+    const status = error.response?.status;
     const url    = error.config?.url || "";
 
-     const isResearchEndpoint = url.includes("/research/");
-
+    const isResearchEndpoint = /\/researchers?(\/|$)/.test(url);
     const isAuthEndpoint = url.includes("/change-password") || url.includes("/login");
 
-
-    if (status === 401 && !isResearchEndpoint)  {
-      localStorage.removeItem('token');
+    if (status === 401 && !isResearchEndpoint) {
       localStorage.removeItem('role');
       localStorage.removeItem('collection');
-    
-     window.location.href = '/hmis';
-
-        return new Promise(() => {});
+      localStorage.removeItem('researcher');
+      localStorage.removeItem('token');
+      window.location.href = '/hmis';
+      return new Promise(() => {});
     }
+
+    if (status === 403 && !isAuthEndpoint) {
+      const msg = error.response?.data?.message || '';
+      if (msg.includes('researcher token') || msg.includes('researcher token required')) {
+        localStorage.removeItem('role');
+        localStorage.removeItem('collection');
+        localStorage.removeItem('researcher');
+        localStorage.removeItem('token');
+        window.location.href = '/hmis';
+        return new Promise(() => {});
+      }
+    }
+
     if (status === 401 && isResearchEndpoint) {
-      console.warn('[Auth] Access forbidden:', error.response.data.message);
+      console.warn('[Auth] Access forbidden:', error.response?.data?.message);
     }
 
     return Promise.reject(error);

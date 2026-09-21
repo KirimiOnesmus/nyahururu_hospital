@@ -22,16 +22,12 @@ const {
 const { RESEARCHER_ROLES } = require("../constants/researchIndex");
 const { AppError } = require("../utils/appError");
 
-//  PUBLIC ROUTES
- 
+
 router.post("/register", validate(registerSchema), ctrl.register);
 router.post("/verify-email", validate(verifyEmailSchema), ctrl.verifyEmail);
 router.post("/login", validate(loginSchema), ctrl.login);
 router.post("/forgot-password", validate(forgotPasswordSchema), ctrl.forgotPassword);
 router.post("/reset-password", validate(resetPasswordSchema), ctrl.resetPassword);
-
-
-//  ADMIN ROUTES — Staff admin or research admin
 
 router.post(
   "/admin/create",
@@ -44,9 +40,18 @@ router.post(
   ctrl.adminCreateResearcher,
 );
 
+//  Admin-accessible listing (staff token accepted) 
+router.get(
+  "/",
+  protectEither,
+  (req, res, next) => {
+    if (isResearchAdmin(req)) return next();
+    return next(new AppError("Admin access required.", 403));
+  },
+  ctrl.listAll,
+);
 
 
-//  PROTECTED ROUTES — Researcher JWT required
 router.use(protectResearcher);
 
 router.get("/me", ctrl.getMe);

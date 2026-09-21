@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { toast } from "react-toastify";
+import notify from "../../common/utils/notify";
 import { getResearcherProfile, updateResearcherProfile } from "../../api/auth";
 import {
   FaUser,
@@ -59,7 +59,7 @@ const Avatar = ({ firstName, lastName, size = "lg" }) => {
   const sz = size === "lg" ? "w-24 h-24 text-2xl" : "w-10 h-10 text-sm";
   return (
     <div
-      className={`${sz} rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-bold text-white border-4 border-white shadow-md flex-shrink-0`}
+      className={`${sz} rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-bold text-white border-4 border-white flex-shrink-0`}
     >
       {initials || "?"}
     </div>
@@ -74,7 +74,7 @@ const EditProfileModal = ({ profile, onClose, onSave }) => {
 
   const handleSubmit = async () => {
     if (!formData.firstName?.trim() || !formData.lastName?.trim()) {
-      toast.error("First and last name are required");
+      notify.error("First and last name are required");
       return;
     }
 
@@ -91,14 +91,14 @@ const EditProfileModal = ({ profile, onClose, onSave }) => {
       };
 
       await updateResearcherProfile(updates);
-      toast.success("Profile updated successfully!");
+      notify.success("Profile updated successfully!");
       onSave(formData);
     } catch (err) {
       const errorMsg =
         err.response?.data?.message ||
         err.message ||
         "Failed to update profile";
-      toast.error(errorMsg);
+      notify.error(errorMsg);
     } finally {
       setSaving(false);
     }
@@ -114,10 +114,10 @@ const EditProfileModal = ({ profile, onClose, onSave }) => {
       onClick={(e) => e.target === e.currentTarget && !saving && onClose()}
     >
       <div
-        className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+        className="bg-white w-full max-w-3xl rounded-2xl flex flex-col overflow-hidden"
         style={{ maxHeight: "100vh", animation: "slideUp .25s ease" }}
       >
-        {/* Header */}
+
         <div className="bg-blue-600 px-6 py-4 flex items-center justify-between flex-shrink-0">
           <h3 className="text-white font-bold text-lg">Edit Profile</h3>
           {!saving && (
@@ -251,7 +251,7 @@ const EditProfileModal = ({ profile, onClose, onSave }) => {
             disabled={saving}
             className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700
              text-white rounded-xl font-semibold transition-all cursor-pointer 
-             hover:shadow-lg disabled:bg-blue-400 disabled:hover:bg-blue-400
+             disabled:bg-blue-400 disabled:hover:bg-blue-400
              disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {saving ? (
@@ -318,7 +318,7 @@ const MyProfile = ({ onBack }) => {
         setPapers(Array.isArray(papersRes.papers) ? papersRes.papers : []);
       } catch (err) {
         console.error("Failed to fetch profile:", err);
-        toast.error("Failed to load profile. Please try again.");
+        notify.error("Failed to load profile. Please try again.");
         setTimeout(() => onBack?.(), 2000);
       } finally {
         setLoading(false);
@@ -342,7 +342,7 @@ const MyProfile = ({ onBack }) => {
         >
           <FaArrowLeft /> Back to Dashboard
         </button>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 flex items-center justify-center">
+        <div className="bg-white rounded-2xl border border-gray-100 p-12 flex items-center justify-center">
           <div className="text-center">
             <svg
               className="animate-spin h-12 w-12 text-blue-600 mx-auto mb-4"
@@ -380,7 +380,7 @@ const MyProfile = ({ onBack }) => {
         >
           <FaArrowLeft /> Back to Dashboard
         </button>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 flex items-center justify-center">
+        <div className="bg-white rounded-2xl border border-gray-100 p-12 flex items-center justify-center">
           <div className="text-center">
             <FaUser className="text-gray-300 text-5xl mx-auto mb-4" />
             <p className="text-gray-600 font-medium">Unable to load profile</p>
@@ -404,7 +404,7 @@ const MyProfile = ({ onBack }) => {
       >
         <FaArrowLeft /> Back to Dashboard
       </button>
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col h-full">
+      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden flex flex-col h-full">
         <div className="bg-blue-500 px-8 py-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div
@@ -603,96 +603,82 @@ const MyProfile = ({ onBack }) => {
               </div>
             )}
 
-            {activeTab === "publications" && (
+            {activeTab === "publications" && (() => {
+              const isClosed = (p) =>
+                p.status === "closed" ||
+                (Array.isArray(p.childSubmissions) &&
+                  p.childSubmissions.some(
+                    (c) =>
+                      c.submissionType === "study_closure" &&
+                      ["approved", "closed"].includes(c.status),
+                  ));
+              const publications = papers.filter(isClosed);
+              const closedAtOf = (p) => {
+                const closure = (p.childSubmissions || []).find(
+                  (c) => c.submissionType === "study_closure",
+                );
+                return closure?.updatedAt || closure?.createdAt || p.updatedAt || p.createdAt;
+              };
+              return (
               <div className="space-y-3">
-                {papers.length === 0 ? (
+                {publications.length === 0 ? (
                   <div className="text-center py-12 bg-gray-50 rounded-xl">
-                    <FaFileAlt className="text-gray-300 text-4xl mx-auto mb-3" />
-                    <p className="text-gray-400 font-medium">
-                      No submissions yet
+                    <FaBook className="text-gray-300 text-4xl mx-auto mb-3" />
+                    <p className="text-gray-400 font-medium">No publications yet</p>
+                    <p className="text-gray-400 text-xs mt-1">
+                      A study appears here once it has been formally closed.
                     </p>
                   </div>
                 ) : (
-                  papers.map((paper) => {
-                    const statusLabel =
-                      paper.status === "approved"
-                        ? "Approved"
-                        : paper.status === "rejected" ||
-                            paper.status === "revision_requested"
-                          ? "Needs Revision"
-                          : paper.status === "pending_committee_review"
-                            ? "With Committee"
-                            : "Under Review";
-
-                    const statusCls =
-                      paper.status === "approved"
-                        ? "bg-green-100 text-green-700"
-                        : paper.status === "rejected" ||
-                            paper.status === "revision_requested"
-                          ? "bg-red-100 text-red-700"
-                          : paper.status === "pending_committee_review"
-                            ? "bg-indigo-100 text-indigo-700"
-                            : "bg-yellow-100 text-yellow-700";
-
+                  publications.map((paper) => {
+                    const closedAt = closedAtOf(paper);
                     return (
                       <div
-                        key={paper._id}
+                        key={paper.id}
                         className="flex items-start gap-3 p-4 rounded-lg border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 transition-all"
                       >
-                        <div
-                          className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                            paper.status === "approved"
-                              ? "bg-green-100"
-                              : "bg-yellow-100"
-                          }`}
-                        >
-                          <FaFileAlt
-                            className={
-                              paper.status === "approved"
-                                ? "text-green-600"
-                                : "text-yellow-600"
-                            }
-                          />
+                        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-slate-100">
+                          <FaBook className="text-slate-600" />
                         </div>
 
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-gray-900 text-sm leading-snug">
                             {paper.title}
                           </p>
-                          <p className="text-xs text-gray-400 mt-0.5 capitalize">
-                            Stage: {paper.stage?.replace("_", " ") ?? "—"}
-                          </p>
+                          {paper.seruNumber && (
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              SERU No. {paper.seruNumber}
+                            </p>
+                          )}
                           <p className="text-xs text-gray-400 mt-0.5">
-                            {new Date(paper.createdAt).toLocaleDateString(
-                              "en-KE",
-                              {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                              },
-                            )}
+                            Closed{" "}
+                            {closedAt
+                              ? new Date(closedAt).toLocaleDateString("en-KE", {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                })
+                              : "—"}
                           </p>
                           {paper.downloads > 0 && (
                             <div className="flex gap-4 mt-2 text-xs text-gray-500">
                               <span className="flex items-center gap-1">
-                                <FaDownload className="text-blue-400" />{" "}
-                                {paper.downloads} downloads
+                                <FaDownload className="text-blue-400" /> {paper.downloads} downloads
                               </span>
                             </div>
                           )}
                         </div>
 
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-xs font-bold flex-shrink-0 whitespace-nowrap ${statusCls}`}
-                        >
-                          {statusLabel}
+                        <span className="px-2.5 py-1 rounded-full text-xs font-bold flex-shrink-0 whitespace-nowrap bg-slate-100 text-slate-700">
+                          Closed
                         </span>
                       </div>
                     );
                   })
                 )}
               </div>
-            )}
+              );
+            })()}
           </div>
         </div>
 

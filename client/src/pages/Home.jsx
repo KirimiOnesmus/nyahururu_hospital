@@ -1,18 +1,10 @@
 import React, { useEffect, useState } from "react";
-import {
-  Header,
-  Footer,
-  Slider,
-  Card,
-  TimeRibbon,
-  Partners,
-  News,
-  EventOverlay,
-} from "../components/layouts";
+import { Slider, Card, QuickActions, WelcomeIntro, TimeRibbon, News, EventOverlay,Contact } from "../components/layouts";
+import { Header, Partners, Footer } from "../common/layouts";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { ASSET_BASE_URL } from "../config/env";
-import { toast } from "react-toastify";
+import notify from "../common/utils/notify";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -29,7 +21,7 @@ const Home = () => {
         setServices(res.data);
       } catch (error) {
         console.error("Failed to fetch services:", error);
-        toast.error("Failed to fetch services.");
+        notify.error("Failed to fetch services.");
       } finally {
         setLoading(false);
       }
@@ -47,17 +39,22 @@ const Home = () => {
 
       <main className="flex-1">
         <EventOverlay />
+
+     
         <Slider />
 
-        <section className="max-w-6xl mx-auto px-6 py-12">
+        <QuickActions />
+
+        <WelcomeIntro />
+
+
+        <section className="max-w-6xl mx-auto px-6 pt-16 pb-12">
           <div className="flex items-end justify-between mb-8">
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-1">
                 What We Offer
               </p>
-              <h2 className="text-2xl md:text-3xl font-bold text-slate-800">
-                Our Services
-              </h2>
+              <h2 className="text-2xl md:text-3xl font-bold text-slate-800">Our Services</h2>
             </div>
             {services.length >= 5 && (
               <button
@@ -82,8 +79,8 @@ const Home = () => {
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
               {serviceLimit.map((service) => (
                 <Card
-                  key={service._id}
-                  id={service._id}
+                  key={service.id}
+                  id={service.id}
                   image={`${BACKEND_URL}${service.imageUrl}`}
                   title={service.name}
                   description={service.description}
@@ -99,9 +96,7 @@ const Home = () => {
                              flex flex-col items-center justify-center gap-2 p-8 min-h-[200px]
                              transition-colors duration-200"
                 >
-                  <span className="text-3xl font-light">
-                    +{services.length - 5}
-                  </span>
+                  <span className="text-3xl font-light">+{services.length - 5}</span>
                   <span>More Services</span>
                 </button>
               )}
@@ -109,22 +104,24 @@ const Home = () => {
           )}
         </section>
 
-        <div className="border-t border-slate-100">
+        <section className="border-t border-slate-100">
           <TimeRibbon />
-        </div>
+        </section>
 
-        <div className="border-t border-slate-100">
+      
+        <section className="border-t border-slate-100">
           <News />
-        </div>
+        </section>
 
         <section className="border-t border-slate-100 py-12 max-w-6xl mx-auto px-6">
           <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-1 text-center">
-            Trusted By
+            Working Together
           </p>
-          <h3 className="text-2xl font-bold text-slate-800 text-center mb-8">
-            Our Partners
-          </h3>
+          <h3 className="text-2xl font-bold text-slate-800 text-center mb-8">Our Affiliations</h3>
           <Partners />
+        </section>
+        <section   className="border-t border-slate-100">
+          <Contact />
         </section>
       </main>
 

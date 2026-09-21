@@ -1,6 +1,10 @@
-const FraudReport = require('../models/fraudModel');
+const emitChange = require("../utils/emitChange");
+"use strict";
 
-// Submit a new fraud report
+const { FraudReport } = require("../sequelize/models");
+const logger = require("../utils/logger");
+const { getPagination, buildMeta } = require("../utils/pagination");
+
 exports.submitFraudReport = async (req, res) => {
   try {
     const { issue, dateOfIncident, location, details } = req.body;
@@ -21,47 +25,54 @@ exports.submitFraudReport = async (req, res) => {
       report,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
-// Admin — Get all fraud reports
 exports.getAllFraudReports = async (req, res) => {
   try {
     const { status } = req.query;
-    const filter = status ? { status } : {};
-    const reports = await FraudReport.find(filter).sort({ createdAt: -1 });
-    res.json(reports);
+    const where = status ? { status } : {};
+
+    const { requestedPaging, page, limit, offset } = getPagination(req.query);
+    const { rows: reports, count: total } = await FraudReport.findAndCountAll({
+      where,
+      order: [["createdAt", "DESC"]],
+      limit,
+      offset,
+    });
+    if (!requestedPaging) return res.json(reports);
+    return res.json({ data: reports, meta: buildMeta(page, limit, total, reports.length, offset) });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
-// Admin — Get single report by ID
 exports.getFraudReportById = async (req, res) => {
   try {
-    const report = await FraudReport.findById(req.params.id);
+    const report = await FraudReport.findByPk(req.params.id);
     if (!report) return res.status(404).json({ message: "Fraud report not found" });
     res.json(report);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
-// Admin — Update status or investigation notes
 exports.updateFraudStatus = async (req, res) => {
   try {
     const { status, investigationNotes } = req.body;
-    const report = await FraudReport.findById(req.params.id);
-
+    const report = await FraudReport.findByPk(req.params.id);
     if (!report) return res.status(404).json({ message: "Fraud report not found" });
 
     if (status) report.status = status;
     if (investigationNotes) report.investigationNotes = investigationNotes;
 
-    // Optional — record admin reviewer
+ 
     if (req.user) {
-      if (req.user._id) report.reviewedBy = req.user._id;
+      if (req.user.id) report.reviewedBy = req.user.id;
       if (req.user.name) report.reviewedByName = req.user.name;
     }
 
@@ -69,18 +80,23 @@ exports.updateFraudStatus = async (req, res) => {
     await report.save();
 
     res.json({ message: "Fraud report updated successfully", report });
+    emitChange("fraud", "updated", { id: report.id });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
-// Admin — Delete a report
 exports.deleteFraudReport = async (req, res) => {
   try {
-    const deleted = await FraudReport.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ message: "Fraud report not found" });
+    const report = await FraudReport.findByPk(req.params.id);
+    if (!report) return res.status(404).json({ message: "Fraud report not found" });
+
+    await report.destroy();
     res.json({ message: "Fraud report deleted successfully" });
+    emitChange("fraud", "deleted", { id: req.params.id });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };

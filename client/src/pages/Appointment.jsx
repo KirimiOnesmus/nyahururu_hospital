@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Header, Footer } from "../components/layouts";
+import { Header, Footer } from "../common/layouts";
 import api from "../api/axios";
 import {
   FaUser,
@@ -18,7 +18,7 @@ import {
   FaLayerGroup,
   FaPaperPlane,
 } from "react-icons/fa";
-import { toast } from "react-toastify";
+import notify from "../common/utils/notify";
 import { useNavigate } from "react-router-dom";
 
 const inputClass =
@@ -67,6 +67,9 @@ const Appointment = () => {
   const [selectedService, setSelectedService] = useState(null);
   const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
 
+  const [bookedSlots, setBookedSlots] = useState([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+
   useEffect(() => {
     const fetchServices = async () => {
       try {
@@ -87,7 +90,7 @@ const Appointment = () => {
         ].sort();
         setCategories(uniqueCategories);
       } catch {
-        toast.error("Failed to load departments. Please refresh the page.");
+        notify.error("Failed to load departments. Please refresh the page.");
         setServices([]);
       }
     };
@@ -109,9 +112,10 @@ const Appointment = () => {
 
   useEffect(() => {
     if (formData.service) {
-      const service = services.find((s) => s._id === formData.service);
+      const service = services.find((s) => String(s.id) === String(formData.service));
       setSelectedService(service);
-      if (service?.serviceHours) generateTimeSlots(service.serviceHours);
+      if (service) generateTimeSlots(service.serviceHours);
+      else setAvailableTimeSlots([]);
     } else {
       setSelectedService(null);
       setAvailableTimeSlots([]);
@@ -121,67 +125,81 @@ const Appointment = () => {
 
 
   const generateTimeSlots = (serviceHours) => {
-    if (!serviceHours) { setAvailableTimeSlots([]); return; }
+    let startHour = 8;
+    let endHour = 17;
 
-    if (
-      serviceHours.toLowerCase().includes("24/7") ||
-      serviceHours.toLowerCase().includes("24 hours") ||
-      serviceHours.toLowerCase().includes("24-hour")
-    ) {
-      const slots = [];
-      for (let hour = 0; hour < 24; hour++) {
-        for (let minute of [0, 30]) { 
-          slots.push(
-            `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`
-          );
+    if (serviceHours) {
+      if (
+        serviceHours.toLowerCase().includes("24/7") ||
+        serviceHours.toLowerCase().includes("24 hours") ||
+        serviceHours.toLowerCase().includes("24-hour")
+      ) {
+        startHour = 0;
+        endHour = 24;
+      } else {
+        const timeMatch = serviceHours.match(/(\d+)\s*(?::?\d*)?\s*(am|pm)\s*(?:to|-|–)\s*(\d+)\s*(?::?\d*)?\s*(am|pm)/i);
+        if (timeMatch) {
+          startHour = parseInt(timeMatch[1]);
+          endHour = parseInt(timeMatch[3]);
+          if (timeMatch[2].toLowerCase() === "pm" && startHour !== 12) startHour += 12;
+          if (timeMatch[4].toLowerCase() === "pm" && endHour !== 12) endHour += 12;
+          if (timeMatch[2].toLowerCase() === "am" && startHour === 12) startHour = 0;
+          if (timeMatch[4].toLowerCase() === "am" && endHour === 12) endHour = 0;
         }
+     
       }
-      setAvailableTimeSlots(slots);
-      return;
     }
 
-    const timeMatch = serviceHours.match(/(\d+)(am|pm)\s*to\s*(\d+)(am|pm)/i);
-    if (timeMatch) {
-      let startHour = parseInt(timeMatch[1]);
-      let endHour = parseInt(timeMatch[3]);
-      if (timeMatch[2].toLowerCase() === "pm" && startHour !== 12) startHour += 12;
-      if (timeMatch[4].toLowerCase() === "pm" && endHour !== 12) endHour += 12;
-      if (timeMatch[2].toLowerCase() === "am" && startHour === 12) startHour = 0;
-      if (timeMatch[4].toLowerCase() === "am" && endHour === 12) endHour = 0;
-      const slots = [];
-      for (let hour = startHour; hour < endHour; hour++) {
-        for (let minute of [0, 30]) {
-          slots.push(
-            `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`
-          );
-        }
-      }
-      setAvailableTimeSlots(slots);
-    } else {
-      const slots = [];
-      for (let hour = 8; hour < 17; hour++) {
-        for (let minute of [0, 30]) {
-          slots.push(
-            `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`
-          );
-        }
-      }
-      setAvailableTimeSlots(slots);
+    const slots = [];
+    for (let hour = startHour; hour < endHour; hour++) {
+      const from = `${hour.toString().padStart(2, "0")}:00`;
+      const to = `${(hour + 1).toString().padStart(2, "0")}:00`;
+      slots.push({ value: from, label: `${from} – ${to}` });
     }
+    setAvailableTimeSlots(slots);
   };
 
-  const handleChange = (e) =>
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  
+  useEffect(() => {
+    const fetchBookedSlots = async () => {
+      if (!formData.date || !selectedService?.name) {
+        setBookedSlots([]);
+        return;
+      }
+      try {
+        setLoadingSlots(true);
+        const res = await api.get("/appointments/booked-slots", {
+          params: { date: formData.date, service: selectedService.name },
+        });
+        setBookedSlots(res.data?.bookedSlots || []);
+      } catch {
+        setBookedSlots([]);
+      } finally {
+        setLoadingSlots(false);
+      }
+    };
+    fetchBookedSlots();
+  }, [formData.date, selectedService]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+  
+      ...(name === "date" ? { time: "" } : {}),
+    }));
+  };
 
   const validateNormalForm = () => {
     const { name, email, phone, category, service, date, time } = formData;
-    if (!name.trim()) { toast.error("Please enter your name"); return false; }
-    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) { toast.error("Please enter a valid email address"); return false; }
-    if (!phone.match(/^[0-9\s\-\+\(\)]{9,}$/)) { toast.error("Please enter a valid phone number"); return false; }
-    if (!category) { toast.error("Please select a category"); return false; }
-    if (!service) { toast.error("Please select a service"); return false; }
-    if (!date) { toast.error("Please select a date"); return false; }
-    if (!time) { toast.error("Please select a time"); return false; }
+    if (!name.trim()) { notify.error("Please enter your name"); return false; }
+    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) { notify.error("Please enter a valid email address"); return false; }
+    if (!phone.match(/^[0-9\s\-\+\(\)]{9,}$/)) { notify.error("Please enter a valid phone number"); return false; }
+    if (!category) { notify.error("Please select a category"); return false; }
+    if (!service) { notify.error("Please select a service"); return false; }
+    if (!date) { notify.error("Please select a date"); return false; }
+    if (!time) { notify.error("Please select a time"); return false; }
     return true;
   };
 
@@ -201,11 +219,11 @@ const Appointment = () => {
       });
 
       setFormData(INIT_NORMAL);
-      toast.success("Appointment booked successfully!");
+      notify.success("Appointment booked successfully!");
       setTimeout(() => navigate("/"), 3000);
     } catch (error) {
 
-      toast.error(error?.response?.data?.message || "Failed to book appointment");
+      notify.error(error?.response?.data?.message || "Failed to book appointment");
     } finally {
       setLoading(false);
     }
@@ -246,9 +264,9 @@ const Appointment = () => {
     try {
       await api.post("/anonymous", anonymousForm);
       setStep(6);
-      toast.success("Anonymous appointment request submitted successfully!");
+      notify.success("Anonymous appointment request submitted successfully!");
     } catch (error) {
-      toast.error(error?.response?.data?.message || "Failed to submit request");
+      notify.error(error?.response?.data?.message || "Failed to submit request");
     } finally {
       setLoading(false);
     }
@@ -339,7 +357,7 @@ const Appointment = () => {
           })}
         </div>
 
-        {/*  NORMAL BOOKING*/}
+
 
         {bookingType === "normal" && (
           <div className="bg-white border border-slate-200 rounded-2xl p-8">
@@ -424,7 +442,7 @@ const Appointment = () => {
                     {formData.category ? "Select a service" : "Select a category first"}
                   </option>
                   {filteredServices.map((s) => (
-                    <option key={s._id} value={s._id}>
+                    <option key={s.id} value={s.id}>
                       {s.name} ({s.division})
                     </option>
                   ))}
@@ -463,19 +481,32 @@ const Appointment = () => {
                     required
                     value={formData.time}
                     onChange={handleChange}
-                    disabled={!formData.service}
+                    disabled={!formData.service || !formData.date || loadingSlots}
                     className={selectClass}
                   >
                     <option value="">
-                      {formData.service ? "Select a time slot" : "Select a service first"}
+                      {!formData.service
+                        ? "Select a service first"
+                        : !formData.date
+                        ? "Select a date first"
+                        : loadingSlots
+                        ? "Loading available slots…"
+                        : availableTimeSlots.length === 0
+                        ? "No slots available"
+                        : "Select a time slot"}
                     </option>
-                    {availableTimeSlots.map((slot) => (
-                      <option key={slot} value={slot}>{slot}</option>
-                    ))}
+                    {availableTimeSlots.map((slot) => {
+                      const isBooked = bookedSlots.includes(slot.value);
+                      return (
+                        <option key={slot.value} value={slot.value} disabled={isBooked}>
+                          {slot.label}{isBooked ? " (Booked)" : ""}
+                        </option>
+                      );
+                    })}
                   </select>
-                  {availableTimeSlots.length > 0 && (
+                  {formData.date && formData.service && availableTimeSlots.length > 0 && (
                     <p className="text-xs text-slate-400 mt-1">
-                      {availableTimeSlots.length} slots available based on service hours
+                      {availableTimeSlots.length - bookedSlots.length} of {availableTimeSlots.length} slots available
                     </p>
                   )}
                 </Field>
@@ -521,7 +552,7 @@ const Appointment = () => {
               </p>
             </div>
 
-            {/* Progress */}
+  
             {step < 6 && (
               <div className="mb-8">
                 <div className="flex items-center justify-between mb-2">
@@ -537,10 +568,9 @@ const Appointment = () => {
               </div>
             )}
 
-            {/* Step card */}
             <div className="bg-white border border-slate-200 rounded-2xl p-8">
 
-              {/* Step 1 – Case type */}
+       
               {step === 1 && (
                 <div className="space-y-6">
                   <div className="pb-5 border-b border-slate-100">
@@ -601,7 +631,7 @@ const Appointment = () => {
                 </div>
               )}
 
-              {/* Step 2 – Contact method */}
+  
               {step === 2 && (
                 <div className="space-y-6">
                   <div className="pb-5 border-b border-slate-100">
@@ -610,7 +640,7 @@ const Appointment = () => {
                   </div>
 
                   <div className="space-y-3">
-                    {/* Phone */}
+      
                     <button
                       type="button"
                       onClick={() => handleAnonymousChange("contact_method", "phone")}
@@ -646,7 +676,7 @@ const Appointment = () => {
                       </div>
                     )}
 
-                    {/* In-person */}
+       
                     <button
                       type="button"
                       onClick={() =>
@@ -694,7 +724,7 @@ const Appointment = () => {
                 </div>
               )}
 
-              {/* Step 3 – Timing */}
+   
               {step === 3 && (
                 <div className="space-y-6">
                   <div className="pb-5 border-b border-slate-100">
@@ -702,7 +732,7 @@ const Appointment = () => {
                     <p className="text-slate-500 text-sm mt-0.5">Select your preferred date and time.</p>
                   </div>
 
-                  {/* ASAP checkbox */}
+          
                   <label className="flex items-start gap-3 cursor-pointer bg-amber-50 border border-amber-200 rounded-2xl p-4">
                     <input
                       type="checkbox"
@@ -766,7 +796,7 @@ const Appointment = () => {
                 </div>
               )}
 
-              {/* Step 4 – Reason (optional) */}
+        
               {step === 4 && (
                 <div className="space-y-6">
                   <div className="pb-5 border-b border-slate-100">
@@ -803,7 +833,7 @@ const Appointment = () => {
                 </div>
               )}
 
-              {/* Step 5 – Safety check */}
+   
               {step === 5 && (
                 <div className="space-y-6">
                   <div className="pb-5 border-b border-slate-100">
@@ -890,7 +920,6 @@ const Appointment = () => {
                 </div>
               )}
 
-              {/* Step 6 – Confirmation */}
               {step === 6 && (
                 <div className="text-center py-6 space-y-6">
                   <div className="w-16 h-16 bg-green-50 border border-green-200 rounded-2xl flex items-center justify-center mx-auto">
@@ -907,7 +936,7 @@ const Appointment = () => {
                     </p>
                   </div>
 
-                  {/* Summary */}
+         
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-left max-w-sm mx-auto space-y-2">
                     {[
                       ["Service Type", anonymousForm.case_type],

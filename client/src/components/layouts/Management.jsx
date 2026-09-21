@@ -46,7 +46,7 @@ const Management = () => {
           <div className="p-4 space-y-2">
             <h4 className="text-xl font-bold text-blue-600">{member.name}</h4>
             <p className="text-sm font-semibold text-gray-600">{member.role}</p>
-            {/* <p className="text-sm text-gray-700">{member.bio}</p> */}
+          
           </div>
         </div>
       ))}

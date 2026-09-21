@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Header, Footer } from "../components/layouts";
+import { Header, Footer } from "../common/layouts";
 import api from "../api/axios";
-import { toast } from "react-toastify";
+import notify from "../common/utils/notify";
 import {
   FaShieldAlt,
   FaLock,
@@ -25,17 +25,17 @@ const ReportFraud = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.issue.trim() || !formData.details.trim()) {
-      toast.error("Please fill in the concern and details fields.");
+      notify.error("Please fill in the concern and details fields.");
       return;
     }
     setLoading(true);
     try {
       await api.post("/fraud", formData);
-      toast.success("Report submitted successfully.");
+      notify.success("Report submitted successfully.");
       setFormData(INIT);
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || "Error submitting report.");
+      notify.error(error?.response?.data?.message || "Error submitting report.");
     } finally {
       setLoading(false);
     }
@@ -162,7 +162,7 @@ const ReportFraud = () => {
               </div>
             </div>
 
-            {/* Details */}
+         
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-bold uppercase tracking-widest text-slate-500">
                 Details of the Case <span className="text-red-400">*</span>
@@ -176,7 +176,7 @@ const ReportFraud = () => {
                 placeholder="Describe what happened and why you are submitting this report. Avoid including identifying information if you wish to remain anonymous."
                 className={`${inputClass} resize-none`}
               />
-              {/* Bug fix: corrected "submmit" typo in placeholder */}
+
             </div>
 
             <div className="pt-1">

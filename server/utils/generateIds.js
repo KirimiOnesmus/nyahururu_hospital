@@ -1,4 +1,3 @@
-
 const roleShortCodes = {
   superadmin: "SA",
   admin: "AD",
@@ -13,13 +12,14 @@ const roleShortCodes = {
 };
 
 // Generate Employee ID: NCRH-ROLE-XXXX
+
+
 async function generateEmployeeId(role, User) {
   try {
     const normalizedRole = (role || "staff").toLowerCase().trim();
     const short = roleShortCodes[normalizedRole] || "ST";
 
-
-    const count = await User.countDocuments({ role });
+    const count = await User.count({ where: { role } });
 
     const number = String(count + 1).padStart(4, "0");
 
@@ -31,19 +31,17 @@ async function generateEmployeeId(role, User) {
   }
 }
 
-
 function generateRFID(employeeId) {
   try {
     if (!employeeId) {
-
       const timestamp = Date.now();
       return `RFID-${timestamp}`;
     }
-    
+
     return `RFID-${employeeId}`;
   } catch (error) {
     console.error("Error generating RFID:", error);
-    // Fallback
+    
     return `RFID-${Date.now()}`;
   }
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Header, Footer } from "../components/layouts";
+import { Header, Footer } from "../common/layouts";
 import api from "../api/axios";
 import {
   FaUserPlus,
@@ -120,7 +120,7 @@ const JobModal = ({ career, onClose }) => {
       className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white w-full max-w-2xl rounded-2xl max-h-[90vh] overflow-y-auto">
 
   
         <div className="sticky top-0 bg-white border-b border-slate-100 px-8 py-6 rounded-t-2xl">
@@ -231,7 +231,7 @@ const JobModal = ({ career, onClose }) => {
   );
 };
 
-// ── main component ────────────────────────────────────────────────────────────
+
 
 const Careers = () => {
   const [careers, setCareers] = useState([]);
@@ -254,22 +254,6 @@ const Careers = () => {
     fetchCareers();
   }, []);
 
-  // useEffect(() => {
-  //   const fetchCareers = async () => {
-  //     try {
-  //       const res = await publicApi.get("/jobs");
-  //       const data = Array.isArray(res.data)
-  //         ? res.data
-  //         : res.data?.careers ?? res.data?.data ?? [];
-  //       setCareers(data);
-  //     } catch (error) {
-  //       console.error("Failed to fetch jobs:", error);
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
-  //   fetchCareers();
-  // }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -366,7 +350,7 @@ const Careers = () => {
                 const expired = isExpired(career.deadline);
                 return (
                   <div
-                    key={career._id ?? career.id}
+                    key={career.id}
                     className="px-8 py-5 flex flex-col sm:flex-row sm:items-center gap-4 hover:bg-slate-50 transition-colors"
                   >
                     {/* left: info */}

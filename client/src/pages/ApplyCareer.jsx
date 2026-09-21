@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 // import axios from "axios";
 import api from "../api/axios"
-import { Header, Footer } from "../components/layouts";
+import { Header, Footer } from "../common/layouts";
 const ApplyCareer = () => {
   const { id } = useParams();
   const [career, setCareer] = useState(null);
@@ -53,7 +53,7 @@ const ApplyCareer = () => {
   };
   return (
     <div>
-      <div className="sticky top-0 z-50 bg-white/60 backdrop-blur-md shadow-sm">
+      <div className="sticky top-0 z-50 bg-white/60 backdrop-blur-md">
         <Header />
       </div>
       <div className="main flex-1 px-6 md:px-12 py-10 max-w-3xl mx-auto w-full">
@@ -80,7 +80,7 @@ const ApplyCareer = () => {
 
         <form
           onSubmit={handleSubmit}
-          className="bg-white p-6  rounded-xl shadow-md space-y-4"
+          className="bg-white p-6  rounded-xl space-y-4"
         >
           <div>
             <label className="block mb-1 font-medium">Full Name</label>

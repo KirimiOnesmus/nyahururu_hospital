@@ -1,34 +1,38 @@
+"use strict";
+
 const crypto     = require("crypto");
 const jwt        = require("jsonwebtoken");
-const Researcher = require("../models/ResearcherModel");
+const { Op }     = require("sequelize");
+const { Researcher } = require("../sequelize/models");
 const emailService = require("../utils/emailServices");
 const { AppError } = require("../utils/appError");
-
 const {
   RESEARCHER_ROLES,
   RESEARCHER_STATUSES,
 } = require("../constants/researchIndex");
 
 const signToken = (id, role) =>
-  jwt.sign( 
+  jwt.sign(
     { id, role, collection: "researchers" },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+    { expiresIn: process.env.JWT_EXPIRES_IN || "7d" },
   );
 
-
-
-  const register = async (data) => {
-  const { firstName, lastName, email, password, institution, discipline, qualification, phone, bio } = data;
+//  REGISTER 
+const register = async (data) => {
+  const {
+    firstName, lastName, email, password,
+    institution, discipline, qualification, phone, bio,
+  } = data;
 
   const existing = await Researcher.findByEmail(email);
   if (existing) throw new AppError("An account with this email already exists.", 409);
 
-  const researcher = new Researcher({
+  const researcher = Researcher.build({
     firstName,
     lastName,
-    email,
-    password,
+    email:         email.toLowerCase(),
+    password, 
     institution:   institution   || "",
     discipline:    discipline    || "",
     qualification: qualification || "",
@@ -39,8 +43,7 @@ const signToken = (id, role) =>
     emailVerified: false,
   });
 
-
-  const rawToken   = researcher.generateToken("verification");
+  const rawToken = researcher.generateToken("verification");
   await researcher.save();
 
   const verifyLink = `${process.env.FRONTEND_URL}/hmis?verify=true&token=${rawToken}&email=${encodeURIComponent(email)}`;
@@ -51,53 +54,52 @@ const signToken = (id, role) =>
     verifyLink,
   });
 
-  const token = signToken(researcher._id, researcher.role);
+  const token = signToken(researcher.id, researcher.role);
 
   return {
     token,
-    researcher,
+    researcher: researcher.toSafeJSON(),
     ...(process.env.NODE_ENV !== "production" && { _devVerifyLink: verifyLink }),
   };
 };
 
-
-//  VERIFY EMAIL
-
+//  VERIFY EMAIL 
 const verifyEmail = async ({ token, email }) => {
   const hashed = crypto.createHash("sha256").update(token).digest("hex");
 
-  const researcher = await Researcher.findOne({
-    email:                   email.toLowerCase(),
-    emailVerificationToken:  hashed,
-    emailVerificationExpire: { $gt: new Date() },
-  }).select("+emailVerificationToken +emailVerificationExpire");
+  const researcher = await Researcher.scope("withSecrets").findOne({
+    where: {
+      email:                   email.toLowerCase(),
+      emailVerificationToken:  hashed,
+      emailVerificationExpire: { [Op.gt]: new Date() },
+    },
+  });
 
   if (!researcher) {
     throw new AppError("Verification link is invalid or has expired.", 400);
   }
 
-  researcher.emailVerified             = true;
-  researcher.emailVerificationToken    = null;
-  researcher.emailVerificationExpire   = null;
+  researcher.emailVerified           = true;
+  researcher.emailVerificationToken  = null;
+  researcher.emailVerificationExpire = null;
   await researcher.save();
 
-  return researcher;
+  return researcher.toSafeJSON();
 };
- 
-//  LOGIN
 
+//  LOGIN 
 const login = async ({ email, password }) => {
-  const researcher = await Researcher.findOne({
-    email:  email.toLowerCase(),
-    role:   { $in: Object.values(RESEARCHER_ROLES) },
-    isActive: true,
-  }).select("+password");
+  const researcher = await Researcher.scope("withPassword").findOne({
+    where: {
+      email:    email.toLowerCase(),
+      role:     { [Op.in]: Object.values(RESEARCHER_ROLES) },
+      isActive: true,
+    },
+  });
 
-  
   const authError = new AppError("Invalid email or password.", 401);
-
   if (!researcher) throw authError;
- 
+
   const isValid = await researcher.matchPassword(password);
   if (!isValid) throw authError;
 
@@ -105,30 +107,31 @@ const login = async ({ email, password }) => {
     throw new AppError("Your account has been suspended. Please contact support.", 403);
   }
 
- 
   if (
     researcher.role === RESEARCHER_ROLES.RESEARCHER &&
     !researcher.emailVerified
   ) {
     throw new AppError(
       "Please verify your email before logging in. Check your inbox for the verification link.",
-      403
+      403,
     );
   }
 
   researcher.lastLogin = new Date();
   await researcher.save();
 
-  const token = signToken(researcher._id, researcher.role);
-  return { token, researcher };
+  const token = signToken(researcher.id, researcher.role);
+  return { token, researcher: researcher.toSafeJSON() };
 };
 
+//  GET ME 
 const getMe = async (researcherId) => {
-  const researcher = await Researcher.findById(researcherId);
+  const researcher = await Researcher.findByPk(researcherId);
   if (!researcher) throw new AppError("Researcher not found.", 404);
   return researcher;
 };
 
+//  UPDATE PROFILE 
 const updateProfile = async (researcherId, updates) => {
   const ALLOWED = [
     "firstName", "lastName", "phone", "institution",
@@ -140,25 +143,17 @@ const updateProfile = async (researcherId, updates) => {
     if (updates[f] !== undefined) safeUpdates[f] = updates[f];
   });
 
-  // Keep name in sync when names change
-  if (safeUpdates.firstName || safeUpdates.lastName) {
-    const current = await Researcher.findById(researcherId);
-    safeUpdates.name = `${safeUpdates.firstName || current.firstName} ${
-      safeUpdates.lastName || current.lastName
-    }`.trim();
-  }
-
-  const researcher = await Researcher.findByIdAndUpdate(
-    researcherId,
-    { $set: safeUpdates },
-    { new: true, runValidators: true }
-  );
+  const researcher = await Researcher.findByPk(researcherId);
   if (!researcher) throw new AppError("Researcher not found.", 404);
+
+  researcher.set(safeUpdates);
+  await researcher.save();
   return researcher;
 };
 
+//  CHANGE PASSWORD 
 const changePassword = async (researcherId, { currentPassword, newPassword }) => {
-  const researcher = await Researcher.findById(researcherId).select("+password");
+  const researcher = await Researcher.scope("withPassword").findByPk(researcherId);
   if (!researcher) throw new AppError("Researcher not found.", 404);
 
   const isValid = await researcher.matchPassword(currentPassword);
@@ -168,12 +163,12 @@ const changePassword = async (researcherId, { currentPassword, newPassword }) =>
   await researcher.save();
 };
 
+//  FORGOT PASSWORD 
 const forgotPassword = async (email) => {
-  const researcher = await Researcher.findByEmail(email);
 
-  // Always return the same message — never reveal if email exists
   const safeMessage = "If that email is registered, a reset link has been sent.";
 
+  const researcher = await Researcher.findByEmail(email);
   if (!researcher) return safeMessage;
 
   const rawToken = researcher.generateToken("reset");
@@ -190,14 +185,17 @@ const forgotPassword = async (email) => {
   return safeMessage;
 };
 
+//  RESET PASSWORD 
 const resetPassword = async ({ token, email, password }) => {
   const hashed = crypto.createHash("sha256").update(token).digest("hex");
 
-  const researcher = await Researcher.findOne({
-    email:               email.toLowerCase(),
-    passwordResetToken:  hashed,
-    passwordResetExpire: { $gt: new Date() },
-  }).select("+passwordResetToken +passwordResetExpire");
+  const researcher = await Researcher.scope("withSecrets").findOne({
+    where: {
+      email:               email.toLowerCase(),
+      passwordResetToken:  hashed,
+      passwordResetExpire: { [Op.gt]: new Date() },
+    },
+  });
 
   if (!researcher) {
     throw new AppError("Password reset token is invalid or has expired.", 400);
@@ -209,15 +207,12 @@ const resetPassword = async ({ token, email, password }) => {
   await researcher.save();
 };
 
-
-//  ADMIN CREATE RESEARCHER
-
-
+//  ADMIN CREATE RESEARCHER 
 const generateRandomPassword = () => {
   const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$!";
   return Array.from(
     { length: 12 },
-    () => chars[Math.floor(Math.random() * chars.length)]
+    () => chars[Math.floor(Math.random() * chars.length)],
   ).join("");
 };
 
@@ -237,7 +232,7 @@ const adminCreateResearcher = async (data) => {
     phone:         phone || "",
     role:          RESEARCHER_ROLES.RESEARCHER,
     status:        RESEARCHER_STATUSES.ACTIVE,
-    emailVerified: true, 
+    emailVerified: true,
   });
 
   await emailService.sendAdminAddedResearcher({

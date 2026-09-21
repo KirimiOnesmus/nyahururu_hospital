@@ -1,33 +1,49 @@
-const Event = require("../models/eventsModel");
+const emitChange = require("../utils/emitChange");
+"use strict";
+
+const { Op } = require("sequelize");
+const logger = require("../utils/logger");
+const { Event } = require("../sequelize/models");
+const { getPagination, buildMeta } = require("../utils/pagination");
 
 exports.getAllEvents = async (req, res) => {
   try {
-    const events = await Event.find().sort({ createdAt: -1 });
-    res.json(events);
+    const { requestedPaging, page, limit, offset } = getPagination(req.query);
+    const { rows: events, count: total } = await Event.findAndCountAll({
+      order: [["createdAt", "DESC"]],
+      limit,
+      offset,
+    });
+    if (!requestedPaging) return res.json(events);
+    return res.json({ data: events, meta: buildMeta(page, limit, total, events.length, offset) });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
 exports.getEventById = async (req, res) => {
   try {
-    const event = await Event.findById(req.params.id);
+    const event = await Event.findByPk(req.params.id);
     if (!event) return res.status(404).json({ message: "Event not found" });
     res.json(event);
-  } catch (error) { 
-    res.status(500).json({ message: error.message });
+  } catch (error) {
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
+
 exports.getUpcomingEvents = async (req, res) => {
   try {
-    const currentDate = new Date();
-    const events = await Event.find({ 
-      date: { $gte: currentDate } // Get events with date >= today
-    }).sort({ date: 1 }); // Sort by date ascending (earliest first)
-    
+
+    const events = await Event.findAll({
+      where: { date: { [Op.gte]: new Date() } },
+      order: [["date", "ASC"]],
+    });
     res.json(events);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
@@ -36,17 +52,21 @@ exports.createEvent = async (req, res) => {
     const { title, description, date, venue } = req.body;
 
     if (!title) return res.status(400).json({ message: "Title is required" });
-const imageUrl = req.file ? `/uploads/events/${req.file.filename}` : null;
+
+    const imageUrl = req.file ? `/uploads/events/${req.file.filename}` : null;
+
     const newEvent = await Event.create({
       title,
       description,
       date,
-      location:venue,
+      location: venue,
       imageUrl,
     });
     res.status(201).json({ message: "Event created successfully", newEvent });
+    emitChange("events", "created", { id: newEvent.id });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
@@ -55,35 +75,33 @@ exports.updateEvent = async (req, res) => {
     const { title, description, date, venue } = req.body;
     const imageUrl = req.file ? `/uploads/events/${req.file.filename}` : undefined;
 
-    const updateData = {
-      title,
-      description,
-      date,
-      location: venue, 
-    };
-    if (imageUrl) updateData.imageUrl = imageUrl;
+    const updateData = { title, description, date, location: venue };
+    if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
 
-    const updatedEvent = await Event.findByIdAndUpdate(req.params.id, updateData, {
-      new: true,
-    });
+    const event = await Event.findByPk(req.params.id);
+    if (!event) return res.status(404).json({ message: "Event not found" });
 
-    if (!updatedEvent)
-      return res.status(404).json({ message: "Event not found" });
+    event.set(updateData);
+    await event.save();
 
-    res.json({ message: "Event updated successfully", updatedEvent });
+    res.json({ message: "Event updated successfully", updatedEvent: event });
+    emitChange("events", "updated", { id: event.id });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
 exports.deleteEvent = async (req, res) => {
   try {
-    const deletedEvent = await Event.findByIdAndDelete(req.params.id);
-    if (!deletedEvent)
-      return res.status(404).json({ message: "Event not found" });
+    const event = await Event.findByPk(req.params.id);
+    if (!event) return res.status(404).json({ message: "Event not found" });
+
+    await event.destroy();
     res.json({ message: "Event deleted successfully" });
+    emitChange("events", "deleted", { id: req.params.id });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };

@@ -1,5 +1,7 @@
 
 const axios = require("axios");
+const fs = require("fs");
+const crypto = require("crypto");
 const { MPESA_RESULT_CODES } = require("../constants/researchIndex")
 
 
@@ -13,7 +15,33 @@ const getConfig = () => ({
 });
 
 
-//  ACCESS TOKEN — in-memory cache
+let _certCache = null;
+const getSecurityCredential = () => {
+  const rawPassword = process.env.MPESA_INITIATOR_PASSWORD;
+  const certPath = process.env.MPESA_CERT_PATH;
+
+  if (!rawPassword || !certPath) {
+    throw new Error(
+      "M-Pesa B2C is not configured: set MPESA_INITIATOR_PASSWORD and " +
+      "MPESA_CERT_PATH (path to Safaricom's public certificate) in the " +
+      "environment before calling sendB2CPayment.",
+    );
+  }
+
+  if (_certCache === null) {
+    _certCache = fs.readFileSync(certPath, "utf8");
+  }
+
+  return crypto
+    .publicEncrypt(
+      { key: _certCache, padding: crypto.constants.RSA_PKCS1_PADDING },
+      Buffer.from(rawPassword, "utf8"),
+    )
+    .toString("base64");
+};
+
+
+//  ACCESS TOKEN
 
 let _tokenCache = { token: null, expiresAt: 0 };
 
@@ -44,7 +72,6 @@ const getAccessToken = async () => {
 };
 
 
-//  HELPERS
 
 const generateTimestamp = () => {
   const d = new Date();
@@ -223,19 +250,28 @@ const sendB2CPayment = async ({ phone, amount, remarks = "Research Portal Refund
   const cfg   = getConfig();
   const token = await getAccessToken();
 
+  const b2cCallbackUrl = process.env.MPESA_B2C_CALLBACK_URL;
+  if (!b2cCallbackUrl) {
+    throw new Error(
+      "M-Pesa B2C is not configured: set MPESA_B2C_CALLBACK_URL in the " +
+      "environment (this must be a dedicated B2C result/timeout endpoint, " +
+      "not the STK push callback URL).",
+    );
+  }
+
   const { data } = await axios.post(
     `${cfg.baseUrl}/mpesa/b2c/v3/paymentrequest`,
     {
       OriginatorConversationID: `B2C-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      InitiatorName:    process.env.MPESA_INITIATOR_NAME || "testapi",
-      SecurityCredential: process.env.MPESA_SECURITY_CREDENTIAL,
+      InitiatorName:      process.env.MPESA_INITIATOR_NAME || "testapi",
+      SecurityCredential: getSecurityCredential(),
       CommandID:        "BusinessPayment",
       Amount:           Math.floor(amount),
       PartyA:           cfg.shortCode,
       PartyB:           phone,
       Remarks:          remarks,
-      QueueTimeOutURL:  process.env.MPESA_B2C_CALLBACK_URL || cfg.callbackUrl,
-      ResultURL:        process.env.MPESA_B2C_CALLBACK_URL || cfg.callbackUrl,
+      QueueTimeOutURL:  b2cCallbackUrl,
+      ResultURL:        b2cCallbackUrl,
       Occassion:        "",
     },
     {

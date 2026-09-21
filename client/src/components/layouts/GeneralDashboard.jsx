@@ -115,7 +115,7 @@ const STAT_DEFINITIONS = [
     fetch: async () => {
    
       const res = await api.get("/research/admin/stats");
-      return res.data?.data?.stats?.totalResearch ?? 0;
+      return res.data?.data?.stats?.research?.total ?? 0;
     },
   },
   {
@@ -173,15 +173,6 @@ const getGreeting = () => {
 };
 
 
-const decodeToken = (token) => {
-  try {
-    const payload = token?.split(".")[1];
-    if (!payload) return null;
-    return JSON.parse(atob(payload));
-  } catch {
-    return null;
-  }
-};
 
 
 const StatCard = ({ stat, value, loading }) => {
@@ -227,7 +218,6 @@ const ActionCard = ({ action }) => {
 
 const GeneralDashboard = () => {
   const role  = localStorage.getItem("role") ?? "staff";
-  const token = localStorage.getItem("token");
 
   const [user,        setUser]        = useState(null);
   const [statsValues, setStatsValues] = useState({});
@@ -242,24 +232,17 @@ const GeneralDashboard = () => {
 
   const fetchUserInfo = useCallback(async () => {
     try {
-      const decoded = decodeToken(token);
-      const userID  = decoded?.id;
-      if (!userID) {
-       
-        setUser({ name: decoded?.name || "Staff Member", role });
-        return;
-      }
-      const res  = await api.get(`/users/${userID}`);
+
+      const res  = await api.get("/auth/me");
       const data = res.data?.data || res.data;
       setUser({
-        name: data.name || `${data.firstName || ""} ${data.lastName || ""}`.trim() || "Staff Member",
-        role: data.role ?? role,
+        name: data.user?.name || "Staff Member",
+        role: data.user?.role ?? role,
       });
     } catch {
-      
       setUser({ name: "Staff Member", role });
     }
-  }, [token, role]);
+  }, [role]);
 
 
   const fetchStats = useCallback(async () => {
@@ -302,13 +285,6 @@ const GeneralDashboard = () => {
 
   return (
     <div className="min-h-screen bg-[#f8f7f5]">
-      <style>{`
-        .fade-up { animation: fadeUp .4s ease both; }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-        .stagger-1 { animation-delay:.05s; }
-        .stagger-2 { animation-delay:.1s;  }
-        .stagger-3 { animation-delay:.15s; }
-      `}</style>
 
       {error && (
         <div className="bg-rose-50 border-l-4 border-rose-500 px-6 py-3 flex items-center gap-2">

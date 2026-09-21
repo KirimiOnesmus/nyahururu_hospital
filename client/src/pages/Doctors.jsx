@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Header, TimeRibbon, Footer } from "../components/layouts";
+import { TimeRibbon } from "../components/layouts";
+import{Header, Footer} from "../common/layouts"
 import DoctorCard from "../components/layouts/DoctorCard";
 import api from "../api/axios";
 import { useSearchParams } from "react-router-dom";
@@ -34,7 +35,7 @@ const DoctorSlider = ({ doctors }) => {
     <div>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
         {currentSlice.map((doctor) => (
-          <DoctorCard key={doctor._id} id={doctor._id} doctor={doctor} />
+          <DoctorCard key={doctor.id} id={doctor.id} doctor={doctor} />
         ))}
       </div>
 

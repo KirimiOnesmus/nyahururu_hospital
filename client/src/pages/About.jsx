@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Header, Footer, Slider, Management } from "../components/layouts";
+import{ Header, Footer} from "../common/layouts"
+import { Slider, Management } from "../components/layouts";
 import {
   FaHistory,
   FaBullseye,
@@ -113,7 +114,7 @@ const SectionCard = ({
   </div>
 );
 
-// ── About ─────────────────────────────────────────────────────────────────────
+//  About 
 const AboutSection = () => (
   <SectionCard icon={FaHistory} title="About Us — History">
     <div className="space-y-4 text-slate-700 leading-relaxed text-[0.97rem]">
@@ -147,7 +148,7 @@ const AboutSection = () => (
   </SectionCard>
 );
 
-// ── Mission ───────────────────────────────────────────────────────────────────
+//  Mission 
 const MissionSection = () => (
   <SectionCard icon={FaBullseye} title="Our Mission">
     <div className="border-l-4 border-blue-600 pl-6 py-2">
@@ -159,7 +160,7 @@ const MissionSection = () => (
   </SectionCard>
 );
 
-// ── Vision ────────────────────────────────────────────────────────────────────
+//  Vision 
 const VisionSection = () => (
   <SectionCard icon={FaEye} iconColor="text-violet-600" title="Our Vision">
     <div className="border-l-4 border-violet-600 pl-6 py-2">
@@ -171,7 +172,7 @@ const VisionSection = () => (
   </SectionCard>
 );
 
-// ── Strategy ──────────────────────────────────────────────────────────────────
+//  Strategy 
 const StrategySection = () => (
   <SectionCard
     icon={FaChartLine}
@@ -200,7 +201,7 @@ const StrategySection = () => (
   </SectionCard>
 );
 
-// ── Org Structure ─────────────────────────────────────────────────────────────
+//  Org Structure 
 const OrgStructureSection = () => (
   <SectionCard
     icon={FaSitemap}
@@ -306,13 +307,13 @@ const About = () => {
         {/* Mobile toggle */}
         <button
           onClick={() => setMobileMenuOpen((v) => !v)}
-          className="md:hidden fixed bottom-8 left-5 z-40 bg-blue-600 text-white p-3.5 rounded-full shadow-lg"
+          className="md:hidden fixed bottom-8 left-5 z-40 bg-blue-600 text-white p-3.5 rounded-full"
           aria-label="Toggle menu"
         >
           {mobileMenuOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
         </button>
 
-        {/* Mobile backdrop */}
+      
         {mobileMenuOpen && (
           <div
             className="fixed inset-0 bg-black/40 z-30 md:hidden"

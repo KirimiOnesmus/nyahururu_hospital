@@ -1,7 +1,16 @@
+"use strict";
+
+const { UrgentBloodRequest, User, sequelize } = require("../sequelize/models");
 
 
-const UrgentRequest = require("../models/UrgentBloodRequest"); 
+const jsonContainsBloodGroup = (bloodGroup) =>
+  sequelize.literal(
+    `JSON_CONTAINS(blood_groups, ${sequelize.escape(JSON.stringify(bloodGroup))})`,
+  );
 
+const CREATOR_INCLUDE = [
+  { model: User, as: "creator", attributes: ["id", "name", "email"] },
+];
 
 const createUrgentRequest = async (req, res) => {
   try {
@@ -21,13 +30,12 @@ const createUrgentRequest = async (req, res) => {
       });
     }
 
-
-    const urgentRequest = await UrgentRequest.create({
+    const urgentRequest = await UrgentBloodRequest.create({
       bloodGroups,
       message,
       contactNumber,
       isActive: isActive !== undefined ? isActive : true,
-      createdBy: req.user.id, 
+      createdBy: req.user.id,
     });
 
     res.status(201).json({
@@ -40,28 +48,29 @@ const createUrgentRequest = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to create urgent request",
-      error: error.message,
     });
   }
 };
 
-
 const getAllUrgentRequests = async (req, res) => {
   try {
     const { isActive, bloodGroup } = req.query;
+    const { Op } = require("sequelize");
 
 
-    const filter = {};
-    if (isActive !== undefined) {
-      filter.isActive = isActive === "true";
-    }
-    if (bloodGroup) {
-      filter.bloodGroups = bloodGroup;
-    }
+    const clauses = [];
+    if (isActive !== undefined) clauses.push({ isActive: isActive === "true" });
+    if (bloodGroup) clauses.push(jsonContainsBloodGroup(bloodGroup));
+    const where = clauses.length ? { [Op.and]: clauses } : {};
 
-    const urgentRequests = await UrgentRequest.find(filter)
-      .sort({ isActive: -1, createdAt: -1 })
-      .populate("createdBy", "name email");
+    const urgentRequests = await UrgentBloodRequest.findAll({
+      where,
+      order: [
+        ["isActive", "DESC"],
+        ["createdAt", "DESC"],
+      ],
+      include: CREATOR_INCLUDE,
+    });
 
     res.status(200).json({
       success: true,
@@ -73,24 +82,23 @@ const getAllUrgentRequests = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch urgent requests",
-      error: error.message,
     });
   }
 };
 
-
 const getActiveUrgentRequests = async (req, res) => {
   try {
     const { bloodGroup } = req.query;
+    const { Op } = require("sequelize");
 
-    const filter = { isActive: true };
-    if (bloodGroup) {
-      filter.bloodGroups = bloodGroup;
-    }
+    const clauses = [{ isActive: true }];
+    if (bloodGroup) clauses.push(jsonContainsBloodGroup(bloodGroup));
 
-    const urgentRequests = await UrgentRequest.find(filter)
-      .sort({ createdAt: -1 })
-      .select("-createdBy -updatedBy");
+    const urgentRequests = await UrgentBloodRequest.findAll({
+      where: { [Op.and]: clauses },
+      order: [["createdAt", "DESC"]],
+      attributes: { exclude: ["createdBy", "updatedBy"] },
+    });
 
     res.status(200).json({
       success: true,
@@ -102,20 +110,16 @@ const getActiveUrgentRequests = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch active urgent requests",
-      error: error.message,
     });
   }
 };
-
 
 const updateUrgentRequest = async (req, res) => {
   try {
     const { id } = req.params;
     const { bloodGroups, message, contactNumber, isActive } = req.body;
 
-    
-    const urgentRequest = await UrgentRequest.findById(id);
-
+    const urgentRequest = await UrgentBloodRequest.findByPk(id);
     if (!urgentRequest) {
       return res.status(404).json({
         success: false,
@@ -123,13 +127,13 @@ const updateUrgentRequest = async (req, res) => {
       });
     }
 
-  
     if (bloodGroups && bloodGroups.length === 0) {
       return res.status(400).json({
         success: false,
         message: "At least one blood group must be selected",
       });
     }
+
 
     if (bloodGroups) urgentRequest.bloodGroups = bloodGroups;
     if (message) urgentRequest.message = message;
@@ -150,7 +154,6 @@ const updateUrgentRequest = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to update urgent request",
-      error: error.message,
     });
   }
 };
@@ -159,8 +162,7 @@ const toggleUrgentRequestStatus = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const urgentRequest = await UrgentRequest.findById(id);
-
+    const urgentRequest = await UrgentBloodRequest.findByPk(id);
     if (!urgentRequest) {
       return res.status(404).json({
         success: false,
@@ -168,10 +170,8 @@ const toggleUrgentRequestStatus = async (req, res) => {
       });
     }
 
-    // Toggle status
     urgentRequest.isActive = !urgentRequest.isActive;
     urgentRequest.updatedBy = req.user.id;
-
     await urgentRequest.save();
 
     res.status(200).json({
@@ -184,18 +184,15 @@ const toggleUrgentRequestStatus = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to toggle urgent request status",
-      error: error.message,
     });
   }
 };
-
 
 const deleteUrgentRequest = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const urgentRequest = await UrgentRequest.findById(id);
-
+    const urgentRequest = await UrgentBloodRequest.findByPk(id);
     if (!urgentRequest) {
       return res.status(404).json({
         success: false,
@@ -203,7 +200,7 @@ const deleteUrgentRequest = async (req, res) => {
       });
     }
 
-    await urgentRequest.deleteOne();
+    await urgentRequest.destroy();
 
     res.status(200).json({
       success: true,
@@ -214,7 +211,6 @@ const deleteUrgentRequest = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to delete urgent request",
-      error: error.message,
     });
   }
 };

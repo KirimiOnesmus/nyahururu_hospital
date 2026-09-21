@@ -10,19 +10,15 @@ const {
 
 const { verifyToken, authorizeRoles } = require('../middleware/auth');
 
-// Public: submit report
 router.post('/', submitFraudReport);
 
-// Admin or communication: view all reports
-router.get('/', verifyToken, authorizeRoles('admin', 'communication'), getAllFraudReports);
+router.get('/', verifyToken, authorizeRoles('admin', 'communication','it'), getAllFraudReports);
 
-// Admin or communication: view single report
-router.get('/:id', verifyToken, authorizeRoles('admin', 'communication'), getFraudReportById);
+router.get('/:id', verifyToken, authorizeRoles('admin', 'communication', 'it'), getFraudReportById);
 
-// Admin or communication: update report status
-router.put('/:id/status', verifyToken, authorizeRoles('admin', 'communication'), updateFraudStatus);
+router.put('/:id/status', verifyToken, authorizeRoles('admin', 'communication', "it"), updateFraudStatus);
 
-// Admin: delete report
+
 router.delete('/:id', verifyToken, authorizeRoles('admin'), deleteFraudReport);
 
 module.exports = router;

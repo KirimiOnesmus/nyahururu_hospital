@@ -1,55 +1,72 @@
-const Inventory = require('../models/inventoryModel');
+const emitChange = require("../utils/emitChange");
+"use strict";
+
+const { Op } = require("sequelize");
+const logger = require("../utils/logger");
+const { Inventory, User, sequelize } = require("../sequelize/models");
+const { getPagination, buildMeta } = require("../utils/pagination");
+
+const AUTHOR_INCLUDE = [
+  { model: User, as: "creator", attributes: ["id", "name", "email"] },
+  { model: User, as: "updater", attributes: ["id", "name", "email"] },
+];
+
+
+const LOW_STOCK_WHERE = sequelize.where(
+  sequelize.col("quantity"),
+  Op.lt,
+  sequelize.col("min_threshold"),
+);
+
+
 
 exports.getAllInventory = async (req, res) => {
   try {
-    const inventory = await Inventory.find()
-      .populate('createdBy', 'name email')
-      .populate('updatedBy', 'name email')
-      .sort({ createdAt: -1 });
-
-    res.json(inventory);
+    const { requestedPaging, page, limit, offset } = getPagination(req.query);
+    const { rows: inventory, count: total } = await Inventory.findAndCountAll({
+      include: AUTHOR_INCLUDE,
+      order: [["createdAt", "DESC"]],
+      limit,
+      offset,
+    });
+    if (!requestedPaging) return res.json(inventory);
+    return res.json({ data: inventory, meta: buildMeta(page, limit, total, inventory.length, offset) });
   } catch (error) {
-    console.error('Get all inventory error:', error);
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
-// Get inventory by ID
 exports.getInventoryById = async (req, res) => {
   try {
-    const item = await Inventory.findById(req.params.id)
-      .populate('createdBy', 'name email')
-      .populate('updatedBy', 'name email');
-
-    if (!item) {
-      return res.status(404).json({ message: 'Inventory item not found' });
-    }
-
+    const item = await Inventory.findByPk(req.params.id, {
+      include: AUTHOR_INCLUDE,
+    });
+    if (!item) return res.status(404).json({ message: "Inventory item not found" });
     res.json(item);
   } catch (error) {
-    console.error('Get inventory by ID error:', error);
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
-// Create inventory item
 exports.createInventory = async (req, res) => {
   try {
-    const { name, category, quantity, unit, price, supplier, batch, expiry, minThreshold, sku, description } = req.body;
+    const {
+      name, category, quantity, unit, price, supplier, batch,
+      expiry, minThreshold, sku, description,
+    } = req.body;
 
-    // Validate required fields
     if (!name || !category || quantity === undefined || !unit || price === undefined) {
       return res.status(400).json({
-        message: 'Missing required fields: name, category, quantity, unit, price',
+        message: "Missing required fields: name, category, quantity, unit, price",
       });
     }
 
-    // Check if SKU already exists
+  
     if (sku) {
-      const existingSku = await Inventory.findOne({ sku });
-      if (existingSku) {
-        return res.status(400).json({ message: 'SKU already exists' });
-      }
+      const existingSku = await Inventory.findOne({ where: { sku } });
+      if (existingSku) return res.status(400).json({ message: "SKU already exists" });
     }
 
     const newItem = await Inventory.create({
@@ -61,42 +78,42 @@ exports.createInventory = async (req, res) => {
       supplier,
       batch,
       expiry: expiry ? new Date(expiry) : null,
-      minThreshold: minThreshold || 5,
+      minThreshold: minThreshold ?? 5,
       sku,
       description,
       createdBy: req.user?.id,
       updatedBy: req.user?.id,
     });
+      emitChange("inventory", "created", { id: item.id });
 
     res.status(201).json({
-      message: 'Inventory item created successfully',
+      message: "Inventory item created successfully",
+
       item: newItem,
     });
   } catch (error) {
-    console.error('Create inventory error:', error);
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
-// Update inventory item
 exports.updateInventory = async (req, res) => {
   try {
-    const { name, category, quantity, unit, price, supplier, batch, expiry, minThreshold, sku, description } = req.body;
+    const {
+      name, category, quantity, unit, price, supplier, batch,
+      expiry, minThreshold, sku, description,
+    } = req.body;
 
-    const item = await Inventory.findById(req.params.id);
-    if (!item) {
-      return res.status(404).json({ message: 'Inventory item not found' });
-    }
+    const item = await Inventory.findByPk(req.params.id);
+    if (!item) return res.status(404).json({ message: "Inventory item not found" });
 
-    // Check if new SKU already exists (and is different from current)
     if (sku && sku !== item.sku) {
-      const existingSku = await Inventory.findOne({ sku });
-      if (existingSku) {
-        return res.status(400).json({ message: 'SKU already exists' });
-      }
+      const existingSku = await Inventory.findOne({
+        where: { sku, id: { [Op.ne]: item.id } },
+      });
+      if (existingSku) return res.status(400).json({ message: "SKU already exists" });
     }
 
-    // Update fields
     if (name !== undefined) item.name = name;
     if (category !== undefined) item.category = category;
     if (quantity !== undefined) item.quantity = quantity;
@@ -110,129 +127,130 @@ exports.updateInventory = async (req, res) => {
     if (description !== undefined) item.description = description;
 
     item.updatedBy = req.user?.id;
+
     item.lastRestocked = new Date();
 
-    const updatedItem = await item.save();
+    await item.save();
 
-    res.json({
-      message: 'Inventory item updated successfully',
-      item: updatedItem,
-    });
+    res.json({ message: "Inventory item updated successfully", item });
+    emitChange("inventory", "updated", { id: item.id });
   } catch (error) {
-    console.error('Update inventory error:', error);
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
-// Delete inventory item
 exports.deleteInventory = async (req, res) => {
   try {
-    const item = await Inventory.findByIdAndDelete(req.params.id);
+    const item = await Inventory.findByPk(req.params.id);
+    if (!item) return res.status(404).json({ message: "Inventory item not found" });
 
-    if (!item) {
-      return res.status(404).json({ message: 'Inventory item not found' });
-    }
-
-    res.json({ message: 'Inventory item deleted successfully' });
+    await item.destroy();
+    res.json({ message: "Inventory item deleted successfully" });
+    emitChange("inventory", "deleted", { id: req.params.id });
   } catch (error) {
-    console.error('Delete inventory error:', error);
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
-// Get low stock items
+
+
 exports.getLowStockItems = async (req, res) => {
   try {
-    const items = await Inventory.find({
-      $expr: { $lt: ['$quantity', '$minThreshold'] },
-    }).sort({ quantity: 1 });
-
+    const items = await Inventory.findAll({
+      where: LOW_STOCK_WHERE,
+      order: [["quantity", "ASC"]],
+    });
     res.json(items);
   } catch (error) {
-    console.error('Get low stock items error:', error);
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
-// Get expired items
 exports.getExpiredItems = async (req, res) => {
   try {
-    const now = new Date();
-    const items = await Inventory.find({
-      expiry: { $lte: now },
-    }).sort({ expiry: 1 });
-
+    const items = await Inventory.findAll({
+      where: { expiry: { [Op.lte]: new Date() } },
+      order: [["expiry", "ASC"]],
+    });
     res.json(items);
   } catch (error) {
-    console.error('Get expired items error:', error);
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
-// Get items expiring soon (within 30 days)
 exports.getExpiringItems = async (req, res) => {
   try {
     const now = new Date();
     const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-    const items = await Inventory.find({
-      expiry: { $gte: now, $lte: thirtyDaysFromNow },
-    }).sort({ expiry: 1 });
-
+    const items = await Inventory.findAll({
+      where: { expiry: { [Op.gte]: now, [Op.lte]: thirtyDaysFromNow } },
+      order: [["expiry", "ASC"]],
+    });
     res.json(items);
   } catch (error) {
-    console.error('Get expiring items error:', error);
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
-// Get inventory statistics
 exports.getInventoryStats = async (req, res) => {
   try {
-    const total = await Inventory.countDocuments();
-    const byCategory = await Inventory.aggregate([
-      { $group: { _id: '$category', count: { $sum: 1 } } },
-    ]);
-    const lowStock = await Inventory.countDocuments({
-      $expr: { $lt: ['$quantity', '$minThreshold'] },
-    });
-    const expired = await Inventory.countDocuments({
-      expiry: { $lte: new Date() },
-    });
 
-    res.json({
-      total,
-      byCategory,
-      lowStock,
-      expired,
-    });
+    const [total, byCategoryRaw, lowStock, expired] = await Promise.all([
+      Inventory.count(),
+      Inventory.findAll({
+        attributes: [
+          "category",
+          [sequelize.fn("COUNT", sequelize.col("id")), "count"],
+        ],
+        group: ["category"],
+        raw: true,
+      }),
+      Inventory.count({ where: LOW_STOCK_WHERE }),
+      Inventory.count({ where: { expiry: { [Op.lte]: new Date() } } }),
+    ]);
+
+
+    const byCategory = byCategoryRaw.map((r) => ({
+      _id: r.category,
+      count: Number(r.count),
+    }));
+
+    res.json({ total, byCategory, lowStock, expired });
   } catch (error) {
-    console.error('Get inventory stats error:', error);
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
-// Search inventory
 exports.searchInventory = async (req, res) => {
   try {
     const { query } = req.query;
+    if (!query) return res.status(400).json({ message: "Search query is required" });
 
-    if (!query) {
-      return res.status(400).json({ message: 'Search query is required' });
-    }
 
-    const items = await Inventory.find({
-      $or: [
-        { name: { $regex: query, $options: 'i' } },
-        { category: { $regex: query, $options: 'i' } },
-        { supplier: { $regex: query, $options: 'i' } },
-        { sku: { $regex: query, $options: 'i' } },
-      ],
+    const escaped = String(query).replace(/[\\%_]/g, (m) => `\\${m}`);
+    const like = `%${escaped}%`;
+
+    const items = await Inventory.findAll({
+      where: {
+        [Op.or]: [
+          { name: { [Op.like]: like } },
+          { category: { [Op.like]: like } },
+          { supplier: { [Op.like]: like } },
+          { sku: { [Op.like]: like } },
+        ],
+      },
     });
 
     res.json(items);
   } catch (error) {
-    console.error('Search inventory error:', error);
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };

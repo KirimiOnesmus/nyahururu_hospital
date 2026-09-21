@@ -1,227 +1,273 @@
-const Vehicle = require('../models/vehicleModel');
-const AmbulanceBooking = require('../models/ambulanceBookingModel');
+"use strict";
+
+const { Op } = require("sequelize");
+const logger = require("../utils/logger");
+const {
+  AmbulanceBooking, Vehicle, User, sequelize,
+} = require("../sequelize/models");
+
+
+const VALID_STATUSES = [
+  "Pending", "Assigned", "In Transit", "Arrived",
+  "Completed", "Cancelled", "Waiting",
+];
+
+const DETAIL_INCLUDE = [
+  {
+    model: Vehicle, as: "vehicle",
+    attributes: ["id", "plate", "type", "driver", "mileage", "make", "model"],
+  },
+  { model: User, as: "user", attributes: ["id", "name", "email"] },
+];
+
+
+const LIST_INCLUDE = [
+  {
+    model: Vehicle, as: "vehicle",
+    attributes: ["id", "plate", "type", "driver", "mileage"],
+  },
+  { model: User, as: "user", attributes: ["id", "name", "email"] },
+];
 
 exports.createAmbulanceBooking = async (req, res) => {
   try {
     const {
-      patientName,
-      phone,
-      email,
-      currentLocation,
-      destinationHospital,
-      emergencyLevel,
-      medicalCondition,
-      additionalNotes,
+      patientName, phone, email, currentLocation, destinationHospital,
+      emergencyLevel, medicalCondition, additionalNotes,
     } = req.body;
 
-    // Validate required fields
     if (!patientName || !phone || !currentLocation || !medicalCondition || !emergencyLevel) {
       return res.status(400).json({
-        message: 'Missing required fields: patientName, phone, currentLocation, medicalCondition, emergencyLevel',
+        message: "Missing required fields: patientName, phone, currentLocation, medicalCondition, emergencyLevel",
       });
     }
 
-    // Validate phone number
-    if (!/^\d{10}$/.test(phone.replace(/\D/g, ''))) {
-      return res.status(400).json({
-        message: 'Invalid phone number format',
+    if (!/^\d{10}$/.test(phone.replace(/\D/g, ""))) {
+      return res.status(400).json({ message: "Invalid phone number format" });
+    }
+
+
+    const { booking, ambulance } = await sequelize.transaction(async (t) => {
+      const b = await AmbulanceBooking.create(
+        {
+          patientName,
+          phone,
+          email: email || null,
+          currentLocation,
+          destinationHospital: destinationHospital || "Not specified",
+          emergencyLevel,
+          medicalCondition,
+          additionalNotes: additionalNotes || null,
+          status: "Pending",
+          bookingDate: new Date(),
+          userId: req.user?.id || null,
+        },
+        { transaction: t },
+      );
+
+   
+      const availableAmbulance = await Vehicle.findOne({
+        where: {
+          status: "Available",
+          type: { [Op.in]: ["Ambulance", "ambulance"] },
+        },
+        lock: t.LOCK.UPDATE,
+        transaction: t,
       });
-    }
 
-    // Create booking
-    const booking = await AmbulanceBooking.create({
-      patientName,
-      phone,
-      email: email || null,
-      currentLocation,
-      destinationHospital: destinationHospital || 'Not specified',
-      emergencyLevel,
-      medicalCondition,
-      additionalNotes: additionalNotes || null,
-      status: 'Pending',
-      bookingDate: new Date(),
-      userId: req.user?.id || null,
+      if (availableAmbulance) {
+        availableAmbulance.status = "In Use";
+        availableAmbulance.updatedBy = req.user?.id || null;
+        await availableAmbulance.save({ transaction: t });
+
+        b.vehicleId = availableAmbulance.id;
+        b.status = "Assigned";
+        b.assignedAt = new Date();
+        await b.save({ transaction: t });
+      } else {
+        b.status = "Waiting";
+        await b.save({ transaction: t });
+      }
+
+      return { booking: b, ambulance: availableAmbulance || null };
     });
-
-    // Find an available ambulance and assign it
-    const availableAmbulance = await Vehicle.findOne({
-      status: 'Available',
-      type: { $in: ['Ambulance', 'ambulance'] },
-    });
-
-    if (availableAmbulance) {
-      // Update booking with vehicle
-      booking.vehicleId = availableAmbulance._id;
-      booking.status = 'Assigned';
-      booking.assignedAt = new Date();
-
-      // Update vehicle status to "In Use" (valid enum value from Vehicle model)
-      availableAmbulance.status = 'In Use';
-      availableAmbulance.updatedBy = req.user?.id || null;
-      await availableAmbulance.save();
-
-      await booking.save();
-    } else {
-      // No ambulance available
-      booking.status = 'Waiting';
-      await booking.save();
-    }
 
     res.status(201).json({
-      message: availableAmbulance
-        ? 'Ambulance booked successfully. Dispatch team will contact you shortly.'
-        : 'Your request has been registered. Awaiting available ambulance.',
+      message: ambulance
+        ? "Ambulance booked successfully. Dispatch team will contact you shortly."
+        : "Your request has been registered. Awaiting available ambulance.",
       booking,
-      ambulance: availableAmbulance || null,
+      ambulance,
     });
   } catch (error) {
-    console.error('Create ambulance booking error:', error);
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
 exports.getAllAmbulanceBookings = async (req, res) => {
   try {
-    const bookings = await AmbulanceBooking.find()
-      .populate('vehicleId', 'plate type driver mileage')
-      .populate('userId', 'name email')
-      .sort({ bookingDate: -1 });
-
+    const bookings = await AmbulanceBooking.findAll({
+      include: LIST_INCLUDE,
+      order: [["bookingDate", "DESC"]],
+    });
     res.json(bookings);
   } catch (error) {
-    console.error('Get all bookings error:', error);
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
 exports.getAmbulanceBookingById = async (req, res) => {
   try {
-    const booking = await AmbulanceBooking.findById(req.params.id)
-      .populate('vehicleId', 'plate type driver mileage make model')
-      .populate('userId', 'name email');
+    const booking = await AmbulanceBooking.findByPk(req.params.id, {
+      include: DETAIL_INCLUDE,
+    });
+    if (!booking) return res.status(404).json({ message: "Booking not found" });
 
-    if (!booking) {
-      return res.status(404).json({ message: 'Booking not found' });
+
+    const isOwner = booking.userId === req.user.id;
+    const isStaff = ["admin", "superadmin", "staff"].includes(req.user.role);
+    if (!isOwner && !isStaff) {
+      return res.status(403).json({ message: "You do not have access to this booking." });
     }
 
     res.json(booking);
   } catch (error) {
-    console.error('Get booking error:', error);
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
 exports.getUserBookings = async (req, res) => {
   try {
-    const bookings = await AmbulanceBooking.find({ userId: req.user.id })
-      .populate('vehicleId', 'plate type driver')
-      .sort({ bookingDate: -1 });
-
+    const bookings = await AmbulanceBooking.findAll({
+      where: { userId: req.user.id },
+      include: [
+        {
+          model: Vehicle, as: "vehicle",
+          attributes: ["id", "plate", "type", "driver"],
+        },
+      ],
+      order: [["bookingDate", "DESC"]],
+    });
     res.json(bookings);
   } catch (error) {
-    console.error('Get user bookings error:', error);
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
 exports.updateBookingStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const validStatuses = ['Pending', 'Assigned', 'In Transit', 'Arrived', 'Completed', 'Cancelled', 'Waiting'];
-
-    if (!validStatuses.includes(status)) {
+    if (!VALID_STATUSES.includes(status)) {
       return res.status(400).json({
-        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+        message: `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}`,
       });
     }
 
-    const booking = await AmbulanceBooking.findByIdAndUpdate(
-      req.params.id,
-      {
-        status,
-        updatedAt: new Date(),
-      },
-      { new: true }
-    ).populate('vehicleId', 'plate type driver');
-
-    if (!booking) {
-      return res.status(404).json({ message: 'Booking not found' });
-    }
-
-    // If completed, mark vehicle as available again
-    if (status === 'Completed' && booking.vehicleId) {
-      await Vehicle.findByIdAndUpdate(booking.vehicleId, {
-        status: 'Available',
-        updatedBy: req.user?.id,
+    const booking = await sequelize.transaction(async (t) => {
+      const b = await AmbulanceBooking.findByPk(req.params.id, {
+        transaction: t,
       });
-    }
+      if (!b) return null;
 
-    res.json({
-      message: 'Booking status updated successfully',
-      booking,
+      b.status = status;
+      await b.save({ transaction: t });
+
+      if (status === "Completed" && b.vehicleId) {
+        const vehicle = await Vehicle.findByPk(b.vehicleId, { transaction: t });
+        if (vehicle) {
+          vehicle.status = "Available";
+          vehicle.updatedBy = req.user?.id || null;
+          await vehicle.save({ transaction: t });
+        }
+      }
+      return b;
     });
+
+    if (!booking) return res.status(404).json({ message: "Booking not found" });
+
+
+    const populated = await AmbulanceBooking.findByPk(booking.id, {
+      include: [
+        {
+          model: Vehicle, as: "vehicle",
+          attributes: ["id", "plate", "type", "driver"],
+        },
+      ],
+    });
+
+    res.json({ message: "Booking status updated successfully", booking: populated });
   } catch (error) {
-    console.error('Update booking status error:', error);
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
 exports.cancelBooking = async (req, res) => {
   try {
-    const booking = await AmbulanceBooking.findById(req.params.id);
 
-    if (!booking) {
-      return res.status(404).json({ message: 'Booking not found' });
-    }
+    const booking = await sequelize.transaction(async (t) => {
+      const b = await AmbulanceBooking.findByPk(req.params.id, { transaction: t });
+      if (!b) return { notFound: true };
 
-    if (['Completed', 'Cancelled'].includes(booking.status)) {
-      return res.status(400).json({
-        message: `Cannot cancel a ${booking.status.toLowerCase()} booking`,
-      });
-    }
+      if (["Completed", "Cancelled"].includes(b.status)) {
+        return {
+          alreadyClosed: `Cannot cancel a ${b.status.toLowerCase()} booking`,
+        };
+      }
 
-    // Release vehicle if assigned
-    if (booking.vehicleId) {
-      await Vehicle.findByIdAndUpdate(booking.vehicleId, {
-        status: 'Available',
-        updatedBy: req.user?.id,
-      });
-    }
+      if (b.vehicleId) {
+        const vehicle = await Vehicle.findByPk(b.vehicleId, { transaction: t });
+        if (vehicle) {
+          vehicle.status = "Available";
+          vehicle.updatedBy = req.user?.id || null;
+          await vehicle.save({ transaction: t });
+        }
+      }
 
-    booking.status = 'Cancelled';
-    booking.cancelledAt = new Date();
-    booking.cancelReason = req.body.reason || 'User cancelled';
-    await booking.save();
-
-    res.json({
-      message: 'Booking cancelled successfully',
-      booking,
+      b.status = "Cancelled";
+      b.cancelledAt = new Date();
+      b.cancelReason = req.body.reason || "User cancelled";
+      await b.save({ transaction: t });
+      return { booking: b };
     });
+
+    if (booking.notFound) return res.status(404).json({ message: "Booking not found" });
+    if (booking.alreadyClosed) return res.status(400).json({ message: booking.alreadyClosed });
+
+    res.json({ message: "Booking cancelled successfully", booking: booking.booking });
   } catch (error) {
-    console.error('Cancel booking error:', error);
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 
 exports.getBookingsByStatus = async (req, res) => {
   try {
     const { status } = req.params;
-    const validStatuses = ['Pending', 'Assigned', 'In Transit', 'Arrived', 'Completed', 'Cancelled', 'Waiting'];
-
-    if (!validStatuses.includes(status)) {
+    if (!VALID_STATUSES.includes(status)) {
       return res.status(400).json({
-        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+        message: `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}`,
       });
     }
 
-    const bookings = await AmbulanceBooking.find({ status })
-      .populate('vehicleId', 'plate type driver')
-      .sort({ bookingDate: -1 });
-
+    const bookings = await AmbulanceBooking.findAll({
+      where: { status },
+      include: [
+        {
+          model: Vehicle, as: "vehicle",
+          attributes: ["id", "plate", "type", "driver"],
+        },
+      ],
+      order: [["bookingDate", "DESC"]],
+    });
     res.json(bookings);
   } catch (error) {
-    console.error('Get bookings by status error:', error);
-    res.status(500).json({ message: error.message });
+    logger.error({ err: error }, "Unexpected error");
+    res.status(500).json({ message: "An unexpected error occurred. Please try again later." });
   }
 };
 

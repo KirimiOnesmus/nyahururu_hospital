@@ -6,20 +6,18 @@ const {
   toggleAvailability,
   getAllDoctors,
   getDoctorById,
-  getDoctorsByDepartment // NEW: Import new controller
+  getDoctorsByDepartment 
 } = require('../controllers/doctorController');
-const { verifyToken } = require('../middleware/auth');
+const { verifyToken, authorizeRoles } = require('../middleware/auth');
 
-// Doctor profile routes (protected - for doctors only)
-router.put('/doctor/profile', verifyToken, updateDoctorProfile);
-router.put('/availability', verifyToken, updateAvailability);
-router.put('/toggle-availability', verifyToken, toggleAvailability);
 
-// Public routes (anyone can view)
+router.put('/doctor/profile', verifyToken, authorizeRoles('doctor'), updateDoctorProfile);
+router.put('/availability', verifyToken, authorizeRoles('doctor'), updateAvailability);
+router.put('/toggle-availability', verifyToken, authorizeRoles('doctor'), toggleAvailability);
+
 router.get('/doctors', getAllDoctors);
 router.get('/doctors/:id', getDoctorById);
 
-// NEW: Get doctors by department
 router.get('/doctors/department/:department', getDoctorsByDepartment);
 
 module.exports = router;

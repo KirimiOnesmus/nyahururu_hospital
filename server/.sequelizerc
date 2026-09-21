@@ -1,0 +1,13 @@
+"use strict";
+
+const path = require("path");
+
+// Points sequelize-cli at our sequelize/ subfolder instead of the repo root,
+// so migrations/models/seeders live alongside the rest of the MySQL
+// migration work without mixing into the existing Mongoose `models/` dir.
+module.exports = {
+  config: path.resolve(__dirname, "sequelize", "config", "config.js"),
+  "models-path": path.resolve(__dirname, "sequelize", "models"),
+  "migrations-path": path.resolve(__dirname, "sequelize", "migrations"),
+  "seeders-path": path.resolve(__dirname, "sequelize", "seeders"),
+};

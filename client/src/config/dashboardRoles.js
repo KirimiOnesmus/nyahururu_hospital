@@ -19,10 +19,7 @@ import {
 } from "react-icons/fa";
 import { BiSolidDonateHeart } from "react-icons/bi";
 
-// Single source of truth for which staff roles can see/access each
-// /dashboard/* route. Sidebar.jsx uses this to decide what to render;
-// RequireRole (src/components/auth/RequireRole.jsx) uses the same list to
-// guard the route itself, so the nav and the guard can never drift apart.
+
 export const DASHBOARD_NAV = [
   {
     category: "Management",
@@ -30,7 +27,7 @@ export const DASHBOARD_NAV = [
       {
         title: "Dashboard",
         path: "/dashboard",
-        roles: ["superadmin", "admin", "it", "doctor", "communication", "research"],
+        roles: ["superadmin", "admin", "it", "doctor", "communication", "research", "staff"],
         icon: FaTh,
       },
       { title: "Hospitals", path: "/dashboard/hospitals", roles: ["superadmin"], icon: FaHospital },
@@ -152,7 +149,7 @@ export const DASHBOARD_NAV = [
       {
         title: "Audit Logs",
         path: "/dashboard/audit-logs",
-        roles: ["superadmin"],
+        roles: ["superadmin","it"],
         icon: FaClipboardCheck,
       },
       {
@@ -165,8 +162,7 @@ export const DASHBOARD_NAV = [
   },
 ];
 
-// Routes that exist but aren't part of the visible nav (edit sub-pages etc.)
-// still need a roles entry so RequireRole can guard them.
+
 export const EXTRA_DASHBOARD_ROUTE_ROLES = {
   "/dashboard/users/edit/:id": ["superadmin", "admin", "it"],
   "/dashboard/profile": ["superadmin", "admin", "it", "doctor", "communication", "research"],

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Header, Footer } from "../components/layouts";
+import { Header, Footer } from "../common/layouts";
 import DonationBanner from "../assets/blood-donation.jpeg";
 import { PiSirenFill } from "react-icons/pi";
 import { BiDonateBlood } from "react-icons/bi";
@@ -16,7 +16,7 @@ import { TfiWrite } from "react-icons/tfi";
 import { GiCoffeeCup } from "react-icons/gi";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
-import { toast } from "react-toastify";
+import notify from "../common/utils/notify";
 
 const STEPS = [
   {
@@ -95,7 +95,7 @@ const BloodDonation = () => {
         else setUrgentRequests([]);
       } catch (err) {
         if (err.response?.status !== 404)
-          toast.error("Failed to load urgent blood requests");
+          notify.error("Failed to load urgent blood requests");
         setUrgentRequests([]);
       } finally {
         setLoading(false);
@@ -123,7 +123,7 @@ const BloodDonation = () => {
         <div className="max-w-5xl mx-auto w-full px-6 pt-5 space-y-3">
           {urgentRequests.map((req, i) => (
             <div
-              key={req._id || i}
+              key={req.id || i}
               className="bg-red-600 text-white rounded-2xl overflow-hidden"
             >
               <div className="p-5">
@@ -140,8 +140,8 @@ const BloodDonation = () => {
                     Blood Groups Urgently Needed
                   </p>
                   <div className="flex flex-wrap justify-center gap-2">
-                    {req.bloodGroups?.length > 0 ? (
-                      req.bloodGroups.map((bg) => (
+                    {(() => { const bgs = typeof req.bloodGroups === "string" ? JSON.parse(req.bloodGroups) : (req.bloodGroups || []); return bgs.length > 0 ? (
+                      bgs.map((bg) => (
                         <span
                           key={bg}
                           className="inline-flex items-center gap-1 px-3 py-1 bg-white text-red-600
@@ -154,7 +154,7 @@ const BloodDonation = () => {
                       <span className="text-sm text-red-200">
                         All blood types needed
                       </span>
-                    )}
+                    ); })()}
                   </div>
                 </div>
 

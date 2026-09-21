@@ -1,11 +1,9 @@
-
 "use strict";
 
 require("dotenv").config();
 
 const REQUIRED_ENV = [
   "PORT",
-  "MONGO_URI",
   "JWT_SECRET",
   "JWT_REFRESH_SECRET",
   "NODE_ENV",
@@ -23,14 +21,12 @@ const express    = require("express");
 const cors       = require("cors");
 const helmet     = require("helmet");
 const hpp        = require("hpp");
-const mongoSanitize = require("express-mongo-sanitize");
 const compression   = require("compression");
 const cookieParser  = require("cookie-parser");
 const rateLimit     = require("express-rate-limit");
 const path          = require("path");
 
 
-const connectDB          = require("./config/db");
 const { AppError, globalErrorHandler } = require("./utils/appError");
 const logger             = require("./utils/logger"); 
 
@@ -64,11 +60,12 @@ const galleryRoutes          = require("./routes/galleryRoutes");
 const noticeRoutes           = require("./routes/noticeRoutes");
 const feedbackRoutes         = require("./routes/feedbackRoutes");
 
-// Careers & Procurement
-const jobRoutes              = require("./routes/jobRoutes");
-const careerApplicationRoutes = require("./routes/careerApplicationRoutes");
+// Procurement
 const tenderRoutes           = require("./routes/tenderRoutes");
 const bidRoutes              = require("./routes/bidRoutes");
+
+// System
+const auditLogRoutes         = require("./routes/auditLogRoutes");
 
 // Research & Payments
 const researchRoutes         = require("./routes/researchRoutes");
@@ -76,22 +73,17 @@ const paymentRoutes          = require("./routes/paymentRoute");
 const certificateRoutes      = require("./routes/certificates");
 
 
-connectDB();
-
-
 const app = express();
 
+
+
+app.set("trust proxy", 1);//ngrok testing
 
 if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
 }
 
 
-// M4: previously `contentSecurityPolicy: production ? undefined : false`
-// meant production silently fell back to Helmet's generic default policy
-// — never verified against this app's actual origins/CDNs. Now explicit,
-// built from the same CORS_ORIGINS allowlist already configured below,
-// plus the CDNs this app is known to load from client-side.
 const buildProductionCSP = () => {
   const selfOrigins = (process.env.CORS_ORIGINS || "").split(",").map((o) => o.trim()).filter(Boolean);
   return {
@@ -168,44 +160,15 @@ const authLimiter = rateLimit({
   },
 });
 
-const sanitizeRequest = (req, res, next) => {
-  if (req.body)   req.body   = mongoSanitize.sanitize(req.body);
-  if (req.params) req.params = mongoSanitize.sanitize(req.params);
-  if (req.query) {
-    const cleaned = mongoSanitize.sanitize(req.query);
-    Object.keys(req.query).forEach((key) => delete req.query[key]);
-    Object.assign(req.query, cleaned);
-  }
-  next();
-};
-
-
-
-app.use(express.json({ limit: "10kb" }));        
+app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(cookieParser());
-app.use(compression());                            
-app.use(sanitizeRequest);
+app.use(compression());
 
 
 app.use(hpp({ whitelist: ["fields", "sort", "page", "limit", "filter"] }));
 
 
-// H6: uploaded files were previously served from one fully public
-// `/uploads` static mount — including research papers, bid documents,
-// reports and progress files, with randomized filenames as the *only*
-// protection (security-by-obscurity, not access control: any leaked/
-// logged/referrer-forwarded URL exposed the file to the internet
-// permanently). Split into:
-//   - genuinely public CMS assets (gallery/news/events/services/notices/
-//     tenders — the hospital's own public-facing images and procurement
-//     documents), served as before, and
-//   - everything else, which now requires a valid staff or researcher
-//     session before the file is streamed at all.
-// This is a floor, not the full fix — per-file ownership checks (e.g. "is
-// this researcher allowed to see *this* paper") still belong in a proper
-// GET /api/research/:id/file-style controller route; this closes the
-// "public to the entire internet" gap in the meantime.
 const PUBLIC_UPLOAD_FOLDERS = ["public", "gallery", "news", "events", "services", "notices", "tenders"];
 
 PUBLIC_UPLOAD_FOLDERS.forEach((folder) => {
@@ -221,8 +184,7 @@ PUBLIC_UPLOAD_FOLDERS.forEach((folder) => {
 
 const { verifyToken: requireStaffToken, protectResearcher: requireResearcherToken } = require("./middleware/auth");
 const requireUploadAuth = (req, res, next) => {
-  // Accept either a staff session or a researcher session — both
-  // extractToken() paths already exist in middleware/auth.js.
+
   requireStaffToken(req, res, (staffErr) => {
     if (!staffErr) return next();
     requireResearcherToken(req, res, next);
@@ -290,15 +252,27 @@ app.use("/api/gallery",       galleryRoutes);
 app.use("/api/notices",       noticeRoutes);
 app.use("/api/feedback",      feedbackRoutes);
 
-// Careers & Procurement 
-app.use("/api/applications",  careerApplicationRoutes);
+// Procurement
+// (Careers/job listings and applications are now hosted on the county
+// website; this API no longer exposes /api/jobs or /api/applications.)
 app.use("/api/tenders",       tenderRoutes);
 app.use("/api/bids",          bidRoutes);
+
+// System
+app.use("/api/audit-logs",    auditLogRoutes);
 
 //Research & Payments 
 app.use("/api/research",      researchRoutes);
 app.use("/api/payments",   paymentRoutes);
 app.use("/api/certificates", certificateRoutes);
+
+//ngrok
+app.get("/", (req, res) => {
+  res.json({ status: "ok", service: "NCRH API", timestamp: new Date().toISOString() });
+});
+
+app.get("/favicon.ico", (req, res) => res.status(204).end());
+
 
 
 app.all("*splat", (req, res, next) => {
@@ -329,32 +303,7 @@ app.use((err, req, res, next) => {
     });
   }
 
-  // Mongoose: duplicate key 
-  if (err.code === 11000) {
-    const field = Object.keys(err.keyValue || {})[0] || "field";
-    return res.status(409).json({
-      success: false,
-      message: `A record with this ${field} already exists.`,
-    });
-  }
 
-  // Mongoose: validation errors 
-  if (err.name === "ValidationError") {
-    const errors = Object.values(err.errors).map((e) => e.message);
-    return res.status(422).json({
-      success: false,
-      message: "Validation failed.",
-      errors,
-    });
-  }
-
-  // Mongoose: invalid ObjectId 
-  if (err.name === "CastError") {
-    return res.status(400).json({
-      success: false,
-      message: `Invalid value for field '${err.path}': ${err.value}`,
-    });
-  }
 
   // JWT errors
   if (err.name === "JsonWebTokenError") {

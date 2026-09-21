@@ -12,27 +12,22 @@ const {
 
 const { verifyToken, authorizeRoles } = require('../middleware/auth');
 
-// ========== POST ROUTES ==========
 router.post('/create', createAmbulanceBooking);
 
-// ========== GET ROUTES - SPECIFIC PATHS FIRST ==========
-// Get all bookings (admin only)
-router.get('/', verifyToken, authorizeRoles('admin'), getAllAmbulanceBookings);
+router.get('/', verifyToken, authorizeRoles('admin', 'it'), getAllAmbulanceBookings);
 
-// Get user's bookings
+
 router.get('/my-bookings', verifyToken, getUserBookings);
 
-// Get bookings by status (admin only)
-router.get('/status/:status', verifyToken, authorizeRoles('admin'), getBookingsByStatus);
+router.get('/status/:status', verifyToken, authorizeRoles('admin','it'), getBookingsByStatus);
 
-// ========== PUT ROUTES - WITH ACTION NAMES ==========
-// Update booking status (admin only)
-router.put('/:id/status', verifyToken, authorizeRoles('admin'), updateBookingStatus);
 
-// Cancel booking
+router.put('/:id/status', verifyToken, authorizeRoles('admin', 'it'), updateBookingStatus);
+
+
 router.put('/:id/cancel', verifyToken, cancelBooking);
 
-// ========== GET :id ROUTE - MUST BE LAST ==========
-router.get('/:id', getAmbulanceBookingById);
+
+router.get('/:id', verifyToken, getAmbulanceBookingById);
 
 module.exports = router;

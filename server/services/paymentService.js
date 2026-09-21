@@ -1,21 +1,22 @@
+"use strict";
+
 const crypto   = require("crypto");
-const Payment  = require("../models/PaymentModel");
-const Research = require("../models/researchModel");
-const Researcher = require("../models/ResearcherModel");
-const mpesa    = require("../utils/mpesaService")
-const email    = require("../utils/emailServices")
+const { Op }   = require("sequelize");
+const { Payment, Research, Researcher, sequelize } = require("../sequelize/models");
+const mpesa    = require("../utils/mpesaService");
+const email    = require("../utils/emailServices");
 const { AppError } = require("../utils/appError");
 const {
   PAYMENT_TYPES,
   PAYMENT_STATUSES,
-  MPESA_RESULT_CODES,
   FEES,
   TOKEN_TTL,
 } = require("../constants/researchIndex");
 
-const initiatePayment = async ({ phone, email, researchId, type }, researcherId) => {
 
-  const resolvedType = type || (researchId ? PAYMENT_TYPES.PAPER_DOWNLOAD : PAYMENT_TYPES.PROPOSAL_SUBMISSION);
+const initiatePayment = async ({ phone, email: buyerEmail, researchId, type }, researcherId) => {
+  const resolvedType =
+    type || (researchId ? PAYMENT_TYPES.PAPER_DOWNLOAD : PAYMENT_TYPES.PROPOSAL_SUBMISSION);
 
   if (!Object.values(PAYMENT_TYPES).includes(resolvedType)) {
     throw new AppError("Invalid payment type.", 400);
@@ -25,61 +26,63 @@ const initiatePayment = async ({ phone, email, researchId, type }, researcherId)
     throw new AppError("Authentication required for proposal submission.", 401);
   }
 
-
   let amount, accountRef, description, linkedResearchId;
 
   if (resolvedType === PAYMENT_TYPES.PROPOSAL_SUBMISSION) {
-    amount        = FEES.PROPOSAL_SUBMISSION;
-    accountRef    = "Proposal";
-    description   = "Research proposal submission fee";
+    amount = FEES.PROPOSAL_SUBMISSION;
+    accountRef = "Proposal";
+    description = "Research proposal submission fee";
     linkedResearchId = null;
 
 
     if (researchId) {
-      const existing = await Research.findById(researchId).select("submissionPayment");
-      if (existing?.submissionPayment) {
-        const prevPayment = await Payment.findById(existing.submissionPayment)
-          .select("status mpesaReceiptNumber");
+      const existing = await Research.findByPk(researchId, {
+        attributes: ["submissionPaymentId"],
+      });
+      if (existing?.submissionPaymentId) {
+        const prevPayment = await Payment.findByPk(existing.submissionPaymentId, {
+          attributes: ["status", "mpesaReceiptNumber"],
+        });
         if (prevPayment?.status === PAYMENT_STATUSES.COMPLETED) {
           throw new AppError(
-            "You have already paid for this proposal. Receipt: " + prevPayment.mpesaReceiptNumber,
-            400
+            `You have already paid for this proposal. Receipt: ${prevPayment.mpesaReceiptNumber}`,
+            400,
           );
         }
       }
     }
   } else {
-
-    if (!researchId) throw new AppError("researchId is required for paper downloads.", 400);
-
-    const research = await Research.findOne({ _id: researchId, isPublished: true })
-      .select("downloadPrice isPublished title");
+    if (!researchId) {
+      throw new AppError("researchId is required for paper downloads.", 400);
+    }
+    const research = await Research.findOne({
+      where: { id: researchId, isPublished: true },
+      attributes: ["downloadPrice", "isPublished", "title"],
+    });
     if (!research) throw new AppError("Research paper not found or not published.", 404);
 
-    amount           = research.downloadPrice ?? FEES.DEFAULT_DOWNLOAD;
-    accountRef       = "ResearchDL";   // max 12 chars
-    description      = `Paper download - ${String(researchId).slice(-8)}`;
+    amount = research.downloadPrice ?? FEES.DEFAULT_DOWNLOAD;
+    accountRef = "ResearchDL";
+    description = `Paper download - ${String(researchId).slice(-8)}`;
     linkedResearchId = researchId;
   }
-
 
   const stkResult = await mpesa.initiateSTKPush({ phone, amount, accountRef, description });
 
   if (stkResult.ResponseCode !== "0") {
     throw new AppError(
       stkResult.ResponseDescription || "Payment initiation failed. Please try again.",
-      502
+      502,
     );
   }
 
-
   const payment = await Payment.create({
-    researcher:        researcherId || null,
+    researcherId:      researcherId || null,
     type:              resolvedType,
-    research:          linkedResearchId,
+    researchId:        linkedResearchId,
     amount,
     phone,
-    buyerEmail: email || null,
+    buyerEmail:        buyerEmail || null,
     merchantRequestId: stkResult.MerchantRequestID,
     checkoutRequestId: stkResult.CheckoutRequestID,
     status:            PAYMENT_STATUSES.PENDING,
@@ -88,13 +91,13 @@ const initiatePayment = async ({ phone, email, researchId, type }, researcherId)
   return {
     message:           stkResult.CustomerMessage || "STK Push sent. Enter your M-Pesa PIN.",
     checkoutRequestId: stkResult.CheckoutRequestID,
-    paymentId:         payment._id,
+    paymentId:         payment.id,
     amount,
     type:              resolvedType,
   };
 };
 
-//  PROCESS DARAJA CALLBACK
+//  PROCESS DARAJA CALLBACK 
 
 const processCallback = async (body) => {
   const parsed = mpesa.parseCallback(body);
@@ -103,89 +106,167 @@ const processCallback = async (body) => {
     return;
   }
 
-  const { checkoutRequestId, status, mpesaReceiptNumber, resultCode, resultDesc, amount, transactionDate } = parsed;
+  const {
+    checkoutRequestId, status, mpesaReceiptNumber,
+    resultCode, resultDesc, transactionDate,
+  } = parsed;
 
-  const payment = await Payment.findOne({ checkoutRequestId });
-  if (!payment) {
+  const existing = await Payment.findOne({
+    where: { checkoutRequestId },
+    attributes: ["status", "mpesaReceiptNumber"],
+  });
+  if (!existing) {
     console.warn(`[Payment] No payment found for checkoutRequestId: ${checkoutRequestId}`);
     return;
   }
-
-
-  if (payment.status === PAYMENT_STATUSES.COMPLETED) {
+  if (existing.status === PAYMENT_STATUSES.COMPLETED && existing.mpesaReceiptNumber) {
     console.log(`[Payment] Already completed — skipping: ${checkoutRequestId}`);
     return;
   }
 
-  // C4 fix: the callback body is fully attacker-controlled (anyone who
-  // obtains a checkoutRequestId — returned to the client on STK push
-  // initiation — could previously POST a forged "completed" callback and
-  // get a payment marked paid without paying). Before ever marking a
-  // payment completed, independently re-verify the transaction with
-  // Safaricom's server-to-server status-query API. A callback claiming
-  // success is now only a *hint* to check now instead of on the next poll
-  // — the database mutation is driven by `queryResult`, not by `parsed`.
+
   let queryResult = null;
   try {
     queryResult = await mpesa.querySTKStatus(checkoutRequestId);
   } catch (err) {
-    console.error(`[Payment] STK status re-verification failed for ${checkoutRequestId}:`, err.message);
+    console.error(
+      `[Payment] STK status re-verification failed for ${checkoutRequestId}:`,
+      err.message,
+    );
   }
 
-  const verifiedCompleted = queryResult ? queryResult.isCompleted : status === PAYMENT_STATUSES.COMPLETED;
-  const verifiedReceipt = queryResult?.MpesaReceiptNumber || mpesaReceiptNumber;
+  const verifiedCompleted = queryResult
+    ? queryResult.isCompleted
+    : status === PAYMENT_STATUSES.COMPLETED;
+  const verifiedReceipt    = queryResult?.MpesaReceiptNumber || mpesaReceiptNumber;
   const verifiedResultCode = queryResult?.ResultCode ?? resultCode;
   const verifiedResultDesc = queryResult?.ResultDesc ?? resultDesc;
 
-  if (verifiedCompleted) {
-    payment.status             = PAYMENT_STATUSES.COMPLETED;
-    payment.mpesaReceiptNumber = verifiedReceipt;
-    payment.transactionDate    = transactionDate;
-    payment.resultCode         = verifiedResultCode;
-    payment.resultDesc         = verifiedResultDesc;
-    await payment.save();
+  const outcome = await sequelize.transaction(async (t) => {
+    const payment = await Payment.findOne({
+      where: { checkoutRequestId },
+      lock: t.LOCK.UPDATE,
+      transaction: t,
+    });
+    if (!payment) return { skipped: "not_found" };
+  
+    if (payment.status === PAYMENT_STATUSES.COMPLETED) {
 
-    console.log(`[Payment]completed: ${verifiedReceipt}`);
+      if (!payment.mpesaReceiptNumber && mpesaReceiptNumber) {
+        payment.mpesaReceiptNumber = mpesaReceiptNumber;
+        payment.transactionDate    = transactionDate || payment.transactionDate;
+        await payment.save({ transaction: t });
+        return {
+          completed: true,
+          receiptBackfill: true,
+          researcherId: payment.researcherId,
+          researchId:   payment.researchId,
+          type:         payment.type,
+          amount:       payment.amount,
+          receipt:      mpesaReceiptNumber,
+        };
+      }
+      return { skipped: "already_completed" };
+    }
 
-    // Send confirmation email to researcher
-    if (payment.researcher && payment.type === PAYMENT_TYPES.PROPOSAL_SUBMISSION) {
-      const researcher = await Researcher.findById(payment.researcher)
-        .select("email name firstName");
-      if (researcher) {
-        await email.sendPaymentConfirmation({
-          email:   researcher.email,
-          name:    researcher.name || researcher.firstName,
-          mpesaReceipt: verifiedReceipt,
-          amount:  payment.amount,
-          purpose: "Research Proposal Submission",
+    if (verifiedCompleted) {
+      payment.status             = PAYMENT_STATUSES.COMPLETED;
+      payment.mpesaReceiptNumber = verifiedReceipt;
+      payment.transactionDate    = transactionDate;
+      payment.resultCode         = verifiedResultCode;
+      payment.resultDesc         = verifiedResultDesc;
+      await payment.save({ transaction: t });
+      return {
+        completed: true,
+        researcherId: payment.researcherId,
+        researchId:   payment.researchId,
+        type:         payment.type,
+        amount:       payment.amount,
+        receipt:      verifiedReceipt,
+      };
+    }
+
+
+    payment.status     = queryResult ? queryResult.status : status;
+    payment.resultCode = verifiedResultCode;
+    payment.resultDesc = verifiedResultDesc;
+    await payment.save({ transaction: t });
+    return { completed: false, status: payment.status };
+  });
+
+  if (outcome.skipped === "already_completed") {
+    console.log(`[Payment] Race avoided — another callback finalised this one.`);
+    return;
+  }
+  if (outcome.skipped === "not_found") return;
+
+  if (outcome.receiptBackfill) {
+    console.log(`[Payment] Receipt backfilled from callback: ${outcome.receipt}`);
+  }
+
+  if (outcome.completed) {
+    console.log(`[Payment] completed: ${outcome.receipt}`);
+
+    if (outcome.researcherId && outcome.type === PAYMENT_TYPES.PROPOSAL_SUBMISSION) {
+      try {
+        const researcher = await Researcher.findByPk(outcome.researcherId, {
+          attributes: ["email", "name", "firstName"],
         });
+        if (researcher) {
+          await email.sendPaymentConfirmation({
+            email:        researcher.email,
+            name:         researcher.name || researcher.firstName,
+            mpesaReceipt: outcome.receipt,
+            amount:       outcome.amount,
+            purpose:      "Research Proposal Submission",
+          });
+        }
+      } catch (err) {
+        console.error("[Payment] Confirmation email failed:", err.message);
       }
     }
 
 
-    if (payment.type === PAYMENT_TYPES.PAPER_DOWNLOAD && payment.research) {
-      await Research.findByIdAndUpdate(payment.research, { $inc: { downloads: 1 } });
-    }
-
   } else {
-    // failed or cancelled — query result (when available) is authoritative;
-    // otherwise fall back to the callback's own status.
-    payment.status     = queryResult ? queryResult.status : status;
-    payment.resultCode = verifiedResultCode;
-    payment.resultDesc = verifiedResultDesc;
-    await payment.save();
-
-    console.log(`[Payment] ✗ ${status}: ${resultDesc}`);
+    console.log(`[Payment]  ${outcome.status}: ${verifiedResultDesc}`);
   }
 };
 
-//  VERIFY PAYMENT STATUS
-
 const verifyPayment = async (checkoutRequestId) => {
-  const payment = await Payment.findOne({ checkoutRequestId })
-    .select("status mpesaReceiptNumber amount type research resultCode resultDesc");
-
+  const payment = await Payment.findOne({
+    where: { checkoutRequestId },
+    attributes: [
+      "id", "status", "mpesaReceiptNumber", "amount", "type",
+      "researchId", "resultCode", "resultDesc",
+    ],
+  });
   if (!payment) throw new AppError("Payment record not found.", 404);
+
+
+  if (payment.status === PAYMENT_STATUSES.PENDING) {
+    try {
+      const stkStatus = await mpesa.querySTKStatus(checkoutRequestId);
+
+      if (stkStatus.isCompleted) {
+        payment.status             = PAYMENT_STATUSES.COMPLETED;
+        payment.mpesaReceiptNumber = stkStatus.MpesaReceiptNumber || payment.mpesaReceiptNumber;
+        payment.resultCode         = stkStatus.ResultCode;
+        payment.resultDesc         = stkStatus.ResultDesc;
+        await payment.save();
+      } else if (["failed", "cancelled"].includes(stkStatus.status)) {
+        payment.status     = stkStatus.status;
+        payment.resultCode = stkStatus.ResultCode;
+        payment.resultDesc = stkStatus.ResultDesc;
+        await payment.save();
+      }
+    } catch (err) {
+
+      console.warn(
+        `[Payment] STK status query failed for ${checkoutRequestId}:`,
+        err.message,
+      );
+    }
+  }
 
   return {
     checkoutRequestId,
@@ -193,28 +274,33 @@ const verifyPayment = async (checkoutRequestId) => {
     mpesaReceiptNumber: payment.mpesaReceiptNumber || null,
     amount:             payment.amount,
     type:               payment.type,
-    researchId:         payment.research || null,
+    researchId:         payment.researchId || null,
     resultCode:         payment.resultCode,
     resultDesc:         payment.resultDesc,
   };
 };
 
-//  GENERATE SECURE DOWNLOAD TOKEN
-
-
 const generateDownloadToken = async (paymentId, researchId, requesterId) => {
-  const payment = await Payment.findOne({
-    _id: paymentId,
-    research: researchId,
-    type: PAYMENT_TYPES.PAPER_DOWNLOAD,
-    status: PAYMENT_STATUSES.COMPLETED,
-  }).populate("research", "title");
+
+  const payment = await Payment.scope("withSecrets").findOne({
+    where: {
+      id:         paymentId,
+      researchId,
+      type:       PAYMENT_TYPES.PAPER_DOWNLOAD,
+      status:     PAYMENT_STATUSES.COMPLETED,
+    },
+    include: [{ model: Research, as: "research", attributes: ["title"] }],
+  });
 
   if (!payment) {
     throw new AppError("Valid completed payment not found for this download.", 403);
   }
 
-  if (payment.researcher && requesterId && payment.researcher.toString() !== requesterId.toString()) {
+  if (
+    payment.researcherId &&
+    requesterId &&
+    String(payment.researcherId) !== String(requesterId)
+  ) {
     throw new AppError("This payment does not belong to your account.", 403);
   }
 
@@ -225,13 +311,13 @@ const generateDownloadToken = async (paymentId, researchId, requesterId) => {
   payment.downloadTokenExpire = expiry;
   await payment.save();
 
-  // Prefer the anonymous buyer's supplied email; fall back to the logged-in researcher's account email so registered users always get their receipt + one-time download link.
-
   let recipientEmail = payment.buyerEmail || null;
   let recipientName = null;
 
-  if (!recipientEmail && payment.researcher) {
-    const researcher = await Researcher.findById(payment.researcher).select("email name firstName");
+  if (!recipientEmail && payment.researcherId) {
+    const researcher = await Researcher.findByPk(payment.researcherId, {
+      attributes: ["email", "name", "firstName"],
+    });
     if (researcher) {
       recipientEmail = researcher.email;
       recipientName = researcher.name || researcher.firstName;
@@ -253,35 +339,42 @@ const generateDownloadToken = async (paymentId, researchId, requesterId) => {
   return { downloadToken: raw, expiresAt: expiry };
 };
 
-//  VERIFY DOWNLOAD TOKEN
 
 const verifyDownloadToken = async (token, researchId) => {
-  const payment = await Payment.findOne({
-    downloadToken: token,
-    research: researchId,
-    downloadTokenExpire: { $gt: new Date() },
-    status: PAYMENT_STATUSES.COMPLETED,
-  }).select("+downloadToken +downloadTokenExpire");
+  return sequelize.transaction(async (t) => {
+    const payment = await Payment.scope("withSecrets").findOne({
+      where: {
+        downloadToken:       token,
+        researchId,
+        downloadTokenExpire: { [Op.gt]: new Date() },
+        status:              PAYMENT_STATUSES.COMPLETED,
+      },
+      lock: t.LOCK.UPDATE,
+      transaction: t,
+    });
+    if (!payment) throw new AppError("Download token is invalid or has expired.", 403);
 
-  if (!payment) throw new AppError("Download token is invalid or has expired.", 403);
+    payment.downloadToken = null;
+    payment.downloadTokenExpire = null;
+    payment.downloadedAt = new Date();
+    await payment.save({ transaction: t });
 
-  // One-time use: burn the token immediately
-  payment.downloadToken = null;
-  payment.downloadTokenExpire = null;
-  payment.downloadedAt = new Date();
-  await payment.save();
+    await Research.increment("downloads", {
+      by: 1,
+      where: { id: researchId },
+      transaction: t,
+    });
 
-  // Count the ACTUAL download here, not at payment-completion time
-  await Research.findByIdAndUpdate(researchId, { $inc: { downloads: 1 } });
-
-  return payment;
+    return payment;
+  });
 };
 
-//  REFUND PAYMENT (Admin only)
-
 const refundPayment = async (paymentId, reason) => {
-  const payment = await Payment.findById(paymentId)
-    .populate("researcher", "email name firstName");
+  const payment = await Payment.findByPk(paymentId, {
+    include: [
+      { model: Researcher, as: "researcher", attributes: ["email", "name", "firstName"] },
+    ],
+  });
   if (!payment) throw new AppError("Payment not found.", 404);
 
   if (payment.status !== PAYMENT_STATUSES.COMPLETED) {
@@ -291,17 +384,32 @@ const refundPayment = async (paymentId, reason) => {
     throw new AppError("This payment has already been refunded.", 400);
   }
 
-  const b2cResult = await mpesa.sendB2CPayment({
-    phone:   payment.phone,
-    amount:  payment.amount,
-    remarks: `Refund: ${reason}`.slice(0, 100),
-  });
+  let b2cResult;
+  try {
+    b2cResult = await mpesa.sendB2CPayment({
+      phone:   payment.phone,
+      amount:  payment.amount,
+      remarks: `Refund: ${reason}`.slice(0, 100),
+    });
+  } catch (err) {
 
-  if (!b2cResult.success) {
-    throw new AppError(`Refund failed: ${b2cResult.ResponseDesc || "M-Pesa error"}`, 502);
+    if (err.message?.startsWith("M-Pesa B2C is not configured")) {
+      throw new AppError(
+        "Refunds are not yet configured for this deployment. Contact an administrator.",
+        503,
+      );
+    }
+    throw err;
   }
 
-  payment.status      = PAYMENT_STATUSES.REFUNDED;
+  if (!b2cResult.success) {
+    throw new AppError(
+      `Refund failed: ${b2cResult.ResponseDesc || "M-Pesa error"}`,
+      502,
+    );
+  }
+
+  payment.status       = PAYMENT_STATUSES.REFUNDED;
   payment.refundReason = reason;
   payment.refundedAt   = new Date();
   payment.refundCode   = b2cResult.conversationId;
@@ -311,26 +419,28 @@ const refundPayment = async (paymentId, reason) => {
   return payment;
 };
 
-//  REVENUE — single research, researcher-facing
-
-
 const getRevenueForResearch = async (researchId) => {
-  const payments = await Payment.find({
-    research: researchId,
-    status: PAYMENT_STATUSES.COMPLETED,
-  })
-    .select("type amount createdAt mpesaReceiptNumber")
-    .lean();
+  const payments = await Payment.findAll({
+    where: {
+      researchId,
+      status: PAYMENT_STATUSES.COMPLETED,
+    },
+    attributes: ["type", "amount", "createdAt", "mpesaReceiptNumber"],
+    order: [["createdAt", "DESC"]],
+    raw: true,
+  });
 
   let proposalIncome = 0;
   let downloadIncome = 0;
   let downloadCount = 0;
 
   payments.forEach((p) => {
+
+    const amt = Number(p.amount) || 0;
     if (p.type === PAYMENT_TYPES.PROPOSAL_SUBMISSION) {
-      proposalIncome += p.amount;
+      proposalIncome += amt;
     } else if (p.type === PAYMENT_TYPES.PAPER_DOWNLOAD) {
-      downloadIncome += p.amount;
+      downloadIncome += amt;
       downloadCount += 1;
     }
   });
@@ -344,61 +454,59 @@ const getRevenueForResearch = async (researchId) => {
   };
 };
 
-//  REVENUE — single research, admin-facing 
-
 const getResearchRevenueAdmin = async (researchId) => {
-  const research = await Research.findById(researchId).populate(
-    "researcher",
-    "name email",
-  );
+  const research = await Research.findByPk(researchId, {
+    include: [{ model: Researcher, as: "researcher", attributes: ["id", "name", "email"] }],
+  });
   if (!research) throw new AppError("Research not found.", 404);
 
   const revenueData = await getRevenueForResearch(researchId);
 
-  const recentPayments = await Payment.find({
-    research: researchId,
-    status: PAYMENT_STATUSES.COMPLETED,
-  })
-    .select("type amount createdAt mpesaReceiptNumber")
-    .sort({ createdAt: -1 })
-    .limit(20)
-    .lean();
+  const recentPayments = await Payment.findAll({
+    where: { researchId, status: PAYMENT_STATUSES.COMPLETED },
+    attributes: ["type", "amount", "createdAt", "mpesaReceiptNumber"],
+    order: [["createdAt", "DESC"]],
+    limit: 20,
+    raw: true,
+  });
 
   return {
     researchId,
     title: research.title,
     researcher: {
-      id: research.researcher._id,
-      name: research.researcher.name,
+      id:    research.researcher.id,
+      name:  research.researcher.name,
       email: research.researcher.email,
     },
     proposalIncome: revenueData.proposalIncome,
     downloadIncome: revenueData.downloadIncome,
-    totalIncome: revenueData.totalIncome,
-    downloadCount: research.downloads,
+    totalIncome:    revenueData.totalIncome,
+    downloadCount:  research.downloads,
     recentPayments,
   };
 };
 
-//  REVENUE — platform-wide summary (admin dashboard)
 const getAllRevenueSummary = async ({
   researcherId,
   startDate,
   endDate,
   status = PAYMENT_STATUSES.COMPLETED,
 }) => {
-  const filter = { status };
-  if (researcherId) filter.researcher = researcherId;
+  const where = { status };
+  if (researcherId) where.researcherId = researcherId;
   if (startDate || endDate) {
-    filter.createdAt = {};
-    if (startDate) filter.createdAt.$gte = new Date(startDate);
-    if (endDate) filter.createdAt.$lte = new Date(endDate);
+    where.createdAt = {};
+    if (startDate) where.createdAt[Op.gte] = new Date(startDate);
+    if (endDate)   where.createdAt[Op.lte] = new Date(endDate);
   }
 
-  const payments = await Payment.find(filter)
-    .populate("research", "title")
-    .populate("researcher", "name email")
-    .lean();
+  const payments = await Payment.findAll({
+    where,
+    include: [
+      { model: Research,   as: "research",   attributes: ["id", "title"] },
+      { model: Researcher, as: "researcher", attributes: ["id", "name", "email"] },
+    ],
+  });
 
   const byResearch = {};
   let totalIncome = 0;
@@ -407,10 +515,10 @@ const getAllRevenueSummary = async ({
 
   payments.forEach((p) => {
     if (!p.research) return;
-    const key = p.research._id.toString();
+    const key = String(p.research.id);
     if (!byResearch[key]) {
       byResearch[key] = {
-        researchId: p.research._id,
+        researchId: p.research.id,
         title: p.research.title,
         proposalIncome: 0,
         downloadIncome: 0,
@@ -418,16 +526,17 @@ const getAllRevenueSummary = async ({
         downloadCount: 0,
       };
     }
+    const amt = Number(p.amount) || 0;
     if (p.type === PAYMENT_TYPES.PROPOSAL_SUBMISSION) {
-      byResearch[key].proposalIncome += p.amount;
-      proposalIncome += p.amount;
+      byResearch[key].proposalIncome += amt;
+      proposalIncome += amt;
     } else if (p.type === PAYMENT_TYPES.PAPER_DOWNLOAD) {
-      byResearch[key].downloadIncome += p.amount;
+      byResearch[key].downloadIncome += amt;
       byResearch[key].downloadCount += 1;
-      downloadIncome += p.amount;
+      downloadIncome += amt;
     }
-    byResearch[key].totalIncome += p.amount;
-    totalIncome += p.amount;
+    byResearch[key].totalIncome += amt;
+    totalIncome += amt;
   });
 
   const sorted = Object.values(byResearch).sort(

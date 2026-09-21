@@ -2,11 +2,18 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 import { ASSET_BASE_URL } from "../../config/env";
-import { Header, Footer } from "../../components/layouts";
+import { Header, Footer } from "../../common/layouts";
 import {
-  FaStethoscope, FaCheckCircle, FaClock, FaPhone,
-  FaMapMarkerAlt, FaUser, FaMoneyBillWave, FaHospital,
-  FaTags, FaArrowLeft,
+  FaStethoscope,
+  FaCheckCircle,
+  FaClock,
+  FaPhone,
+  FaMapMarkerAlt,
+  FaUser,
+  FaMoneyBillWave,
+  FaHospital,
+  FaTags,
+  FaArrowLeft,
 } from "react-icons/fa";
 
 const BACKEND_URL = ASSET_BASE_URL;
@@ -22,11 +29,12 @@ const InfoTile = ({ icon: Icon, iconColor, label, value }) => (
 );
 
 const Badge = ({ icon: Icon, label, color }) => (
-  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${color}`}>
+  <span
+    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${color}`}
+  >
     <Icon className="text-[10px]" /> {label}
   </span>
 );
-
 
 const ServiceDetails = () => {
   const { id } = useParams();
@@ -51,19 +59,15 @@ const ServiceDetails = () => {
     fetchServiceDetails();
   }, [id]);
 
-
   const Shell = ({ children }) => (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <div className="sticky top-0 z-50 bg-white border-b border-slate-200">
         <Header />
       </div>
-      <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-10">
-        {children}
-      </main>
+      <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-10">{children}</main>
       <Footer />
     </div>
   );
-
 
   if (loading) {
     return (
@@ -100,16 +104,40 @@ const ServiceDetails = () => {
   }
 
   const infoTiles = [
-    service.serviceHours    && { icon: FaClock,         iconColor: "text-blue-600",    label: "Service Hours",    value: service.serviceHours    },
-    service.location        && { icon: FaMapMarkerAlt,  iconColor: "text-emerald-600", label: "Location",         value: service.location        },
-    service.headOfDepartment && { icon: FaUser,         iconColor: "text-violet-600",  label: "Department Head",  value: service.headOfDepartment },
-    service.tariffInfo      && { icon: FaMoneyBillWave, iconColor: "text-amber-600",   label: "Pricing",          value: service.tariffInfo      },
-    service.contactInfo     && { icon: FaPhone,         iconColor: "text-indigo-600",  label: "Contact",          value: service.contactInfo     },
+    service.serviceHours && {
+      icon: FaClock,
+      iconColor: "text-blue-600",
+      label: "Service Hours",
+      value: service.serviceHours,
+    },
+    service.location && {
+      icon: FaMapMarkerAlt,
+      iconColor: "text-emerald-600",
+      label: "Location",
+      value: service.location,
+    },
+    service.headOfDepartment && {
+      icon: FaUser,
+      iconColor: "text-violet-600",
+      label: "Department Head",
+      value: service.headOfDepartment,
+    },
+    service.tariffInfo && {
+      icon: FaMoneyBillWave,
+      iconColor: "text-amber-600",
+      label: "Pricing",
+      value: service.tariffInfo,
+    },
+    service.contactInfo && {
+      icon: FaPhone,
+      iconColor: "text-indigo-600",
+      label: "Contact",
+      value: service.contactInfo,
+    },
   ].filter(Boolean);
 
   return (
     <Shell>
-
       <button
         onClick={() => navigate("/services")}
         className="flex items-center gap-2 text-sm font-semibold text-slate-500
@@ -118,10 +146,8 @@ const ServiceDetails = () => {
         <FaArrowLeft className="text-xs" /> Back to Services
       </button>
 
-
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden mb-6">
         <div className="flex flex-col md:flex-row items-center md:items-start gap-6 p-8 border-b border-slate-100">
-
           <div className="shrink-0">
             {service.imageUrl ? (
               <img
@@ -139,19 +165,30 @@ const ServiceDetails = () => {
           <div className="flex-1 text-center md:text-left">
             <div className="flex flex-wrap gap-2 mb-3 justify-center md:justify-start">
               {service.category && (
-                <Badge icon={FaTags}       label={service.category}  color="bg-violet-50 border-violet-200 text-violet-700" />
+                <Badge
+                  icon={FaTags}
+                  label={service.category}
+                  color="bg-violet-50 border-violet-200 text-violet-700"
+                />
               )}
               {service.division && (
-                <Badge icon={FaHospital}   label={service.division}  color="bg-blue-50 border-blue-200 text-blue-700" />
+                <Badge
+                  icon={FaHospital}
+                  label={service.division}
+                  color="bg-blue-50 border-blue-200 text-blue-700"
+                />
               )}
               {service.nhifCovered && (
-                <Badge icon={FaCheckCircle} label="SHA Covered"      color="bg-emerald-50 border-emerald-200 text-emerald-700" />
+                <Badge
+                  icon={FaCheckCircle}
+                  label="SHA Covered"
+                  color="bg-emerald-50 border-emerald-200 text-emerald-700"
+                />
               )}
             </div>
             <h1 className="text-2xl md:text-3xl font-bold text-slate-800">{service.name}</h1>
           </div>
         </div>
-
 
         <div className="px-8 py-6">
           <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">
@@ -163,7 +200,6 @@ const ServiceDetails = () => {
         </div>
       </div>
 
-
       {infoTiles.length > 0 && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           {infoTiles.map((tile) => (
@@ -171,7 +207,6 @@ const ServiceDetails = () => {
           ))}
         </div>
       )}
-
 
       {service.features?.length > 0 && (
         <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-6">
@@ -189,10 +224,11 @@ const ServiceDetails = () => {
         </div>
       )}
 
-
       <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center">
         <h3 className="text-xl font-bold text-slate-800 mb-1">Ready to Get Started?</h3>
-        <p className="text-slate-500 text-sm mb-6">Book an appointment or explore other services.</p>
+        <p className="text-slate-500 text-sm mb-6">
+          Book an appointment or explore other services.
+        </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
             onClick={() => navigate("/appointment")}

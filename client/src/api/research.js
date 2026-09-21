@@ -1,15 +1,5 @@
 import api from "./axios";
 
-const normalizeStatus = (status) => {
-  const s = String(status || "")
-    .toLowerCase()
-    .trim();
-  if (["approved", "accepted"].includes(s)) return "approved";
-  if (["rejected", "needs_revision", "revision_needed", "declined"].includes(s))
-    return "rejected";
-  return "pending";
-};
-
 const unwrapList = (res) => ({
   papers: res.data.data || [],
   page: res.data.meta?.page,
@@ -18,779 +8,487 @@ const unwrapList = (res) => ({
   totalPages: res.data.meta?.totalPages,
 });
 
-export const getAllPublishedResearch = async (filters = {}) => {
-  try {
-    const { search, discipline, category, page = 1, limit = 12 } = filters;
-    const params = new URLSearchParams();
-    if (search) params.append("search", search);
-    if (discipline) params.append("discipline", discipline);
-    if (category) params.append("category", category);
-    params.append("page", page);
-    params.append("limit", limit);
-    const response = await api.get(`/research/public?${params.toString()}`);
-    return response.data;
-  } catch (error) {
-    throw (
-      error.response?.data || { message: "Failed to fetch research papers" }
-    );
-  }
-};
+//  Shared 
 
 export const getResearchById = async (id) => {
-  try {
-    const response = await api.get(`/research/${id}`);
-    const d = response.data?.data;
-    if (d?.paper?._id) return d.paper;
-    if (d?._id) return d;
-    return null;
-  } catch (error) {
-    const msg =
-      error.response?.data?.message || error.message || "Research not found";
-    throw { message: msg, status: error.response?.status };
-  }
+  const response = await api.get(`/research/${id}`);
+  const d = response.data?.data;
+  return d?.paper || d || null;
 };
-
-// ─── Used by CommitteeResearchDetails to fetch a single enriched record ───────
 
 export const getResearchDetail = async (id) => {
-  try {
-    const response = await api.get(`/research/${id}`);
-    const d = response.data?.data;
-    if (d?.paper?._id) return { paper: d.paper };
-    if (d?._id) return { paper: d };
-  
-
-    return { paper: response.data };
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to fetch research detail" };
-  }
+  const response = await api.get(`/research/${id}`);
+  const d = response.data?.data;
+  return { paper: d?.paper || d || response.data };
 };
 
-// ─── Used by CommitteeResearchDetails Approve / Request Revisions buttons ─────
-export const submitCommitteeDecision = async (researchId, { decision }) => {
-  try {
-    const response = await api.patch(
-      `/research/${researchId}/committee-decision`,
-      { decision },
-    );
-    return response.data;
-  } catch (error) {
-    throw (
-      error.response?.data || { message: "Failed to submit committee decision" }
-    );
-  }
-};
-
-//  RESEARCHER ENDPOINTS
-
-export const initiateProposalSubmission = async (formData, phone) => {
-  try {
-    const response = await api.post("/research/proposals/initiate", {
-      title: formData.title,
-      discipline: formData.discipline,
-      duration: formData.duration,
-      fundingSource: formData.fundingSource,
-      abstract: formData.abstract,
-      background: formData.background,
-      objectives: formData.objectives,
-      methodology: formData.methodology,
-      expectedOutcome: formData.expectedOutcome,
-      coInvestigators: formData.coInvestigators,
-      timeline: formData.timeline,
-      phone,
-      amount: 1,
-      type: "proposal_submission",
-    });
-    return response.data;
-  } catch (error) {
-    throw (
-      error.response?.data || {
-        message: "Failed to initiate proposal submission",
-      }
-    );
-  }
-};
-
-export const confirmProposalSubmission = async (
-  formData,
-  paymentId,
-  proposalFile,
-) => {
-  try {
-    const fd = new FormData();
-    const scalarFields = [
-      "title",
-      "discipline",
-      "duration",
-      "fundingSource",
-      "abstract",
-      "background",
-      "methodology",
-      "expectedOutcome",
-      "timeline",
-    ];
-    scalarFields.forEach((key) => {
-      if (
-        formData[key] !== undefined &&
-        formData[key] !== null &&
-        formData[key] !== ""
-      ) {
-        fd.append(key, formData[key]);
-      }
-    });
-    if (Array.isArray(formData.objectives)) {
-      formData.objectives
-        .filter(Boolean)
-        .forEach((obj) => fd.append("objectives[]", obj));
-    }
-    if (
-      Array.isArray(formData.coInvestigators) &&
-      formData.coInvestigators.length > 0
-    ) {
-      fd.append("coInvestigators", JSON.stringify(formData.coInvestigators));
-    }
-    if (proposalFile) fd.append("proposalFile", proposalFile);
-    fd.append("paymentId", paymentId);
-    const response = await api.post("/research/proposals/confirm", fd);
-    return response.data;
-  } catch (error) {
-    throw (
-      error.response?.data || {
-        message: "Failed to confirm proposal submission",
-      }
-    );
-  }
-};
-
-export const submitProposal = async (formData) => {
-  console.warn(
-    "submitProposal is deprecated. Use initiateProposalSubmission + confirmProposalSubmission",
-  );
-  return confirmProposalSubmission(
-    formData,
-    formData.transactionCode,
-    formData.proposalFile,
-  );
-};
-
-export const submitFinalPaper = async (researchId, formData) => {
-  try {
-    const fd = new FormData();
-    if (formData.finalAbstract)
-      fd.append("finalAbstract", formData.finalAbstract);
-    if (Array.isArray(formData.keywords)) {
-      formData.keywords
-        .filter(Boolean)
-        .forEach((k) => fd.append("keywords[]", k));
-    } else if (formData.keywords) {
-      fd.append("keywords", formData.keywords);
-    }
-    if (formData.finalPaperFile)
-      fd.append("finalPaperFile", formData.finalPaperFile);
-    if (formData.finalDataset) fd.append("finalDataset", formData.finalDataset);
-    if (formData.dataDictionary)
-      fd.append("dataDictionary", formData.dataDictionary);
-    if (formData.statisticalScripts)
-      fd.append("statisticalScripts", formData.statisticalScripts);
-    if (formData.ethicsApproval)
-      fd.append("ethicsApproval", formData.ethicsApproval);
-    if (formData.fundingDisclosure)
-      fd.append("fundingDisclosure", formData.fundingDisclosure);
-    fd.append(
-      "conflictOfInterestDeclared",
-      !!formData.conflictOfInterestDeclared,
-    );
-    fd.append("aiUsageDeclared", !!formData.aiUsageDeclared);
-    if (formData.aiUsageDetails)
-      fd.append("aiUsageDetails", formData.aiUsageDetails);
-    if (formData.plagiarismReportLink)
-      fd.append("plagiarismReportLink", formData.plagiarismReportLink);
-    if (formData.fundingSource)
-      fd.append("fundingSource", formData.fundingSource);
-    if (formData.noteToCommittee)
-      fd.append("noteToCommittee", formData.noteToCommittee);
-    const response = await api.post(`/research/${researchId}/final-paper`, fd);
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to submit final paper" };
-  }
-};
-
-export const getMyResearch = async () => {
-  try {
-    const response = await api.get("/research/my-research");
-    const { data, meta } = response.data;
-    return { papers: data || [], ...meta };
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to fetch your research" };
-  }
-};
-
-export const resubmitResearch = async (researchId, fields, file) => {
-  try {
-    const fd = new FormData();
-    Object.entries(fields).forEach(([k, v]) => {
-      if (v !== undefined && v !== null && v !== "") fd.append(k, v);
-    });
-    if (file) {
-      fd.append("proposalFile", file);
-      fd.append("finalPaperFile", file);
-    }
-    const response = await api.patch(`/research/${researchId}/resubmit`, fd);
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Resubmission failed" };
-  }
+export const getRevisionComparison = async (id) => {
+  const response = await api.get(`/research/${id}/revisions`);
+  return response.data?.data?.comparison || null;
 };
 
 export const getResearchDetails = async (id) => {
-  try {
-    const [paper, reviews] = await Promise.all([
-      getResearchById(id),
-      getReviewHistory(id).catch(() => []),
-    ]);
-    return { paper, reviews };
-  } catch (error) {
-    throw error.response?.data || error;
+  const [paper, reviews] = await Promise.all([
+    getResearchById(id),
+    getReviewHistory(id).catch(() => []),
+  ]);
+  return { paper, reviews };
+};
+
+//  Researcher — My Research 
+
+export const getMyResearch = async (filters = {}) => {
+  const { submissionType, page = 1, limit = 10 } = filters;
+  const params = new URLSearchParams({ page, limit });
+  if (submissionType) params.append("submissionType", submissionType);
+  const response = await api.get(`/research/my-research?${params}`);
+  return { papers: response.data.data || [], ...response.data.meta };
+};
+
+//  Researcher — Initial Proposal 
+
+export const initiateProposalSubmission = async (formData, phone) => {
+  const response = await api.post("/research/proposals/initiate", {
+    title: formData.title, discipline: formData.discipline,
+    phone, amount: 1, type: "proposal_submission",
+  });
+  return response.data?.data || response.data;
+};
+
+export const confirmProposalSubmission = async (formData, paymentId, proposalFile, conditionalDocs = {}) => {
+  const fd = new FormData();
+  const scalars = [
+    "title","discipline","abstract","background","methodology","expectedOutcome","timeline",
+    "protocolVersionNumber","protocolVersionDate","researchProgramme","keyPerformanceArea",
+    "strategy","sdg","fundingSource","totalFundsNeeded","expectedDurationMonths","hypotheses",
+    "justification","literatureReviewSummary","inclusionCriteria","exclusionCriteria",
+    "sampleSizeDescription","samplingProcedure","dataManagementPlan","ethicsInformation",
+    "ethicsHumanSubjects","ethicsAnimalSubjects","budgetSummary","budgetJustification",
+    "expectedApplicationOfResults",
+  ];
+  scalars.forEach((k) => { if (formData[k]) fd.append(k, formData[k]); });
+
+  if (formData.isInvestigationalProduct) fd.append("isInvestigationalProduct", "true");
+  if (Array.isArray(formData.objectives)) formData.objectives.filter(Boolean).forEach((o)=>fd.append("objectives[]",o));
+  else if (formData.objectives) fd.append("objectives", formData.objectives);
+  if (Array.isArray(formData.coInvestigators) && formData.coInvestigators.length) fd.append("coInvestigators", JSON.stringify(formData.coInvestigators));
+  if (Array.isArray(formData.studySites) && formData.studySites.length) fd.append("studySites", JSON.stringify(formData.studySites));
+  if (Array.isArray(formData.studyImplementationCounties) && formData.studyImplementationCounties.length) fd.append("studyImplementationCounties", JSON.stringify(formData.studyImplementationCounties));
+  if (proposalFile) fd.append("proposalFile", proposalFile);
+  if (conditionalDocs.acucApprovalDoc) fd.append("acucApprovalDoc", conditionalDocs.acucApprovalDoc);
+  if (conditionalDocs.insuranceCertificateDoc) fd.append("insuranceCertificateDoc", conditionalDocs.insuranceCertificateDoc);
+  fd.append("paymentId", paymentId);
+  const response = await api.post("/research/proposals/confirm", fd);
+  return response.data;
+};
+
+//  Researcher — Amendment 
+
+export const submitAmendment = async (formData, file) => {
+  const fd = new FormData();
+  ["parentResearchId","amendmentDetails","title","protocolVersionNumber","protocolVersionDate",
+   "abstract","methodology","objectives","inclusionCriteria","exclusionCriteria","fundingSource"
+  ].forEach((k) => { if (formData[k]) fd.append(k, formData[k]); });
+  if (Array.isArray(formData.coInvestigators)) fd.append("coInvestigators", JSON.stringify(formData.coInvestigators));
+  if (Array.isArray(formData.studySites)) fd.append("studySites", JSON.stringify(formData.studySites));
+  if (file) fd.append("proposalFile", file);
+  const response = await api.post("/research/amendments", fd);
+  return response.data;
+};
+
+//  Researcher — Continuing Review 
+
+export const submitContinuingReview = async (formData, files = []) => {
+  const fd = new FormData();
+  ["parentResearchId","progressSummary","participantsEnrolled","participantsContinuing",
+   "adverseEvents","amendments","constraints","plansForNextYear","isLastYear"
+  ].forEach((k) => { if (formData[k] !== undefined && formData[k] !== null) fd.append(k, formData[k]); });
+  files.forEach((f) => { if (f.file) fd.append(f.label || "progressFile", f.file); });
+  const response = await api.post("/research/continuing-reviews", fd);
+  return response.data;
+};
+
+//  Researcher — Study Closure 
+
+export const submitStudyClosure = async (formData, file) => {
+  const fd = new FormData();
+  [
+    "parentResearchId", "closureReason", "resultsSummary", "publications",
+    "participantIdentifiersDestroyed", "specimenDisposalPlan", "dataFutureUsePlan",
+    "investigationalProductDisposal", "publicationLink",
+  ].forEach((k) => {
+    if (formData[k] !== undefined && formData[k] !== null && formData[k] !== "") {
+      fd.append(k, formData[k]);
+    }
+  });
+  // Attestations travel as a JSON string; the server parses it.
+  if (formData.closureAttestations) {
+    fd.append("closureAttestations", JSON.stringify(formData.closureAttestations));
   }
+  if (file) fd.append("closeoutReport", file);
+  const response = await api.post("/research/study-closures", fd);
+  return response.data;
+};
+
+//  Researcher — Resubmit a continuing review (reuses the same record) 
+
+export const resubmitContinuingReview = async (researchId, fields, files = []) => {
+  const fd = new FormData();
+  ["progressSummary", "participantsEnrolled", "participantsContinuing",
+   "adverseEvents", "amendments", "constraints", "plansForNextYear", "isLastYear",
+  ].forEach((k) => {
+    if (fields[k] !== undefined && fields[k] !== null) fd.append(k, fields[k]);
+  });
+  files.forEach((f) => { if (f.file) fd.append(f.label || "progressFile", f.file); });
+  const response = await api.patch(`/research/${researchId}/resubmit`, fd);
+  return response.data;
+};
+
+//  Researcher — Resubmit 
+
+export const resubmitResearch = async (researchId, fields, file) => {
+  const fd = new FormData();
+  Object.entries(fields).forEach(([k, v]) => { if (v !== undefined && v !== null) fd.append(k, v); });
+  if (file) fd.append("proposalFile", file);
+  const response = await api.patch(`/research/${researchId}/resubmit`, fd);
+  return response.data;
+};
+
+//  Co-investigators
+
+export const getCoInvestigatorStudies = async () => {
+  const r = await api.get("/research/co-investigator/studies");
+  return r.data?.data?.studies ?? r.data?.data ?? [];
+};
+export const getResearchCoInvestigators = async (researchId) => {
+  const r = await api.get(`/research/${researchId}/co-investigators`);
+  return r.data?.data?.coInvestigators ?? [];
+};
+export const setCoInvestigatorEditAccess = async (researchId, coInvestigatorId, canEdit) => {
+  const r = await api.patch(`/research/${researchId}/co-investigators/${coInvestigatorId}/edit-access`, { canEdit });
+  return r.data?.data;
+};
+export const coInvestigatorEditResearch = async (researchId, fields) => {
+  const r = await api.patch(`/research/${researchId}/co-edit`, fields);
+  return r.data?.data;
+};
+
+//  CSC endorsement  evidence upload required 
+
+export const recordCscEndorsement = async (researchId, { cscApprovalDate, cscReviewDate, cscComments, cscContactName, cscContactEmail, evidenceFile }) => {
+  const fd = new FormData();
+  fd.append("cscApprovalDate", cscApprovalDate);
+  if (cscReviewDate) fd.append("cscReviewDate", cscReviewDate);
+  if (cscComments) fd.append("cscComments", cscComments);
+  fd.append("cscContactName", cscContactName);
+  fd.append("cscContactEmail", cscContactEmail);
+  if (evidenceFile) fd.append("cscEvidenceFile", evidenceFile);
+  const r = await api.patch(`/research/${researchId}/csc-endorsement`, fd);
+  return r.data?.data;
+};
+
+//  Administrative completeness review 
+
+export const returnForCorrection = async (researchId, issues) => {
+  const r = await api.patch(`/research/${researchId}/return-for-correction`, { issues });
+  return r.data?.data;
+};
+export const markCompletenessVerified = async (researchId) => {
+  const r = await api.patch(`/research/${researchId}/verify-completeness`);
+  return r.data?.data;
+};
+
+//  Protocol deviations
+
+export const submitProtocolDeviation = async (formData, files = []) => {
+  const fd = new FormData();
+  ["parentResearchId", "deviationType", "severity", "description", "dateOfDeviation",
+   "correctiveAction", "participantsAffected", "atRiskParticipantList", "isUrgentSafety",
+  ].forEach((k) => { if (formData[k] !== undefined && formData[k] !== null && formData[k] !== "") fd.append(k, formData[k]); });
+  files.forEach((f) => fd.append("supportingDocuments", f));
+  const r = await api.post("/research/protocol-deviations", fd);
+  return r.data?.data?.deviation;
+};
+export const getProtocolDeviations = async (researchId) => {
+  const r = await api.get(`/research/${researchId}/protocol-deviations`);
+  return r.data?.data?.deviations ?? [];
+};
+
+//  Decision letter 
+
+export const getDecisionLetter = async (researchId) => {
+  const r = await api.get(`/research/${researchId}/decision-letter`);
+  return r.data?.data;
+};
+export const getDecisionLetterHistory = async (researchId) => {
+  const r = await api.get(`/research/${researchId}/decision-letters`);
+  return r.data?.data?.letters ?? [];
 };
 
 export const getResearcherRevenue = async (researchId) => {
-  try {
-    const response = await api.get(`/research/${researchId}/revenue`);
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to fetch revenue data" };
-  }
+  const response = await api.get(`/research/${researchId}/revenue`);
+  return response.data;
 };
 
-export const initiateSTKPush = async (config) => {
-  try {
-    const response = await api.post("/mpesa/initiate", config);
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to initiate payment" };
-  }
-};
+//  Payments 
 
+export const initiateSTKPush = async ({ phone, amount, type, researchId }) => {
+  const response = await api.post("/payments/initiate", { phone, amount, type, researchId });
+  return response.data;
+};
 export const verifyPaymentStatus = async (checkoutRequestId) => {
-  try {
-    const response = await api.get(`/mpesa/verify/${checkoutRequestId}`);
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to verify payment" };
-  }
+  if (!checkoutRequestId) throw new Error("No checkout request ID available");
+  const response = await api.get(`/payments/status/${checkoutRequestId}`);
+  return response.data?.data ?? response.data;
 };
+export const pollPaymentStatus = (checkoutRequestId, maxAttempts = 12) =>
+  new Promise((resolve, reject) => {
+    let attempts = 0;
+    const iv = setInterval(async () => {
+      attempts++;
+      try {
+        const r = await verifyPaymentStatus(checkoutRequestId);
+        if (r.status !== "pending") { clearInterval(iv); resolve(r); }
+      } catch (e) { clearInterval(iv); reject(e.response?.data || { message: "Payment check failed" }); }
+      if (attempts >= maxAttempts) { clearInterval(iv); reject(new Error("Payment timeout")); }
+    }, 5000);
+  });
 
-export const getDownloadToken = async (paymentId, researchId) => {
-  try {
-    const response = await api.get(`/mpesa/token/${paymentId}/${researchId}`);
-    return response.data;
-  } catch (error) {
-    throw (
-      error.response?.data || { message: "Failed to generate download token" }
-    );
-  }
+//  Reviewer 
+
+export const getPendingReviews = async () => unwrapList(await api.get("/research/reviewer/assigned"));
+export const getAssignedResearch = async (filters = {}) => {
+  const { submissionType, includeCompleted, page = 1, limit = 20 } = filters;
+  const p = new URLSearchParams({ page, limit });
+  if (submissionType) p.append("submissionType", submissionType);
+  if (includeCompleted) p.append("includeCompleted", includeCompleted);
+  return unwrapList(await api.get(`/research/reviewer/assigned?${p}`));
 };
-
-//  PROGRESS ENDPOINTS
-
-export const saveProgressReport = async (
-  researchId,
-  fields,
-  fileMap = {},
-  isDraft = false,
-) => {
-  try {
+export const submitReview = async (researchId, { decision, comment, criteria, attachments = [] }) => {
+ 
+  if (Array.isArray(attachments) && attachments.length > 0) {
     const fd = new FormData();
-    Object.entries(fields).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== "")
-        fd.append(key, value);
-    });
-    fd.append("isDraft", isDraft);
-    Object.entries(fileMap).forEach(([fieldName, file]) => {
-      if (file) fd.append(fieldName, file);
-    });
-    const response = await api.patch(`/research/${researchId}/progress`, fd);
+    fd.append("researchId", researchId);
+    fd.append("decision", decision);
+    fd.append("comment", comment);
+    fd.append("criteria", JSON.stringify(criteria));
+    attachments.forEach((file) => fd.append("attachments", file));
+    const response = await api.post("/research/reviews", fd);
     return response.data;
-  } catch (error) {
-    throw (
-      error.response?.data || {
-        message: isDraft
-          ? "Failed to save draft"
-          : "Failed to submit progress report",
-      }
-    );
   }
+
+  const response = await api.post("/research/reviews", { researchId, decision, comment, criteria });
+  return response.data;
+};
+export const getReviewHistory = async (researchId) => {
+  const response = await api.get(`/research/reviews/${researchId}`);
+  return response.data?.data?.reviews || [];
+};
+export const getResearchComments = async (researchId) => {
+  const response = await api.get(`/research/${researchId}/comments`);
+  return response.data?.data?.comments || [];
 };
 
-export const submitProgressReport = (researchId, fields, fileMap) =>
-  saveProgressReport(researchId, fields, fileMap, false);
+//  Reviewer management 
 
-export const saveProgressDraft = (researchId, fields, fileMap) =>
-  saveProgressReport(researchId, fields, fileMap, true);
+export const inviteReviewer = async (data) => (await api.post("/reviewers/invite", data)).data;
+export const setReviewerPassword = async (data) => (await api.post("/reviewers/set-password", data)).data;
+export const resendInvite = async (id) => (await api.post(`/reviewers/${id}/resend-invite`)).data;
+export const listReviewers = async () => (await api.get("/reviewers")).data?.data || [];
+export const listAllResearchers = async (filters = {}) => {
+  const p = new URLSearchParams();
+  if (filters.role) p.append("role", filters.role);
+  if (filters.limit) p.append("limit", filters.limit);
+  if (filters.page) p.append("page", filters.page);
+  const qs = p.toString();
+  return (await api.get(`/reviewers/all${qs ? `?${qs}` : ""}`)).data?.data || [];
+};
+export const revokeReviewer = async (id) => (await api.patch(`/reviewers/${id}/revoke`)).data;
+export const inviteCommitteeMember = async (data) => (await api.post("/reviewers/committee/invite", data)).data;
+export const promoteToAdmin = async (id, email) => (await api.post("/reviewers/committee/invite", { email })).data;
+export const updateReviewerDetails = async (id, data) => (await api.patch(`/reviewers/${id}`, data)).data;
+
+//  Multi-reviewer assignment  
+
+export const assignReviewers = async (researchId, emails) => {
+  const response = await api.post(`/research/${researchId}/reviewers`, { emails });
+  return response.data;
+};
+export const getResearchReviewers = async (researchId) => {
+  const response = await api.get(`/research/${researchId}/reviewers`);
+  return response.data?.data?.reviewers || [];
+};
+export const removeResearchReviewer = async (researchId, reviewerId) =>
+  (await api.delete(`/research/${researchId}/reviewers/${reviewerId}`)).data;
+export const assignReviewer = async (researchId, email) =>
+  (await api.patch(`/research/${researchId}/assign-reviewer`, { email })).data;
+
+//  Committee 
+
+export const getCommitteeQueue = async (f = {}) => {
+  const p = new URLSearchParams({ page: f.page || 1, limit: f.limit || 20 });
+  return unwrapList(await api.get(`/research/committee/queue?${p}`));
+};
+export const getAllResearchCommittee = async (f = {}) => {
+  const p = new URLSearchParams({ page: f.page || 1, limit: f.limit || 20 });
+  if (f.submissionType) p.append("submissionType", f.submissionType);
+  if (f.status) p.append("status", f.status);
+  if (f.stage) p.append("stage", f.stage);
+  if (f.search) p.append("search", f.search);
+  return unwrapList(await api.get(`/research/committee/all?${p}`));
+}; 
+
+export const submitCommitteeReview = async (researchId, { decision, comment, criteria }) => {
+  const r = await api.post("/research/committee/reviews", { researchId, decision, comment, criteria });
+  return r.data?.data ?? r.data;
+};
+export const getFinalApprovalQueue = async (f = {}) => {
+  const p = new URLSearchParams({ page: f.page || 1, limit: f.limit || 20 });
+  const r = await api.get(`/research/committee/final-approvals?${p}`);
+  return { records: r.data.data || [], ...r.data.meta };
+};
+export const getFinalApprovalStats = async () => {
+  const r = await api.get("/research/committee/final-approvals/stats");
+  return r.data?.data ?? r.data;
+};
+export const getApprovalFeed = async (f = {}) => {
+  const p = new URLSearchParams({ limit: f.limit || 50 });
+  const r = await api.get(`/research/committee/final-approvals/feed?${p}`);
+  return { comments: r.data?.data?.comments ?? [] };
+};
+export const postApprovalComment = async ({ researchId, message }) => {
+  const r = await api.post("/research/committee/final-approvals/comments", { researchId, message });
+  return r.data?.data?.comment ?? r.data;
+};
+export const getRecordTimeline = async (researchId) => {
+  const r = await api.get(`/research/committee/final-approvals/${researchId}/timeline`);
+  return { timeline: r.data?.data?.timeline ?? [] };
+};
+
+//  Research Officer — Compiled Decision Report workflow . 
+
+export const getOfficerQueue = async (filters = {}) => {
+  const { page = 1, limit = 20 } = filters;
+  const p = new URLSearchParams({ page, limit });
+  const r = await api.get(`/research/officer/queue?${p}`);
+  return { records: r.data?.data ?? [], ...r.data?.meta };
+};
+
+// Researcher-facing read.
+export const getDecisionReport = async (researchId) => {
+  const r = await api.get(`/research/${researchId}/decision-report`);
+  return r.data?.data?.report ?? null;
+};
 
 
-//Certificates
+export const updateDecisionReport = async (researchId, reportId, updates) => {
+  const hasFile = updates.officerAttachmentFile instanceof File;
+  let r;
+  if (hasFile) {
+    const formData = new FormData();
+    if (updates.committeeComment != null) formData.append("committeeComment", updates.committeeComment);
+    if (updates.finalDecision) formData.append("finalDecision", updates.finalDecision);
+    formData.append("officerAttachment", updates.officerAttachmentFile);
+    r = await api.patch(`/research/${researchId}/decision-reports/${reportId}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  } else {
+    const { officerAttachmentFile, ...rest } = updates;
+    r = await api.patch(`/research/${researchId}/decision-reports/${reportId}`, rest);
+  }
+  return r.data?.data?.report;
+};
+
+
+export const releaseDecisionReport = async (researchId, reportId) => {
+  const r = await api.post(`/research/${researchId}/decision-reports/${reportId}/release`);
+  return r.data?.data;
+};
+
+
+export const getPublicResearchStats = async () => {
+  const r = await api.get("/research/public/stats");
+  return r.data?.data?.stats ?? { protocolsReviewed: 0, researchers: 0, approvalsIssued: 0 };
+};
+
+//  Admin / Research Officer — dashboard 
+
+export const getResearchDashboardStats = async () => {
+  const r = await api.get("/research/admin/stats");
+  return r.data?.data?.stats ?? r.data?.data;
+};
+
+export const getReviewerWorkload = async () => {
+  const r = await api.get("/research/admin/reviewer-workload");
+  return r.data?.data ?? { reviewers: [], committee: [] };
+};
+
+export const getResearchRevenue = async (params) => (await api.get(`/payments/admin/revenue?${params}`)).data?.data;
+export const getAllResearchRevenue = async (f = {}) => {
+  const p = new URLSearchParams({ status: f.status || "completed" });
+  if (f.researcherId) p.append("researcher", f.researcherId);
+  if (f.startDate) p.append("startDate", f.startDate);
+  if (f.endDate) p.append("endDate", f.endDate);
+  return (await api.get(`/payments/admin/revenue?${p}`)).data?.data;
+};
+export const refundPayment = async (paymentId, reason) =>
+  (await api.post("/payments/admin/refund", { paymentId, reason })).data;
+
+
+
+export const formatPhoneNumber = (phone) => {
+  let d = String(phone).replace(/\D/g, "");
+  if (d.startsWith("0")) d = "254" + d.slice(1);
+  if (!d.startsWith("254") || d.length !== 12) throw new Error("Invalid phone number");
+  return d;
+};
+
+
+
+export const SUBMISSION_TYPES = {
+  INITIAL_PROPOSAL: "initial_proposal", AMENDMENT: "amendment",
+  CONTINUING_REVIEW: "continuing_review", STUDY_CLOSURE: "study_closure",
+};
+export const SUBMISSION_TYPE_LABELS = {
+  initial_proposal: "Initial Proposal", amendment: "Amendment",
+  continuing_review: "Continuing Review", study_closure: "Study Closure",
+};
+export const DEVIATION_TYPES = [
+  { value: "protocol_deviation", label: "Protocol Deviation" },
+  { value: "protocol_violation", label: "Protocol Violation" },
+  { value: "safety_event", label: "Safety Event" },
+];
+export const DEVIATION_SEVERITIES = [
+  { value: "minor", label: "Minor" },
+  { value: "major", label: "Major" },
+  { value: "critical", label: "Critical" },
+];
+export const KEMRI_PROGRAMMES = [
+  "Biotechnology","Traditional Medicine & Drug Development",
+  "Infectious and Parasitic Diseases","Public Health and Health Systems",
+  "Non-Communicable Diseases","Sexual, Reproductive, Adolescent and Child Health",
+];
+export const KENYAN_COUNTIES = [
+  "Baringo","Bomet","Bungoma","Busia","Elgeyo-Marakwet","Embu","Garissa",
+  "Homa Bay","Isiolo","Kajiado","Kakamega","Kericho","Kiambu","Kilifi",
+  "Kirinyaga","Kisii","Kisumu","Kitui","Kwale","Laikipia","Lamu","Machakos",
+  "Makueni","Mandera","Marsabit","Meru","Migori","Mombasa","Murang'a",
+  "Nairobi","Nakuru","Nandi","Narok","Nyamira","Nyandarua","Nyeri",
+  "Samburu","Siaya","Taita-Taveta","Tana River","Tharaka-Nithi",
+  "Trans-Nzoia","Turkana","Uasin Gishu","Vihiga","Wajir","West Pokot",
+];
+
+//  Researcher — Certificates 
 
 export const getMyCertificates = async () => {
   const res = await api.get("/certificates/my");
-  return res.data.data.certificates;
+  return res.data?.data?.certificates || res.data?.certificates || [];
 };
 
-const fetchCertificateBlob = async (id) => {
+export const downloadCertificate = async (id, mode = "download") => {
   const res = await api.get(`/certificates/${id}/download`, {
+    params: mode === "view" ? { mode: "view" } : {},
     responseType: "blob",
   });
   return res.data;
-};
-
-export const viewCertificate = async (id) => {
-  const blob = await fetchCertificateBlob(id);
-  const url = window.URL.createObjectURL(blob);
-  window.open(url, "_blank", "noopener,noreferrer");
-};
-
-export const downloadCertificate = async (id, certificateNumber) => {
-  const blob = await fetchCertificateBlob(id);
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${certificateNumber}.pdf`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.URL.revokeObjectURL(url);
-};
-
-//  REVIEWER ENDPOINTS
-
-export const getPendingReviews = async (filters = {}) => {
-  try {
-    const { stage, search, page = 1, limit = 20 } = filters;
-    const params = new URLSearchParams();
-    if (stage) params.append("stage", stage);
-    if (search) params.append("search", search);
-    params.append("page", page);
-    params.append("limit", limit);
-    const response = await api.get(
-      `/research/reviews/pending?${params.toString()}`,
-    );
-    return response.data;
-  } catch (error) {
-    throw (
-      error.response?.data || { message: "Failed to fetch pending reviews" }
-    );
-  }
-};
-
-export const getAssignedResearch = async (filters = {}) => {
-  try {
-    const { stage, search, page = 1, limit = 20, includeCompleted } = filters;
-    const params = new URLSearchParams();
-    if (stage) params.append("stage", stage);
-    if (search) params.append("search", search);
-    if (includeCompleted) params.append("includeCompleted", "true");
-    params.append("page", page);
-    params.append("limit", limit);
-    const response = await api.get(
-      `/research/reviewer/assigned?${params.toString()}`,
-    );
-    const { data, meta } = response.data;
-    return { papers: data || [], ...meta };
-  } catch (error) {
-    throw (
-      error.response?.data || {
-        message: "Failed to fetch your assigned research",
-      }
-    );
-  }
-};
-
-export const submitReview = async (researchId, reviewData) => {
-  try {
-    const response = await api.post("/research/reviews", {
-      researchId,
-      ...reviewData,
-    });
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to submit review" };
-  }
-};
-
-export const getReviewHistory = async (researchId) => {
-  try {
-    const response = await api.get(`/research/reviews/${researchId}`);
-    return response.data?.data?.reviews ?? [];
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to fetch review history" };
-  }
-};
-
-//  REVIEWER MANAGEMENT (Admin only)
-
-export const inviteReviewer = async (inviteData) => {
-  try {
-    const response = await api.post("/reviewers/invite", inviteData);
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to send invitation" };
-  }
-};
-
-export const setReviewerPassword = async (token, email, password) => {
-  try {
-    const response = await api.post("/reviewers/set-password", {
-      token,
-      email,
-      password,
-      confirmPassword: password,
-    });
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to set password" };
-  }
-};
-
-export const resendInvite = async (reviewerId) => {
-  try {
-    const response = await api.post(`/reviewers/${reviewerId}/resend-invite`);
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to resend invite" };
-  }
-};
-
-export const listReviewers = async () => {
-  try {
-    const response = await api.get("/reviewers");
-    return response.data?.data ?? response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to fetch reviewers" };
-  }
-};
-
-export const listAllResearchers = async (filters = {}) => {
-  try {
-    const { role, page = 1, limit = 100 } = filters;
-    const params = new URLSearchParams();
-    if (role) params.append("role", role);
-    params.append("page", page);
-    params.append("limit", limit);
-    const response = await api.get(`/reviewers/all?${params.toString()}`);
-    return response.data?.data ?? response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to fetch researchers" };
-  }
-};
-
-export const revokeReviewer = async (reviewerId) => {
-  try {
-    const response = await api.patch(`/reviewers/${reviewerId}/revoke`);
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to revoke reviewer" };
-  }
-};
-
-
-//Committee
-export const inviteCommitteeMember = async (inviteData) => {
-  try {
-    const response = await api.post("/reviewers/committee/invite", inviteData);
-    return response.data;
-  } catch (error) {
-    throw (
-      error.response?.data || { message: "Failed to invite committee member" }
-    );
-  }
-};
-
-export const promoteToAdmin = async (reviewerId, email) => {
-  try {
-    const response = await api.post(`/reviewers/committee/invite`, { email });
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to promote to committee" };
-  }
-};
-
-export const updateReviewerDetails = async (reviewerId, updates) => {
-  try {
-    const response = await api.put(`/reviewers/${reviewerId}`, updates);
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to update reviewer" };
-  }
-};
-
-export const getPendingCommitteeApproval = async () => {
-  const res = await api.get("/research/committee/queue");
-  return unwrapList(res);
-};
-
-export const getAllResearch = async ({ stage, search, page = 1, limit = 50 } = {}) => {
-  const res = await api.get("/research/committee/all", {
-    params: { stage, search, page, limit },
-  });
-  return unwrapList(res);
-};
-
-export const getFinalApprovalQueue = async (filters = {}) => {
-  try {
-    const { page = 1, limit = 20 } = filters;
-    const params = new URLSearchParams();
-    params.append("page", page);
-    params.append("limit", limit);
-    const response = await api.get(
-      `/research/committee/final-approvals?${params.toString()}`,
-    );
-    return {
-      records: response.data.data || [],
-      page: response.data.meta?.page,
-      limit: response.data.meta?.limit,
-      total: response.data.meta?.total,
-      totalPages: response.data.meta?.totalPages,
-    };
-  } catch (error) {
-    throw (
-      error.response?.data || { message: "Failed to fetch final approval queue" }
-    );
-  }
-};
-
-export const getFinalApprovalStats = async () => {
-  try {
-    const response = await api.get("/research/committee/final-approvals/stats");
-    return response.data?.data ?? response.data;
-  } catch (error) {
-    throw (
-      error.response?.data || { message: "Failed to fetch final approval stats" }
-    );
-  }
-};
-
-export const getApprovalFeed = async (filters = {}) => {
-  try {
-    const { limit = 50 } = filters;
-    const params = new URLSearchParams();
-    params.append("limit", limit);
-    const response = await api.get(
-      `/research/committee/final-approvals/feed?${params.toString()}`,
-    );
-    return { comments: response.data?.data?.comments ?? [] };
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to fetch approval feed" };
-  }
-};
-
-export const postApprovalComment = async ({ researchId, message }) => {
-  try {
-    const response = await api.post("/research/committee/final-approvals/comments", {
-      researchId,
-      message,
-    });
-    return response.data?.data?.comment ?? response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to post comment" };
-  }
-};
-
-export const getRecordTimeline = async (researchId) => {
-  try {
-    const response = await api.get(
-      `/research/committee/final-approvals/${researchId}/timeline`,
-    );
-    return { timeline: response.data?.data?.timeline ?? [] };
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to fetch record timeline" };
-  }
-};
-export const submitCommitteeReview = async (researchId, { decision, comment }) => {
-  try {
-    const response = await api.post("/research/committee/reviews", {
-      researchId,
-      decision, 
-      comment,
-    });
-   
-    return response.data?.data ?? response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to submit committee vote" };
-  }
-};
-
-//  ADMIN ENDPOINTS — Publish & Assign Reviewer
-
-export const publishResearch = async (researchId) => {
-  try {
-    const response = await api.patch(`/research/${researchId}/publish`);
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to publish research" };
-  }
-};
-
-export const assignReviewer = async (researchId, email) => {
-  try {
-    const response = await api.patch(
-      `/research/${researchId}/assign-reviewer`,
-      { email },
-    );
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to assign reviewer" };
-  }
-};
-
-//  ADMIN ENDPOINTS — Revenue & Analytics
-
-export const getResearchRevenue = async (params) => {
-  try {
-    const response = await api.get(
-      `/payments/admin/revenue?${params.toString()}`
-    );
-    return response.data?.data ?? response.data;
-  } catch (error) {
-    throw (
-      error.response?.data || { message: "Failed to fetch research revenue" }
-    );
-  }
-};
-
-export const getAllResearchRevenue = async (filters = {}) => {
-  try {
-    const { researcherId, startDate, endDate, status = "completed" } = filters;
-    const params = new URLSearchParams();
-    if (researcherId) params.append("researcher", researcherId);
-    if (startDate) params.append("startDate", startDate);
-    if (endDate) params.append("endDate", endDate);
-    params.append("status", status);
-    const response = await api.get(`/payments/admin/revenue?${params.toString()}`);
-    return response.data?.data ?? response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to fetch revenue data" };
-  }
-};
-
-export const refundPayment = async (paymentId, reason) => {
-  try {
-    const response = await api.post("/payments/admin/refund", {
-      paymentId,
-      reason,
-    });
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to process refund" };
-  }
-};
-
-export const updateDownloadPrice = async (researchId, downloadPrice) => {
-  try {
-    const response = await api.patch(`/research/${researchId}/download-price`, {
-      downloadPrice,
-    });
-    return response.data;
-  } catch (error) {
-    throw (
-      error.response?.data || { message: "Failed to update download price" }
-    );
-  }
-};
-
-//  HELPER FUNCTIONS
-
-export const pollPaymentStatus = async (
-  checkoutRequestId,
-  maxAttempts = 12,
-) => {
-  return new Promise((resolve, reject) => {
-    let attempts = 0;
-    const interval = setInterval(async () => {
-      attempts++;
-      try {
-        const result = await verifyPaymentStatus(checkoutRequestId);
-        if (result.status !== "pending") {
-          clearInterval(interval);
-          resolve(result);
-        }
-      } catch (error) {
-        clearInterval(interval);
-        reject(error.response?.data || { message: "Failed to verify payment" });
-      }
-      if (attempts >= maxAttempts) {
-        clearInterval(interval);
-        reject(new Error("Payment verification timeout"));
-      }
-    }, 5000);
-  });
-};
-
-export const formatPhoneNumber = (phone) => {
-  let digits = String(phone).replace(/\D/g, "");
-  if (digits.startsWith("0")) digits = "254" + digits.slice(1);
-  if (!digits.startsWith("254") || digits.length !== 12)
-    throw new Error("Invalid phone number");
-  return digits;
-};
-
-export const validatePaymentAmount = (amount, type) => {
-  const MIN_AMOUNT = 1;
-  const MAX_AMOUNT = 150000;
-  if (amount < MIN_AMOUNT || amount > MAX_AMOUNT) {
-    throw new Error(
-      `Amount must be between KES ${MIN_AMOUNT} and KES ${MAX_AMOUNT}`,
-    );
-  }
-  return true;
-};
-
-export default {
-  getAllPublishedResearch,
-  getResearchById,
-  // ↓ new — required by CommitteeResearchDetails
-  getResearchDetail,
-  submitCommitteeDecision,
-  initiateProposalSubmission,
-  confirmProposalSubmission,
-  submitProposal,
-  submitFinalPaper,
-  getMyResearch,
-  getResearcherRevenue,
-  saveProgressReport,
-  submitProgressReport,
-  saveProgressDraft,
-  resubmitResearch,
-  getResearchDetails,
-  initiateSTKPush,
-  verifyPaymentStatus,
-  getDownloadToken,
-  pollPaymentStatus,
-  getPendingReviews,
-  getAssignedResearch,
-  submitReview,
-  getReviewHistory,
-  inviteReviewer,
-  setReviewerPassword,
-  resendInvite,
-  listReviewers,
-  listAllResearchers,
-  revokeReviewer,
-  inviteCommitteeMember,
-  promoteToAdmin,
-  updateReviewerDetails,
-  publishResearch,
-  assignReviewer,
-  getResearchRevenue,
-  getAllResearchRevenue,
-  refundPayment,
-  updateDownloadPrice,
-  formatPhoneNumber,
-  validatePaymentAmount,
-  getFinalApprovalQueue,
-  getFinalApprovalStats,
-  getApprovalFeed,
-  postApprovalComment,
-  getRecordTimeline,
 };

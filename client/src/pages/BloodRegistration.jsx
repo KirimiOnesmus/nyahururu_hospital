@@ -14,9 +14,9 @@ import {
   FaExclamationTriangle,
   FaPaperPlane,
 } from "react-icons/fa";
-import { Header, Footer } from "../components/layouts";
+import { Header, Footer } from "../common/layouts";
 import api from "../api/axios";
-import { toast } from "react-toastify";
+import notify from "../common/utils/notify";
 import { useNavigate } from "react-router-dom";
 
 const inputClass =
@@ -111,17 +111,17 @@ const BloodRegistration = () => {
         weight: parseInt(formData.weight),
       });
       if (response.data.success) {
-        toast.success("Registration successful!");
+        notify.success("Registration successful!");
         setFormData(INIT);
         navigate("/");
       } else {
   
-        toast.error(response.data.message || "Registration failed.");
+        notify.error(response.data.message || "Registration failed.");
       }
     } catch (error) {
       console.error("Registration error:", error);
       
-      toast.error(
+      notify.error(
         error?.response?.data?.message ||
           "Registration failed. Please try again.",
       );
@@ -192,7 +192,7 @@ const BloodRegistration = () => {
           </p>
         </div>
 
-        {/* ── Assurance tiles ── */}
+    
         <div className="grid sm:grid-cols-3 gap-4 mb-8">
           {[
             {
@@ -230,7 +230,7 @@ const BloodRegistration = () => {
 
        
         <div className="bg-white border border-slate-200 rounded-2xl p-8 space-y-10">
-          {/* ── Personal Information ── */}
+
           <section>
             <SectionHeader icon={FaUser} title="Personal Information" />
             <div className="space-y-5">

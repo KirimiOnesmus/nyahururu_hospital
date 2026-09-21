@@ -17,30 +17,28 @@ const Card = ({ id, image, title, buttonText, description }) => {
                  flex flex-col cursor-pointer
                  hover:border-blue-400 transition-colors duration-200"
     >
-      <div className="flex items-center justify-center bg-slate-50 border-b border-slate-100 h-40">
+      <div className="relative w-full h-40 bg-slate-50 border-b border-slate-100 overflow-hidden">
         {hasValidImage ? (
           <img
             src={image}
             alt={title}
-            className="h-32 w-32 object-cover rounded-xl"
+            className="absolute inset-0 w-full h-full object-cover object-center"
             onError={() => setImageError(true)}
           />
         ) : (
-          <div className="h-20 w-20 rounded-xl bg-blue-600 flex items-center justify-center">
-            <FaStethoscope className="text-3xl text-white" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="h-20 w-20 rounded-xl bg-blue-600 flex items-center justify-center">
+              <FaStethoscope className="text-3xl text-white" />
+            </div>
           </div>
         )}
       </div>
 
       <div className="flex flex-col flex-1 p-5">
-        <h3 className="text-base font-bold text-slate-800 mb-2 line-clamp-2">
-          {title}
-        </h3>
+        <h3 className="text-base font-bold text-slate-800 mb-2 line-clamp-2">{title}</h3>
 
         {description && (
-          <p className="text-slate-500 text-sm leading-relaxed line-clamp-3 mb-4">
-            {description}
-          </p>
+          <p className="text-slate-500 text-sm leading-relaxed line-clamp-3 mb-4">{description}</p>
         )}
 
         <div className="flex-1" />
