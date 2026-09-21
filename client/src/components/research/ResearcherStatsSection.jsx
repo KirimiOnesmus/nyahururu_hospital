@@ -50,7 +50,7 @@ const Skeleton = ({ w = "60%", h = 28 }) => (
       width: w,
       height: h,
       borderRadius: 6,
-      background: "linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)",
+      background: "#e8edf2",
       backgroundSize: "200% 100%",
       animation: "shimmer 1.4s infinite",
     }}
@@ -350,7 +350,7 @@ const ResearcherStatsSection = ({ myResearch = [], isLoading = false }) => {
 
           <div
             style={{
-              background: "linear-gradient(135deg,#EFF6FF 0%,#F0FDF4 100%)",
+              background: "var(--surface)",
               border: "1px solid #BFDBFE",
               borderRadius: 16,
               padding: "20px",
@@ -386,7 +386,7 @@ const ResearcherStatsSection = ({ myResearch = [], isLoading = false }) => {
                   style={{
                     height: "100%",
                     width: `${acceptanceRate}%`,
-                    background: "linear-gradient(90deg,#16A34A,#0D9488)",
+                    background: "#047857",
                     borderRadius: 99,
                     transition: "width 1s ease",
                   }}

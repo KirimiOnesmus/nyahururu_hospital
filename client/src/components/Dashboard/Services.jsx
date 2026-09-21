@@ -114,7 +114,7 @@ const ServiceCard = ({ service, onView, onEdit, onDelete }) => {
   const dc = divCfg(service.division);
   return (
     <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden transition-all group">
-      <div className="relative h-44 bg-gradient-to-br from-blue-50 to-indigo-50">
+      <div className="relative h-44 bg-primary-soft">
         {service.imageUrl ? (
           <img
             src={`${IMG_BASE}${service.imageUrl}`}
@@ -369,7 +369,7 @@ const ServicesPage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-[#f8f7f5]">
+    <div className="min-h-screen bg-canvas">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 fade-up">
           <div className="flex items-center gap-3">

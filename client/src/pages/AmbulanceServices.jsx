@@ -179,7 +179,7 @@ const AmbulanceServices = () => {
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 px-6">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-canvas px-6">
         <div className="bg-white border border-slate-200 rounded-2xl p-10 max-w-md w-full text-center">
           <div className="w-16 h-16 bg-emerald-50 border border-emerald-200 rounded-full flex items-center justify-center mx-auto mb-5">
             <FaCheckCircle className="text-2xl text-emerald-600" />
@@ -210,7 +210,7 @@ const AmbulanceServices = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10 px-4 sm:px-6">
+    <div className="min-h-screen bg-canvas py-10 px-4 sm:px-6">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">

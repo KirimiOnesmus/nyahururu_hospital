@@ -12,25 +12,26 @@ const BANNER_CATEGORY = "Homepage Banner";
 const defaultSlides = [
   {
     eyebrow: "Nyahururu County Referral Hospital",
-    heading: "Quality Healthcare\nFor Every Patient",
+    heading: "Quality healthcare\nfor every patient",
+    accentWord: "every patient",
     body: "Laikipia County's leading referral hospital — delivering compassionate, expert medical care to our community.",
-    ctaLabel: "About Us",
+    ctaLabel: "About the hospital",
     ctaPath: "/about",
     accent: "bg-blue-800",
   },
   {
     eyebrow: "Meet Our Team",
-    heading: "Experienced Doctors\n& Specialists",
+    heading: "Experienced doctors\nand specialists",
     body: "A dedicated team of certified physicians and healthcare professionals committed to your wellbeing.",
-    ctaLabel: "Our Doctors",
+    ctaLabel: "Meet our doctors",
     ctaPath: "/doctors",
     accent: "bg-slate-800",
   },
   {
     eyebrow: "Appointments",
-    heading: "Book a Consultation\nOnline",
+    heading: "Book a consultation\nonline",
     body: "Schedule your appointment easily — no long queues. Available for all departments and specialities.",
-    ctaLabel: "Book Now",
+    ctaLabel: "Book now",
     ctaPath: "/appointment",
     accent: "bg-slate-900",
   },
@@ -89,24 +90,11 @@ const Slider = () => {
               }`}
               style={slide.image ? { backgroundImage: `url(${slide.image})` } : undefined}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-slate-900/85 via-slate-900/60 to-slate-900/20" />
-
-              {!slide.image && (
-                <div
-                  className="absolute inset-0 opacity-5"
-                  style={{
-                    backgroundImage:
-                      "repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%)",
-                    backgroundSize: "12px 12px",
-                  }}
-                />
-              )}
-
-              <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-500" />
+              {slide.image && <div className="absolute inset-0 bg-ink/55" />}
 
               <div className="relative z-10 px-10 md:px-20 lg:px-28 max-w-3xl">
                 {slide.eyebrow && (
-                  <p className="text-blue-400 text-xs font-bold uppercase tracking-widest mb-3">
+                  <p className="text-blue-200 text-xs font-bold uppercase tracking-widest mb-3">
                     {slide.eyebrow}
                   </p>
                 )}
@@ -114,15 +102,16 @@ const Slider = () => {
                   {slide.heading}
                 </h1>
                 {slide.body && (
-                  <p className="text-slate-200 text-sm md:text-base mb-7 max-w-lg leading-relaxed">
+                  <p className="text-slate-100 text-sm md:text-base mb-7 max-w-lg leading-relaxed">
                     {slide.body}
                   </p>
                 )}
                 {slide.ctaLabel && (
                   <button
+                    type="button"
                     onClick={() => navigate(slide.ctaPath)}
-                    className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold
-                               px-6 py-2.5 rounded-lg transition-colors duration-200"
+                    className="bg-primary hover:bg-primary-hover text-white text-sm font-semibold
+                               min-h-11 px-6 py-2.5 rounded-xl transition-colors"
                   >
                     {slide.ctaLabel}
                   </button>

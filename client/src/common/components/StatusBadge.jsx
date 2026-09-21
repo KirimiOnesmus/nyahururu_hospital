@@ -1,48 +1,51 @@
 import React from "react";
 
 const presets = {
+  active: { bg: "bg-emerald-50 dark:bg-emerald-950/40", text: "text-emerald-800 dark:text-emerald-200", dot: "bg-emerald-600" },
+  approved: { bg: "bg-emerald-50 dark:bg-emerald-950/40", text: "text-emerald-800 dark:text-emerald-200", dot: "bg-emerald-600" },
+  completed: { bg: "bg-emerald-50 dark:bg-emerald-950/40", text: "text-emerald-800 dark:text-emerald-200", dot: "bg-emerald-600" },
+  confirmed: { bg: "bg-emerald-50 dark:bg-emerald-950/40", text: "text-emerald-800 dark:text-emerald-200", dot: "bg-emerald-600" },
+  success: { bg: "bg-emerald-50 dark:bg-emerald-950/40", text: "text-emerald-800 dark:text-emerald-200", dot: "bg-emerald-600" },
+  paid: { bg: "bg-emerald-50 dark:bg-emerald-950/40", text: "text-emerald-800 dark:text-emerald-200", dot: "bg-emerald-600" },
 
-  active:    { bg: "bg-emerald-50",  text: "text-emerald-700", dot: "bg-emerald-500" },
-  approved:  { bg: "bg-emerald-50",  text: "text-emerald-700", dot: "bg-emerald-500" },
-  completed: { bg: "bg-emerald-50",  text: "text-emerald-700", dot: "bg-emerald-500" },
-  confirmed: { bg: "bg-emerald-50",  text: "text-emerald-700", dot: "bg-emerald-500" },
-  success:   { bg: "bg-emerald-50",  text: "text-emerald-700", dot: "bg-emerald-500" },
+  pending: { bg: "bg-amber-50 dark:bg-amber-950/40", text: "text-amber-800 dark:text-amber-200", dot: "bg-amber-600" },
+  review: { bg: "bg-amber-50 dark:bg-amber-950/40", text: "text-amber-800 dark:text-amber-200", dot: "bg-amber-600" },
+  "in-progress": { bg: "bg-amber-50 dark:bg-amber-950/40", text: "text-amber-800 dark:text-amber-200", dot: "bg-amber-600" },
+  open: { bg: "bg-amber-50 dark:bg-amber-950/40", text: "text-amber-800 dark:text-amber-200", dot: "bg-amber-600" },
 
+  rejected: { bg: "bg-red-50 dark:bg-red-950/40", text: "text-red-800 dark:text-red-200", dot: "bg-red-600" },
+  cancelled: { bg: "bg-red-50 dark:bg-red-950/40", text: "text-red-800 dark:text-red-200", dot: "bg-red-600" },
+  declined: { bg: "bg-red-50 dark:bg-red-950/40", text: "text-red-800 dark:text-red-200", dot: "bg-red-600" },
+  failed: { bg: "bg-red-50 dark:bg-red-950/40", text: "text-red-800 dark:text-red-200", dot: "bg-red-600" },
+  overdue: { bg: "bg-red-50 dark:bg-red-950/40", text: "text-red-800 dark:text-red-200", dot: "bg-red-600" },
 
-  pending:   { bg: "bg-amber-50",  text: "text-amber-700", dot: "bg-amber-500" },
-  review:    { bg: "bg-amber-50",  text: "text-amber-700", dot: "bg-amber-500" },
-  "in-progress": { bg: "bg-amber-50",  text: "text-amber-700", dot: "bg-amber-500" },
+  info: { bg: "bg-blue-50 dark:bg-blue-950/40", text: "text-blue-800 dark:text-blue-200", dot: "bg-blue-600" },
+  submitted: { bg: "bg-blue-50 dark:bg-blue-950/40", text: "text-blue-800 dark:text-blue-200", dot: "bg-blue-600" },
+  new: { bg: "bg-blue-50 dark:bg-blue-950/40", text: "text-blue-800 dark:text-blue-200", dot: "bg-blue-600" },
 
-
-  rejected:  { bg: "bg-red-50",    text: "text-red-700",   dot: "bg-red-500" },
-  cancelled: { bg: "bg-red-50",    text: "text-red-700",   dot: "bg-red-500" },
-  declined:  { bg: "bg-red-50",    text: "text-red-700",   dot: "bg-red-500" },
-  failed:    { bg: "bg-red-50",    text: "text-red-700",   dot: "bg-red-500" },
-
-
-  info:      { bg: "bg-blue-50",   text: "text-blue-700",  dot: "bg-blue-500" },
-  submitted: { bg: "bg-blue-50",   text: "text-blue-700",  dot: "bg-blue-500" },
-  new:       { bg: "bg-blue-50",   text: "text-blue-700",  dot: "bg-blue-500" },
-
-  draft:     { bg: "bg-gray-100",  text: "text-gray-600",  dot: "bg-gray-400" },
-  inactive:  { bg: "bg-gray-100",  text: "text-gray-600",  dot: "bg-gray-400" },
-  closed:    { bg: "bg-gray-100",  text: "text-gray-600",  dot: "bg-gray-400" },
+  draft: { bg: "bg-gray-100 dark:bg-gray-800", text: "text-gray-700 dark:text-gray-300", dot: "bg-gray-500" },
+  inactive: { bg: "bg-gray-100 dark:bg-gray-800", text: "text-gray-700 dark:text-gray-300", dot: "bg-gray-500" },
+  closed: { bg: "bg-gray-100 dark:bg-gray-800", text: "text-gray-700 dark:text-gray-300", dot: "bg-gray-500" },
 };
 
-const fallback = { bg: "bg-gray-100", text: "text-gray-600", dot: "bg-gray-400" };
-
+const fallback = {
+  bg: "bg-gray-100 dark:bg-gray-800",
+  text: "text-gray-700 dark:text-gray-300",
+  dot: "bg-gray-500",
+};
 
 const StatusBadge = ({ status, label, colors, icon: Icon, className = "" }) => {
   const key = status?.toLowerCase().replace(/\s+/g, "-");
   const c = colors || presets[key] || fallback;
-  const display = label || status?.charAt(0).toUpperCase() + status?.slice(1) || "Unknown";
+  const display =
+    label || (status ? status.charAt(0).toUpperCase() + status.slice(1) : "Unknown");
 
   return (
     <span
       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${c.bg} ${c.text} ${className}`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
-      {Icon && <Icon className="text-[10px]" />}
+      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} aria-hidden="true" />
+      {Icon && <Icon className="w-3 h-3" aria-hidden="true" />}
       {display}
     </span>
   );

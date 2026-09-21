@@ -50,7 +50,7 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-canvas p-4">
       <div className="w-full max-w-lg">
         <div className="bg-white rounded-2xl border border-slate-200">
           {/* Header */}

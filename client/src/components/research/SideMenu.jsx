@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import notify from "../../common/utils/notify";
+import ThemeToggle from "../../common/components/ThemeToggle";
 import {
   FaFlask, FaTachometerAlt, FaFileAlt, FaWallet, FaCertificate,
   FaUserCircle, FaInbox, FaHistory, FaCheckDouble, FaBookOpen,
@@ -36,11 +37,11 @@ const ROLE_ALIAS = {
 
 
 const navLinkCls = ({ isActive }) =>
-  `w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold
-   transition-colors cursor-pointer
+  `w-full flex items-center gap-3 px-3 min-h-11 rounded-xl text-sm font-semibold
+   transition-colors
    ${isActive
-     ? "bg-blue-50 text-blue-700"
-     : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"}`;
+     ? "bg-primary-soft text-primary"
+     : "text-ink-muted hover:bg-canvas hover:text-ink"}`;
 
 const SidebarContent = ({ role, user, onLogout, onNavigate }) => {
 
@@ -63,15 +64,15 @@ const SidebarContent = ({ role, user, onLogout, onNavigate }) => {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 px-5 py-5 border-b border-slate-100">
-        <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shrink-0">
+      <div className="flex items-center gap-3 px-5 py-5 border-b border-line">
+        <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shrink-0">
           <FaFlask className="text-white text-base" />
         </div>
         <div className="min-w-0">
-          <p className="font-bold text-slate-900 text-sm leading-tight truncate">
+          <p className="font-bold text-ink text-sm leading-tight truncate">
             Nyahururu Hospital
           </p>
-          <p className="text-xs text-slate-400 leading-tight">Research Portal</p>
+          <p className="text-xs text-ink-muted leading-tight">Research Portal</p>
         </div>
       </div>
 
@@ -84,7 +85,8 @@ const SidebarContent = ({ role, user, onLogout, onNavigate }) => {
         ))}
       </nav>
 
-      <div className="border-t border-slate-100 p-3 space-y-1">
+      <div className="border-t border-line p-3 space-y-1">
+        <ThemeToggle />
         <NavLink to="/research/dashboard/profile" className={navLinkCls} onClick={onNavigate}>
           <FaUserCircle className="text-base shrink-0 text-slate-400" />
           <span className="flex-1 min-w-0 text-left">
@@ -143,13 +145,13 @@ const SideMenu = ({ user }) => {
 
   return (
     <>
-      <div className="lg:hidden sticky top-0 z-40 bg-white border-b border-slate-100
+      <div className="lg:hidden sticky top-0 z-40 bg-surface border-b border-line
         flex items-center justify-between px-4 h-14">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
             <FaFlask className="text-white text-sm" />
           </div>
-          <span className="font-bold text-slate-900 text-sm">Research Portal</span>
+          <span className="font-bold text-ink text-sm">Research Portal</span>
         </div>
         <button
           type="button"
@@ -163,7 +165,7 @@ const SideMenu = ({ user }) => {
       </div>
 
       <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:w-64
-        bg-white border-r border-slate-100 z-30">
+        bg-surface border-r border-line z-30">
         <SidebarContent role={normalizedRole} user={user} onLogout={handleLogout} />
       </aside>
 
@@ -174,7 +176,7 @@ const SideMenu = ({ user }) => {
             onClick={() => setMobileOpen(false)}
             aria-hidden="true"
           />
-          <div className="relative w-72 max-w-[80vw] bg-white h-full flex flex-col">
+          <div className="relative w-72 max-w-[80vw] bg-surface h-full flex flex-col">
             <button
               type="button"
               onClick={() => setMobileOpen(false)}

@@ -279,7 +279,7 @@ const TOP_TABS = [
 const ResearchPage = () => {
   const [topTab, setTopTab] = useState("papers");
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-canvas">
       <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
         <div className="mb-6">
           <div className="flex items-center gap-3">
@@ -1093,7 +1093,7 @@ const PapersPanel = () => {
                 </div>
               </div>
             </div>
-            <div className="h-3 bg-gradient-to-br from-blue-600 to-blue-700 relative">
+            <div className="h-3 bg-primary relative">
               <div className="absolute inset-x-0 bottom-0 h-3 bg-white rounded-t-2xl" />
             </div>
 
@@ -1274,7 +1274,7 @@ const PapersPanel = () => {
                 </div>
               </div>
             </div>
-            <div className="h-3 bg-gradient-to-br from-purple-600 to-purple-700 relative shrink-0">
+            <div className="h-3 bg-primary relative shrink-0">
               <div className="absolute inset-x-0 bottom-0 h-3 bg-white rounded-t-2xl" />
             </div>
 
@@ -2105,7 +2105,7 @@ const ReviewersPanel = () => {
                   <tr key={member.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white font-bold text-sm shrink-0">
                           {member.name?.charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0">
@@ -2499,7 +2499,7 @@ const ReviewersPanel = () => {
                 </div>
               </div>
             </div>
-            <div className="h-3 bg-gradient-to-br from-blue-600 to-blue-700 relative">
+            <div className="h-3 bg-primary relative">
               <div className="absolute inset-x-0 bottom-0 h-3 bg-white rounded-t-2xl" />
             </div>
             {!researcherSubmitted ? (
@@ -2671,7 +2671,7 @@ const ReviewersPanel = () => {
             </div>
             <div className="flex-1 overflow-y-auto p-5 space-y-5">
               <div className="flex flex-col items-center text-center gap-2 pb-4 border-b border-gray-100">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold">
+                <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-white text-2xl font-bold">
                   {drawer.name?.charAt(0).toUpperCase()}
                 </div>
                 <p className="font-bold text-gray-900 text-lg">{drawer.name}</p>

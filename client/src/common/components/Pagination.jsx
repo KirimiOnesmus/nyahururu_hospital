@@ -1,66 +1,41 @@
 import React from "react";
-import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { IconChevronLeft, IconChevronRight } from "../icons";
 
-const Pagination = ({
-  currentPage,
-  totalPages,
-  onPageChange,
-  className = "",
-}) => {
+const Pagination = ({ currentPage, totalPages, onPageChange, className = "" }) => {
   if (totalPages <= 1) return null;
 
-  const pages = [];
-  const delta = 1;
-  for (let i = 1; i <= totalPages; i++) {
-    if (
-      i === 1 ||
-      i === totalPages ||
-      (i >= currentPage - delta && i <= currentPage + delta)
-    ) {
-      pages.push(i);
-    } else if (pages[pages.length - 1] !== "...") {
-      pages.push("...");
-    }
-  }
-
   return (
-    <div className={`flex items-center justify-center gap-1 mt-6 ${className}`}>
+    <div
+      className={`flex items-center justify-center gap-2 mt-6 ${className}`}
+      role="navigation"
+      aria-label="Pagination"
+    >
       <button
+        type="button"
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage <= 1}
-        className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+        className="inline-flex items-center justify-center gap-1 min-h-11 px-3 rounded-xl text-sm font-medium text-ink-muted hover:bg-canvas disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         aria-label="Previous page"
       >
-        <FaChevronLeft className="text-xs" />
+        <IconChevronLeft className="w-4 h-4" />
+        <span className="hidden sm:inline">Previous</span>
       </button>
 
-      {pages.map((p, i) =>
-        p === "..." ? (
-          <span key={`dots-${i}`} className="px-2 text-sm text-gray-400">
-            …
-          </span>
-        ) : (
-          <button
-            key={p}
-            onClick={() => onPageChange(p)}
-            className={`min-w-[36px] h-9 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
-              p === currentPage
-                ? "bg-blue-600 text-white"
-                : "text-gray-500 hover:bg-gray-100"
-            }`}
-          >
-            {p}
-          </button>
-        )
-      )}
+      <p className="min-w-[5.5rem] text-center text-sm text-ink-muted tabular-nums">
+        <span className="font-semibold text-ink">{currentPage}</span>
+        <span> of </span>
+        <span className="font-semibold text-ink">{totalPages}</span>
+      </p>
 
       <button
+        type="button"
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage >= totalPages}
-        className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+        className="inline-flex items-center justify-center gap-1 min-h-11 px-3 rounded-xl text-sm font-medium text-ink-muted hover:bg-canvas disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         aria-label="Next page"
       >
-        <FaChevronRight className="text-xs" />
+        <span className="hidden sm:inline">Next</span>
+        <IconChevronRight className="w-4 h-4" />
       </button>
     </div>
   );

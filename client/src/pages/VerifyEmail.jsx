@@ -46,7 +46,7 @@ const VerifyEmail = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-100 px-4">
+      <div className="flex justify-center items-center min-h-screen bg-canvas px-4">
         <div className="bg-white rounded-lg p-10 max-w-md w-full text-center">
           <div className="flex justify-center mb-6">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-blue-500"></div>
@@ -61,7 +61,7 @@ const VerifyEmail = () => {
 
   if (error) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-100 px-4">
+      <div className="flex justify-center items-center min-h-screen bg-canvas px-4">
         <div className="bg-white rounded-lg p-10 max-w-md w-full text-center">
           <div className="text-5xl mb-6">X</div>
           <h2 className="text-2xl font-bold text-gray-800 mb-4">Verification Failed</h2>
@@ -85,7 +85,7 @@ const VerifyEmail = () => {
 
   if (success) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-100 px-4">
+      <div className="flex justify-center items-center min-h-screen bg-canvas px-4">
         <div className="bg-white rounded-lg p-10 max-w-md w-full text-center">
    
           

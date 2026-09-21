@@ -1,21 +1,22 @@
 import React from "react";
-import  LoginForm  from "../common/layouts/LoginForm";
-import { FaHome } from "react-icons/fa";
+import LoginForm from "../common/layouts/LoginForm";
+import { IconHome } from "../common/icons";
 import { useNavigate } from "react-router-dom";
+
 const Hmis = () => {
   const navigate = useNavigate();
   return (
-    <div>
-      <div>
-        <LoginForm />
-      </div>  
-      <div className="
-      absolute right-4 bottom-4 text-4xl bg-blue-600 p-2 text-white rounded-full
-       cursor-pointer hover:text-blue-600 hover:bg-transparent
-       border border-blue-500 transition-all duration-300
-       ">
-        <FaHome   onClick={() => navigate("/")}/>
-      </div>
+    <div className="relative">
+      <LoginForm />
+      <button
+        type="button"
+        onClick={() => navigate("/")}
+        aria-label="Back to home"
+        className="absolute right-4 bottom-4 min-w-12 min-h-12 bg-primary text-white rounded-full
+         inline-flex items-center justify-center hover:bg-primary-hover border border-primary"
+      >
+        <IconHome className="w-6 h-6" />
+      </button>
     </div>
   );
 };

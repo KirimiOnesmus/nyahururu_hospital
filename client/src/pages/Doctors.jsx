@@ -158,7 +158,7 @@ const Doctors = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col bg-canvas">
       <div className="sticky top-0 z-50 bg-white border-b border-slate-200">
         <Header />
       </div>

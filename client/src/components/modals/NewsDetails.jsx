@@ -16,8 +16,8 @@ import {
 const BACKEND_URL = ASSET_BASE_URL;
 
 const Shell = ({ children }) => (
-  <div className="min-h-screen flex flex-col bg-slate-50">
-    <div className="sticky top-0 z-50 bg-white border-b border-slate-200">
+  <div className="min-h-screen flex flex-col bg-canvas">
+    <div className="sticky top-0 z-50 bg-surface border-b border-line">
       <Header />
     </div>
     <main className="flex-1 max-w-5xl mx-auto w-full px-6 py-10">{children}</main>

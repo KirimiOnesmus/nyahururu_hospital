@@ -177,7 +177,7 @@ const InventoryPage = () => {
 
   const inventoryColumns = [
     {
-      key: "name", label: "Name",
+      key: "name", label: "Name", priority: "A", mobileSlot: "identity",
       render: (item) => (
         <>
           <p className="font-semibold text-gray-900">{item.name}</p>
@@ -186,13 +186,13 @@ const InventoryPage = () => {
       ),
     },
     {
-      key: "category", label: "Category",
+      key: "category", label: "Category", priority: "B", mobileSlot: "meta",
       render: (item) => (
         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${CAT_COLORS[item.category] || CAT_COLORS.Other}`}>{item.category}</span>
       ),
     },
     {
-      key: "quantity", label: "Qty",
+      key: "quantity", label: "Qty", priority: "A", mobileSlot: "value",
       render: (item) => (
         <>
           <span className={`font-bold text-sm ${isLowStock(item) ? "text-amber-600" : "text-gray-800"}`}>{item.quantity}</span>
@@ -200,17 +200,17 @@ const InventoryPage = () => {
         </>
       ),
     },
-    { key: "unit", label: "Unit", render: (item) => <span className="text-xs text-gray-600">{item.unit}</span> },
-    { key: "price", label: "Price", render: (item) => <span className="text-xs text-gray-700 font-medium">{fmtPrice(item.price)}</span> },
-    { key: "supplier", label: "Supplier", render: (item) => <span className="text-xs text-gray-500">{item.supplier || "—"}</span> },
-    { key: "batch", label: "Batch", render: (item) => <span className="text-xs text-gray-500 font-mono">{item.batch || "—"}</span> },
+    { key: "unit", label: "Unit", priority: "C", render: (item) => <span className="text-xs text-gray-600">{item.unit}</span> },
+    { key: "price", label: "Price", priority: "B", mobileSlot: "meta", render: (item) => <span className="text-xs text-gray-700 font-medium">{fmtPrice(item.price)}</span> },
+    { key: "supplier", label: "Supplier", priority: "C", render: (item) => <span className="text-xs text-gray-500">{item.supplier || "—"}</span> },
+    { key: "batch", label: "Batch", priority: "D", render: (item) => <span className="text-xs text-gray-500 font-mono">{item.batch || "—"}</span> },
     {
-      key: "expiry", label: "Expiry",
+      key: "expiry", label: "Expiry", priority: "B",
       render: (item) => <span className={`text-xs ${isExpired(item) ? "text-rose-600 font-semibold" : "text-gray-500"}`}>{fmtDate(item.expiry)}</span>,
     },
-    { key: "status", label: "Status", render: (item) => <StockBadge item={item} /> },
+    { key: "status", label: "Status", priority: "A", mobileSlot: "status", render: (item) => <StockBadge item={item} /> },
     {
-      key: "actions", label: "Actions", align: "right",
+      key: "actions", label: "Actions", align: "right", priority: "A", mobileSlot: "actions",
       render: (item) => (
         <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
           <button onClick={() => openModal(item)} className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 cursor-pointer transition-colors" title="Edit">
@@ -225,7 +225,7 @@ const InventoryPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8f7f5]">
+    <div className="min-h-screen bg-canvas">
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
 

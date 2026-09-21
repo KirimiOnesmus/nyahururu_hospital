@@ -3,7 +3,7 @@ import { Header, Footer } from "../common/layouts";
 
 const ServiceTerms = () => {
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="min-h-screen flex flex-col bg-canvas">
       <div className="sticky top-0 z-50 bg-white border-b border-slate-200">
         <Header />
       </div>

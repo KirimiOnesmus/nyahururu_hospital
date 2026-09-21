@@ -88,7 +88,7 @@ const ResetPassword = () => {
   // Invalid / missing token state
   if (invalidLink) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-canvas p-4">
         <div className="w-full max-w-lg bg-white rounded-2xl border border-slate-200">
           <div className="p-8 text-center space-y-5">
             <div className="w-16 h-16 rounded-full bg-red-50 border border-red-200 mx-auto flex items-center justify-center">
@@ -122,7 +122,7 @@ const ResetPassword = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-canvas p-4">
       <div className="w-full max-w-lg">
         <div className="bg-white rounded-2xl border border-slate-200">
 

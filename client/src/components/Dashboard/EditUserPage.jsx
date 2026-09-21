@@ -378,7 +378,7 @@ const EditUserPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-canvas">
       <div className="max-w-7xl mx-auto p-6">
 
         <div className="mb-6">
@@ -745,7 +745,7 @@ const EditUserPage = () => {
                     className="w-[340px] h-[520px] bg-white rounded-xl overflow-hidden relative border border-gray-200"
                   >
          
-                    <div className="relative h-40 bg-gradient-to-br from-blue-600 to-blue-800 p-5 text-white">
+                    <div className="relative h-40 bg-primary p-5 text-white">
                       <h2 className="text-lg font-bold">N.C.R.H</h2>
                       <p className="text-xs mt-1 opacity-90">Nyahururu County Referral Hospital</p>
                       <div className="absolute bottom-0 left-0 w-full h-2 bg-blue-900 opacity-50"></div>

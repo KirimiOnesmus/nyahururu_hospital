@@ -9,8 +9,8 @@ const Card = ({
   ...rest
 }) => (
   <div
-    className={`bg-white rounded-2xl border border-gray-100 ${padding} ${
-      hoverable ? "hover:border-blue-400 transition-colors cursor-pointer" : ""
+    className={`bg-surface rounded-2xl border border-line shadow-sm ${padding} ${
+      hoverable ? "hover:border-primary transition-colors cursor-pointer" : ""
     } ${className}`}
     onClick={onClick}
     role={onClick ? "button" : undefined}

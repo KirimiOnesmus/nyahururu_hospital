@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 import { ASSET_BASE_URL } from "../../config/env";
-import { FaArrowRight, FaArrowLeft, FaNewspaper } from "react-icons/fa";
+import { IconArrowRight, IconArrowLeft, IconNewspaper } from "../../common/icons";
 
 const BACKEND_URL = ASSET_BASE_URL;
 
@@ -23,7 +23,6 @@ const News = () => {
     const fetchNews = async () => {
       try {
         const res = await api.get("/news");
-
         setNews(Array.isArray(res.data) ? res.data : []);
       } catch (error) {
         console.error("Error fetching news data:", error);
@@ -38,17 +37,17 @@ const News = () => {
   if (loading) {
     return (
       <div className="py-20 flex flex-col items-center gap-4">
-        <div className="w-10 h-10 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
-        <p className="text-slate-500 text-sm">Loading news…</p>
+        <div className="w-10 h-10 border-2 border-line border-t-primary rounded-full animate-spin" />
+        <p className="text-ink-muted text-sm">Loading news…</p>
       </div>
     );
   }
 
   if (news.length === 0) {
     return (
-      <div className="py-20 flex flex-col items-center gap-3 text-slate-400">
-        <FaNewspaper className="text-4xl" />
-        <p className="font-semibold text-slate-600">No news available</p>
+      <div className="py-20 flex flex-col items-center gap-3 text-ink-muted">
+        <IconNewspaper className="w-10 h-10" aria-hidden="true" />
+        <p className="font-semibold text-ink">No news available</p>
         <p className="text-sm">Check back later for updates.</p>
       </div>
     );
@@ -57,11 +56,11 @@ const News = () => {
   return (
     <section className="py-12 px-6 max-w-6xl mx-auto">
       <div className="mb-8">
-        <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-1">
+        <p className="text-xs font-semibold uppercase tracking-widest text-primary mb-1">
           Updates
         </p>
-        <h2 className="text-2xl md:text-3xl font-bold text-slate-800">Latest News</h2>
-        <p className="text-slate-500 text-sm mt-1">
+        <h2 className="text-2xl md:text-3xl font-bold text-ink">Latest News</h2>
+        <p className="text-ink-muted text-sm mt-1">
           Stay informed with our latest stories and announcements.
         </p>
       </div>
@@ -71,33 +70,34 @@ const News = () => {
           <div
             key={item.id}
             onClick={() => navigate(`/news/${item.id}`)}
-            className="bg-white border border-slate-200 rounded-2xl overflow-hidden cursor-pointer
-                       hover:border-blue-400 transition-colors duration-200 flex flex-col"
+            className="bg-surface border border-line rounded-2xl overflow-hidden cursor-pointer
+                       hover:border-primary transition-colors duration-200 flex flex-col shadow-sm"
           >
-            <div className="h-52 bg-slate-100 overflow-hidden flex items-center justify-center">
+            <div className="h-52 bg-canvas overflow-hidden flex items-center justify-center">
               {item.imageUrl ? (
                 <img
                   src={`${BACKEND_URL}${item.imageUrl}`}
                   alt={item.title}
-                  className="inset-0 w-full h-full object-cover object-center"
+                  className="w-full h-full object-cover object-center"
                 />
               ) : (
-                <FaNewspaper className="text-5xl text-slate-300" />
+                <IconNewspaper className="w-12 h-12 text-ink-muted" aria-hidden="true" />
               )}
             </div>
 
             <div className="p-5 flex flex-col flex-1">
-              <h4 className="font-bold text-base text-slate-800 mb-3 line-clamp-2">{item.title}</h4>
+              <h4 className="font-bold text-base text-ink mb-3 line-clamp-2">{item.title}</h4>
               <div className="flex-1" />
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   navigate(`/news/${item.id}`);
                 }}
-                className="flex items-center gap-1.5 text-sm font-semibold text-blue-600
-                           hover:text-blue-800 transition-colors duration-200 self-start mt-2"
+                className="flex items-center gap-1.5 min-h-11 text-sm font-semibold text-primary
+                           hover:text-primary-hover self-start mt-2"
               >
-                Read more <FaArrowRight className="text-xs" />
+                Read more <IconArrowRight className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -107,30 +107,29 @@ const News = () => {
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-3">
           <button
+            type="button"
             onClick={() => setCurrentPage((p) => p - 1)}
             disabled={!hasPrev}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-200
-                       text-sm font-semibold text-slate-600 hover:border-blue-400 hover:text-blue-600
-                       disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-200"
+            className="flex items-center gap-1.5 min-h-11 px-4 rounded-xl border border-line
+                       text-sm font-semibold text-ink-muted hover:border-primary hover:text-primary
+                       disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <FaArrowLeft className="text-xs" /> Prev
+            <IconArrowLeft className="w-4 h-4" /> Previous
           </button>
 
-          <span
-            className="px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-50
-                           border border-slate-200 rounded-lg"
-          >
-            {currentPage + 1} / {totalPages}
+          <span className="px-4 min-h-11 inline-flex items-center text-sm font-semibold text-ink bg-canvas border border-line rounded-xl">
+            {currentPage + 1} of {totalPages}
           </span>
 
           <button
+            type="button"
             onClick={() => setCurrentPage((p) => p + 1)}
             disabled={!hasNext}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-200
-                       text-sm font-semibold text-slate-600 hover:border-blue-400 hover:text-blue-600
-                       disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-200"
+            className="flex items-center gap-1.5 min-h-11 px-4 rounded-xl border border-line
+                       text-sm font-semibold text-ink-muted hover:border-primary hover:text-primary
+                       disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Next <FaArrowRight className="text-xs" />
+            Next <IconArrowRight className="w-4 h-4" />
           </button>
         </div>
       )}

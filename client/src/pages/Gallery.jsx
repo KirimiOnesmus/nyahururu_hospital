@@ -225,7 +225,7 @@ const Gallery = () => {
   const clearFilters = () => { setSearch(""); setActiveCategory("all"); setActiveType("all"); };
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="min-h-screen flex flex-col bg-canvas">
       <div className="sticky top-0 z-50 bg-white border-b border-slate-200">
         <Header />
       </div>
@@ -450,7 +450,7 @@ const Gallery = () => {
                         </div>
                       )}
 
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
+                      <div className="absolute inset-0 bg-ink/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
                         <div className="flex-1 min-w-0">
                           <p className="text-white font-bold text-sm truncate">{item.title}</p>
                           {item.category && (

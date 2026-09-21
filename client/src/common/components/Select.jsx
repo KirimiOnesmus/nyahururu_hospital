@@ -1,13 +1,15 @@
 import React from "react";
 import FormField from "./FormField";
+import { IconChevronDown } from "../icons";
 
 const selectBase =
-  "w-full px-4 py-3 border rounded-xl text-sm outline-none transition-shadow bg-white appearance-none focus:ring-2 focus:ring-blue-400 focus:border-transparent";
+  "w-full min-h-11 px-4 py-2.5 pr-10 border rounded-xl text-sm outline-none transition-shadow bg-surface text-ink appearance-none focus:ring-2 focus:ring-primary/30 focus:border-primary";
 
 const Select = ({
   label,
   required,
   error,
+  hint,
   options = [],
   placeholder,
   className = "",
@@ -16,7 +18,7 @@ const Select = ({
   ...rest
 }) => {
   const selectId = id || rest.name;
-  const borderCls = error ? "border-red-400" : "border-gray-200";
+  const borderCls = error ? "border-red-400" : "border-line";
 
   const select = (
     <div className="relative">
@@ -33,26 +35,31 @@ const Select = ({
         )}
         {options.map((opt) => {
           const value = typeof opt === "object" ? opt.value : opt;
-          const label = typeof opt === "object" ? opt.label : opt;
+          const optLabel = typeof opt === "object" ? opt.label : opt;
           return (
             <option key={value} value={value}>
-              {label}
+              {optLabel}
             </option>
           );
         })}
       </select>
-      <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
+      <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-ink-muted">
+        <IconChevronDown className="w-4 h-4" aria-hidden="true" />
       </div>
     </div>
   );
 
-  if (!label && !error) return select;
+  if (!label && !error && !hint) return select;
 
   return (
-    <FormField label={label} required={required} error={error} htmlFor={selectId} className={wrapperClassName}>
+    <FormField
+      label={label}
+      required={required}
+      error={error}
+      hint={hint}
+      htmlFor={selectId}
+      className={wrapperClassName}
+    >
       {select}
     </FormField>
   );

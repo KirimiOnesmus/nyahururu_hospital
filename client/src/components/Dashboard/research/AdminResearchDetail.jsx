@@ -216,7 +216,7 @@ const AdminResearchDetail = () => {
   const submittedReviewers = enrichedReviewers.filter((r) => r.reviewStatus === "submitted" || r.review).length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-canvas">
       <div className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
 
         <button
@@ -681,7 +681,7 @@ const ReviewerCard = ({ assignment, index }) => {
         className="w-full flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50/50 transition-colors"
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 ${isPending ? "bg-gray-300" : "bg-gradient-to-br from-blue-500 to-indigo-600"}`}>
+          <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 ${isPending ? "bg-gray-300" : "bg-primary"}`}>
             {reviewer.name?.charAt(0)?.toUpperCase() || (index + 1)}
           </div>
           <div className="min-w-0 text-left">

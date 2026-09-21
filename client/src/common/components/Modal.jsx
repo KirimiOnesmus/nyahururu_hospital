@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { FaTimes } from "react-icons/fa";
+import { IconClose } from "../icons";
 
 const widths = {
   sm: "max-w-md",
@@ -35,34 +35,31 @@ const Modal = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
       <div
-        className={`bg-white rounded-2xl w-full ${maxW} max-h-[90vh] overflow-y-auto ${className}`}
-        style={{ animation: "modalPop .22s cubic-bezier(.34,1.56,.64,1) both" }}
+        className={`bg-surface rounded-2xl w-full ${maxW} max-h-[90vh] overflow-y-auto shadow-md ${className}`}
+        style={{ animation: "modalPop .2s ease-out both" }}
         onClick={(e) => e.stopPropagation()}
       >
         {(title || onClose) && (
-          <div className="flex items-start justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10 rounded-t-2xl">
+          <div className="flex items-start justify-between p-6 border-b border-line sticky top-0 bg-surface z-10 rounded-t-2xl">
             <div className="min-w-0">
-              {title && (
-                <h2 className="text-lg font-bold text-gray-900">{title}</h2>
-              )}
-              {subtitle && (
-                <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>
-              )}
+              {title && <h2 className="text-lg font-bold text-ink">{title}</h2>}
+              {subtitle && <p className="text-sm text-ink-muted mt-0.5">{subtitle}</p>}
             </div>
             {onClose && (
               <button
+                type="button"
                 onClick={onClose}
-                className="p-2 rounded-xl hover:bg-gray-100 cursor-pointer transition-colors shrink-0"
+                className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-xl hover:bg-canvas shrink-0"
                 aria-label="Close"
               >
-                <FaTimes className="text-gray-400" />
+                <IconClose className="w-5 h-5 text-ink-muted" />
               </button>
             )}
           </div>

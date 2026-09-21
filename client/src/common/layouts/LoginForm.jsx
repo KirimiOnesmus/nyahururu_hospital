@@ -8,7 +8,11 @@ import {
 import notify from "../../common/utils/notify";
 import ChangePasswordModal from "../../components/modals/ChangePasswordModal";
 import { joinRole } from "../../api/socket";
-import { FaUserMd, FaEnvelope, FaLock, FaEye, FaEyeSlash, FaSpinner } from "react-icons/fa";
+import { IconUser, IconMail, IconLock, IconEye, IconEyeOff } from "../icons";
+import ThemeToggle from "../components/ThemeToggle";
+import Input from "../components/Input";
+import Button from "../components/Button";
+import Alert from "../components/Alert";
 
 const STAFF_ROLES = [
   "superadmin",
@@ -20,21 +24,8 @@ const STAFF_ROLES = [
   "research",
 ];
 
-
 const RESEARCHER_REGISTER_PATH = "/research/register";
 const SUPPORT_EMAIL = "onesmuskirimi64@gmail.com";
-
-const inputClass =
-  "w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 " +
-  "outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/10 fo transition-colors " +
-  "placeholder:text-slate-400 cursor-pointer";
-
-const primaryButtonClass =
-  "w-full px-5 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold cursor-pointer" +
-  "transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2";
-
-const ghostLinkClass =
-  "text-sm font-semibold text-blue-700 hover:underline transition-colors cursor-pointer";
 
 const LoginForm = () => {
   const [email, setEmail] = useState("");
@@ -43,6 +34,7 @@ const LoginForm = () => {
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [loginType, setLoginType] = useState("staff");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [tempPassword, setTempPassword] = useState("");
   const navigate = useNavigate();
@@ -56,7 +48,6 @@ const LoginForm = () => {
     if (isVerifying && token && emailParam) {
       handleEmailVerification(token, emailParam);
     }
-   
   }, [searchParams]);
 
   const handleEmailVerification = async (token, emailParam) => {
@@ -74,7 +65,7 @@ const LoginForm = () => {
       const errorMsg =
         err.response?.data?.message ||
         err.message ||
-        "Verification link is invalid or expired";
+        "This verification link is invalid or has expired.";
       notify.error(errorMsg);
       window.history.replaceState({}, document.title, window.location.pathname);
     } finally {
@@ -82,12 +73,18 @@ const LoginForm = () => {
     }
   };
 
+  const validate = () => {
+    const next = {};
+    if (!email.trim()) next.email = "Enter the email you use for this portal.";
+    else if (!/^\S+@\S+\.\S+$/.test(email)) next.email = "Enter a valid email address, like name@hospital.go.ke.";
+    if (!password) next.password = "Enter your password to continue.";
+    setFieldErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (!email.trim() || !password) {
-      notify.error("Please enter your email and password.");
-      return;
-    }
+    if (!validate()) return;
 
     setLoading(true);
     try {
@@ -99,7 +96,6 @@ const LoginForm = () => {
           localStorage.setItem("collection", "users");
           joinRole(data.user.role);
 
-
           if (data.mustChangePassword) {
             setTempPassword(password);
             setShowChangePassword(true);
@@ -107,10 +103,10 @@ const LoginForm = () => {
             return;
           }
 
-          notify.success("Logged in successfully!");
+          notify.success("You're signed in.");
           navigate("/dashboard");
         } else {
-          notify.error("Login failed. Please check your credentials.");
+          notify.error("We couldn't sign you in. Check your email and password.");
         }
       } else {
         const data = await loginResearcher(email, password);
@@ -125,11 +121,11 @@ const LoginForm = () => {
         localStorage.setItem("collection", "researchers");
 
         joinRole(normalizedRole);
-        notify.success("Logged in successfully!");
+        notify.success("You're signed in.");
         navigate(`/research/dashboard/${normalizedRole}`);
       }
     } catch (err) {
-      notify.error(err.response?.data?.message || "Login failed");
+      notify.error(err.response?.data?.message || "We couldn't sign you in. Try again.");
     } finally {
       setLoading(false);
     }
@@ -148,7 +144,7 @@ const LoginForm = () => {
   const handlePasswordChanged = () => {
     setShowChangePassword(false);
     setTempPassword("");
-    notify.success("Password updated! Redirecting to dashboard…");
+    notify.success("Password updated. Taking you to the dashboard…");
     setTimeout(() => navigate("/dashboard"), 600);
   };
 
@@ -157,39 +153,37 @@ const LoginForm = () => {
     setTempPassword("");
     localStorage.removeItem("role");
     localStorage.removeItem("collection");
-    notify.info("Logged out.");
+    notify.info("You've been logged out.");
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-canvas p-4">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle compact />
+      </div>
       <div className="w-full max-w-lg">
-        <div className="bg-white rounded-2xl border border-slate-200">
-  
-          <div className="px-8 pt-8 pb-6 text-center border-b border-slate-200">
-            <div className="w-14 h-14 rounded-full bg-blue-50 border border-blue-100 mx-auto mb-4 flex items-center justify-center">
-              <FaUserMd className="text-2xl text-blue-700" />
+        <div className="bg-surface rounded-2xl border border-line shadow-md">
+          <div className="px-8 pt-8 pb-6 text-center border-b border-line">
+            <div className="w-14 h-14 rounded-full bg-primary-soft mx-auto mb-4 flex items-center justify-center">
+              <IconUser className="w-7 h-7 text-primary" aria-hidden="true" />
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Welcome Back</h1>
-            <p className="text-sm text-slate-500 mt-1">Sign in to access your dashboard</p>
+            <h1 className="text-2xl font-bold text-ink tracking-tight">Welcome back</h1>
+            <p className="text-sm text-ink-muted mt-1">Sign in to open your dashboard</p>
           </div>
 
           <div className="p-8 space-y-6">
             {verifying && (
-              <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex items-center gap-3">
-                <FaSpinner className="animate-spin text-blue-700 shrink-0" />
-                <span className="text-sm font-semibold text-blue-800">Verifying your email...</span>
-              </div>
+              <Alert variant="info">Verifying your email…</Alert>
             )}
 
-           
-            <div className="flex rounded-xl border border-slate-200 overflow-hidden">
+            <div className="flex rounded-xl border border-line overflow-hidden">
               <button
                 type="button"
                 onClick={() => setLoginType("staff")}
-                className={`flex-1 py-2.5 text-sm font-semibold transition-colors cursor-pointer ${
+                className={`flex-1 min-h-11 py-2.5 text-sm font-semibold transition-colors ${
                   loginType === "staff"
-                    ? "bg-blue-700 text-white"
-                    : "bg-white text-slate-500 hover:bg-slate-50"
+                    ? "bg-primary text-white"
+                    : "bg-surface text-ink-muted hover:bg-canvas"
                 }`}
               >
                 Hospital Portal
@@ -197,72 +191,73 @@ const LoginForm = () => {
               <button
                 type="button"
                 onClick={() => setLoginType("researcher")}
-                className={`flex-1 py-2.5 text-sm font-semibold transition-colors cursor-pointer ${
+                className={`flex-1 min-h-11 py-2.5 text-sm font-semibold transition-colors ${
                   loginType === "researcher"
-                    ? "bg-blue-700 text-white"
-                    : "bg-white text-slate-500 hover:bg-slate-50"
+                    ? "bg-primary text-white"
+                    : "bg-surface text-ink-muted hover:bg-canvas"
                 }`}
               >
                 Research Portal
               </button>
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-5">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold uppercase tracking-widest text-slate-500" htmlFor="email">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <FaEnvelope className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
-                  <input
-                    className={inputClass}
-                    type="email"
-                    id="email"
-                    value={email}
-                    placeholder="Enter your email"
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
+            <form onSubmit={handleLogin} className="space-y-4" noValidate>
+              <Input
+                label="Email"
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                inputMode="email"
+                value={email}
+                placeholder="name@hospital.go.ke"
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (fieldErrors.email) setFieldErrors((p) => ({ ...p, email: undefined }));
+                }}
+                error={fieldErrors.email}
+                icon={IconMail}
+                required
+              />
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold uppercase tracking-widest text-slate-500" htmlFor="password">
-                  Password
-                </label>
-                <div className="relative">
-                  <FaLock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
-                  <input
-                    className={`${inputClass} pr-10`}
-                    type={showPassword ? "text" : "password"}
-                    id="password"
-                    value={password}
-                    placeholder="Enter your password"
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
+              <Input
+                label="Password"
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                value={password}
+                placeholder="Your password"
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (fieldErrors.password) setFieldErrors((p) => ({ ...p, password: undefined }));
+                }}
+                error={fieldErrors.password}
+                icon={IconLock}
+                required
+                trailing={
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
                     aria-label={showPassword ? "Hide password" : "Show password"}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    className="min-w-11 min-h-11 inline-flex items-center justify-center text-ink-muted hover:text-ink"
                   >
-                    {showPassword ? <FaEyeSlash /> : <FaEye />}
+                    {showPassword ? <IconEyeOff className="w-4 h-4" /> : <IconEye className="w-4 h-4" />}
                   </button>
-                </div>
-              </div>
+                }
+              />
 
               <div className="flex items-center justify-between text-sm">
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-center gap-2 min-h-11 cursor-pointer">
                   <input
                     type="checkbox"
-                    className="w-4 h-4 rounded border-slate-300 text-blue-700 focus:ring-blue-600/20"
+                    className="w-4 h-4 rounded border-line text-primary focus:ring-primary/30"
                   />
-                  <span className="text-slate-600">Remember me</span>
+                  <span className="text-ink-muted">Remember me</span>
                 </label>
                 <button
                   type="button"
-                  className={ghostLinkClass}
+                  className="min-h-11 text-sm font-semibold text-primary hover:underline"
                   onClick={() =>
                     navigate(
                       loginType === "researcher"
@@ -275,30 +270,32 @@ const LoginForm = () => {
                 </button>
               </div>
 
-              <button className={primaryButtonClass} type="submit" disabled={loading || verifying}>
-                {loading ? (
-                  <>
-                    <FaSpinner className="animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  `Sign In as ${loginType === "staff" ? "Staff" : "Researcher / Reviewer / Committee"}`
-                )}
-              </button>
+              <Button
+                type="submit"
+                className="w-full"
+                loading={loading}
+                loadingText="Signing in…"
+                disabled={verifying}
+              >
+                {loginType === "staff" ? "Sign in as staff" : "Sign in to research"}
+              </Button>
             </form>
           </div>
 
-          <div className="px-8 pb-8 text-center border-t border-slate-200 pt-5">
-            <p className="text-sm text-slate-500">
+          <div className="px-8 pb-8 text-center border-t border-line pt-5">
+            <p className="text-sm text-ink-muted">
               Don't have an account?{" "}
-              <button type="button" onClick={handleSecondaryAction} className={ghostLinkClass}>
-                {loginType === "staff" ? "Contact Administrator" : "Register as Researcher"}
+              <button
+                type="button"
+                onClick={handleSecondaryAction}
+                className="font-semibold text-primary hover:underline"
+              >
+                {loginType === "staff" ? "Contact an administrator" : "Create a researcher account"}
               </button>
             </p>
           </div>
         </div>
       </div>
-
 
       <ChangePasswordModal
         open={showChangePassword}

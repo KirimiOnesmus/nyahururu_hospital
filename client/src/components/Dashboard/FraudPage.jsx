@@ -155,7 +155,7 @@ const FraudPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f7f5]">
+    <div className="min-h-screen bg-canvas">
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
         <div className="flex items-center gap-3 mb-8 fade-up">
@@ -270,7 +270,7 @@ const FraudPage = () => {
               <DataTable
                 columns={[
                   {
-                    key: "issue", label: "Issue",
+                    key: "issue", label: "Issue", priority: "A", mobileSlot: "identity",
                     render: (r) => (
                       <div className="max-w-xs">
                         <p className="font-semibold text-gray-900 truncate">{r.issue || "—"}</p>
@@ -279,16 +279,16 @@ const FraudPage = () => {
                     ),
                   },
                   {
-                    key: "location", label: "Location",
+                    key: "location", label: "Location", priority: "B", mobileSlot: "meta",
                     render: (r) => <span className="flex items-center gap-1.5 text-xs text-gray-600"><FaMapMarkerAlt className="text-gray-300 shrink-0" />{r.location || "—"}</span>,
                   },
                   {
-                    key: "date", label: "Date Reported",
+                    key: "date", label: "Date Reported", priority: "B", mobileSlot: "value",
                     render: (r) => <span className="flex items-center gap-1.5 text-xs text-gray-600"><FaCalendarAlt className="text-gray-300 shrink-0" />{fmtDate(r.createdAt)}</span>,
                   },
-                  { key: "status", label: "Status", render: (r) => <LocalStatusBadge status={r.status || "pending"} /> },
+                  { key: "status", label: "Status", priority: "A", mobileSlot: "status", render: (r) => <LocalStatusBadge status={r.status || "pending"} /> },
                   {
-                    key: "actions", label: "Actions", align: "right",
+                    key: "actions", label: "Actions", align: "right", priority: "A", mobileSlot: "actions",
                     render: (r) => (
                       <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => openModal(r)} className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 cursor-pointer transition-colors" title="View Details"><MdVisibility className="text-base" /></button>

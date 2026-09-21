@@ -23,7 +23,7 @@ const Avatar = ({ name, src, size = "sm", className = "" }) => {
 
   return (
     <div
-      className={`${sizeClass} rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold shrink-0 ${className}`}
+      className={`${sizeClass} rounded-xl bg-primary flex items-center justify-center text-white font-bold shrink-0 ${className}`}
       aria-label={name || "User"}
     >
       {letter}

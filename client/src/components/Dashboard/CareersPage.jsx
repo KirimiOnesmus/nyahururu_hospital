@@ -174,7 +174,7 @@ const CareersPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f7f5]">
+    <div className="min-h-screen bg-canvas">
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
 
@@ -227,7 +227,7 @@ const CareersPage = () => {
             <DataTable
               columns={[
                 {
-                  key: "title", label: "Job Title",
+                  key: "title", label: "Job Title", priority: "A", mobileSlot: "identity",
                   render: (job) => {
                     const expired = isExpired(job.deadline);
                     const days = daysLeft(job.deadline);
@@ -247,7 +247,7 @@ const CareersPage = () => {
                   },
                 },
                 {
-                  key: "department", label: "Department",
+                  key: "department", label: "Department", priority: "B", mobileSlot: "meta",
                   render: (job) => (
                     <span className="flex items-center gap-1.5 text-xs text-gray-600">
                       <FaBuilding className="text-gray-300 shrink-0" />{job.department || "—"}
@@ -255,7 +255,7 @@ const CareersPage = () => {
                   ),
                 },
                 {
-                  key: "location", label: "Location",
+                  key: "location", label: "Location", priority: "C",
                   render: (job) => (
                     <span className="flex items-center gap-1.5 text-xs text-gray-600">
                       <FaMapMarkerAlt className="text-gray-300 shrink-0" />{job.location || "—"}
@@ -263,7 +263,7 @@ const CareersPage = () => {
                   ),
                 },
                 {
-                  key: "deadline", label: "Deadline",
+                  key: "deadline", label: "Deadline", priority: "B", mobileSlot: "value",
                   render: (job) => (
                     <span className="flex items-center gap-1.5 text-xs text-gray-600">
                       <FaCalendarAlt className="text-gray-300 shrink-0" />
@@ -272,7 +272,7 @@ const CareersPage = () => {
                   ),
                 },
                 {
-                  key: "applications", label: "Applications",
+                  key: "applications", label: "Applications", priority: "C",
                   render: (job) => (
                     <button onClick={() => handleViewApplications(job)}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 text-xs font-semibold rounded-xl hover:bg-blue-100 transition-colors cursor-pointer">
@@ -282,7 +282,7 @@ const CareersPage = () => {
                   ),
                 },
                 {
-                  key: "actions", label: "Actions", align: "right",
+                  key: "actions", label: "Actions", align: "right", priority: "A", mobileSlot: "actions",
                   render: (job) => (
                     <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => openModal(job)} className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors cursor-pointer" title="Edit">
@@ -343,7 +343,7 @@ const CareersPage = () => {
               <div key={app.id} className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center gap-4">
                 {/* Avatar + info */}
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-black text-sm shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white font-black text-sm shrink-0">
                     {app.applicantName?.charAt(0).toUpperCase() || "?"}
                   </div>
                   <div className="min-w-0">
