@@ -10,16 +10,15 @@ const { RESEARCHER_ROLES, RESEARCHER_STATUSES } = require("../constants/research
 
 const extractToken = (req) => {
   const authHeader = req.headers.authorization;
+
   if (authHeader && authHeader.startsWith("Bearer ")) {
-    return authHeader.split(" ")[1];
+    return authHeader.substring(7);
   }
-  if (req.cookies && req.cookies.jwt) {
+
+  if (req.cookies?.jwt) {
     return req.cookies.jwt;
   }
 
-  if (req.query && req.query.token) {
-    return req.query.token;
-  }
   return null;
 };
 
