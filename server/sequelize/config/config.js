@@ -19,11 +19,6 @@ function requireNonEmpty(vars) {
 
 requireNonEmpty(REQUIRED_NON_EMPTY);
 
-// DB_PASSWORD must be *defined* (present as a key) in every environment, so
-// a completely absent .env still fails fast. An empty string is only
-// tolerated in development/test — matching XAMPP's common no-password
-// root account for local convenience — never in staging/production, where
-// an empty DB password is a real vulnerability, not a dev shortcut.
 if (process.env.DB_PASSWORD === undefined) {
   throw new Error(
     `[FATAL] Missing required database environment variable for NODE_ENV="${nodeEnv}": DB_PASSWORD. ` +
@@ -47,10 +42,7 @@ const toInt = (value, fallback) => {
   return Number.isNaN(parsed) ? fallback : parsed;
 };
 
-// Shared base — every environment connects to MySQL the same way. Only
-// pool sizing, SSL enforcement, and logging verbosity differ by env, and
-// those differences are themselves environment-driven (not hardcoded
-// per-environment values baked into this file).
+
 const base = {
   username: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
@@ -73,18 +65,27 @@ const base = {
     idle: toInt(process.env.DB_POOL_IDLE_MS, 10000),
   },
   dialectOptions: {
-    // DB_SSL defaults to false for local XAMPP dev, but should be set to
-    // true (with a real CA) for staging/production MySQL hosts that
-    // require TLS. Never disable cert verification implicitly.
-    ...(toBool(process.env.DB_SSL, false)
-      ? {
-          ssl: {
-            require: true,
-            rejectUnauthorized: toBool(process.env.DB_SSL_REJECT_UNAUTHORIZED, true),
-          },
-        }
-      : {}),
-  },
+  ...(toBool(process.env.DB_SSL, false)
+    ? {
+        ssl: {
+          require: true,
+          rejectUnauthorized: toBool(
+            process.env.DB_SSL_REJECT_UNAUTHORIZED,
+            true
+          ),
+
+          ...(process.env.DB_SSL_CA_BASE64
+            ? {
+                ca: Buffer.from(
+                  process.env.DB_SSL_CA_BASE64,
+                  "base64"
+                ).toString("utf8"),
+              }
+            : {}),
+        },
+      }
+    : {}),
+},
   timezone: process.env.DB_TIMEZONE || "+00:00",
   logging: toBool(process.env.DB_LOGGING, nodeEnv === "development") ? console.log : false,
 };
@@ -100,14 +101,23 @@ module.exports = {
   },
 };
 
-// Production MySQL connections must be encrypted. If DB_SSL wasn't
-// explicitly set to true while actually running as production, fail fast
-// rather than silently connecting in plaintext. Guarded by nodeEnv (not
-// just presence of the "production" key above) so requiring this file in
-// development/test never trips over production's own requirements.
-if (nodeEnv === "production" && !toBool(process.env.DB_SSL, false)) {
-  throw new Error(
-    '[FATAL] DB_SSL must be set to "true" when NODE_ENV=production. ' +
-      "Refusing to start with an unencrypted production database connection.",
-  );
+
+if (nodeEnv === "production") {
+  if (!toBool(process.env.DB_SSL, false)) {
+    throw new Error(
+      '[FATAL] DB_SSL must be set to "true" when NODE_ENV=production. ' +
+        "Refusing to start with an unencrypted production database connection."
+    );
+  }
+
+  if (
+    toBool(process.env.DB_SSL_REJECT_UNAUTHORIZED, true) &&
+    !process.env.DB_SSL_CA_BASE64
+  ) {
+    throw new Error(
+      "[FATAL] DB_SSL_CA_BASE64 is required when " +
+        "DB_SSL_REJECT_UNAUTHORIZED=true in production. " +
+        "Provide the Aiven CA certificate."
+    );
+  }
 }
