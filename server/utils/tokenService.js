@@ -10,8 +10,9 @@ const REFRESH_TOKEN_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || "7d";
 const cookieOptions = (maxAgeMs) => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "lax",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   maxAge: maxAgeMs,
+  path: "/",
 });
 
 const ACCESS_COOKIE_MAX_AGE = 24 * 60 * 60 * 1000; 
