@@ -106,12 +106,12 @@ if (nodeEnv === "production") {
 
   if (
     toBool(process.env.DB_SSL_REJECT_UNAUTHORIZED, true) &&
-    !process.env.DB_SSL_CA_BASE64
+    !process.env.DB_SSL_CA
   ) {
     throw new Error(
-      "[FATAL] DB_SSL_CA_BASE64 is required when " +
+      "[FATAL] DB_SSL_CA is required when " +
         "DB_SSL_REJECT_UNAUTHORIZED=true in production. " +
-        "Provide the Aiven CA certificate."
+        "Provide the CA certificate."
     );
   }
 }
