@@ -102,15 +102,14 @@ exports.login = asyncHandler(async (req, res) => {
     severity: "info",
   });
 
-  return sendSuccess(res, 200, "Login successful", {
-    token: accessToken,
-    mustChangePassword: !!user.mustChangePassword,
-    user: {
-      id: user.id,
-      name: user.name,
-      role: user.role,
-    },
-  });
+return sendSuccess(res, 200, "Login successful", {
+  mustChangePassword: !!user.mustChangePassword,
+  user: {
+    id: user.id,
+    name: user.name,
+    role: user.role,
+  },
+});
 });
 
 
