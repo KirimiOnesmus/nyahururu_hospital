@@ -64,7 +64,7 @@ const base = {
     acquire: toInt(process.env.DB_POOL_ACQUIRE_MS, 30000),
     idle: toInt(process.env.DB_POOL_IDLE_MS, 10000),
   },
-  dialectOptions: {
+ dialectOptions: {
   ...(toBool(process.env.DB_SSL, false)
     ? {
         ssl: {
@@ -73,15 +73,9 @@ const base = {
             process.env.DB_SSL_REJECT_UNAUTHORIZED,
             true
           ),
-
-          ...(process.env.DB_SSL_CA_BASE64
-            ? {
-                ca: Buffer.from(
-                  process.env.DB_SSL_CA_BASE64,
-                  "base64"
-                ).toString("utf8"),
-              }
-            : {}),
+          ca: process.env.DB_SSL_CA
+            ? process.env.DB_SSL_CA.replace(/\\n/g, "\n")
+            : undefined,
         },
       }
     : {}),
