@@ -9,8 +9,7 @@ const CONTACT_INFO = [
 
 const LAT = 0.03783;
 const LNG = 36.36194;
-
-const MAP_SRC = `https://maps.google.com/maps?q=${LAT},${LNG}&hl=en&z=16&output=embed`;
+const MAP_SRC = `https://www.google.com/maps?q=${LAT},${LNG}&z=15&output=embed`;
 const DIRECTIONS_URL = `https://www.google.com/maps/dir/?api=1&destination=${LAT},${LNG}`;
 
 const Contact = () => {
@@ -45,15 +44,16 @@ const Contact = () => {
           </aside>
 
           <div className="md:col-span-2 bg-surface border border-line rounded-2xl overflow-hidden flex flex-col shadow-sm">
-            <div className="relative flex-1 min-h-[360px] bg-canvas">
-              <iframe
-                title="Nyahururu County Referral Hospital location"
-                src={MAP_SRC}
-                className="absolute inset-0 w-full h-full border-0"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
-            </div>
+            <iframe
+              title="Nyahururu County Referral Hospital location"
+              src={MAP_SRC}
+              width="100%"
+              height="420"
+              loading="lazy"
+              allowFullScreen
+              referrerPolicy="no-referrer-when-downgrade"
+              style={{ border: 0, display: "block" }}
+            />
 
             <div className="flex items-center justify-between gap-3 p-4 border-t border-line bg-canvas">
               <div className="flex items-center gap-2 text-ink-muted min-w-0">
