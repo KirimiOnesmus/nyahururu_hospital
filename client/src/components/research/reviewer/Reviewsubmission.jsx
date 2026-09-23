@@ -8,20 +8,9 @@ import {
 } from "react-icons/fa";
 import * as research from "../../../api/research";
 import RevisionComparison from "../RevisionComparison";
-import { ASSET_BASE_URL } from "../../../config/env";
+import { resolveAssetUrl } from "../../../config/env";
 
-const resolveUrl = (url) => {
-  if (!url) return null;
-  const base = url.startsWith("http://") || url.startsWith("https://")
-    ? url
-    : `${ASSET_BASE_URL}${url}`;
-  const token = localStorage.getItem("token");
-  if (token && base.includes("/uploads/")) {
-    const sep = base.includes("?") ? "&" : "?";
-    return `${base}${sep}token=${token}`;
-  }
-  return base;
-};
+const resolveUrl = (url) => resolveAssetUrl(url);
 
 const STAGE_LABELS = {
   initial_proposal:  "Proposal",

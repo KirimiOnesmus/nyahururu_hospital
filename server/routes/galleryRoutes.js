@@ -26,7 +26,7 @@ const uploadGallery = createUploader("gallery");
 
 // Public routes
 router.get("/", getAllGallery);
-router.get("/stats", getGalleryStats);
+router.get("/stats", verifyToken, authorizeRoles("admin", "communication", "it"), getGalleryStats);
 router.get("/categories", getAllCategories);
 router.get("/:id", getGalleryById);
 router.post("/:id/like", likeGallery);

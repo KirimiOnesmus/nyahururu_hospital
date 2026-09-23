@@ -22,7 +22,7 @@ const adminComms = [verifyToken, authorizeRoles("admin", "communication")];
 
 
 router.get("/", getAllNotices);
-router.get("/stats", getNoticeStats);                        
+router.get("/stats", verifyToken, authorizeRoles("admin", "communication", "it", "research"), getNoticeStats);                        
 
 router.post("/bulk/delete", ...adminComms, bulkDeleteNotices); 
 

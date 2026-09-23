@@ -11,7 +11,7 @@ const {
   PAGINATION,
   TOKEN_TTL,
 } = require("../constants/researchIndex");
-const { signToken } = require("./researcherService");
+const { signResearcherAccessToken } = require("../utils/tokenService");
 
 const inviteReviewer = async (data, caller) => {
   const { firstName, lastName, email, institution, discipline, specialisations } = data;
@@ -82,6 +82,7 @@ const inviteReviewer = async (data, caller) => {
 };
 
 
+
 const setPassword = async ({ token, email, password }) => {
   const hashed = crypto.createHash("sha256").update(token).digest("hex");
 
@@ -91,7 +92,11 @@ const setPassword = async ({ token, email, password }) => {
       emailVerificationToken: hashed,
       emailVerificationExpire: { [Op.gt]: new Date() },
       role: {
-        [Op.in]: [RESEARCHER_ROLES.REVIEWER, RESEARCHER_ROLES.RESEARCH_COMMITTEE, RESEARCHER_ROLES.CO_INVESTIGATOR],
+        [Op.in]: [
+          RESEARCHER_ROLES.REVIEWER,
+          RESEARCHER_ROLES.RESEARCH_COMMITTEE,
+          RESEARCHER_ROLES.CO_INVESTIGATOR,
+        ],
       },
     },
   });
@@ -109,12 +114,16 @@ const setPassword = async ({ token, email, password }) => {
   account.emailVerificationToken = null;
   account.emailVerificationExpire = null;
   account.invitationAcceptedAt = new Date();
+
   await account.save();
 
-  const jwtToken = signToken(account.id, account.role);
-  return { token: jwtToken, reviewer: account.toSafeJSON() };
-};
+  const { token: accessToken } = signResearcherAccessToken(account);
 
+  return {
+    token: accessToken,
+    reviewer: account.toSafeJSON(),
+  };
+};
 const resendInvite = async (reviewerId, caller) => {
   const account = await Researcher.findByPk(reviewerId);
   if (!account) throw new AppError("Account not found.", 404);

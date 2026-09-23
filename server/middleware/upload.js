@@ -39,6 +39,7 @@ const ALLOWED_MIME_TYPES = {
   notices:     [...PDF_MIMES, ...IMAGE_MIMES],
   tenders:     PDF_MIMES,
   reports:     [...PDF_MIMES, ...DOC_MIMES],
+  bids:        [...PDF_MIMES, "application/zip"],
 
   images:      IMAGE_MIMES,
 };
@@ -59,6 +60,7 @@ const ALLOWED_EXTENSIONS = {
   notices:     [".pdf", ...IMAGE_EXTS],
   tenders:     [".pdf"],
   reports:     [".pdf", ".docx", ".csv", ".xls", ".xlsx", ".zip"],
+  bids:        [".pdf", ".zip"],
 
   images:      IMAGE_EXTS,
 };
@@ -79,6 +81,7 @@ const MAX_FILE_SIZE = {
   notices:     10 * 1024 * 1024,
   tenders:     20 * 1024 * 1024,
   reports:     50 * 1024 * 1024,
+  bids:        20 * 1024 * 1024,
 
   images:       5 * 1024 * 1024,
 };
@@ -102,8 +105,10 @@ const createFileFilter = (folder) => (req, file, cb) => {
 };
 
 
+const { getLocalDir } = require("../config/storage");
+
 const createUploader = (folderName) => {
-  const uploadDir = path.join(__dirname, `../uploads/${folderName}`);
+  const uploadDir = getLocalDir(folderName);
   if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
   const storage = multer.diskStorage({

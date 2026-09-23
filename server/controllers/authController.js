@@ -11,7 +11,7 @@ const {
   signAccessToken,
   signRefreshToken,
   setAuthCookies,
-  clearAuthCookies,
+  revokeAuthSession,
 } = require("../utils/tokenService");
 
 
@@ -126,30 +126,7 @@ exports.me = asyncHandler(async (req, res) => {
 
 
 exports.logout = asyncHandler(async (req, res) => {
-  const decoded = req.decodedToken; 
-  if (decoded?.jti && decoded?.exp) {
-    await TokenBlacklist.upsert({
-      jti: decoded.jti,
-      expiresAt: new Date(decoded.exp * 1000),
-    });
-  }
-
-  const refreshToken = req.cookies?.refreshToken;
-  if (refreshToken) {
-    try {
-      const refreshDecoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-      if (refreshDecoded?.jti && refreshDecoded?.exp) {
-        await TokenBlacklist.upsert({
-          jti: refreshDecoded.jti,
-          expiresAt: new Date(refreshDecoded.exp * 1000),
-        });
-      }
-    } catch {
-      // Refresh token already invalid/expired — nothing to blacklist.
-    }
-  }
-
-  clearAuthCookies(res);
+  await revokeAuthSession(req, res);
 
   audit.log({
     req,
@@ -164,7 +141,7 @@ exports.logout = asyncHandler(async (req, res) => {
 
 
 exports.refresh = asyncHandler(async (req, res) => {
-  const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+  const refreshToken = req.cookies?.refreshToken;
   if (!refreshToken) throw new AppError("No refresh token provided.", 401);
 
   let decoded;
@@ -196,5 +173,5 @@ exports.refresh = asyncHandler(async (req, res) => {
   const { token: newRefreshToken } = signRefreshToken(user);
   setAuthCookies(res, accessToken, newRefreshToken);
 
-  return sendSuccess(res, 200, "Token refreshed", { token: accessToken });
+  return sendSuccess(res, 200, "Token refreshed");
 });

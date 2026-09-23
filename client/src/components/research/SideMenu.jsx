@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import notify from "../../common/utils/notify";
 import ThemeToggle from "../../common/components/ThemeToggle";
+import { logout as clearResearcherSession } from "../../api/auth";
 import {
   FaFlask, FaTachometerAlt, FaFileAlt, FaWallet, FaCertificate,
   FaUserCircle, FaInbox, FaHistory, FaCheckDouble, FaBookOpen,
@@ -135,10 +136,8 @@ const SideMenu = ({ user }) => {
     return () => { document.body.style.overflow = ""; };
   }, [mobileOpen]);
 
-  const handleLogout = () => {
-    ["token", "role", "collection", "researcher", "researcher_token"].forEach(
-      (k) => localStorage.removeItem(k)
-    );
+  const handleLogout = async () => {
+    await clearResearcherSession();
     navigate("/hmis");
     notify.success("Logged out successfully");
   };

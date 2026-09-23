@@ -90,11 +90,12 @@ const buildProductionCSP = () => {
     useDefaults: false,
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "https://cdn.tailwindcss.com"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", ...selfOrigins],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https://*.tile.openstreetmap.org", ...selfOrigins],
       connectSrc: ["'self'", ...selfOrigins],
-      fontSrc: ["'self'", "data:"],
+      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+      frameSrc: ["'self'", "https://www.openstreetmap.org"],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
       baseUri: ["'self'"],
@@ -169,12 +170,13 @@ app.use(compression());
 app.use(hpp({ whitelist: ["fields", "sort", "page", "limit", "filter"] }));
 
 
+const { LOCAL_ROOT } = require("./config/storage");
 const PUBLIC_UPLOAD_FOLDERS = ["public", "gallery", "news", "events", "services", "notices", "tenders"];
 
 PUBLIC_UPLOAD_FOLDERS.forEach((folder) => {
   app.use(
     `/uploads/${folder}`,
-    express.static(path.resolve(__dirname, "uploads", folder), {
+    express.static(path.resolve(LOCAL_ROOT, folder), {
       maxAge: "7d",
       etag: true,
       dotfiles: "deny",
@@ -194,7 +196,7 @@ const requireUploadAuth = (req, res, next) => {
 app.use(
   "/uploads",
   requireUploadAuth,
-  express.static(path.resolve(__dirname, "uploads"), {
+  express.static(LOCAL_ROOT, {
     maxAge: "7d",
     etag: true,
     dotfiles: "deny",
@@ -216,7 +218,6 @@ app.get("/health", (req, res) =>
   res.status(200).json({
     success: true,
     message: "NCRH API is running",
-    environment: process.env.NODE_ENV,
     timestamp: new Date().toISOString(),
   })
 );
@@ -285,77 +286,6 @@ app.all("*splat", (req, res, next) => {
 });
 
 
-app.use((err, req, res, next) => {
-  // Multer upload errors
-  if (err.name === "MulterError") {
-    return res.status(400).json({
-      success: false,
-      message: `File upload error: ${err.message}`,
-      field:   err.field || null,
-    });
-  }
-
-  // CORS policy errors 
-  if (err.message && err.message.startsWith("CORS:")) {
-    return res.status(403).json({
-      success: false,
-      message: err.message,
-    });
-  }
-
-
-
-  // JWT errors
-  if (err.name === "JsonWebTokenError") {
-    return res.status(401).json({
-      success: false,
-      message: "Invalid token. Please log in again.",
-    });
-  }
-  if (err.name === "TokenExpiredError") {
-    return res.status(401).json({
-      success: false,
-      message: "Your session has expired. Please log in again.",
-    });
-  }
-
-
-  const statusCode =
-    typeof err.statusCode === "number" ? err.statusCode : 500;
-
-  if (statusCode >= 500) {
-    logger.error(
-      { err, method: req.method, path: req.originalUrl, ip: req.ip },
-      "Internal server error"
-    );
-  } else {
-    logger.warn(
-      { message: err.message, method: req.method, path: req.originalUrl },
-      "Client error"
-    );
-  }
-
-
-  if (process.env.NODE_ENV === "development") {
-    return res.status(statusCode).json({
-      success:    false,
-      status:     err.status || "error",
-      message:    err.message,
-      stack:      err.stack,
-    });
-  }
-
-  if (err.isOperational) {
-    return res.status(statusCode).json({
-      success: false,
-      message: err.message,
-    });
-  }
-
-  return res.status(500).json({
-    success: false,
-    message: "Something went wrong. Please try again later.",
-  });
-});
+app.use(globalErrorHandler);
 
 module.exports = app;

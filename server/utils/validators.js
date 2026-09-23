@@ -19,8 +19,25 @@ const phoneSchema = z
 
 const passwordSchema = z
   .string()
-  .min(8, "Password must be at least 8 characters")
-  .max(128, "Password is too long");
+  .min(10, "Password must be at least 10 characters")
+  .max(128, "Password is too long")
+  .regex(/[a-z]/, "Password must include a lowercase letter")
+  .regex(/[A-Z]/, "Password must include an uppercase letter")
+  .regex(/[0-9]/, "Password must include a number");
+
+const staffPasswordSchema = passwordSchema.regex(
+  /[@$!%*?&]/,
+  "Password must include a special character",
+);
+
+const assertStaffPassword = (password) => {
+  const result = staffPasswordSchema.safeParse(password);
+  if (!result.success) {
+    const { AppError } = require("./appError");
+    throw new AppError(result.error.issues[0].message, 400);
+  }
+  return result.data;
+};
 
 const objectIdSchema = z.union([
   z.coerce.number().int().positive(),
@@ -466,6 +483,39 @@ const inviteCommitteeSchema = z.object({
   specialisations: z.array(z.string()).max(10).optional(),
 });
 
+const todayUtcDate = () => {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+};
+
+const incidentDateSchema = z
+  .string()
+  .trim()
+  .optional()
+  .or(z.literal(""))
+  .transform((v) => (v ? v : undefined))
+  .refine((v) => {
+    if (!v) return true;
+    return /^\d{4}-\d{2}-\d{2}$/.test(v);
+  }, "Enter a valid date.")
+  .refine((v) => {
+    if (!v) return true;
+    const parsed = new Date(`${v}T00:00:00Z`);
+    return !Number.isNaN(parsed.getTime());
+  }, "Enter a valid date.")
+  .refine((v) => {
+    if (!v) return true;
+    const parsed = new Date(`${v}T00:00:00Z`);
+    return parsed.getTime() <= todayUtcDate().getTime();
+  }, "Incident date cannot be in the future.");
+
+const fraudReportSchema = z.object({
+  issue: z.string().trim().min(3, "Describe the concern.").max(200),
+  dateOfIncident: incidentDateSchema,
+  location: z.string().trim().max(200).optional().or(z.literal("")),
+  details: z.string().trim().min(10, "Please provide more detail.").max(5000),
+});
+
 const adminCreateResearcherSchema = z.object({
   firstName: z.string().trim().min(1).max(50),
   lastName: z.string().trim().min(1).max(50),
@@ -502,6 +552,9 @@ const validate =
 
 module.exports = {
   validate,
+  passwordSchema,
+  staffPasswordSchema,
+  assertStaffPassword,
 
   registerSchema,
   loginSchema,
@@ -534,4 +587,5 @@ module.exports = {
   setPasswordSchema,
   updateReviewerSchema,
   adminCreateResearcherSchema,
+  fraudReportSchema,
 };

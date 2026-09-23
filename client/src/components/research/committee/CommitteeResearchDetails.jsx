@@ -283,12 +283,7 @@ const LifecycleTracker = ({ status, activeStage, onStageClick }) => {
 
 const withToken = (rawUrl) => {
   if (!rawUrl) return rawUrl;
-  const token = localStorage.getItem("token");
-  const base = rawUrl.startsWith("http") ? rawUrl : `${ASSET_BASE_URL}${rawUrl.startsWith("/") ? "" : "/"}${rawUrl}`;
-  if (token && base.includes("/uploads/")) {
-    return `${base}${base.includes("?") ? "&" : "?"}token=${token}`;
-  }
-  return base;
+  return rawUrl.startsWith("http") ? rawUrl : `${ASSET_BASE_URL}${rawUrl.startsWith("/") ? "" : "/"}${rawUrl}`;
 };
 
 const DocumentRow = ({ label, url, stageLabel }) => {
@@ -1096,10 +1091,8 @@ const CommitteeResearchDetails = () => {
     if (!rid) return;
     setDownloading(true);
     try {
-      const token = localStorage.getItem("token");
       const response = await fetch(`${API_BASE_URL}/research/${rid}/download-zip`, {
         credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       if (!response.ok) throw new Error("Download failed");
       const blob = await response.blob();

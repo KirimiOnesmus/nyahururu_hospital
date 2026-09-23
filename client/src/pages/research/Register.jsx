@@ -100,7 +100,9 @@ const Register = () => {
     }
     if (s === 3) {
       if (!form.password)          e.password = "Password is required";
-      else if (form.password.length < 8) e.password = "Password must be at least 8 characters";
+      else if (form.password.length < 10) e.password = "Password must be at least 10 characters";
+      else if (!/[a-z]/.test(form.password) || !/[A-Z]/.test(form.password) || !/[0-9]/.test(form.password))
+        e.password = "Use upper and lowercase letters and a number";
       if (!form.confirmPassword)   e.confirmPassword = "Please confirm your password";
       else if (form.password !== form.confirmPassword)
         e.confirmPassword = "Passwords do not match";
@@ -147,15 +149,19 @@ const Register = () => {
       }, 3000);
 
     } catch (err) {
-      
-      const errorMessage = err.response?.data?.message || err.message || "Registration failed. Try again.";
-      
-      if (err.response?.status === 409) {
-        setErrors({ email: "Email already registered. Please log in instead." });
+      const errorMessage = err.message || err.response?.data?.message || "Registration failed. Try again.";
+      const fieldErrors = {};
+      (err.errors || []).forEach((item) => {
+        if (item.field) fieldErrors[item.field] = item.message;
+      });
+
+      if (err.status === 409 || /already (registered|in use)/i.test(errorMessage)) {
+        fieldErrors.email = fieldErrors.email || "Email already registered. Please log in instead.";
         notify.error("Email already registered");
       } else {
         notify.error(errorMessage);
       }
+      if (Object.keys(fieldErrors).length) setErrors((prev) => ({ ...prev, ...fieldErrors }));
     } finally {
       setLoading(false);
     }
@@ -410,7 +416,7 @@ const Register = () => {
                     {(() => {
                       const p = form.password;
                       const score =
-                        (p.length >= 8 ? 1 : 0) +
+                        (p.length >= 10 ? 1 : 0) +
                         (/[A-Z]/.test(p) ? 1 : 0) +
                         (/[0-9]/.test(p) ? 1 : 0) +
                         (/[^A-Za-z0-9]/.test(p) ? 1 : 0);
@@ -446,7 +452,7 @@ const Register = () => {
                     </InputIcon>
                     <input
                       type={showPassword ? "text" : "password"}
-                      placeholder="Min. 8 characters" value={form.password}
+                      placeholder="Min. 10 characters" value={form.password}
                       onChange={set("password")} required
                       className={`${inputBase} pl-10 pr-12 ${errors.password ? "border-red-400 bg-red-50" : "border-gray-300"}`}
                     />

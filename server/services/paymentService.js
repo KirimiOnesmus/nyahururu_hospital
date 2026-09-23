@@ -280,7 +280,7 @@ const verifyPayment = async (checkoutRequestId) => {
   };
 };
 
-const generateDownloadToken = async (paymentId, researchId, requesterId) => {
+const generateDownloadToken = async (paymentId, researchId, requesterId, checkoutRequestId) => {
 
   const payment = await Payment.scope("withSecrets").findOne({
     where: {
@@ -296,12 +296,12 @@ const generateDownloadToken = async (paymentId, researchId, requesterId) => {
     throw new AppError("Valid completed payment not found for this download.", 403);
   }
 
-  if (
-    payment.researcherId &&
-    requesterId &&
-    String(payment.researcherId) !== String(requesterId)
-  ) {
-    throw new AppError("This payment does not belong to your account.", 403);
+  if (payment.researcherId) {
+    if (!requesterId || String(payment.researcherId) !== String(requesterId)) {
+      throw new AppError("This payment does not belong to your account.", 403);
+    }
+  } else if (!checkoutRequestId || payment.checkoutRequestId !== checkoutRequestId) {
+    throw new AppError("Payment confirmation is required to download this paper.", 403);
   }
 
   const raw = crypto.randomBytes(32).toString("hex");

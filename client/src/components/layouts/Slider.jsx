@@ -74,7 +74,7 @@ const Slider = () => {
   }, []);
 
   return (
-    <div className="w-full h-[300px] md:h-[400px] lg:h-[540px] relative">
+    <div className="w-full h-[380px] md:h-[440px] lg:h-[540px] relative z-0">
       <Swiper
         modules={[Pagination, Autoplay]}
         autoplay={{ delay: 5000, disableOnInteraction: false }}
@@ -92,13 +92,13 @@ const Slider = () => {
             >
               {slide.image && <div className="absolute inset-0 bg-ink/55" />}
 
-              <div className="relative z-10 px-10 md:px-20 lg:px-28 max-w-3xl">
+              <div className="relative z-20 w-full max-w-6xl mx-auto px-6 md:px-10 lg:px-12">
                 {slide.eyebrow && (
                   <p className="text-blue-200 text-xs font-bold uppercase tracking-widest mb-3">
                     {slide.eyebrow}
                   </p>
                 )}
-                <h1 className="text-3xl md:text-5xl font-bold text-white leading-tight mb-4 whitespace-pre-line">
+                <h1 className="text-3xl md:text-5xl font-bold text-white leading-tight mb-4 whitespace-pre-line max-w-3xl">
                   {slide.heading}
                 </h1>
                 {slide.body && (
@@ -110,8 +110,8 @@ const Slider = () => {
                   <button
                     type="button"
                     onClick={() => navigate(slide.ctaPath)}
-                    className="bg-primary hover:bg-primary-hover text-white text-sm font-semibold
-                               min-h-11 px-6 py-2.5 rounded-xl transition-colors"
+                    className="relative z-30 bg-primary hover:bg-primary-hover text-white text-sm font-semibold
+                               min-h-11 px-6 py-2.5 rounded-xl transition-colors cursor-pointer mb-4 md:mb-0"
                   >
                     {slide.ctaLabel}
                   </button>

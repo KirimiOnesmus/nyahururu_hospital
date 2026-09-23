@@ -1,15 +1,14 @@
 .
 
 const STAFF_KEYS = ["role", "collection"];
-const RESEARCHER_KEYS = ["token", "role", "collection", "researcher"];
+const RESEARCHER_KEYS = ["role", "collection", "researcher"];
 
 export const setStaffSession = ({ role }) => {
   if (role) localStorage.setItem("role", role);
   localStorage.setItem("collection", "users");
 };
 
-export const setResearcherSession = ({ token, role, researcher }) => {
-  if (token) localStorage.setItem("token", token);
+export const setResearcherSession = ({ role, researcher }) => {
   localStorage.setItem("role", role || researcher?.role || "researcher");
   localStorage.setItem("collection", "researchers");
   if (researcher) localStorage.setItem("researcher", JSON.stringify(researcher));
@@ -28,11 +27,11 @@ export const clearResearcherSession = () => {
 };
 
 export const clearAllSessions = () => {
-  clearStaffSession();
+  clearStaffSession(); 
   clearResearcherSession();
 };
 
-export const getToken = () => localStorage.getItem("token");
+export const getToken = () => null;
 export const getRole = () => localStorage.getItem("role");
 export const isAuthenticated = () => !!getRole();
 export const isResearcherSession = () => localStorage.getItem("collection") === "researchers";

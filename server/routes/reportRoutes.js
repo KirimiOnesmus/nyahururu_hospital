@@ -13,15 +13,15 @@ const {
   bulkDeleteReports,
 } = require('../controllers/reportController');
 
-const { verifyToken, authorizeRoles } = require('../middleware/auth');
+const { verifyToken, authorizeRoles, optionalStaff } = require('../middleware/auth');
 const createUploader = require('../middleware/upload');
 
 const upload = createUploader('reports');
 
-router.get('/',  getAllReports); 
-router.get('/category/:category',  getReportsByCategory);
-router.get('/:id/download',  downloadReport);
-router.get('/:id',getReportById);
+router.get('/', optionalStaff, getAllReports); 
+router.get('/category/:category', optionalStaff, getReportsByCategory);
+router.get('/:id/download', optionalStaff, downloadReport);
+router.get('/:id', optionalStaff, getReportById);
 
 router.post('/', verifyToken,authorizeRoles('admin', 'it'), upload.single('file'), createReport);
 router.put('/:id', verifyToken,authorizeRoles('admin','it'), upload.single('file'), updateReport);
@@ -41,6 +41,6 @@ const commentLimiter = rateLimit({
     });
   },
 });
-router.post('/:id/comments', commentLimiter, addComment);
+router.post('/:id/comments', verifyToken, commentLimiter, addComment);
 
 module.exports = router;

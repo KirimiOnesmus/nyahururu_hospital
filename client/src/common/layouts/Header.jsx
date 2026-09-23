@@ -91,6 +91,7 @@ const Header = () => {
       name: "Contact Us",
       dropdown: "contact",
       items: [
+        { name: "Find Us", path: "/contact" },
         { name: "Patient Feedback", path: "/feedback" },
         { name: "Report Fraud", path: "/report-fraud" },
         { name: "Book Appointment", path: "/appointment" },
@@ -157,7 +158,7 @@ const Header = () => {
             onClick={() => goTo("/")}
             className="flex items-center gap-3 hover:opacity-80 transition-opacity min-h-11"
           >
-            <img src={logo} alt="Nyahururu County Referral Hospital logo" className="w-12 h-12 object-contain" />
+            <img src={logo} alt="Nyahururu County Referral Hospital logo" className="brand-logo w-12 h-12" />
             <div className="text-left">
               <p className="text-lg font-bold text-ink leading-tight">N.C.R.H</p>
               <p className="text-sm text-ink-muted leading-tight hidden sm:block">
@@ -298,7 +299,7 @@ const Header = () => {
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-line">
               <div className="flex items-center gap-2">
-                <img src={logo} alt="" className="w-9 h-9 object-contain" />
+                <img src={logo} alt="" className="brand-logo w-9 h-9" />
                 <span className="font-bold text-ink">N.C.R.H</span>
               </div>
               <button

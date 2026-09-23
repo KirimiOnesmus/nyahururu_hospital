@@ -9,17 +9,9 @@ import {
 import { RiArrowDownDoubleFill } from "react-icons/ri";
 import { HiArrowTurnDownRight } from "react-icons/hi2";
 import * as research from "../../../api/research";
-import { ASSET_BASE_URL } from "../../../config/env";
+import { resolveAssetUrl } from "../../../config/env";
 
-const resolveUrl = (url) => {
-  if (!url) return null;
-  const base = url.startsWith("http") ? url : `${ASSET_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
-  const token = localStorage.getItem("token");
-  if (token && base.includes("/uploads/")) {
-    return `${base}${base.includes("?") ? "&" : "?"}token=${token}`;
-  }
-  return base;
-};
+const resolveUrl = (url) => resolveAssetUrl(url);
 
 const STAGE_CONFIG = {
   proposal:          { label: "Proposal",           icon: FaFileAlt,     cls: "text-amber-700 bg-amber-50 border-amber-200",     dot: "bg-amber-500",   segs: [true,false,false,false,false] },

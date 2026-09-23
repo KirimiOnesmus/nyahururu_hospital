@@ -49,8 +49,9 @@ router.post(
 );
 
 
-router.get("/verify/:checkoutRequestId", ctrl.verifyPayment);
-router.get("/status/:checkoutRequestId", ctrl.verifyPayment);
+const paymentStatusLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
+router.get("/verify/:checkoutRequestId", paymentStatusLimiter, ctrl.verifyPayment);
+router.get("/status/:checkoutRequestId", paymentStatusLimiter, ctrl.verifyPayment);
 
 
 router.get(

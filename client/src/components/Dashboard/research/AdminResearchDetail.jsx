@@ -56,12 +56,7 @@ const formatKES = (n) => new Intl.NumberFormat("en-KE", { style: "currency", cur
 
 const resolveUrl = (url) => {
   if (!url) return null;
-  const base = url.startsWith("http") ? url : `${ASSET_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
-  const token = localStorage.getItem("token");
-  if (token && base.includes("/uploads/")) {
-    return `${base}${base.includes("?") ? "&" : "?"}token=${token}`;
-  }
-  return base;
+  return url.startsWith("http") ? url : `${ASSET_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
 };
 
 
