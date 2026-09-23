@@ -16,7 +16,7 @@ const socket = io(SOCKET_URL, {
 });
 
 const ensureConnected = () => {
-  if (!socket.connected) socket.connect();
+  if (!socket.connected) socket.connect(); 
 };
 
 export const joinRole = (role) => {

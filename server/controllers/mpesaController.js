@@ -1,8 +1,8 @@
 "use strict";
 
-const path = require("path");
 const { Research } = require("../sequelize/models");
 const paymentService = require("../services/paymentService");
+const { resolveUploadPath } = require("../utils/safePath");
 
 const { asyncHandler, sendSuccess, AppError } = require("../utils/appError");
 
@@ -38,6 +38,7 @@ exports.getDownloadToken = asyncHandler(async (req, res) => {
     paymentId,
     researchId,
     req.researcher?.id || null,
+    req.query.checkoutRequestId || req.body?.checkoutRequestId || null,
   );
   sendSuccess(res, 200, "Download token generated. Valid for 15 minutes.", result);
 });
@@ -58,7 +59,7 @@ exports.downloadResearchPaper = asyncHandler(async (req, res) => {
 
   if (!research?.finalPaperFile) throw new AppError("Research file not found.", 404);
 
-  const filePath = path.join(process.cwd(), research.finalPaperFile.replace(/^\//, ""));
+  const filePath = resolveUploadPath(research.finalPaperFile);
   return res.download(filePath, `${research.title.slice(0, 60)}.pdf`);
 });
 

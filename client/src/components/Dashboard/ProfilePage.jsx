@@ -152,7 +152,7 @@ const PasswordModal = ({ onClose }) => {
 
   const set = (key) => (e) =>
     setFields((f) => ({ ...f, [key]: e.target.value }));
-  const lengthOk = fields.next.length >= 6;
+  const lengthOk = fields.next.length >= 10;
   const matchOk = fields.next === fields.confirm && fields.next.length > 0;
   const hasUpper = /[A-Z]/.test(fields.next);
   const hasSpecial = /[@$!%*?&]/.test(fields.next);
@@ -214,7 +214,7 @@ const PasswordModal = ({ onClose }) => {
           />
           <PasswordInput
             label="New Password"
-            placeholder="Min 8 chars, uppercase, special char"
+            placeholder="Min 10 chars, uppercase, special char"
             value={fields.next}
             onChange={set("next")}
             disabled={loading}
@@ -231,7 +231,7 @@ const PasswordModal = ({ onClose }) => {
             <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">
               Requirements
             </p>
-            <Rule ok={lengthOk} text="At least 8 characters" />
+            <Rule ok={lengthOk} text="At least 10 characters" />
             <Rule ok={hasUpper} text="Contains an uppercase letter" />
             <Rule
               ok={hasSpecial}

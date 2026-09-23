@@ -22,6 +22,12 @@ const extractToken = (req) => {
   return null;
 };
 
+const assertNotBlacklisted = async (decoded) => {
+  if (!decoded?.jti) return;
+  const blacklisted = await TokenBlacklist.findOne({ where: { jti: decoded.jti } });
+  if (blacklisted) throw new AppError("Session expired. Please log in again.", 401);
+};
+
 const buildCallerIdentity = (req) => {
   if (req.researcher) {
     return {
@@ -70,10 +76,7 @@ exports.verifyToken = asyncHandler(async (req, res, next) => {
     throw new AppError("Access denied — researcher token not allowed on staff routes.", 403);
   }
 
-  if (decoded.jti) {
-    const blacklisted = await TokenBlacklist.findOne({ where: { jti: decoded.jti } });
-    if (blacklisted) throw new AppError("Session expired. Please log in again.", 401);
-  }
+  await assertNotBlacklisted(decoded);
 
   const user = await User.findByPk(decoded.id, { attributes: { exclude: ["password"] } });
   if (!user) throw new AppError("User not found.", 401);
@@ -135,14 +138,23 @@ exports.protectResearcher = asyncHandler(async (req, res, next) => {
   const researcher = await Researcher.findByPk(decoded.id);
   if (!researcher) throw new AppError("Account not found.", 401);
 
+  await assertNotBlacklisted(decoded);
+
   if (researcher.isActive === false) {
     throw new AppError("Your account has been deactivated.", 403);
   }
   if (researcher.status === RESEARCHER_STATUSES.SUSPENDED) {
     throw new AppError("Your account has been suspended. Please contact support.", 403);
   }
+  if (
+    researcher.role === RESEARCHER_ROLES.RESEARCHER &&
+    researcher.emailVerified === false
+  ) {
+    throw new AppError("Please verify your email before continuing.", 403);
+  }
 
   req.researcher = researcher;
+  req.decodedToken = decoded;
   next();
 });
 
@@ -185,6 +197,7 @@ exports.protectEither = asyncHandler(async (req, res, next) => {
   if (!token) throw new AppError("No token provided.", 401);
 
   const decoded = jwt.verify(token, process.env.JWT_SECRET, JWT_VERIFY_OPTIONS);
+  await assertNotBlacklisted(decoded);
 
   if (decoded.collection === "researchers") {
     const researcher = await Researcher.findByPk(decoded.id);
@@ -198,6 +211,7 @@ exports.protectEither = asyncHandler(async (req, res, next) => {
     }
 
     req.researcher = researcher;
+    req.decodedToken = decoded;
   } else {
 
     const user = await User.findByPk(decoded.id, { attributes: { exclude: ["password"] } });
@@ -205,6 +219,7 @@ exports.protectEither = asyncHandler(async (req, res, next) => {
     if (user.isActive === false) throw new AppError("Your account has been deactivated.", 403);
 
     req.user = user;
+    req.decodedToken = decoded;
   }
 
   next();
@@ -218,6 +233,7 @@ exports.protectReviewers = asyncHandler(async (req, res, next) => {
   if (!token) throw new AppError("No token provided.", 401);
 
   const decoded = jwt.verify(token, process.env.JWT_SECRET, JWT_VERIFY_OPTIONS);
+  await assertNotBlacklisted(decoded);
 
   if (decoded.collection === "researchers") {
     const researcher = await Researcher.findByPk(decoded.id);
@@ -240,6 +256,7 @@ exports.protectReviewers = asyncHandler(async (req, res, next) => {
     }
 
     req.researcher = researcher;
+    req.decodedToken = decoded;
   } else {
    
     const user = await User.findByPk(decoded.id, { attributes: { exclude: ["password"] } });
@@ -253,6 +270,7 @@ exports.protectReviewers = asyncHandler(async (req, res, next) => {
     }
 
     req.user = user;
+    req.decodedToken = decoded;
   }
 
   next();
@@ -266,14 +284,42 @@ exports.optionalResearcher = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET, JWT_VERIFY_OPTIONS);
+    if (decoded.jti) {
+      const blacklisted = await TokenBlacklist.findOne({ where: { jti: decoded.jti } });
+      if (blacklisted) return next();
+    }
     if (decoded.collection === "researchers") {
       const researcher = await Researcher.findByPk(decoded.id);
       if (researcher && researcher.isActive !== false) {
         req.researcher = researcher;
+        req.decodedToken = decoded;
       }
     }
   } catch {
     // Silent fail — token invalid or expired; request proceeds unauthenticated
+  }
+
+  next();
+};
+
+exports.optionalStaff = async (req, res, next) => {
+  const token = extractToken(req);
+  if (!token) return next();
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, JWT_VERIFY_OPTIONS);
+    if (decoded.collection === "researchers") return next();
+    if (decoded.jti) {
+      const blacklisted = await TokenBlacklist.findOne({ where: { jti: decoded.jti } });
+      if (blacklisted) return next();
+    }
+    const user = await User.findByPk(decoded.id, { attributes: { exclude: ["password"] } });
+    if (user && user.isActive !== false) {
+      req.user = user;
+      req.decodedToken = decoded;
+    }
+  } catch {
+    // Unauthenticated public request continues without staff context.
   }
 
   next();

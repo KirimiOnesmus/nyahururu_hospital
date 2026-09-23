@@ -213,6 +213,12 @@ exports.cancelBooking = async (req, res) => {
       const b = await AmbulanceBooking.findByPk(req.params.id, { transaction: t });
       if (!b) return { notFound: true };
 
+      const isOwner = b.userId && req.user?.id && String(b.userId) === String(req.user.id);
+      const isStaff = ["admin", "superadmin", "it"].includes(req.user?.role);
+      if (!isOwner && !isStaff) {
+        return { forbidden: true };
+      }
+
       if (["Completed", "Cancelled"].includes(b.status)) {
         return {
           alreadyClosed: `Cannot cancel a ${b.status.toLowerCase()} booking`,
@@ -236,6 +242,9 @@ exports.cancelBooking = async (req, res) => {
     });
 
     if (booking.notFound) return res.status(404).json({ message: "Booking not found" });
+    if (booking.forbidden) {
+      return res.status(403).json({ message: "You do not have access to cancel this booking." });
+    }
     if (booking.alreadyClosed) return res.status(400).json({ message: booking.alreadyClosed });
 
     res.json({ message: "Booking cancelled successfully", booking: booking.booking });

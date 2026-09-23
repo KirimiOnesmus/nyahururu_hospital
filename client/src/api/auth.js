@@ -1,7 +1,13 @@
 import { disconnectSocket } from "./socket";
 import api from './axios';
 
-
+const toApiError = (error, fallback) => {
+  const data = error.response?.data;
+  const err = new Error(data?.message || error.message || fallback);
+  err.status = error.response?.status;
+  err.errors = data?.errors;
+  return err;
+};
 
 export const loginUser = async (email, password) => {
   try {
@@ -18,7 +24,7 @@ export const loginUser = async (email, password) => {
     }
     return data;
   } catch (error) {
-    throw error.response?.data || { message: 'Login failed' };
+    throw toApiError(error, 'Login failed');
   }
 };
  
@@ -27,7 +33,7 @@ export const registerResearcher = async (formData) => {
   try {
     const response = await api.post('/researchers/register', {
       firstName: formData.firstName,
-      lastName: formData.lastName,
+      lastName: formData.lastName, 
       email: formData.email,
       phone: formData.phone || '',
       institution: formData.institution || '',
@@ -39,16 +45,9 @@ export const registerResearcher = async (formData) => {
 
         const data = response.data.data || response.data;
 
-    if (data.token) {
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('role', data.researcher?.role || 'researcher');
-      localStorage.setItem('collection', 'researchers');
-      localStorage.setItem('researcher', JSON.stringify(data.researcher));
-    }
-
     return data;
   } catch (error) {
-    throw error.response?.data || { message: 'Registration failed' };
+    throw toApiError(error, 'Registration failed');
   }
 };
 
@@ -76,9 +75,8 @@ export const loginResearcher = async (email, password) => {
 
         const data = response.data.data || response.data;
 
-    if (data.token) {
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('role', data.researcher?.role || 'researcher');
+    if (data.researcher) {
+      localStorage.setItem('role', data.researcher.role || 'researcher');
       localStorage.setItem('collection', 'researchers');
       localStorage.setItem('researcher', JSON.stringify(data.researcher));
     }
@@ -88,7 +86,7 @@ export const loginResearcher = async (email, password) => {
     
 
   } catch (error) {
-    throw error.response?.data || { message: 'Login failed' };
+    throw toApiError(error, 'Login failed');
   }
 };
 
@@ -183,8 +181,13 @@ export const resetResearcherPassword = async (
   }
 };
 
-export const logout = () => {
+export const logout = async () => {
   disconnectSocket();
+  try {
+    await api.post('/researchers/logout');
+  } catch {
+    // Cookie clear is best-effort; still wipe local session state.
+  }
   localStorage.removeItem('token');
   localStorage.removeItem('role');
   localStorage.removeItem('collection');
@@ -197,9 +200,7 @@ export const isAuthenticated = () => {
   return !!localStorage.getItem('role');
 };
 
-export const getToken = () => {
-  return localStorage.getItem('token');
-};
+export const getToken = () => null;
 
 
 export const getUserRole = () => {

@@ -1,7 +1,7 @@
 "use strict";
 
-const path = require("path");
 const certificateService = require("../services/certificateService");
+const { resolveUploadPath } = require("../utils/safePath");
 const { Certificate, Research } = require("../sequelize/models");
 const { asyncHandler, sendSuccess, AppError } = require("../utils/appError");
 const { isResearchAdmin, hasCommitteeAccess } = require("../middleware/auth");
@@ -84,7 +84,7 @@ exports.downloadCertificatePdf = asyncHandler(async (req, res) => {
 
   if (!cert.pdfFile) throw new AppError("Certificate PDF is not available.", 404);
 
-  const filePath = path.join(process.cwd(), cert.pdfFile.replace(/^\//, ""));
+  const filePath = resolveUploadPath(cert.pdfFile);
   const disposition = req.query.mode === "view" ? "inline" : "attachment";
 
   res.setHeader("Content-Type", "application/pdf");

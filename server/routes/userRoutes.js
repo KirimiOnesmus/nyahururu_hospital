@@ -20,7 +20,7 @@ const resetLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5 });
 router.get("/", verifyToken, authorizeRoles("admin", "it"), getAllUsers);
 
 // View a single user by ID
-router.get("/:id", verifyToken, authorizeRoles("admin", "it", "doctor", "communication"), getUserById);
+router.get("/:id", verifyToken, authorizeRoles("admin", "it"), getUserById);
 
 
 router.post("/", verifyToken, authorizeRoles("admin", "it"), createUser);

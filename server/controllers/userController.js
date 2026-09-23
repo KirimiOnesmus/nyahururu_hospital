@@ -12,9 +12,9 @@ const {
 const { AppError, asyncHandler, sendSuccess } = require("../utils/appError");
 const { BCRYPT_SALT_ROUNDS } = require("../constants/authConfig");
 const { canAssignRole } = require("../utils/roleCeiling");
+const { assertStaffPassword } = require("../utils/validators");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
 
 const FULL_ADMIN_ROLES = ["admin", "it", "superadmin"];
 
@@ -43,23 +43,25 @@ exports.generateNewPassword = () => {
   const lowercase = "abcdefghijklmnopqrstuvwxyz";
   const numbers = "0123456789";
   const special = "@$!%*?&";
-
   const allChars = uppercase + lowercase + numbers + special;
-  let password = "";
+  const pick = (set) => set.charAt(crypto.randomInt(0, set.length));
 
-  password += uppercase.charAt(Math.floor(Math.random() * uppercase.length));
-  password += lowercase.charAt(Math.floor(Math.random() * lowercase.length));
-  password += numbers.charAt(Math.floor(Math.random() * numbers.length));
-  password += special.charAt(Math.floor(Math.random() * special.length));
-
-  for (let i = password.length; i < 12; i++) {
-    password += allChars.charAt(Math.floor(Math.random() * allChars.length));
+  const chars = [
+    pick(uppercase),
+    pick(lowercase),
+    pick(numbers),
+    pick(special),
+  ];
+  for (let i = chars.length; i < 12; i++) {
+    chars.push(pick(allChars));
   }
 
-  return password
-    .split("")
-    .sort(() => Math.random() - 0.5)
-    .join("");
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(0, i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+
+  return chars.join("");
 };
 
 exports.getAllUsers = asyncHandler(async (req, res) => {
@@ -137,15 +139,7 @@ exports.createUser = asyncHandler(async (req, res) => {
   }
 
   if (password) {
-    if (password.length < 8) {
-      throw new AppError("Password must be at least 8 characters long", 400);
-    }
-    if (!PASSWORD_REGEX.test(password)) {
-      throw new AppError(
-        "Password must contain uppercase, lowercase, number, and special character",
-        400
-      );
-    }
+    assertStaffPassword(password);
   }
 
   if (role.toLowerCase() === "doctor" && !department) {
@@ -337,15 +331,7 @@ exports.updateUser = asyncHandler(async (req, res) => {
   }
 
   if (updates.password) {
-    if (updates.password.length < 8) {
-      throw new AppError("Password must be at least 8 characters long", 400);
-    }
-    if (!PASSWORD_REGEX.test(updates.password)) {
-      throw new AppError(
-        "Password must contain uppercase, lowercase, number, and special character",
-        400
-      );
-    }
+    assertStaffPassword(updates.password);
  
     updates.mustChangePassword = false;
   }
@@ -435,12 +421,7 @@ exports.resetPassword = asyncHandler(async (req, res) => {
     throw new AppError("Invalid or expired reset token", 400);
   }
 
-  if (!PASSWORD_REGEX.test(newPassword) || newPassword.length < 8) {
-    throw new AppError(
-      "Password must be at least 8 characters and contain uppercase, lowercase, number, and special character",
-      400
-    );
-  }
+  assertStaffPassword(newPassword);
 
   user.password = newPassword; 
   user.passwordResetToken = null;

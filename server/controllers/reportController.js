@@ -1,9 +1,9 @@
 "use strict";
 
-const path = require("path");
 const fs = require("fs").promises;
 const { Op } = require("sequelize");
 const { Report, User, sequelize } = require("../sequelize/models");
+const { resolveUploadPath } = require("../utils/safePath");
 
 
 const SORT_MAP = {
@@ -17,11 +17,14 @@ const UPLOADER_INCLUDE = [
   { model: User, as: "uploader", attributes: ["id", "name", "email"] },
 ];
 
+const STAFF_REPORT_ROLES = ["admin", "it", "superadmin"];
+const isStaffViewer = (req) =>
+  !!(req.user && STAFF_REPORT_ROLES.includes(req.user.role));
+
 const canModify = (report, user) =>
   String(report.uploadedBy) === String(user.id) || user.role === "admin";
 
-const reportDiskPath = (report) =>
-  path.join(__dirname, "..", report.fileUrl.replace(/^\//, ""));
+const reportDiskPath = (report) => resolveUploadPath(report.fileUrl);
 
 const safeUnlink = async (filePath) => {
   try {
@@ -50,10 +53,12 @@ function getFileType(filename) {
 exports.getAllReports = async (req, res) => {
   try {
     const { search, category, status, period, sortBy = "newest" } = req.query;
+    const staff = isStaffViewer(req);
 
     const where = {};
     if (category && category !== "all") where.category = category;
-    if (status && status !== "all") where.status = status;
+    if (staff && status && status !== "all") where.status = status;
+    if (!staff) where.status = "published";
     if (period && period !== "all") where.period = period;
 
     if (search) {
@@ -73,23 +78,33 @@ exports.getAllReports = async (req, res) => {
 
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
+    const uploaderInclude = staff
+      ? UPLOADER_INCLUDE
+      : [{ model: User, as: "uploader", attributes: ["id", "name"] }];
+
     const [reports, total, published, draft, archived, thisMonth] = await Promise.all([
       Report.findAll({
         where,
-        include: UPLOADER_INCLUDE,
+        include: uploaderInclude,
         order: SORT_MAP[sortBy] || SORT_MAP.newest,
       }),
-      Report.count(),
+      staff ? Report.count() : Report.count({ where: { status: "published" } }),
       Report.count({ where: { status: "published" } }),
-      Report.count({ where: { status: "draft" } }),
-      Report.count({ where: { status: "archived" } }),
-      Report.count({ where: { createdAt: { [Op.gte]: thirtyDaysAgo } } }),
+      staff ? Report.count({ where: { status: "draft" } }) : Promise.resolve(0),
+      staff ? Report.count({ where: { status: "archived" } }) : Promise.resolve(0),
+      Report.count({
+        where: staff
+          ? { createdAt: { [Op.gte]: thirtyDaysAgo } }
+          : { status: "published", createdAt: { [Op.gte]: thirtyDaysAgo } },
+      }),
     ]);
 
     res.status(200).json({
       success: true,
       data: reports,
-      stats: { total, published, draft, archived, thisMonth },
+      stats: staff
+        ? { total, published, draft, archived, thisMonth }
+        : { total: published, published, thisMonth },
     });
   } catch (error) {
     res.status(500).json({
@@ -104,16 +119,21 @@ exports.getReportById = async (req, res) => {
 
     const report = await sequelize.transaction(async (t) => {
       const r = await Report.findByPk(req.params.id, {
-        include: UPLOADER_INCLUDE,
+        include: isStaffViewer(req)
+          ? UPLOADER_INCLUDE
+          : [{ model: User, as: "uploader", attributes: ["id", "name"] }],
         transaction: t,
       });
       if (!r) return null;
+      if (r.status !== "published" && !isStaffViewer(req)) return { forbidden: true };
       r.views = (r.views || 0) + 1;
       await r.save({ transaction: t });
       return r;
     });
 
-    if (!report) return res.status(404).json({ success: false, message: "Report not found" });
+    if (!report || report.forbidden) {
+      return res.status(404).json({ success: false, message: "Report not found" });
+    }
 
     res.status(200).json({ success: true, data: report });
   } catch (error) {
@@ -199,8 +219,7 @@ exports.updateReport = async (req, res) => {
 
   
     if (req.file) {
-      const oldPath = path.join(__dirname, "..", report.fileUrl);
-      await safeUnlink(oldPath);
+      await safeUnlink(reportDiskPath(report));
 
       report.fileUrl = `/uploads/reports/${req.file.filename}`;
       report.fileName = req.file.originalname;
@@ -250,7 +269,7 @@ exports.deleteReport = async (req, res) => {
       });
     }
 
-    await safeUnlink(path.join(__dirname, "..", report.fileUrl));
+    await safeUnlink(reportDiskPath(report));
     await report.destroy();
 
     res.status(200).json({ success: true, message: "Report deleted successfully" });
@@ -268,8 +287,11 @@ exports.downloadReport = async (req, res) => {
     if (!report) {
       return res.status(404).json({ success: false, message: "Report not found" });
     }
+    if (report.status !== "published" && !isStaffViewer(req)) {
+      return res.status(404).json({ success: false, message: "Report not found" });
+    }
 
-    const filePath = path.join(__dirname, "..", report.fileUrl.replace(/^\//, ""));
+    const filePath = reportDiskPath(report);
 
     try {
       await Report.increment("downloads", { where: { id: report.id } });
@@ -293,11 +315,15 @@ exports.downloadReport = async (req, res) => {
 exports.getReportsByCategory = async (req, res) => {
   try {
     const { category } = req.params;
+    const staff = isStaffViewer(req);
     const { status = "published" } = req.query;
+    const where = { category, status: staff ? status : "published" };
 
     const reports = await Report.findAll({
-      where: { category, status },
-      include: UPLOADER_INCLUDE,
+      where,
+      include: staff
+        ? UPLOADER_INCLUDE
+        : [{ model: User, as: "uploader", attributes: ["id", "name"] }],
       order: [["createdAt", "DESC"]],
     });
 
@@ -364,7 +390,7 @@ exports.bulkDeleteReports = async (req, res) => {
     }
 
     for (const report of reports) {
-      await safeUnlink(path.join(__dirname, "..", report.fileUrl));
+      await safeUnlink(reportDiskPath(report));
     }
 
     const deleted = await Report.destroy({ where: { id: { [Op.in]: ids } } });

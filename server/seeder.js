@@ -15,7 +15,7 @@ const createSuperAdmin = async () => {
     await sequelize.authenticate();
 
  
-    if (process.env.NODE_ENV === "production" && !process.env.SEED_SUPERADMIN_PASSWORD) {
+    if (process.env.NODE_ENV !== "development" && !process.env.SEED_SUPERADMIN_PASSWORD) {
       console.error(
         "[seeder] Refusing to seed with the default superadmin password in production. " +
         "Set SEED_SUPERADMIN_PASSWORD in the environment and re-run.",

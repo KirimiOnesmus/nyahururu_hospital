@@ -12,7 +12,7 @@ import {
 } from "react-icons/fa";
 
 const PASSWORD_RULES = [
-  { label: "At least 8 characters", test: (v) => v.length >= 8 },
+  { label: "At least 10 characters", test: (v) => v.length >= 10 },
   { label: "One uppercase letter", test: (v) => /[A-Z]/.test(v) },
   { label: "One lowercase letter", test: (v) => /[a-z]/.test(v) },
   { label: "One number", test: (v) => /\d/.test(v) },

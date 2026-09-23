@@ -11,7 +11,7 @@ import {
   FaFileAlt,
 } from "react-icons/fa";
 import * as research from "../../../api/research";
-import { ASSET_BASE_URL } from "../../../config/env";
+import { resolveAssetUrl } from "../../../config/env";
 import { useParams, useNavigate } from "react-router-dom";
 
 const DECISION_OPTIONS = [
@@ -524,11 +524,7 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
                             {rv.attachments.map((att, ai) => {
                               const url = att.url || att;
                               const label = att.label || `Attachment ${ai + 1}`;
-                              const token = localStorage.getItem("token");
-                              const fullUrl = url.startsWith("http") ? url : `${ASSET_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
-                              const authUrl = token && fullUrl.includes("/uploads/")
-                                ? `${fullUrl}${fullUrl.includes("?") ? "&" : "?"}token=${token}`
-                                : fullUrl;
+                              const authUrl = resolveAssetUrl(url);
                               return (
                                 <a
                                   key={ai}
@@ -575,11 +571,7 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
                 </div>
               )}
               {r.proposalFile && (() => {
-                const token = localStorage.getItem("token");
-                const base = r.proposalFile.startsWith("http") ? r.proposalFile : `${ASSET_BASE_URL}${r.proposalFile.startsWith("/") ? "" : "/"}${r.proposalFile}`;
-                const url = token && base.includes("/uploads/")
-                  ? `${base}${base.includes("?") ? "&" : "?"}token=${token}`
-                  : base;
+                const url = resolveAssetUrl(r.proposalFile);
                 return (
                 <div className="flex items-center justify-between py-3 border-t border-slate-100">
                   <span className="text-sm font-semibold text-slate-800">Proposal Document</span>
@@ -621,9 +613,7 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
                 </p>
               )}
               {r.closeoutReportFile ? (() => {
-                const token = localStorage.getItem("token");
-                const base = r.closeoutReportFile.startsWith("http") ? r.closeoutReportFile : `${ASSET_BASE_URL}${r.closeoutReportFile.startsWith("/") ? "" : "/"}${r.closeoutReportFile}`;
-                const url = token && base.includes("/uploads/") ? `${base}${base.includes("?") ? "&" : "?"}token=${token}` : base;
+                const url = resolveAssetUrl(r.closeoutReportFile);
                 return (
                   <div className="flex items-center justify-between py-3 border-t border-slate-100">
                     <span className="text-sm font-semibold text-slate-800">Closeout Report</span>
@@ -640,10 +630,7 @@ const CommitteeSignOff = ({ recordId: recordIdProp, onBack: onBackProp }) => {
             <div className="bg-white rounded-2xl border border-slate-200 p-6">
               <h2 className="font-bold text-slate-900 text-base mb-3">Progress Report Documents</h2>
               {r.progressFiles.map((f, i) => {
-                const token = localStorage.getItem("token");
-                const raw = f.url || "";
-                const base = raw.startsWith("http") ? raw : `${ASSET_BASE_URL}${raw.startsWith("/") ? "" : "/"}${raw}`;
-                const url = token && base.includes("/uploads/") ? `${base}${base.includes("?") ? "&" : "?"}token=${token}` : base;
+                const url = resolveAssetUrl(f.url || "");
                 return (
                   <div key={i} className="flex items-center justify-between py-3 border-t border-slate-100 first:border-t-0">
                     <span className="text-sm font-semibold text-slate-800">{f.label || `Progress File ${i + 1}`}</span>

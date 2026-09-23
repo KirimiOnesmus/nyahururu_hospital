@@ -2,18 +2,13 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import notify from "../../../common/utils/notify";
 import ResearcherStats from "../ResearcherStatsSection";
-import { API_BASE_URL, ASSET_BASE_URL } from "../../../config/env";
+import { ASSET_BASE_URL } from "../../../config/env";
+import api from "../../../api/axios";
 
 
 const buildAssetUrl = (path) => {
   if (!path) return null;
-  const base = `${ASSET_BASE_URL}${path}`;
-  const token = localStorage.getItem("token");
-  if (token && base.includes("/uploads/")) {
-    const sep = base.includes("?") ? "&" : "?";
-    return `${base}${sep}token=${token}`;
-  }
-  return base;
+  return `${ASSET_BASE_URL}${path}`;
 };
 import {
   FaFlask,
@@ -191,18 +186,9 @@ const ResubmitModal = ({ item, onClose, onResubmitted }) => {
           item.submissionType === "study_closure" ? "finalPaperFile" : "proposalFile";
         fd.append(fileField, file);
       }
-      const res = await fetch(
-        `${API_BASE_URL}/research/${item.id}/resubmit`,
-        {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: fd,
-        },
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Resubmission failed");
+      const res = await api.patch(`/research/${item.id}/resubmit`, fd);
+      const data = res.data;
+      if (data?.success === false) throw new Error(data.message || "Resubmission failed");
       notify.success("Resubmitted successfully!");
       onResubmitted?.();
       onClose();

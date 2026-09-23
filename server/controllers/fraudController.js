@@ -10,19 +10,34 @@ exports.submitFraudReport = async (req, res) => {
     const { issue, dateOfIncident, location, details } = req.body;
 
     if (!issue || !details) {
-      return res.status(400).json({ message: "Issue and details are required." });
+      return res.status(400).json({
+        success: false,
+        message: "Issue and details are required.",
+      });
     }
 
-    const report = await FraudReport.create({
+    if (dateOfIncident) {
+      const parsed = new Date(`${dateOfIncident}T00:00:00Z`);
+      const today = new Date();
+      const todayUtc = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+      if (Number.isNaN(parsed.getTime()) || parsed.getTime() > todayUtc.getTime()) {
+        return res.status(400).json({
+          success: false,
+          message: "Incident date cannot be in the future.",
+        });
+      }
+    }
+
+    await FraudReport.create({
       issue,
-      dateOfIncident,
-      location,
+      dateOfIncident: dateOfIncident || null,
+      location: location || null,
       details,
     });
 
     res.status(201).json({
+      success: true,
       message: "Your report has been submitted successfully. It will be reviewed soon.",
-      report,
     });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");

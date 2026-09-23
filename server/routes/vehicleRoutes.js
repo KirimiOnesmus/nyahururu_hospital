@@ -12,16 +12,17 @@ const {
 
 const { verifyToken, authorizeRoles } = require('../middleware/auth');
 
+const staffVehicles = [verifyToken, authorizeRoles("admin", "it", "superadmin")];
 
-router.get('/', getAllVehicles);
-router.get('/available', getAvailableVehicles);
-router.get('/maintenance-due', getMaintenanceDueVehicles);
+router.get('/', ...staffVehicles, getAllVehicles);
+router.get('/available', ...staffVehicles, getAvailableVehicles);
+router.get('/maintenance-due', ...staffVehicles, getMaintenanceDueVehicles);
 
-router.post('/', verifyToken, authorizeRoles('admin', 'it'), createVehicle);
+router.post('/', ...staffVehicles, createVehicle);
 
 
-router.get('/:id', getVehicleById);
-router.put('/:id', verifyToken, authorizeRoles('admin', 'it'), updateVehicle);
-router.delete('/:id', verifyToken, authorizeRoles('admin', 'it'), deleteVehicle);
+router.get('/:id', ...staffVehicles, getVehicleById);
+router.put('/:id', ...staffVehicles, updateVehicle);
+router.delete('/:id', ...staffVehicles, deleteVehicle);
 
 module.exports = router;

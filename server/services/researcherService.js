@@ -1,7 +1,6 @@
 "use strict";
 
 const crypto     = require("crypto");
-const jwt        = require("jsonwebtoken");
 const { Op }     = require("sequelize");
 const { Researcher } = require("../sequelize/models");
 const emailService = require("../utils/emailServices");
@@ -10,13 +9,7 @@ const {
   RESEARCHER_ROLES,
   RESEARCHER_STATUSES,
 } = require("../constants/researchIndex");
-
-const signToken = (id, role) =>
-  jwt.sign(
-    { id, role, collection: "researchers" },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || "7d" },
-  );
+const { signResearcherAccessToken } = require("../utils/tokenService");
 
 //  REGISTER 
 const register = async (data) => {
@@ -54,10 +47,7 @@ const register = async (data) => {
     verifyLink,
   });
 
-  const token = signToken(researcher.id, researcher.role);
-
   return {
-    token,
     researcher: researcher.toSafeJSON(),
     ...(process.env.NODE_ENV !== "production" && { _devVerifyLink: verifyLink }),
   };
@@ -120,7 +110,7 @@ const login = async ({ email, password }) => {
   researcher.lastLogin = new Date();
   await researcher.save();
 
-  const token = signToken(researcher.id, researcher.role);
+  const { token } = signResearcherAccessToken(researcher);
   return { token, researcher: researcher.toSafeJSON() };
 };
 
@@ -211,8 +201,8 @@ const resetPassword = async ({ token, email, password }) => {
 const generateRandomPassword = () => {
   const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$!";
   return Array.from(
-    { length: 12 },
-    () => chars[Math.floor(Math.random() * chars.length)],
+    { length: 14 },
+    () => chars[crypto.randomInt(chars.length)],
   ).join("");
 };
 
@@ -254,5 +244,4 @@ module.exports = {
   forgotPassword,
   resetPassword,
   adminCreateResearcher,
-  signToken,
 };

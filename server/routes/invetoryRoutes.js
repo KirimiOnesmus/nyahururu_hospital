@@ -15,17 +15,19 @@ const {
 
 const { verifyToken, authorizeRoles } = require('../middleware/auth');
 
-router.get('/', getAllInventory);
-router.get('/search', searchInventory);
-router.get('/stats', getInventoryStats);
-router.get('/low-stock', getLowStockItems);
-router.get('/expired', getExpiredItems);
-router.get('/expiring-soon', getExpiringItems);
-router.get('/:id', getInventoryById);
+const staffInventory = [verifyToken, authorizeRoles("admin", "it", "superadmin")];
+
+router.get('/', ...staffInventory, getAllInventory);
+router.get('/search', ...staffInventory, searchInventory);
+router.get('/stats', ...staffInventory, getInventoryStats);
+router.get('/low-stock', ...staffInventory, getLowStockItems);
+router.get('/expired', ...staffInventory, getExpiredItems);
+router.get('/expiring-soon', ...staffInventory, getExpiringItems);
+router.get('/:id', ...staffInventory, getInventoryById);
 
 
-router.post('/', verifyToken, authorizeRoles('admin', 'it'), createInventory);
-router.put('/:id', verifyToken, authorizeRoles('admin', 'it'), updateInventory);
-router.delete('/:id', verifyToken, authorizeRoles('admin', 'it'), deleteInventory);
+router.post('/', ...staffInventory, createInventory);
+router.put('/:id', ...staffInventory, updateInventory);
+router.delete('/:id', ...staffInventory, deleteInventory);
 
 module.exports = router;

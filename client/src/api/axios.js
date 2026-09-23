@@ -17,11 +17,6 @@ api.interceptors.request.use(
       delete config.headers['Content-Type'];
     }
 
-    const collection = localStorage.getItem('collection');
-    const token = localStorage.getItem('token');
-    if (token && collection === 'researchers') {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
     return config;
   },
   (error) => {

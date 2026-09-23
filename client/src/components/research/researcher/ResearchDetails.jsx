@@ -212,13 +212,7 @@ const PROGRESS_FILE_LABELS = {
 
 const buildFileUrl = (path) => {
   if (!path) return null;
-  const base = `${ASSET_BASE_URL}${path}`;
-  const token = localStorage.getItem("token");
-  if (token && base.includes("/uploads/")) {
-    const sep = base.includes("?") ? "&" : "?";
-    return `${base}${sep}token=${token}`;
-  }
-  return base;
+  return `${ASSET_BASE_URL}${path}`;
 };
 
 const fileEntry = (path, fallbackName) => {
@@ -1199,10 +1193,10 @@ const DecisionLetterButton = ({ researchId }) => {
 
 const getCurrentResearcherId = () => {
   try {
-    const token = localStorage.getItem("token");
-    if (!token) return null;
-    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
-    return payload?.collection === "researchers" ? payload.id : null;
+    const cached = localStorage.getItem("researcher");
+    if (!cached) return null;
+    const profile = JSON.parse(cached);
+    return profile?.id || null;
   } catch {
     return null;
   }

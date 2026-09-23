@@ -145,11 +145,19 @@ const normalizeFrameworkError = (err) => {
   }
 
   if (err.name === "SequelizeDatabaseError") {
+    const dbMessage = String(err.original?.message || err.message || "");
+    if (/incorrect|invalid|truncated|out of range|cannot convert|wrong value/i.test(dbMessage)) {
+      return new AppError("Invalid input. Please check your values and try again.", 400);
+    }
     logger.error(
       { err, sql: err.sql, original: err.original?.message },
       "Sequelize database error",
     );
     return new AppError("An unexpected database error occurred.", 500);
+  }
+
+  if (err.message && err.message.startsWith("CORS:")) {
+    return new AppError(err.message, 403);
   }
 
   if (err.name?.startsWith("Sequelize")) {

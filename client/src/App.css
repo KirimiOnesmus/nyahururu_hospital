@@ -200,12 +200,22 @@ body {
   background-color: var(--primary-soft);
 }
 
+.dark .text-blue-500,
 .dark .text-blue-600,
 .dark .text-blue-700,
 .dark .hover\:text-blue-600:hover,
 .dark .hover\:text-blue-700:hover,
 .dark .hover\:text-blue-800:hover {
-  color: var(--primary);
+  color: #bfdbfe;
+}
+
+.dark .text-red-400,
+.dark .text-red-500,
+.dark .text-red-600,
+.dark .text-rose-400,
+.dark .text-rose-500,
+.dark .text-rose-600 {
+  color: #fecaca;
 }
 
 .dark .bg-emerald-50,
@@ -262,6 +272,43 @@ body {
   width: calc(100%);
 }
 
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}
+
+button:not(:disabled),
+a[href],
+[role="button"],
+summary,
+label[for] {
+  cursor: pointer;
+}
+
+button:disabled,
+[disabled],
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.brand-logo {
+  object-fit: contain;
+}
+
+.dark .brand-logo {
+  background-color: #ffffff;
+  border-radius: 0.5rem;
+  padding: 0.2rem;
+}
+
 @keyframes reveal-in {
   from {
     opacity: 0;
@@ -288,7 +335,8 @@ body {
     transition-duration: 0.01ms !important;
   }
 
-  .animate-slide {
+  .animate-slide,
+  .animate-marquee {
     animation: none;
   }
 }

@@ -125,7 +125,7 @@ const LoginForm = () => {
         navigate(`/research/dashboard/${normalizedRole}`);
       }
     } catch (err) {
-      notify.error(err.response?.data?.message || "We couldn't sign you in. Try again.");
+      notify.error(err.message || err.response?.data?.message || "We couldn't sign you in. Try again.");
     } finally {
       setLoading(false);
     }

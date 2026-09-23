@@ -189,10 +189,10 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    if (newPassword.length < 8) {
+    if (newPassword.length < 10) {
       return res.status(400).json({
         success: false,
-        message: "New password must be at least 8 characters",
+        message: "New password must be at least 10 characters",
       });
     }
 

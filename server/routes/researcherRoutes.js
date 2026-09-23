@@ -26,6 +26,7 @@ const { AppError } = require("../utils/appError");
 router.post("/register", validate(registerSchema), ctrl.register);
 router.post("/verify-email", validate(verifyEmailSchema), ctrl.verifyEmail);
 router.post("/login", validate(loginSchema), ctrl.login);
+router.post("/logout", ctrl.logout);
 router.post("/forgot-password", validate(forgotPasswordSchema), ctrl.forgotPassword);
 router.post("/reset-password", validate(resetPasswordSchema), ctrl.resetPassword);
 

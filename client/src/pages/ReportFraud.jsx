@@ -22,10 +22,16 @@ const ReportFraud = () => {
   const handleChange = (e) =>
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
+  const today = new Date().toISOString().slice(0, 10);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.issue.trim() || !formData.details.trim()) {
       notify.error("Please fill in the concern and details fields.");
+      return;
+    }
+    if (formData.dateOfIncident && formData.dateOfIncident > today) {
+      notify.error("Incident date cannot be in the future.");
       return;
     }
     setLoading(true);
@@ -35,7 +41,7 @@ const ReportFraud = () => {
       setFormData(INIT);
     } catch (error) {
       console.error(error);
-      notify.error(error?.response?.data?.message || "Error submitting report.");
+      notify.error(error?.response?.data?.message || error.message || "Error submitting report.");
     } finally {
       setLoading(false);
     }
@@ -143,6 +149,7 @@ const ReportFraud = () => {
                   name="dateOfIncident"
                   value={formData.dateOfIncident}
                   onChange={handleChange}
+                  max={today}
                   className={inputClass}
                 />
               </div>
