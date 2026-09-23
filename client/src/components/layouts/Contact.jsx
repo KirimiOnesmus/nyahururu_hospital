@@ -10,9 +10,7 @@ const CONTACT_INFO = [
 const LAT = 0.03783;
 const LNG = 36.36194;
 
-const PAD = 0.01;
-const bbox = [LNG - PAD, LAT - PAD, LNG + PAD, LAT + PAD].join("%2C");
-const MAP_SRC = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${LAT}%2C${LNG}`;
+const MAP_SRC = `https://maps.google.com/maps?q=${LAT},${LNG}&hl=en&z=16&output=embed`;
 const DIRECTIONS_URL = `https://www.google.com/maps/dir/?api=1&destination=${LAT},${LNG}`;
 
 const Contact = () => {
@@ -47,7 +45,7 @@ const Contact = () => {
           </aside>
 
           <div className="md:col-span-2 bg-surface border border-line rounded-2xl overflow-hidden flex flex-col shadow-sm">
-            <div className="relative flex-1 min-h-[360px]">
+            <div className="relative flex-1 min-h-[360px] bg-canvas">
               <iframe
                 title="Nyahururu County Referral Hospital location"
                 src={MAP_SRC}

@@ -1,8 +1,8 @@
 
-# Security headers for Netlify (FH3 in the security review).
+# Security headers for Netlify (and any host that honors _headers).
 # Applies to every route on the deployed site.
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://nyahururu-hospital.onrender.com; connect-src 'self' https://nyahururu-hospital.onrender.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://nyahururu-hospital.onrender.com https://*.tile.openstreetmap.org https://*.googleapis.com https://*.gstatic.com; connect-src 'self' https://nyahururu-hospital.onrender.com wss://nyahururu-hospital.onrender.com; frame-src 'self' https://www.openstreetmap.org https://openstreetmap.org https://www.google.com https://maps.google.com; child-src 'self' https://www.openstreetmap.org https://www.google.com https://maps.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
