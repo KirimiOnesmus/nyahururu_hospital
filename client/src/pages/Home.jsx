@@ -1,12 +1,10 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Slider, Card, QuickActions, WelcomeIntro, TimeRibbon, News, EventOverlay,Contact } from "../components/layouts";
 import { Header, Partners, Footer } from "../common/layouts";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { ASSET_BASE_URL } from "../config/env";
 import notify from "../common/utils/notify";
-import { getListData } from "../api/listResponse";
-import { useResourceRefresh } from "../api/socket";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -15,20 +13,21 @@ const Home = () => {
 
   const BACKEND_URL = ASSET_BASE_URL;
 
-  const fetchServices = useCallback(async () => {
-    try {
-      const res = await api.get("/services");
-      setServices(getListData(res.data, "Services endpoint"));
-    } catch (error) {
-      console.error("Failed to fetch services:", error);
-      notify.error("Failed to fetch services.");
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get("/services");
+        setServices(res.data);
+      } catch (error) {
+        console.error("Failed to fetch services:", error);
+        notify.error("Failed to fetch services.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchServices();
   }, []);
-
-  useEffect(() => { fetchServices(); }, [fetchServices]);
-  useResourceRefresh("services", fetchServices);
 
   const serviceLimit = services.slice(0, 5);
 

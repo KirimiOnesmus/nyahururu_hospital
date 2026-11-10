@@ -41,18 +41,6 @@ const LoginForm = () => {
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    if (searchParams.get("reason") === "rate-limit") {
-      notify.info("Your session was ended because a request limit was reached. Please sign in again.");
-      const params = new URLSearchParams(searchParams);
-      params.delete("reason");
-      const query = params.toString();
-      window.history.replaceState(
-        {},
-        document.title,
-        `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`
-      );
-    }
-
     const isVerifying = searchParams.get("verify");
     const token = searchParams.get("token");
     const emailParam = searchParams.get("email");

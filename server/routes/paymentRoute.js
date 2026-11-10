@@ -1,7 +1,6 @@
 const router = require("express").Router();
 const ctrl   = require("../controllers/mpesaController");
 const rateLimit = require("express-rate-limit");
-const { createRateLimitHandler } = require("../middleware/rateLimitHandler");
 const { validate, initiatePaymentSchema, refundPaymentSchema } = require("../utils/validators");
 
 
@@ -22,11 +21,7 @@ const requireAdmin = [
 
 router.post(
   "/initiate",
-  rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 20,
-    handler: createRateLimitHandler("Too many payment requests. Please try again later."),
-  }),
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 20 }),
   optionalResearcher,
   validate(initiatePaymentSchema),
   ctrl.initiatePayment
@@ -36,11 +31,7 @@ router.post(
 
 router.post(
   "/callback/:webhookToken",
-  rateLimit({
-    windowMs: 5 * 60 * 1000,
-    max: 30,
-    handler: createRateLimitHandler("Too many payment callbacks. Please try again later."),
-  }),
+  rateLimit({ windowMs: 5 * 60 * 1000, max: 30 }),
   (req, res, next) => {
     console.log("[Callback] Incoming request on /callback/:webhookToken");
     const expected = process.env.MPESA_CALLBACK_TOKEN;
@@ -58,11 +49,7 @@ router.post(
 );
 
 
-const paymentStatusLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 30,
-  handler: createRateLimitHandler("Too many payment status checks. Please try again later."),
-});
+const paymentStatusLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
 router.get("/verify/:checkoutRequestId", paymentStatusLimiter, ctrl.verifyPayment);
 router.get("/status/:checkoutRequestId", paymentStatusLimiter, ctrl.verifyPayment);
 
@@ -70,21 +57,13 @@ router.get("/status/:checkoutRequestId", paymentStatusLimiter, ctrl.verifyPaymen
 router.get(
   "/download-token/:paymentId/research/:researchId",
    optionalResearcher,
-  rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 10,
-    handler: createRateLimitHandler("Too many download requests. Please try again later."),
-  }),
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 10 }),
   ctrl.getDownloadToken
 );
  
 router.get(
   "/research/:researchId/download",
-  rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 10,
-    handler: createRateLimitHandler("Too many download requests. Please try again later."),
-  }),
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 10 }), 
   ctrl.downloadResearchPaper
 );
 

@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const rateLimit = require("express-rate-limit");
-const { createRateLimitHandler } = require("../middleware/rateLimitHandler");
 const {
   getAllUsers,
   getUserById,
@@ -16,11 +15,7 @@ const {
 const { verifyToken, authorizeRoles } = require("../middleware/auth");
 
 
-const resetLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  handler: createRateLimitHandler("Too many password reset attempts. Please try again later."),
-});
+const resetLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5 });
 
 router.get("/", verifyToken, authorizeRoles("admin", "it"), getAllUsers);
 

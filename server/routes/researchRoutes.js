@@ -1,6 +1,5 @@
 const router = require("express").Router();
 const rateLimit = require("express-rate-limit");
-const { createRateLimitHandler } = require("../middleware/rateLimitHandler");
 const ctrl = require("../controllers/researchController");
 const upload = require("../middleware/upload");
 const {
@@ -68,7 +67,12 @@ const publicStatsLimiter = rateLimit({
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  handler: createRateLimitHandler("Too many requests. Please try again shortly."),
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      message: "Too many requests. Please try again shortly.",
+    });
+  },
 });
 
 

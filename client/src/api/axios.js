@@ -1,7 +1,5 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../config/env';
-import { clearAllSessions } from './session';
-import { disconnectSocket } from './socket';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -31,14 +29,6 @@ api.interceptors.response.use(
   (error) => {
     const status = error.response?.status;
     const url    = error.config?.url || "";
-
-    if (status === 429 && error.response?.headers?.['x-session-logged-out'] === 'true') {
-      clearAllSessions();
-      localStorage.removeItem('token');
-      disconnectSocket();
-      window.location.assign('/hmis?reason=rate-limit');
-      return new Promise(() => {});
-    }
 
     const isResearchEndpoint = /\/researchers?(\/|$)/.test(url);
     const isAuthEndpoint = url.includes("/change-password") || url.includes("/login");

@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
-const { createRateLimitHandler } = require('../middleware/rateLimitHandler');
 const {
   getAllReports,
   getReportById,
@@ -35,7 +34,12 @@ const commentLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  handler: createRateLimitHandler("Too many comments submitted. Please try again later."),
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      message: "Too many comments submitted. Please try again later.",
+    });
+  },
 });
 router.post('/:id/comments', verifyToken, commentLimiter, addComment);
 

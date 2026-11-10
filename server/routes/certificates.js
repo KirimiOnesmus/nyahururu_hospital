@@ -3,7 +3,6 @@ const ctrl = require("../controllers/certificateController");
 const { protectEither, isResearchAdmin } = require("../middleware/auth");
 const { AppError } = require("../utils/appError");
 const rateLimit = require("express-rate-limit");
-const { createRateLimitHandler } = require("../middleware/rateLimitHandler");
 
 
 
@@ -19,7 +18,10 @@ const validId = (param) => (req, res, next) => {
 const verifyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
-  handler: createRateLimitHandler("Too many verification attempts. Try again later."),
+  message: {
+    success: false,
+    message: "Too many verification attempts. Try again later.",
+  },
 });
 
 router.get("/verify", verifyLimiter, ctrl.verifyCertificate);

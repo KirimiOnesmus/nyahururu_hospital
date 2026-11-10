@@ -76,11 +76,7 @@ const blacklistIfValid = async (token, secret) => {
 };
 
 const revokeAuthSession = async (req, res) => {
-  const authorization = req.headers?.authorization;
-  const accessToken = authorization?.startsWith("Bearer ")
-    ? authorization.slice(7)
-    : req.cookies?.jwt;
-  await blacklistIfValid(accessToken, process.env.JWT_SECRET);
+  await blacklistIfValid(req.cookies?.jwt, process.env.JWT_SECRET);
   await blacklistIfValid(req.cookies?.refreshToken, process.env.JWT_REFRESH_SECRET);
   clearAuthCookies(res);
 };

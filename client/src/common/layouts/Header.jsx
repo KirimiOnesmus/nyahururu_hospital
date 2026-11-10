@@ -1,11 +1,9 @@
-import React, { useCallback, useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { IconMenu, IconClose, IconChevronDown, IconPhone, IconAmbulance, IconUser } from "../icons";
 import ThemeToggle from "../components/ThemeToggle";
 import logo from "../../assets/logo.png";
 import api from "../../api/axios";
-import { getListData } from "../../api/listResponse";
-import { useResourceRefresh } from "../../api/socket";
 
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -24,23 +22,22 @@ const Header = () => {
     setIsOpen(false);
   }, [pathname, search]);
 
-  const fetchDivisions = useCallback(async () => {
-    try {
-      setLoadingDivisions(true);
-      const res = await api.get("/services");
-      const services = getListData(res.data, "Services endpoint");
-      const unique = [...new Set(services.map((s) => s.division).filter(Boolean))].sort();
-      setDivisions(unique);
-    } catch (error) {
-      console.error("Division fetch failed", error.message);
-      setDivisions([]);
-    } finally {
-      setLoadingDivisions(false);
-    }
+  useEffect(() => {
+    const fetchDivisions = async () => {
+      try {
+        setLoadingDivisions(true);
+        const res = await api.get("/services");
+        const unique = [...new Set(res.data.map((s) => s.division).filter(Boolean))].sort();
+        setDivisions(unique);
+      } catch (error) {
+        console.error("Division fetch failed", error.message);
+        setDivisions([]);
+      } finally {
+        setLoadingDivisions(false);
+      }
+    };
+    fetchDivisions();
   }, []);
-
-  useEffect(() => { fetchDivisions(); }, [fetchDivisions]);
-  useResourceRefresh("services", fetchDivisions);
 
   useEffect(() => {
     const handleOutside = (e) => {

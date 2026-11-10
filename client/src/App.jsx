@@ -5,7 +5,6 @@ import RequireRole from "./components/auth/RequireRole";
 import { getDashboardRoles } from "./config/dashboardRoles";
 import "./App.css";
 import { ToastContainer } from "react-toastify";
-import AccessibilityControls from "./common/components/AccessibilityControls";
 
 
 const PageLoader = () => (
@@ -202,7 +201,6 @@ function App() {
         </Routes>
       </Suspense>
       <ToastContainer />
-      <AccessibilityControls />
     </BrowserRouter>
   );
 }

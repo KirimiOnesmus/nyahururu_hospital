@@ -1,6 +1,6 @@
 "use strict";
 
-const app = require("./application");
+const app = require("./app");
 const logger = require("./utils/logger");
 const { init: initSocket } = require("./utils/socket");
 
