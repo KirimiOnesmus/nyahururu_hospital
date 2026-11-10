@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Card from "../components/layouts/Card";
 import { Header, Partners, Footer } from "../common/layouts";
 import { useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 import { ASSET_BASE_URL } from "../config/env";
 import { FaTimes, FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { getListData } from "../api/listResponse";
+import { useResourceRefresh } from "../api/socket";
 
 const BACKEND_URL = ASSET_BASE_URL;
 const PAGE_SIZE = 6;
@@ -117,70 +119,58 @@ const Services = () => {
   const [allCategories, setAllCategories] = useState([]);
   const [categoriesInDivision, setCategoriesInDivision] = useState([]);
   const [searchParams] = useSearchParams();
+  const selectedDivisionRef = useRef(selectedDivision);
+  const selectedCategoryRef = useRef(selectedCategory);
 
-  const filterServices = (list, division, category) => {
+  useEffect(() => { selectedDivisionRef.current = selectedDivision; }, [selectedDivision]);
+  useEffect(() => { selectedCategoryRef.current = selectedCategory; }, [selectedCategory]);
+
+  const filterServices = useCallback((list, division, category) => {
     let result = list;
     if (division) result = result.filter((s) => s.division === division);
     if (category) result = result.filter((s) => s.category === category);
     setFilteredServices(result);
-  };
+  }, []);
 
-  useEffect(() => {
-    let isMounted = true;
+  const fetchServices = useCallback(async () => {
+    try {
+      const res = await api.get("/services");
+      const data = getListData(res.data, "Services endpoint");
+      setServices(data);
+      setError(null);
 
-    const fetchServices = async () => {
-      try {
-        setLoading(true);
-        const res = await api.get("/services");
-        if (!isMounted) return;
+      const divisions = [...new Set(data.map((s) => s.division).filter(Boolean))].sort();
+      const categories = [...new Set(data.map((s) => s.category).filter(Boolean))].sort();
+      setAllDivisions(divisions);
+      setAllCategories(categories);
 
-        const data = res.data;
-        setServices(data);
-        setError(null);
+      const divParam = selectedDivisionRef.current || searchParams.get("division");
+      const catParam = selectedCategoryRef.current || searchParams.get("category");
 
-        const divisions = [...new Set(data.map((s) => s.division).filter(Boolean))].sort();
-        const categories = [...new Set(data.map((s) => s.category).filter(Boolean))].sort();
-        setAllDivisions(divisions);
-        setAllCategories(categories);
-
-        const divParam = searchParams.get("division");
-        const catParam = searchParams.get("category");
-
-        if (divParam) {
-          const div = decodeURIComponent(divParam);
-          setSelectedDivision(div);
-          const divCats = [
-            ...new Set(data.filter((s) => s.division === div).map((s) => s.category).filter(Boolean)),
-          ].sort();
-          setCategoriesInDivision(divCats);
-          if (catParam) {
-            const cat = decodeURIComponent(catParam);
-            setSelectedCategory(cat);
-            filterServices(data, div, cat);
-          } else {
-            filterServices(data, div, null);
-          }
-        } else if (catParam) {
-          const cat = decodeURIComponent(catParam);
-          setSelectedCategory(cat);
-          filterServices(data, null, cat);
-        } else {
-          setFilteredServices(data);
-        }
-      } catch (err) {
-        console.error("Failed to fetch services:", err);
-        if (!isMounted) return;
-        setError("Failed to load services. Please try again.");
-        setServices([]);
-        setFilteredServices([]);
-      } finally {
-        if (isMounted) setLoading(false);
+      if (divParam) {
+        const div = decodeURIComponent(divParam);
+        const divCats = [
+          ...new Set(data.filter((s) => s.division === div).map((s) => s.category).filter(Boolean)),
+        ].sort();
+        setCategoriesInDivision(divCats);
+        filterServices(data, div, catParam ? decodeURIComponent(catParam) : null);
+      } else if (catParam) {
+        filterServices(data, null, decodeURIComponent(catParam));
+      } else {
+        setFilteredServices(data);
       }
-    };
+    } catch (err) {
+      console.error("Failed to fetch services:", err);
+      setError("Failed to load services. Please try again.");
+      setServices([]);
+      setFilteredServices([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [filterServices, searchParams]);
 
-    fetchServices();
-    return () => { isMounted = false; };
-  }, [searchParams]);
+  useEffect(() => { fetchServices(); }, [fetchServices]);
+  useResourceRefresh("services", fetchServices);
 
   const handleDivisionChange = (division) => {
     if (!division || division === selectedDivision) {

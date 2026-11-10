@@ -14,6 +14,7 @@ import {
 
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString("en-KE", { day:"2-digit", month:"short", year:"numeric" }) : "—";
+const BANNER_CATEGORY = "Homepage Banner";
 const EMPTY_UPLOAD = { files: [], title: "", description: "", category: "", tags: "", visible: true };
 
 
@@ -68,7 +69,8 @@ const GalleryPage = () => {
     try {
       const res = await api.get("/gallery/categories");
       const data = Array.isArray(res.data) ? res.data : res.data.data || [];
-      setCategories(data.map(c => c.name));
+      const categoryNames = data.map(c => c.name === "Home Page Banner" ? BANNER_CATEGORY : c.name);
+      setCategories([BANNER_CATEGORY, ...new Set(categoryNames.filter(name => name !== BANNER_CATEGORY))]);
     } catch {
       notify.error("Error fetching categories");
     }
@@ -101,8 +103,13 @@ const GalleryPage = () => {
 
   const handleUploadSubmit = async () => {
     if (!uploadData.files.length)   { notify.error("Please select at least one file"); return; }
-    if (!uploadData.title.trim())   { notify.error("Title is required"); return; }
     if (!uploadData.category)       { notify.error("Category is required"); return; }
+    const isHomepageBanner = uploadData.category === BANNER_CATEGORY;
+    if (!isHomepageBanner && !uploadData.title.trim()) { notify.error("Title is required"); return; }
+    if (isHomepageBanner && uploadData.files.some(file => !file.type.startsWith("image/"))) {
+      notify.error("Homepage banners must be image files");
+      return;
+    }
     setSubmitting(true);
     try {
 
@@ -148,6 +155,10 @@ const GalleryPage = () => {
   };
 
   const handleDeleteCategory = async (name) => {
+    if (name === BANNER_CATEGORY) {
+      notify.error("Homepage Banner is a built-in category and cannot be deleted");
+      return;
+    }
     if (!window.confirm(`Delete category "${name}"?`)) return;
     try {
       const res = await api.get("/gallery/categories");
@@ -215,12 +226,16 @@ const GalleryPage = () => {
               <p className="text-xs text-gray-400">Manage hospital images, videos, and media content</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => setCategoryModal(true)}
               className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
               <FaFolderPlus className="text-xs" /> Categories
             </button>
-            <button onClick={() => setUploadModal(true)}
+            <button onClick={() => { setUploadData({ ...EMPTY_UPLOAD, category: BANNER_CATEGORY }); setUploadModal(true); }}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-blue-200 text-blue-700 text-sm font-semibold rounded-xl hover:bg-blue-50 cursor-pointer transition-colors">
+              <FaImage className="text-xs" /> Add Homepage Banner
+            </button>
+            <button onClick={() => { setUploadData(EMPTY_UPLOAD); setUploadModal(true); }}
               className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 cursor-pointer  transition-colors">
               <FaPlus className="text-xs" /> Add Media
             </button>
@@ -394,7 +409,8 @@ const GalleryPage = () => {
 
 
       <Modal open={uploadModal} onClose={() => { setUploadModal(false); setUploadData(EMPTY_UPLOAD); }}
-        title="Upload New Media" subtitle="Images and videos accepted">
+        title={uploadData.category === BANNER_CATEGORY ? "Upload Homepage Banner" : "Upload New Media"}
+        subtitle={uploadData.category === BANNER_CATEGORY ? "Add a background image to the existing homepage slides" : "Images and videos accepted"}>
         <div className="space-y-5">
           <FormField label="Files" required>
             <label className="flex flex-col items-center gap-3 px-6 py-8 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-blue-400 transition-colors bg-gray-50/50">
@@ -412,14 +428,16 @@ const GalleryPage = () => {
                   ))}
                 </div>
               )}
-              <input type="file" multiple accept="image/*,video/*" onChange={handleFileUpload} className="hidden" />
+              <input type="file" multiple accept={uploadData.category === BANNER_CATEGORY ? "image/*" : "image/*,video/*"} onChange={handleFileUpload} className="hidden" />
             </label>
           </FormField>
 
-          <FormField label="Title" required>
-            <input value={uploadData.title} onChange={e => setUploadField("title", e.target.value)}
-              placeholder="e.g., Staff Training Day 2025" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" />
-          </FormField>
+          {uploadData.category !== BANNER_CATEGORY && (
+            <FormField label="Title" required>
+              <input value={uploadData.title} onChange={e => setUploadField("title", e.target.value)}
+                placeholder="e.g., Staff Training Day 2025" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white" />
+            </FormField>
+          )}
 
           <FormField label="Description">
             <textarea value={uploadData.description} onChange={e => setUploadField("description", e.target.value)}
@@ -432,6 +450,9 @@ const GalleryPage = () => {
                 <option value="">Select category</option>
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
+              {uploadData.category === BANNER_CATEGORY && (
+                <p className="mt-1.5 text-xs text-blue-600">The uploaded image will be used as a background; homepage text and buttons stay unchanged.</p>
+              )}
             </FormField>
             <FormField label="Tags">
               <input value={uploadData.tags} onChange={e => setUploadField("tags", e.target.value)}
@@ -484,10 +505,12 @@ const GalleryPage = () => {
                   </div>
                   <span className="text-sm font-semibold text-gray-800">{cat}</span>
                 </div>
-                <button onClick={() => handleDeleteCategory(cat)}
-                  className="p-1.5 rounded-lg text-gray-300 hover:text-rose-500 hover:bg-rose-50 cursor-pointer opacity-0 group-hover:opacity-100 transition-all">
-                  <FaTrash className="text-xs" />
-                </button>
+                {cat !== BANNER_CATEGORY && (
+                  <button onClick={() => handleDeleteCategory(cat)}
+                    className="p-1.5 rounded-lg text-gray-300 hover:text-rose-500 hover:bg-rose-50 cursor-pointer opacity-0 group-hover:opacity-100 transition-all">
+                    <FaTrash className="text-xs" />
+                  </button>
+                )}
               </div>
             ))}
           </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { Header, Footer } from "../common/layouts";
 import api from "../api/axios";
+import { useResourceRefresh } from "../api/socket";
 import { ASSET_BASE_URL } from "../config/env";
 import {
   FaImages, FaVideo, FaTh, FaThLarge, FaSearch,
@@ -9,7 +10,7 @@ import {
 } from "react-icons/fa";
 
 
-const EXCLUDED_CATEGORIES = ["Homepage Banner"];
+const EXCLUDED_CATEGORIES = ["Homepage Banner", "Home Page Banner"];
 
 const PAGE_SIZE = 12;
 
@@ -168,7 +169,6 @@ const Gallery = () => {
 
   const fetchGallery = useCallback(async () => {
     try {
-      setLoading(true);
       setErrored(false);
       const [galleryRes, catRes] = await Promise.all([
         api.get("/gallery", { params: { visible: true } }),
@@ -190,6 +190,7 @@ const Gallery = () => {
   }, []);
 
   useEffect(() => { fetchGallery(); }, [fetchGallery]);
+  useResourceRefresh("gallery", fetchGallery);
 
 
   useEffect(() => { setVisibleCount(PAGE_SIZE); }, [debouncedSearch, activeCategory, activeType]);

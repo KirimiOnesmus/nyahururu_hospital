@@ -2,6 +2,7 @@
 
 const { GalleryCategory } = require("../sequelize/models");
 const logger = require("../utils/logger");
+const { HOMEPAGE_BANNER_CATEGORY, normalizeGalleryCategory } = require("../constants/gallery");
 
 exports.getAllCategories = async (req, res) => {
   try {
@@ -31,10 +32,14 @@ exports.getCategoryById = async (req, res) => {
 
 exports.createCategory = async (req, res) => {
   try {
-    const { name, description, icon } = req.body;
+    const { description, icon } = req.body;
+    const name = normalizeGalleryCategory(req.body.name);
 
     if (!name) {
       return res.status(400).json({ message: "Category name is required" });
+    }
+    if (name === HOMEPAGE_BANNER_CATEGORY) {
+      return res.status(400).json({ message: "Homepage Banner is a built-in category" });
     }
 
   
@@ -62,14 +67,24 @@ exports.createCategory = async (req, res) => {
 
 exports.updateCategory = async (req, res) => {
   try {
-    const { name, description, icon, order, active } = req.body;
+    const { description, icon, order, active } = req.body;
 
     const category = await GalleryCategory.findByPk(req.params.id);
     if (!category) {
       return res.status(404).json({ message: "Category not found" });
     }
 
-    if (name !== undefined) category.name = name;
+    if (normalizeGalleryCategory(category.name) === HOMEPAGE_BANNER_CATEGORY) {
+      return res.status(400).json({ message: "Homepage Banner is a built-in category and cannot be changed" });
+    }
+
+    if (req.body.name !== undefined) {
+      const normalizedName = normalizeGalleryCategory(req.body.name);
+      if (normalizedName === HOMEPAGE_BANNER_CATEGORY) {
+        return res.status(400).json({ message: "Homepage Banner is a built-in category" });
+      }
+      category.name = normalizedName;
+    }
     if (description !== undefined) category.description = description;
     if (icon !== undefined) category.icon = icon;
     if (order !== undefined) category.order = order;
@@ -92,6 +107,10 @@ exports.deleteCategory = async (req, res) => {
     const category = await GalleryCategory.findByPk(req.params.id);
     if (!category) {
       return res.status(404).json({ message: "Category not found" });
+    }
+
+    if (normalizeGalleryCategory(category.name) === HOMEPAGE_BANNER_CATEGORY) {
+      return res.status(400).json({ message: "Homepage Banner is a built-in category" });
     }
 
     await category.destroy();

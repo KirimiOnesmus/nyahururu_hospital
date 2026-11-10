@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import api from "../api/axios";
+import { useResourceRefresh } from "../api/socket";
 import { Header, Footer } from "../common/layouts";
 import {
   FaCalendarAlt,
@@ -69,13 +70,8 @@ const TenderPage = () => {
   const [loading, setLoading] = useState(true);
   const [selectedTender, setSelectedTender] = useState(null);
 
-  useEffect(() => {
-    fetchTenders();
-  }, []);
-
-  const fetchTenders = async () => {
+  const fetchTenders = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await api.get("/tenders");
       const data = res.data?.data ?? res.data;
       setTenders(Array.isArray(data) ? data : []);
@@ -84,7 +80,10 @@ const TenderPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => { fetchTenders(); }, [fetchTenders]);
+  useResourceRefresh("tenders", fetchTenders);
 
   if (loading) {
     return (

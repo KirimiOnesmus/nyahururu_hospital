@@ -6,6 +6,10 @@ const logger = require("../utils/logger");
 const path = require("path");
 const { Op } = require("sequelize");
 const { Gallery, User, sequelize } = require("../sequelize/models");
+const {
+  HOMEPAGE_BANNER_CATEGORY,
+  normalizeGalleryCategory,
+} = require("../constants/gallery");
 
 
 
@@ -42,7 +46,12 @@ exports.getAllGallery = async (req, res) => {
     const { category, type, visible, search, sort = "-uploadDate" } = req.query;
 
     const where = {};
-    if (category && category !== "all") where.category = category;
+    if (category && category !== "all") {
+      const normalizedCategory = normalizeGalleryCategory(category);
+      where.category = normalizedCategory === HOMEPAGE_BANNER_CATEGORY
+        ? { [Op.in]: [HOMEPAGE_BANNER_CATEGORY, "Home Page Banner"] }
+        : normalizedCategory;
+    }
     if (type && type !== "all") where.type = type;
     if (visible !== undefined) where.visible = visible === "true";
 
@@ -98,25 +107,34 @@ exports.getGalleryById = async (req, res) => {
 
 exports.createGallery = async (req, res) => {
   try {
-    const { title, description, category, tags, visible } = req.body;
+    const { title, description, tags, visible } = req.body;
+    const category = normalizeGalleryCategory(req.body.category);
+    const isHomepageBanner = category === HOMEPAGE_BANNER_CATEGORY;
 
-    if (!title || !category) {
+    if ((!title?.trim() && !isHomepageBanner) || !category) {
       return res.status(400).json({
-        message: "Missing required fields: title and category",
+        message: "A title (except for Homepage Banner) and category are required",
       });
     }
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
     const { mimetype: mimeType, filename, size } = req.file;
     const fileType = mimeType.startsWith("image") ? "image" : "video";
+    if (isHomepageBanner && fileType !== "image") {
+      return res.status(400).json({ message: "Homepage banners must be image files" });
+    }
     const fileUrl = `/uploads/gallery/${filename}`;
+    const safeTitle = title?.trim() ||
+      (isHomepageBanner
+        ? path.parse(path.basename(req.file.originalname || filename)).name || "Homepage Banner"
+        : "");
 
     const parsedTags = tags
       ? String(tags).split(",").map((t) => t.trim()).filter(Boolean)
       : [];
 
     const gallery = await Gallery.create({
-      title,
+      title: safeTitle,
       description,
       type: fileType,
       category,
@@ -148,7 +166,13 @@ exports.updateGallery = async (req, res) => {
 
     if (title !== undefined) item.title = title;
     if (description !== undefined) item.description = description;
-    if (category !== undefined) item.category = category;
+    if (category !== undefined) {
+      const normalizedCategory = normalizeGalleryCategory(category);
+      if (normalizedCategory === HOMEPAGE_BANNER_CATEGORY && item.type !== "image") {
+        return res.status(400).json({ message: "Homepage banners must be image files" });
+      }
+      item.category = normalizedCategory;
+    }
     if (tags !== undefined) {
 
       item.tags = String(tags).split(",").map((t) => t.trim()).filter(Boolean);
