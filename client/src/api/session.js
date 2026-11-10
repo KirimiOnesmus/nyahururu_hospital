@@ -1,5 +1,3 @@
-.
-
 const STAFF_KEYS = ["role", "collection"];
 const RESEARCHER_KEYS = ["role", "collection", "researcher"];
 

@@ -28,7 +28,7 @@ const path          = require("path");
 
 
 const { AppError, globalErrorHandler } = require("./utils/appError");
-const logger             = require("./utils/logger"); 
+const { createRateLimitHandler } = require("./middleware/rateLimitHandler");
 
 
 // Auth & Identity
@@ -157,9 +157,12 @@ app.use(
     credentials: true,                     
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["X-Session-Logged-Out"],
   })
 );
 
+// Read auth cookies before throttling so a 429 can revoke the active session.
+app.use(cookieParser());
 
 app.use(
   rateLimit({
@@ -167,13 +170,7 @@ app.use(
     max:            200,
     standardHeaders: true,
     legacyHeaders:  false,
-    handler: (req, res) => {
-      logger.warn({ ip: req.ip, path: req.path }, "Rate limit exceeded");
-      res.status(429).json({
-        success: false,
-        message: "Too many requests. Please try again later.",
-      });
-    },
+    handler: createRateLimitHandler("Too many requests. Please try again later."),
   })
 );
 
@@ -181,18 +178,12 @@ app.use(
 const authLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max:      15,
-  handler: (req, res) => {
-    logger.warn({ ip: req.ip, path: req.path }, "Auth rate limit exceeded");
-    res.status(429).json({
-      success: false,
-      message: "Too many authentication attempts. Please try again in an hour.",
-    });
-  },
+  skip: (req) => /\/auth\/logout$|\/researchers\/logout$/.test(req.originalUrl.split("?", 1)[0]),
+  handler: createRateLimitHandler("Too many authentication attempts. Please try again in an hour."),
 });
 
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
-app.use(cookieParser());
 app.use(compression());
 
 
