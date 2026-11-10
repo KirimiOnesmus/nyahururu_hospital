@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 import { ASSET_BASE_URL } from "../../config/env";
 import { IconArrowRight, IconArrowLeft, IconNewspaper } from "../../common/icons";
+import { useResourceRefresh } from "../../api/socket";
 
 const BACKEND_URL = ASSET_BASE_URL;
 
@@ -19,20 +20,21 @@ const News = () => {
   const hasNext = startIndex + itemsPerPage < news.length;
   const hasPrev = currentPage > 0;
 
-  useEffect(() => {
-    const fetchNews = async () => {
-      try {
-        const res = await api.get("/news");
-        setNews(Array.isArray(res.data) ? res.data : []);
-      } catch (error) {
-        console.error("Error fetching news data:", error);
-        setNews([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchNews();
+  const fetchNews = useCallback(async () => {
+    try {
+      const res = await api.get("/news");
+      setNews(Array.isArray(res.data) ? res.data : []);
+      setCurrentPage(0);
+    } catch (error) {
+      console.error("Error fetching news data:", error);
+      setNews([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { fetchNews(); }, [fetchNews]);
+  useResourceRefresh("news", fetchNews);
 
   if (loading) {
     return (

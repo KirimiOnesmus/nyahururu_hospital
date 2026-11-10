@@ -1,7 +1,9 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { FaMapMarkerAlt, FaCalendarAlt, FaTimes } from "react-icons/fa";
 import api from "../../api/axios";
 import { ASSET_BASE_URL } from "../../config/env";
+import { getListData } from "../../api/listResponse";
+import { useResourceRefresh } from "../../api/socket";
 
 const SLIDE_INTERVAL = 30000;
 
@@ -10,27 +12,30 @@ const EventOverlay = () => {
   const [current, setCurrent] = useState(0);
   const [visible, setVisible] = useState(false);
   const [fading, setFading] = useState(false);
+  const hasLoadedEvents = useRef(false);
 
   const BACKEND_URL = ASSET_BASE_URL;
 
-  useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const res = await api.get("/events");
-        console.log("Fetched events:", res.data);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const active = res.data.filter((e) => new Date(e.date) >= today);
-        if (active.length > 0) {
-          setEvents(active);
-          setVisible(true);
-        }
-      } catch {
-        // silently fail — overlay is non-critical
+  const fetchEvents = useCallback(async () => {
+    try {
+      const res = await api.get("/events");
+      const eventList = getListData(res.data, "Events endpoint");
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const active = eventList.filter((e) => new Date(e.date) >= today);
+      setEvents(active);
+      setCurrent((index) => Math.min(index, Math.max(active.length - 1, 0)));
+      if (!hasLoadedEvents.current) {
+        setVisible(active.length > 0);
+        hasLoadedEvents.current = true;
       }
-    };
-    fetchEvents();
+    } catch {
+      // silently fail — overlay is non-critical
+    }
   }, []);
+
+  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+  useResourceRefresh("events", fetchEvents);
 
   const goTo = useCallback((idx) => {
     setFading(true);

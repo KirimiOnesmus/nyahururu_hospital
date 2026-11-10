@@ -2,8 +2,9 @@
   "name": "server",
   "version": "1.0.0",
   "description": "Backend for NCRH hospital CMS (Express + Mongo DB + JWT)",
-  "main": "index.js",
+  "main": "app.js",
   "scripts": {
+    "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "db:migrate": "sequelize-cli db:migrate",
     "db:migrate:undo": "sequelize-cli db:migrate:undo",

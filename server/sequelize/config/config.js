@@ -97,14 +97,20 @@ module.exports = {
 
 
 if (nodeEnv === "production") {
-  if (!toBool(process.env.DB_SSL, false)) {
+  const dbSslEnabled = toBool(process.env.DB_SSL, false);
+  const dbHost = (process.env.DB_HOST || "").toLowerCase();
+  const isLoopbackDatabase = ["localhost", "127.0.0.1", "::1"].includes(dbHost);
+
+
+  if (!dbSslEnabled && !isLoopbackDatabase) {
     throw new Error(
-      '[FATAL] DB_SSL must be set to "true" when NODE_ENV=production. ' +
-        "Refusing to start with an unencrypted production database connection."
+      '[FATAL] DB_SSL must be set to "true" for remote production databases. ' +
+        'DB_SSL=false is only allowed when DB_HOST is "localhost", "127.0.0.1", or "::1".'
     );
   }
 
   if (
+    dbSslEnabled &&
     toBool(process.env.DB_SSL_REJECT_UNAUTHORIZED, true) &&
     !process.env.DB_SSL_CA
   ) {

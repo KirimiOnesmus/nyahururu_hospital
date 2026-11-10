@@ -110,7 +110,7 @@ body {
   background: var(--canvas);
   color: var(--ink);
   font-family: var(--font-sans);
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
@@ -141,6 +141,145 @@ body {
   font-style: italic;
   font-weight: 500;
 }
+
+/* User-selected page layout and reading preferences. */
+html[data-text-alignment="left"] main :is(h1, h2, h3, h4, p, li, blockquote, figcaption) {
+  text-align: left;
+}
+
+html[data-text-alignment="center"] main :is(h1, h2, h3, h4, p, li, blockquote, figcaption) {
+  text-align: center;
+}
+
+html[data-text-alignment="right"] main :is(h1, h2, h3, h4, p, li, blockquote, figcaption) {
+  text-align: right;
+}
+
+html[data-text-alignment="justify"] main :is(p, li, blockquote, figcaption) {
+  text-align: justify;
+}
+
+@media (min-width: 768px) {
+  html[data-page-width="wide"] .max-w-6xl,
+  html[data-page-width="wide"] .max-w-7xl {
+    max-width: 88rem;
+  }
+}
+
+.accessibility-menu {
+  position: fixed;
+  z-index: 100;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.accessibility-menu > summary {
+  list-style: none;
+}
+
+.accessibility-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.accessibility-trigger {
+  display: inline-flex;
+  min-width: 3rem;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0 1rem;
+  border: 1px solid var(--primary-hover);
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  touch-action: manipulation;
+}
+
+.accessibility-trigger:hover,
+.accessibility-menu[open] > .accessibility-trigger {
+  background: var(--primary-hover);
+}
+
+.accessibility-trigger svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+}
+
+.accessibility-trigger-label {
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.accessibility-panel {
+  position: absolute;
+  bottom: calc(100% + 0.65rem);
+  right: 0;
+  width: min(24rem, calc(100vw - 2rem));
+  max-height: min(70vh, 34rem);
+  max-height: min(70dvh, 34rem);
+  padding: 1rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-md);
+}
+
+.accessibility-title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.accessibility-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0.7rem 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.accessibility-legend {
+  margin-bottom: 0.45rem;
+  color: var(--ink-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.accessibility-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.accessibility-choice {
+  min-height: 2.75rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.accessibility-choice:hover {
+  border-color: var(--primary);
+}
+
+.accessibility-choice.is-selected {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 700;
+}
+
 
 /* Dark-mode remaps so existing Tailwind utilities stay readable */
 .dark .bg-white,
