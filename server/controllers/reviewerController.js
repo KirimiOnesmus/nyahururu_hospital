@@ -3,6 +3,7 @@ const audit = require("../services/auditService");
 const { asyncHandler, sendSuccess } = require("../utils/appError");
 const { getCallerIdentity } = require("../middleware/auth");
 const { setAuthCookies, signRefreshToken } = require("../utils/tokenService");
+const { startSession } = require("../services/activeSessionService");
 
 exports.inviteReviewer = asyncHandler(async (req, res) => {
   const caller = getCallerIdentity(req);
@@ -28,7 +29,8 @@ exports.inviteReviewer = asyncHandler(async (req, res) => {
 
 exports.setPassword = asyncHandler(async (req, res) => {
   const { token, reviewer } = await reviewerService.setPassword(req.body);
-  const { token: refreshToken } = signRefreshToken({ id: reviewer.id });
+  await startSession({ req, res, accountId: reviewer.id, collection: "researchers" });
+  const { token: refreshToken } = signRefreshToken(reviewer, { collection: "researchers" });
   setAuthCookies(res, token, refreshToken);
   sendSuccess(res, 200, "Password set successfully. You can now log in.", {
     reviewer,

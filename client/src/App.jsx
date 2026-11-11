@@ -6,6 +6,7 @@ import { getDashboardRoles } from "./config/dashboardRoles";
 import "./App.css";
 import { ToastContainer } from "react-toastify";
 import AccessibilityControls from "./common/components/AccessibilityControls";
+import SessionActivityMonitor from "./common/components/SessionActivityMonitor";
 
 
 const PageLoader = () => (
@@ -110,6 +111,7 @@ const Guarded = ({ path, children }) => (
 function App() {
   return (
     <BrowserRouter>
+      <SessionActivityMonitor />
       <ScrollBehaviour />
       <Suspense fallback={<PageLoader />}>
         <Routes>

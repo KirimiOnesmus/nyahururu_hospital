@@ -19,6 +19,7 @@ const cookieOptions = (maxAgeMs) => ({
 
 const ACCESS_COOKIE_MAX_AGE = 24 * 60 * 60 * 1000; 
 const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; 
+const { revokeRequestSession } = require("../services/activeSessionService");
 
 
 const signAccessToken = (user) => {
@@ -41,10 +42,10 @@ const signResearcherAccessToken = (researcher) => {
   return { token, jti };
 };
 
-const signRefreshToken = (user) => {
+const signRefreshToken = (user, { collection = "users" } = {}) => {
   const jti = crypto.randomUUID();
   const token = jwt.sign(
-    { id: user.id, role: user.role, jti, type: "refresh" },
+    { id: user.id, role: user.role, collection, jti, type: "refresh" },
     process.env.JWT_REFRESH_SECRET,
     { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
   );
@@ -84,6 +85,7 @@ const revokeAuthSession = async (req, res) => {
     : req.cookies?.jwt;
   await blacklistIfValid(accessToken, process.env.JWT_SECRET);
   await blacklistIfValid(req.cookies?.refreshToken, process.env.JWT_REFRESH_SECRET);
+  await revokeRequestSession(req, "logout");
   clearAuthCookies(res);
 };
 

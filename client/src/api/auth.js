@@ -1,5 +1,6 @@
 import { disconnectSocket } from "./socket";
 import api from './axios';
+import { rotateClientSessionId } from './session';
 
 const toApiError = (error, fallback) => {
   const data = error.response?.data;
@@ -11,6 +12,8 @@ const toApiError = (error, fallback) => {
 
 export const loginUser = async (email, password) => {
   try {
+
+    rotateClientSessionId();
 
     localStorage.removeItem('token');
     localStorage.removeItem('researcher');
@@ -68,6 +71,7 @@ export const verifyResearcherEmail = async (token, email) => {
 
 export const loginResearcher = async (email, password) => {
   try {
+    rotateClientSessionId();
     const response = await api.post('/researchers/login', {
       email,
       password,

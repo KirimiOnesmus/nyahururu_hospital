@@ -67,6 +67,7 @@ const bidRoutes              = require("./routes/bidRoutes");
 // System
 const auditLogRoutes         = require("./routes/auditLogRoutes");
 const systemRoutes           = require("./routes/systemRoutes");
+const sessionRoutes          = require("./routes/sessionRoutes");
 
 // Research & Payments
 const researchRoutes         = require("./routes/researchRoutes");
@@ -136,8 +137,8 @@ app.use(
     },
     credentials: true,                     
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    exposedHeaders: ["X-Session-Logged-Out"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Client-Session-Id"],
+    exposedHeaders: ["X-Session-Logged-Out", "X-Client-Session-Id"],
   })
 );
 
@@ -152,7 +153,7 @@ app.use(
   rateLimit({
     windowMs:       15 * 60 * 1000,
     max:            200,
-    skip: isSuperadminRequest,
+    skip: async (req) => req.path === "/api/sessions/activity" || isSuperadminRequest(req),
     standardHeaders: true,
     legacyHeaders:  false,
     handler: createRateLimitHandler("Too many requests. Please try again later."),
@@ -163,7 +164,7 @@ app.use(
 const authLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max:      15,
-  skip: async (req) => /\/auth\/logout$|\/researchers\/logout$/.test(req.originalUrl.split("?", 1)[0]) || isSuperadminRequest(req),
+  skip: async (req) => /\/auth\/logout$|\/researchers\/logout$/.test(req.originalUrl.split("?", 1)[0]) || req.path === "/api/sessions/activity" || isSuperadminRequest(req),
   handler: createRateLimitHandler("Too many authentication attempts. Please try again in an hour."),
 });
 
@@ -234,7 +235,7 @@ app.use("/api", async (req, res, next) => {
     if (role !== "superadmin") return next();
     const route = req.originalUrl.split("?", 1)[0].replace(/\/+$/, "");
     const allowed =
-      (req.method === "POST" && ["/api/users", "/api/auth/logout", "/api/profile/change-password"].includes(route)) ||
+      (req.method === "POST" && ["/api/users", "/api/auth/logout", "/api/profile/change-password", "/api/sessions/activity"].includes(route)) ||
       (req.method === "PUT" && route === "/api/system/settings/maintenance") ||
       (req.method === "POST" && route === "/api/auth/refresh");
     if (allowed) return next();
@@ -264,6 +265,7 @@ app.use("/api", async (req, res, next) => {
 app.use("/api/auth",        authLimiter, authRoutes);
 app.use("/api/users",       userRoutes);
 app.use("/api/profile",     profileRoutes);
+app.use("/api/sessions",    sessionRoutes);
 app.use("/api/researchers", authLimiter, researcherAuthRoutes);
 app.use("/api/reviewers",   reviewerRoutes);
 

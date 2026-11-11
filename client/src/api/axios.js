@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../config/env';
-import { clearAllSessions } from './session';
+import { clearAllSessions, getClientSessionId, setClientSessionId } from './session';
 import { disconnectSocket } from './socket';
 
 const api = axios.create({
@@ -18,6 +18,7 @@ api.interceptors.request.use(
     if (config.data instanceof FormData) {
       delete config.headers['Content-Type'];
     }
+    config.headers['X-Client-Session-Id'] = getClientSessionId();
 
     return config;
   },
@@ -27,10 +28,20 @@ api.interceptors.request.use(
 );
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const sessionId = response.headers?.['x-client-session-id'];
+    if (sessionId) setClientSessionId(sessionId);
+    return response;
+  },
   (error) => {
     const status = error.response?.status;
     const url    = error.config?.url || "";
+
+    if (status === 401 && error.response?.data?.code === 'SESSION_ACTIVE_ELSEWHERE') {
+      disconnectSocket();
+      window.location.assign('/hmis?reason=session-elsewhere');
+      return new Promise(() => {});
+    }
 
     if (status === 503 && error.response?.data?.code === 'MAINTENANCE_MODE' && localStorage.getItem('role') !== 'superadmin') {
       window.location.assign('/maintenance');
