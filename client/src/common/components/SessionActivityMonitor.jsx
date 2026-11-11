@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import api from "../../api/axios";
 import { setClientSessionAccount } from "../../api/session";
 
@@ -6,7 +7,12 @@ const HEARTBEAT_INTERVAL_MS = 3000;
 const ACTIVE_WINDOW_MS = 10000;
 
 export default function SessionActivityMonitor() {
+  const { pathname } = useLocation();
+  const shouldMonitor = pathname.startsWith("/dashboard") || pathname.startsWith("/research/dashboard");
+
   useEffect(() => {
+    if (!shouldMonitor) return undefined;
+
     let lastInteractionAt = 0;
     let requestInFlight = false;
     const markActive = () => { lastInteractionAt = Date.now(); };
@@ -49,7 +55,7 @@ export default function SessionActivityMonitor() {
       events.forEach((event) => window.removeEventListener(event, markActive, true));
       window.removeEventListener("focus", markActive);
     };
-  }, []);
+  }, [shouldMonitor]);
 
   return null;
 }

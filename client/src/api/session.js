@@ -57,12 +57,6 @@ export const rotateClientSessionId = () => {
   return clientSessionId;
 };
 
-export const setClientSessionId = (sessionId) => {
-  if (typeof sessionId !== "string" || !sessionId) return;
-  clientSessionId = sessionId;
-  sessionStorage.setItem(CLIENT_SESSION_KEY, sessionId);
-};
-
 export const setClientSessionAccount = ({ accountId, collection }) => {
   const account = `${collection}:${accountId}`;
   sessionStorage.setItem(CLIENT_ACCOUNT_KEY, account);
