@@ -17,7 +17,7 @@ const PrivacyPolicy = () => {
             </h1>
 
             <p className="text-sm text-slate-500 mb-10">
-              Last updated: August 2026
+              Last updated: November 2026
             </p>
 
             <div className="space-y-8 text-sm text-slate-600 leading-7">
@@ -281,14 +281,28 @@ const PrivacyPolicy = () => {
                 </h2>
 
                 <p>
-                  The website may use cookies or similar technologies where
-                  necessary to provide functionality, security, analytics or
-                  improve the user experience.
+                  The website uses essential cookies and browser storage for
+                  sign-in, security and remembering your cookie choices. These
+                  are required for core website functions. You may also choose
+                  to allow preference storage, which remembers your theme and
+                  accessibility settings on this device.
                 </p>
 
                 <p className="mt-3">
-                  Where consent is required for a particular cookie or
-                  technology, the appropriate consent mechanism will be provided.
+                  The Contact page includes an optional Google Maps embed. It
+                  stays blocked unless you allow embedded maps; Google may
+                  receive information from your browser and set its own cookies
+                  when the map loads. The website does not currently use
+                  analytics or advertising cookies.
+                </p>
+
+                <p className="mt-3">
+                  You can accept all optional categories, reject them, or
+                  customize your choices in the cookie notice. To change a
+                  saved choice later, use “Cookie settings” in the website
+                  footer. Rejecting optional categories does not prevent access
+                  to core website functions; the embedded map remains unavailable
+                  unless you allow it.
                 </p>
               </section>
 

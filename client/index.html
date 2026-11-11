@@ -14,7 +14,9 @@
     <script>
       (function () {
         try {
-          var stored = localStorage.getItem("ncrh-theme") || "system";
+          var consent = JSON.parse(localStorage.getItem("ncrh-cookie-consent") || "null");
+          var preferencesAllowed = consent && consent.version === 1 && consent.categories && consent.categories.preferences === true;
+          var stored = preferencesAllowed ? (localStorage.getItem("ncrh-theme") || "system") : "system";
           var dark =
             stored === "dark" ||
             (stored === "system" &&

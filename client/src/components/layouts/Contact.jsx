@@ -1,5 +1,6 @@
 import React from "react";
 import { IconPhone, IconMail, IconMapPin, IconArrowRight } from "../../common/icons";
+import { useCookieConsent } from "../../common/cookies/CookieConsentContext";
 
 const CONTACT_INFO = [
   { icon: IconPhone, label: "Phone", value: "0758 722 031" },
@@ -13,6 +14,9 @@ const MAP_SRC = `https://www.google.com/maps?q=${LAT},${LNG}&z=15&output=embed`;
 const DIRECTIONS_URL = `https://www.google.com/maps/dir/?api=1&destination=${LAT},${LNG}`;
 
 const Contact = () => {
+  const { consent, saveConsent } = useCookieConsent();
+  const mapsAllowed = consent?.categories?.maps === true;
+
   return (
     <div className="flex flex-col bg-canvas">
       <main className="flex-1 max-w-6xl mx-auto w-full px-6 md:px-10 py-12">
@@ -44,16 +48,33 @@ const Contact = () => {
           </aside>
 
           <div className="md:col-span-2 bg-surface border border-line rounded-2xl overflow-hidden flex flex-col shadow-sm">
-            <iframe
-              title="Nyahururu County Referral Hospital location"
-              src={MAP_SRC}
-              width="100%"
-              height="420"
-              loading="lazy"
-              allowFullScreen
-              referrerPolicy="no-referrer-when-downgrade"
-              style={{ border: 0, display: "block" }}
-            />
+            {mapsAllowed ? (
+              <iframe
+                title="Nyahururu County Referral Hospital location"
+                src={MAP_SRC}
+                width="100%"
+                height="420"
+                loading="lazy"
+                allowFullScreen
+                referrerPolicy="no-referrer-when-downgrade"
+                style={{ border: 0, display: "block" }}
+              />
+            ) : (
+              <div className="flex min-h-[300px] flex-1 flex-col items-center justify-center gap-3 bg-canvas px-6 py-10 text-center sm:min-h-[420px]">
+                <IconMapPin className="h-8 w-8 text-primary" aria-hidden="true" />
+                <h3 className="text-lg font-semibold text-ink">Map is turned off</h3>
+                <p className="max-w-md text-sm text-ink-muted">
+                  Google Maps is an optional third-party service. Allow it to view the hospital location here.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => saveConsent({ ...consent?.categories, maps: true })}
+                  className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover"
+                >
+                  Allow Google Maps
+                </button>
+              </div>
+            )}
 
             <div className="flex items-center justify-between gap-3 p-4 border-t border-line bg-canvas">
               <div className="flex items-center gap-2 text-ink-muted min-w-0">

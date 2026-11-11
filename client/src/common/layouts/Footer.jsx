@@ -4,9 +4,11 @@ import { IconMail, IconMapPin, IconPhone } from "../icons";
 import ThemeToggle from "../components/ThemeToggle";
 import { useNavigate } from "react-router-dom";
 import { FaFacebookF, FaInstagram, FaXTwitter } from "react-icons/fa6";
+import { useCookieConsent } from "../cookies/CookieConsentContext";
 
 const Footer = () => {
   const navigate = useNavigate();
+  const { openSettings: openCookieSettings } = useCookieConsent();
   const currentYear = new Date().getFullYear();
 
   const quickLinks = [
@@ -139,6 +141,13 @@ const Footer = () => {
 
           <div className="flex items-center gap-3 flex-wrap justify-center">
             <ThemeToggle compact />
+            <button
+              type="button"
+              onClick={openCookieSettings}
+              className="min-h-11 text-xs text-ink-muted hover:text-primary"
+            >
+              Cookie settings
+            </button>
             <button
               type="button"
               onClick={() => navigate("/privacy-policy")}
