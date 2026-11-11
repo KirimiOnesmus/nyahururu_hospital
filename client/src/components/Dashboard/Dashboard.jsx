@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {  GeneralDashboard } from "../layouts";
+import SuperAdmin from "./SuperAdmin";
 
 const Dashboard = () => {
   const navigate = useNavigate();

@@ -43,6 +43,37 @@ async function getCurrentRole(req) {
   return account?.role ? String(account.role).trim().toLowerCase() : null;
 }
 
+async function isSuperadminRequest(req) {
+  try {
+    if (req.user?.role) return String(req.user.role).toLowerCase() === "superadmin";
+    const accessToken = getRequestToken(req);
+    if (accessToken) {
+      try {
+        const access = jwt.verify(accessToken, process.env.JWT_SECRET, { algorithms: ["HS256"] });
+        if (access.role === "superadmin" && access.collection !== "researchers") return true;
+        if (access.role) return false;
+      } catch { /* fall back to refresh token */ }
+    }
+    if (req.cookies?.refreshToken) {
+      try {
+        const refresh = jwt.verify(req.cookies.refreshToken, process.env.JWT_REFRESH_SECRET);
+        if (refresh.role) return refresh.role === "superadmin";
+      } catch { /* invalid refresh token is not exempt */ }
+    }
+    if (req.originalUrl?.split("?", 1)[0] === "/api/auth/login" && req.body?.email) {
+      const loginAccount = await User.findOne({
+        where: { email: String(req.body.email).trim().toLowerCase(), role: "superadmin" },
+        attributes: ["id"],
+      });
+      if (loginAccount) return true;
+    }
+    return false;
+  } catch (error) {
+    logger.error({ err: error, path: req.originalUrl }, "Unable to check superadmin rate-limit exemption");
+    return false;
+  }
+}
+
 function createRateLimitHandler(message) {
   return async (req, res) => {
     let role = null;
@@ -81,4 +112,4 @@ function createRateLimitHandler(message) {
   };
 }
 
-module.exports = { createRateLimitHandler };
+module.exports = { createRateLimitHandler, getCurrentRole, isSuperadminRequest };

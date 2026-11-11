@@ -137,6 +137,9 @@ exports.createUser = asyncHandler(async (req, res) => {
       403
     );
   }
+  if (String(req.user?.role).toLowerCase() === "superadmin" && String(role).toLowerCase() === "superadmin") {
+    throw new AppError("The protected superadmin account cannot be created through user management.", 403);
+  }
 
   if (password) {
     assertStaffPassword(password);
@@ -274,6 +277,15 @@ exports.updateUser = asyncHandler(async (req, res) => {
   const currentUser = await UserData.findByPk(userId);
   if (!currentUser) {
     throw new AppError("User not found", 404);
+  }
+
+  if (currentUser.role === "superadmin" && (
+    (updates.role && updates.role.toLowerCase() !== "superadmin") || updates.isActive === false
+  )) {
+    throw new AppError("The protected superadmin account cannot be demoted or deactivated.", 403);
+  }
+  if (updates.role?.toLowerCase() === "superadmin" && currentUser.role !== "superadmin") {
+    throw new AppError("The protected superadmin role can only be assigned by the seed process.", 403);
   }
 
   if (updates.role) {
@@ -453,16 +465,7 @@ exports.deleteUser = asyncHandler(async (req, res) => {
   }
 
   if (target.role === "superadmin") {
-    const otherSuperadmins = await UserData.count({
-      where: {
-        role: "superadmin",
-        isActive: { [Op.ne]: false },
-        id: { [Op.ne]: target.id },
-      },
-    });
-    if (otherSuperadmins === 0) {
-      throw new AppError("Cannot delete the last remaining superadmin account.", 403);
-    }
+    throw new AppError("The protected superadmin account cannot be deleted.", 403);
   }
 
   await target.destroy();

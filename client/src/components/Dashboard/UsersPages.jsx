@@ -42,6 +42,7 @@ const RoleBadge = ({ role }) => {
 
 
 const UsersPages = () => {
+  const isSuperadmin = localStorage.getItem("role") === "superadmin";
   const [users,        setUsers]        = useState([]);
   const [loading,      setLoading]      = useState(false);
   const [searchTerm,   setSearchTerm]   = useState("");
@@ -153,20 +154,20 @@ const UsersPages = () => {
           >
             <FaEye className="text-sm" />
           </button>
-          <button
+          {!isSuperadmin && <button
             onClick={() => navigate(`/dashboard/users/edit/${user.id}`)}
             className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors cursor-pointer"
             title="Edit"
           >
             <FaEdit className="text-sm" />
-          </button>
-          <button
+          </button>}
+          {!isSuperadmin && <button
             onClick={() => handleDelete(user.id)}
             className="p-2 rounded-xl text-red-400 hover:bg-red-50 transition-colors cursor-pointer"
             title="Delete"
           >
             <FaTrash className="text-sm" />
-          </button>
+          </button>}
         </div>
       ),
     },
@@ -329,9 +330,9 @@ const UsersPages = () => {
 
             <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-gray-100">
               <Button variant="secondary" onClick={() => setViewModal(false)}>Close</Button>
-              <Button icon={FaEdit} onClick={() => { setViewModal(false); navigate(`/dashboard/users/edit/${selectedUser.id}`); }}>
+              {!isSuperadmin && <Button icon={FaEdit} onClick={() => { setViewModal(false); navigate(`/dashboard/users/edit/${selectedUser.id}`); }}>
                 Edit User
-              </Button>
+              </Button>}
             </div>
           </>
         )}

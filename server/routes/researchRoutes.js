@@ -1,6 +1,6 @@
 const router = require("express").Router();
 const rateLimit = require("express-rate-limit");
-const { createRateLimitHandler } = require("../middleware/rateLimitHandler");
+const { createRateLimitHandler, isSuperadminRequest } = require("../middleware/rateLimitHandler");
 const ctrl = require("../controllers/researchController");
 const upload = require("../middleware/upload");
 const {
@@ -64,6 +64,7 @@ const requireReviewerOrCommittee = [
 
 
 const publicStatsLimiter = rateLimit({
+  skip: isSuperadminRequest,
   windowMs: 60 * 1000,
   max: 30,
   standardHeaders: true,

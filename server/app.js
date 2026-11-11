@@ -28,7 +28,7 @@ const path          = require("path");
 
 
 const { AppError, globalErrorHandler } = require("./utils/appError");
-const { createRateLimitHandler } = require("./middleware/rateLimitHandler");
+const { createRateLimitHandler, isSuperadminRequest, getCurrentRole } = require("./middleware/rateLimitHandler");
 
 
 // Auth & Identity
@@ -66,6 +66,7 @@ const bidRoutes              = require("./routes/bidRoutes");
 
 // System
 const auditLogRoutes         = require("./routes/auditLogRoutes");
+const systemRoutes           = require("./routes/systemRoutes");
 
 // Research & Payments
 const researchRoutes         = require("./routes/researchRoutes");
@@ -142,11 +143,16 @@ app.use(
 
 // Read auth cookies before throttling so a 429 can revoke the active session.
 app.use(cookieParser());
+// Body sizes are capped before rate-limit checks so the login limiter can
+// identify the protected superadmin account even before a session exists.
+app.use(express.json({ limit: "10kb" }));
+app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 
 app.use(
   rateLimit({
     windowMs:       15 * 60 * 1000,
     max:            200,
+    skip: isSuperadminRequest,
     standardHeaders: true,
     legacyHeaders:  false,
     handler: createRateLimitHandler("Too many requests. Please try again later."),
@@ -157,12 +163,10 @@ app.use(
 const authLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max:      15,
-  skip: (req) => /\/auth\/logout$|\/researchers\/logout$/.test(req.originalUrl.split("?", 1)[0]),
+  skip: async (req) => /\/auth\/logout$|\/researchers\/logout$/.test(req.originalUrl.split("?", 1)[0]) || isSuperadminRequest(req),
   handler: createRateLimitHandler("Too many authentication attempts. Please try again in an hour."),
 });
 
-app.use(express.json({ limit: "10kb" }));
-app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(compression());
 
 
@@ -221,6 +225,39 @@ app.get("/health", (req, res) =>
   })
 );
 
+// Superadmins can inspect the system, create users, change maintenance mode,
+// and manage their own session. All other state-changing operations are denied.
+app.use("/api", async (req, res, next) => {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+  try {
+    const role = await getCurrentRole(req);
+    if (role !== "superadmin") return next();
+    const route = req.originalUrl.split("?", 1)[0].replace(/\/+$/, "");
+    const allowed =
+      (req.method === "POST" && ["/api/users", "/api/auth/logout", "/api/profile/change-password"].includes(route)) ||
+      (req.method === "PUT" && route === "/api/system/settings/maintenance") ||
+      (req.method === "POST" && route === "/api/auth/refresh");
+    if (allowed) return next();
+    return res.status(403).json({ success: false, code: "SUPERADMIN_READ_ONLY", message: "Superadmin access is read-only for this action." });
+  } catch (error) { return next(error); }
+});
+
+// Persistent maintenance mode blocks ordinary API use while preserving login,
+// health checks, and the superadmin's ability to restore service.
+app.use("/api", async (req, res, next) => {
+  const pathName = req.originalUrl.split("?", 1)[0];
+  if (/^\/api\/(auth|researchers)\/(login|logout|refresh)$/.test(pathName) ||
+      pathName === "/api/system/health" || pathName === "/api/system/settings/maintenance") return next();
+  try {
+    const { getMaintenanceMode } = require("./controllers/systemController");
+    if (!(await getMaintenanceMode())) return next();
+    if (await getCurrentRole(req) === "superadmin") return next();
+    return res.status(503).json({ success: false, code: "MAINTENANCE_MODE", message: "The system is temporarily unavailable for maintenance." });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 
 
 // Auth & Identity 
@@ -260,6 +297,7 @@ app.use("/api/bids",          bidRoutes);
 
 // System
 app.use("/api/audit-logs",    auditLogRoutes);
+app.use("/api/system",       systemRoutes);
 
 //Research & Payments 
 app.use("/api/research",      researchRoutes);

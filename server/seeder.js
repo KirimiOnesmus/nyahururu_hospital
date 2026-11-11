@@ -30,6 +30,17 @@ const createSuperAdmin = async () => {
       return;
     }
 
+    // Older releases mistakenly seeded this configured account as an admin.
+    // Repair that exact seed identity instead of trying to create a duplicate.
+    const legacySeed = await User.findOne({ where: { email: SEED_EMAIL.toLowerCase() } });
+    if (legacySeed) {
+      legacySeed.role = "superadmin";
+      legacySeed.mustChangePassword = true;
+      await legacySeed.save();
+      console.log(`Configured seed account promoted to superadmin: ${legacySeed.email}`);
+      return;
+    }
+
  
     const employeeId = await generateEmployeeId("superadmin", User);
     const rfidTag = generateRFID(employeeId);
@@ -41,7 +52,7 @@ const createSuperAdmin = async () => {
       name: "Super Admin",
       email: SEED_EMAIL,
       password: SEED_PASSWORD,
-      role: "admin",
+      role: "superadmin",
       employeeId,
       rfidTag,
       rfid: rfidTag,
