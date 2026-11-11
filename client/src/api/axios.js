@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../config/env';
-import { clearAllSessions, getClientSessionId, setClientSessionId } from './session';
+import { clearAllSessions, getClientSessionId } from './session';
 import { disconnectSocket } from './socket';
 
 const api = axios.create({
@@ -28,11 +28,7 @@ api.interceptors.request.use(
 );
 
 api.interceptors.response.use(
-  (response) => {
-    const sessionId = response.headers?.['x-client-session-id'];
-    if (sessionId) setClientSessionId(sessionId);
-    return response;
-  },
+  (response) => response,
   (error) => {
     const status = error.response?.status;
     const url    = error.config?.url || "";

@@ -35,7 +35,7 @@ function notifyRevokedSessions(sessionIds) {
   }
 }
 
-async function registerActivity({ accountId, collection, sessionId }) {
+async function registerActivity({ accountId, collection, sessionId, revokeOtherSessions }) {
   const accountModel = getAccountModel(collection);
   let result;
   const now = new Date();
@@ -51,11 +51,13 @@ async function registerActivity({ accountId, collection, sessionId }) {
       return;
     }
 
-    const rows = await ActiveSession.findAll({
-      where: { accountId, collection, revokedAt: null },
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
+    const rows = revokeOtherSessions
+      ? await ActiveSession.findAll({
+          where: { accountId, collection, revokedAt: null },
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        })
+      : [];
     const current = await ActiveSession.findByPk(sessionId, { transaction, lock: transaction.LOCK.UPDATE });
 
     if (current && (String(current.accountId) !== String(accountId) || current.collection !== collection)) {
@@ -63,6 +65,10 @@ async function registerActivity({ accountId, collection, sessionId }) {
       return;
     }
     if (current?.revokedAt) {
+      result = { valid: false, revokedIds: [] };
+      return;
+    }
+    if (!current && !revokeOtherSessions) {
       result = { valid: false, revokedIds: [] };
       return;
     }
@@ -81,12 +87,14 @@ async function registerActivity({ accountId, collection, sessionId }) {
     }
 
     const revokedIds = [];
-    for (const session of rows) {
-      if (session.sessionId === sessionId) continue;
-      session.revokedAt = now;
-      session.revocationReason = "active_elsewhere";
-      await session.save({ transaction });
-      revokedIds.push(session.sessionId);
+    if (revokeOtherSessions) {
+      for (const session of rows) {
+        if (session.sessionId === sessionId) continue;
+        session.revokedAt = now;
+        session.revocationReason = "active_elsewhere";
+        await session.save({ transaction });
+        revokedIds.push(session.sessionId);
+      }
     }
     result = { valid: true, revokedIds };
   });
@@ -98,13 +106,7 @@ async function registerActivity({ accountId, collection, sessionId }) {
 async function assertSessionActive(req, res, decoded) {
   const collection = decoded.collection === "researchers" ? "researchers" : "users";
   const sessionId = sessionIdForRequest(req, res);
-  let session = await ActiveSession.findByPk(sessionId);
-
-  if (!session) {
-    const result = await registerActivity({ accountId: decoded.id, collection, sessionId });
-    if (!result.valid) return false;
-    session = await ActiveSession.findByPk(sessionId);
-  }
+  const session = await ActiveSession.findByPk(sessionId);
 
   if (
     !session || session.revokedAt ||
@@ -121,12 +123,13 @@ async function recordRequestActivity(req, res, account) {
     accountId: account.id,
     collection: account.collection,
     sessionId,
+    revokeOtherSessions: false,
   });
 }
 
 async function startSession({ req, res, accountId, collection }) {
   const sessionId = sessionIdForRequest(req, res);
-  const result = await registerActivity({ accountId, collection, sessionId });
+  const result = await registerActivity({ accountId, collection, sessionId, revokeOtherSessions: true });
   if (!result.valid) throw new Error("Could not establish the authenticated session.");
   return sessionId;
 }
