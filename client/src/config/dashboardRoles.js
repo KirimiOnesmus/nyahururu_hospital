@@ -123,7 +123,7 @@ export const DASHBOARD_NAV = [
   {
     category: "Downloads & Resources",
     items: [
-      { title: "Reports", path: "/dashboard/reports", roles: ["admin", "it"], icon: FaFileAlt },
+      { title: "Reports", path: "/dashboard/reports", roles: ["admin", "it", "superadmin"], icon: FaFileAlt },
     ],
   },
   {
@@ -146,6 +146,7 @@ export const DASHBOARD_NAV = [
   {
     category: "System",
     items: [
+      { title: "System Controls", path: "/dashboard/system", roles: ["superadmin"], icon: FaHospital },
       {
         title: "Audit Logs",
         path: "/dashboard/audit-logs",

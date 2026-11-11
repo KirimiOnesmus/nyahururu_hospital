@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
-const { createRateLimitHandler } = require('../middleware/rateLimitHandler');
+const { createRateLimitHandler, isSuperadminRequest } = require('../middleware/rateLimitHandler');
 const {
   getAllReports,
   getReportById,
@@ -31,6 +31,7 @@ router.post('/bulk-delete', verifyToken, authorizeRoles('admin'),bulkDeleteRepor
 
 
 const commentLimiter = rateLimit({
+  skip: isSuperadminRequest,
   windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: true,

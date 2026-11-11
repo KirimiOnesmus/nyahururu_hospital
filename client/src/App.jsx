@@ -36,6 +36,7 @@ const Tenders = lazy(() => import("./pages/TenderPage"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const ServiceTerms = lazy(() => import("./pages/ServiceTerms"));
+const MaintenancePage = lazy(() => import("./pages/MaintenancePage"));
 
 const ServiceDetails = lazy(() => import("./components/modals/ServiceDetails"));
 const DoctorDetails = lazy(() => import("./components/modals/DoctorDetails"));
@@ -96,6 +97,7 @@ const TenderPage = lazy(() => import("./components/Dashboard/TenderPage"));
 const ReportsPage = lazy(() => import("./components/Dashboard/ReportsPage"));
 const Donations = lazy(() => import("./components/Dashboard/Donations"));
 const AuditLogPage = lazy(() => import("./components/Dashboard/AuditLog"));
+const SuperAdminSystem = lazy(() => import("./components/Dashboard/SuperAdmin"));
 
 
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
@@ -137,6 +139,7 @@ function App() {
           <Route path="/news/:id" element={<NewsDetails />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms-of-service" element={<ServiceTerms />} />
+          <Route path="/maintenance" element={<MaintenancePage />} />
 
           {/* ── Research (SERU-aligned) ── */}
           <Route path="/research" element={<ResearchPage />} />
@@ -198,6 +201,7 @@ function App() {
             <Route path="/dashboard/reports" element={<Guarded path="/dashboard/reports"><ReportsPage /></Guarded>} />
             <Route path="/dashboard/donations" element={<Guarded path="/dashboard/donations"><Donations /></Guarded>} />
             <Route path="/dashboard/audit-logs" element={<Guarded path="/dashboard/audit-logs"><AuditLogPage /></Guarded>} />
+            <Route path="/dashboard/system" element={<Guarded path="/dashboard/system"><SuperAdminSystem /></Guarded>} />
           </Route>
         </Routes>
       </Suspense>

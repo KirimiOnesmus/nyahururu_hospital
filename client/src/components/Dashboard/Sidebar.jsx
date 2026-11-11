@@ -151,7 +151,7 @@ const Sidebar = () => {
     {
       category: "Downloads & Resources",
       items: [
-        { title: "Reports", path: "/dashboard/reports", roles: ["admin", "it"], icon: IconDocument },
+        { title: "Reports", path: "/dashboard/reports", roles: ["admin", "it", "superadmin"], icon: IconDocument },
       ],
     },
     {
@@ -174,6 +174,12 @@ const Sidebar = () => {
     {
       category: "System",
       items: [
+        {
+          title: "System Controls",
+          path: "/dashboard/system",
+          roles: ["superadmin"],
+          icon: IconHospital,
+        },
         {
           title: "Audit Logs",
           path: "/dashboard/audit-logs",

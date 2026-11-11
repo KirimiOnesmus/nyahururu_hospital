@@ -1,7 +1,7 @@
 const router = require("express").Router();
 const ctrl   = require("../controllers/mpesaController");
 const rateLimit = require("express-rate-limit");
-const { createRateLimitHandler } = require("../middleware/rateLimitHandler");
+const { createRateLimitHandler, isSuperadminRequest } = require("../middleware/rateLimitHandler");
 const { validate, initiatePaymentSchema, refundPaymentSchema } = require("../utils/validators");
 
 
@@ -23,6 +23,7 @@ const requireAdmin = [
 router.post(
   "/initiate",
   rateLimit({
+    skip: isSuperadminRequest,
     windowMs: 15 * 60 * 1000,
     max: 20,
     handler: createRateLimitHandler("Too many payment requests. Please try again later."),
@@ -37,6 +38,7 @@ router.post(
 router.post(
   "/callback/:webhookToken",
   rateLimit({
+    skip: isSuperadminRequest,
     windowMs: 5 * 60 * 1000,
     max: 30,
     handler: createRateLimitHandler("Too many payment callbacks. Please try again later."),
@@ -59,6 +61,7 @@ router.post(
 
 
 const paymentStatusLimiter = rateLimit({
+  skip: isSuperadminRequest,
   windowMs: 15 * 60 * 1000,
   max: 30,
   handler: createRateLimitHandler("Too many payment status checks. Please try again later."),
@@ -71,6 +74,7 @@ router.get(
   "/download-token/:paymentId/research/:researchId",
    optionalResearcher,
   rateLimit({
+    skip: isSuperadminRequest,
     windowMs: 15 * 60 * 1000,
     max: 10,
     handler: createRateLimitHandler("Too many download requests. Please try again later."),
@@ -81,6 +85,7 @@ router.get(
 router.get(
   "/research/:researchId/download",
   rateLimit({
+    skip: isSuperadminRequest,
     windowMs: 15 * 60 * 1000,
     max: 10,
     handler: createRateLimitHandler("Too many download requests. Please try again later."),

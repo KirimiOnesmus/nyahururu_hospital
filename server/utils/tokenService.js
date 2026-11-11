@@ -42,7 +42,7 @@ const signResearcherAccessToken = (researcher) => {
 const signRefreshToken = (user) => {
   const jti = crypto.randomUUID();
   const token = jwt.sign(
-    { id: user.id, jti, type: "refresh" },
+    { id: user.id, role: user.role, jti, type: "refresh" },
     process.env.JWT_REFRESH_SECRET,
     { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
   );

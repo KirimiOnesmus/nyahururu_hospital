@@ -106,8 +106,16 @@ exports.verifyToken = asyncHandler(async (req, res, next) => {
 // STAFF ROLE GATE
 
 exports.authorizeRoles = (...roles) => (req, res, next) => {
- 
-  if (req.user?.role === "superadmin") return next();
+  if (req.user?.role === "superadmin") {
+    if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+    const path = req.originalUrl.split("?", 1)[0].replace(/\/+$/, "");
+    const allowed =
+      (req.method === "POST" && path === "/api/users") ||
+      (req.method === "PUT" && path === "/api/system/settings/maintenance") ||
+      (req.method === "POST" && ["/api/auth/logout", "/api/profile/change-password"].includes(path));
+    if (allowed) return next();
+    return next(new AppError("Superadmin access is read-only for this action.", 403));
+  }
 
   if (!roles.includes(req.user?.role)) {
     return next(
@@ -361,7 +369,9 @@ exports.getCallerName = (req) => {
 exports.getCallerIdentity = (req) => buildCallerIdentity(req);
 
 
-exports.isResearchAdmin = (req) => staffIsResearchOfficer(req);
+exports.isResearchAdmin = (req) =>
+  staffIsResearchOfficer(req) &&
+  (req.user?.role !== "superadmin" || ["GET", "HEAD", "OPTIONS"].includes(req.method));
 
 exports.hasCommitteeAccess = (req) =>
   staffIsResearchOfficer(req) || researcherHasCommitteeAccess(req.researcher);

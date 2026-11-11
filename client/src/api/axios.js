@@ -32,6 +32,11 @@ api.interceptors.response.use(
     const status = error.response?.status;
     const url    = error.config?.url || "";
 
+    if (status === 503 && error.response?.data?.code === 'MAINTENANCE_MODE' && localStorage.getItem('role') !== 'superadmin') {
+      window.location.assign('/maintenance');
+      return new Promise(() => {});
+    }
+
     if (status === 429 && error.response?.headers?.['x-session-logged-out'] === 'true') {
       clearAllSessions();
       localStorage.removeItem('token');

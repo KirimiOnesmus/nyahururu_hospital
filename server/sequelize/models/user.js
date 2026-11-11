@@ -168,11 +168,33 @@ module.exports = (sequelize, DataTypes) => {
       ],
       hooks: {
         beforeSave: async (user) => {
+          if (user.previous("role") === "superadmin" && user.role !== "superadmin") {
+            throw new Error("The protected superadmin account cannot be demoted.");
+          }
+          if (user.previous("role") === "superadmin" && user.isActive === false) {
+            throw new Error("The protected superadmin account cannot be deactivated.");
+          }
           if (user.changed("password") && user.password) {
             user.password = await bcrypt.hash(user.password, BCRYPT_SALT_ROUNDS);
           }
           if (user.changed("firstName") || user.changed("lastName")) {
             user.name = `${user.firstName} ${user.lastName}`.trim();
+          }
+        },
+        beforeDestroy: async (user) => {
+          if (user.role === "superadmin") throw new Error("The protected superadmin account cannot be deleted.");
+        },
+        beforeBulkDestroy: async (options) => {
+          const { Op } = sequelize.Sequelize;
+          const count = await User.count({ where: { [Op.and]: [options.where || {}, { role: "superadmin" }] } });
+          if (count > 0) throw new Error("The protected superadmin account cannot be deleted.");
+        },
+        beforeBulkUpdate: async (options) => {
+          if (options.attributes?.role === undefined && options.attributes?.isActive !== false) return;
+          const { Op } = sequelize.Sequelize;
+          const count = await User.count({ where: { [Op.and]: [options.where || {}, { role: "superadmin" }] } });
+          if (count > 0 && (options.attributes?.role !== undefined || options.attributes?.isActive === false)) {
+            throw new Error("The protected superadmin account cannot be demoted or deactivated.");
           }
         },
       },

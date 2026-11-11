@@ -1,6 +1,6 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { createRateLimitHandler } = require('../middleware/rateLimitHandler');
+const { createRateLimitHandler, isSuperadminRequest } = require('../middleware/rateLimitHandler');
 const router = express.Router();
 const {
   submitFraudReport,
@@ -14,6 +14,7 @@ const { verifyToken, authorizeRoles } = require('../middleware/auth');
 const { validate, fraudReportSchema } = require('../utils/validators');
 
 const submitLimiter = rateLimit({
+  skip: isSuperadminRequest,
   windowMs: 15 * 60 * 1000,
   max: 8,
   standardHeaders: true,

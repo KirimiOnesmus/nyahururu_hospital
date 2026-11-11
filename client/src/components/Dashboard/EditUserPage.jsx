@@ -81,6 +81,13 @@ const EditUserPage = () => {
   const canExport = id !== "new" && Boolean(user.employeeId);
 
   useEffect(() => {
+    if (localStorage.getItem("role") === "superadmin" && id !== "new") {
+      notify.error("Superadmin accounts can view users but cannot edit them.");
+      navigate("/dashboard/users", { replace: true });
+    }
+  }, [id, navigate]);
+
+  useEffect(() => {
     const fetchUser = async () => {
       if (!id || id === "new") {
 
@@ -564,7 +571,7 @@ const EditUserPage = () => {
                       required
                     >
                       <option value="">Select a role...</option>
-                      <option value="superadmin">Super Admin</option>
+                      {localStorage.getItem("role") !== "superadmin" && <option value="superadmin">Super Admin</option>}
                       <option value="admin">Admin</option>
                       <option value="doctor">Doctor</option>
                       <option value="nurse">Nurse</option>
