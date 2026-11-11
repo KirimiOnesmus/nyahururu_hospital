@@ -235,7 +235,7 @@ app.use("/api", async (req, res, next) => {
     if (role !== "superadmin") return next();
     const route = req.originalUrl.split("?", 1)[0].replace(/\/+$/, "");
     const allowed =
-      (req.method === "POST" && ["/api/users", "/api/auth/logout", "/api/profile/change-password", "/api/sessions/activity"].includes(route)) ||
+      (req.method === "POST" && ["/api/users", "/api/auth/login", "/api/auth/logout", "/api/profile/change-password", "/api/sessions/activity", "/api/researchers/login"].includes(route)) ||
       (req.method === "PUT" && route === "/api/system/settings/maintenance") ||
       (req.method === "POST" && route === "/api/auth/refresh");
     if (allowed) return next();
