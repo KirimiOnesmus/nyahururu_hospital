@@ -10,7 +10,9 @@ const REFRESH_TOKEN_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || "7d";
 const cookieOptions = (maxAgeMs) => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "lax" : "lax",
+  // The browser app and API are deployed on different sites (Netlify/Render).
+  // Lax cookies are omitted from credentialed cross-site XHR/fetch requests.
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   maxAge: maxAgeMs,
   path: "/",
 });
