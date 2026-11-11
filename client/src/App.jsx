@@ -7,6 +7,7 @@ import "./App.css";
 import { ToastContainer } from "react-toastify";
 import AccessibilityControls from "./common/components/AccessibilityControls";
 import SessionActivityMonitor from "./common/components/SessionActivityMonitor";
+import CookieConsentBanner from "./common/cookies/CookieConsentBanner";
 
 
 const PageLoader = () => (
@@ -209,6 +210,7 @@ function App() {
       </Suspense>
       <ToastContainer />
       <AccessibilityControls />
+      <CookieConsentBanner />
     </BrowserRouter>
   );
 }
