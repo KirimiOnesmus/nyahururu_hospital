@@ -26,6 +26,12 @@ const createSuperAdmin = async () => {
 
     const existing = await User.findOne({ where: { role: "superadmin" } });
     if (existing) {
+      existing.emailVerified = true;
+      existing.emailVerificationToken = null;
+      existing.emailVerificationExpire = null;
+      existing.passwordResetToken = null;
+      existing.passwordResetExpire = null;
+      await existing.save();
       console.log(` Admin already exists (${existing.email}). Nothing to do.`);
       return;
     }
@@ -36,6 +42,11 @@ const createSuperAdmin = async () => {
     if (legacySeed) {
       legacySeed.role = "superadmin";
       legacySeed.mustChangePassword = true;
+      legacySeed.emailVerified = true;
+      legacySeed.emailVerificationToken = null;
+      legacySeed.emailVerificationExpire = null;
+      legacySeed.passwordResetToken = null;
+      legacySeed.passwordResetExpire = null;
       await legacySeed.save();
       console.log(`Configured seed account promoted to superadmin: ${legacySeed.email}`);
       return;
@@ -57,6 +68,10 @@ const createSuperAdmin = async () => {
       rfidTag,
       rfid: rfidTag,
       emailVerified: true,
+      emailVerificationToken: null,
+      emailVerificationExpire: null,
+      passwordResetToken: null,
+      passwordResetExpire: null,
 
       mustChangePassword: true,
     });
