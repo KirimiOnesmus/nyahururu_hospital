@@ -168,6 +168,13 @@ module.exports = (sequelize, DataTypes) => {
       ],
       hooks: {
         beforeSave: async (user) => {
+          if (user.role === "superadmin") {
+            user.emailVerified = true;
+            user.emailVerificationToken = null;
+            user.emailVerificationExpire = null;
+            user.passwordResetToken = null;
+            user.passwordResetExpire = null;
+          }
           if (user.previous("role") === "superadmin" && user.role !== "superadmin") {
             throw new Error("The protected superadmin account cannot be demoted.");
           }

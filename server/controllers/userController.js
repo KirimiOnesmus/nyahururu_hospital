@@ -287,6 +287,9 @@ exports.updateUser = asyncHandler(async (req, res) => {
   if (updates.role?.toLowerCase() === "superadmin" && currentUser.role !== "superadmin") {
     throw new AppError("The protected superadmin role can only be assigned by the seed process.", 403);
   }
+  if (currentUser.role === "superadmin" && updates.email && updates.email.toLowerCase() !== currentUser.email) {
+    throw new AppError("The protected superadmin email cannot be changed through user management.", 403);
+  }
 
   if (updates.role) {
     if (String(userId) === callerId) {
@@ -384,6 +387,10 @@ exports.requestPasswordReset = asyncHandler(async (req, res) => {
   const user = await UserData.findOne({ where: { email: email.toLowerCase() } });
 
   if (!user) {
+    return sendSuccess(res, 200, "If that email exists, a password reset link has been sent.");
+  }
+
+  if (user.role === "superadmin") {
     return sendSuccess(res, 200, "If that email exists, a password reset link has been sent.");
   }
 
