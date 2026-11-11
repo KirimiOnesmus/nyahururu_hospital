@@ -6,48 +6,64 @@ const {
     updateDonor,
     updateDonorStatus,
     deleteDonor,
-    getDonorsByBloodGroup,
     getUpcomingDonations, 
     getDonationStats,
 } = require("../controllers/bloodDonorController");
-const { verifyToken, authorizeRoles } = require("../middleware/auth");
+const { verifyToken } = require("../middleware/auth");
+const { AppError } = require("../utils/appError");
+
+// IT does not need donor records. Superadmin may read the restricted directory
+// for oversight, while staff/admin alone may operate donor workflows.
+const authorizeBloodDonorReader = (req, res, next) => {
+    if (!["admin", "staff", "superadmin"].includes(req.user?.role)) {
+        return next(new AppError("Blood donor records are restricted to authorized donation staff.", 403));
+    }
+    return next();
+};
+
+const authorizeBloodDonorStaff = (req, res, next) => {
+    if (!["admin", "staff"].includes(req.user?.role)) {
+        return next(new AppError("Blood donor records are restricted to authorized donation staff.", 403));
+    }
+    return next();
+};
+
+const authorizeBloodDonorAdmin = (req, res, next) => {
+    if (req.user?.role !== "admin") {
+        return next(new AppError("Only an administrator can delete donor records.", 403));
+    }
+    return next();
+};
 
 // Public routes
 router.post("/register",  registerDonor);
 
 
-router.get("/", verifyToken, authorizeRoles('admin', 'staff','it'), getAllDonors);
+router.get("/", verifyToken, authorizeBloodDonorReader, getAllDonors);
 
-router.put("/:donorId", verifyToken, authorizeRoles('admin', 'it'), updateDonor);
+router.put("/:donorId", verifyToken, authorizeBloodDonorStaff, updateDonor);
 
 router.patch(
   "/:donorId/status",
   verifyToken,
-  authorizeRoles('admin', 'staff'),
+  authorizeBloodDonorStaff,
   updateDonorStatus
 );
 
-router.delete("/:donorId", verifyToken, authorizeRoles('admin', 'it'), deleteDonor);
+router.delete("/:donorId", verifyToken, authorizeBloodDonorAdmin, deleteDonor);
 
-
-router.get(
-  "/blood-group/:bloodGroup",
-  verifyToken,
-  authorizeRoles('admin','staff', 'it'),
-  getDonorsByBloodGroup
-);
 
 router.get(
   "/schedule/upcoming",
   verifyToken,
-  authorizeRoles('admin', 'staff', 'it'),
+  authorizeBloodDonorReader,
   getUpcomingDonations
 );
 
 router.get(
   "/reports/statistics",
   verifyToken,
- authorizeRoles('admin', 'it'),
+ authorizeBloodDonorReader,
   getDonationStats
 );
 

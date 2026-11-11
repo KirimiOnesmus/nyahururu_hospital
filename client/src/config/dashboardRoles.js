@@ -64,7 +64,7 @@ export const DASHBOARD_NAV = [
       {
         title: "Donations",
         path: "/dashboard/donations",
-        roles: ["superadmin", "it", "admin"],
+        roles: ["superadmin", "admin", "staff"],
         icon: BiSolidDonateHeart,
       },
     ],

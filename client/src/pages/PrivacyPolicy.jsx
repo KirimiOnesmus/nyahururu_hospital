@@ -133,6 +133,34 @@ const PrivacyPolicy = () => {
                   require access for authorised purposes and appropriate
                   confidentiality and security measures are applied.
                 </p>
+
+                <p className="mt-3">
+                  For blood donor registration, the public form collects your
+                  name, email address, phone number and preferred appointment
+                  details to manage the request and contact you. It does not
+                  request your age, gender, National ID, weight, blood group,
+                  medical history or medication details. Identity verification
+                  and eligibility or health screening are handled by the
+                  donation team in person where needed.
+                </p>
+
+                <p className="mt-3">
+                  Donor contact and appointment records are available to
+                  authorised donation programme staff for management and to the
+                  system superadmin for read-only oversight of limited contact,
+                  appointment and consent information. IT and other
+                  application roles are not authorized to retrieve donor
+                  records through the website APIs. Health screening details and
+                  identity-document numbers are not included in donor directory
+                  responses. Views and changes to donor records are recorded in
+                  the system audit log. Consent
+                  acknowledgements are stored with the notice version and the
+                  time they were recorded. Donor records are retained only for
+                  as long as reasonably necessary for the registration and
+                  donation programme purposes, or as required or permitted by
+                  law; records no longer required may be securely deleted or
+                  anonymised in line with Hospital requirements.
+                </p>
               </section>
 
               <section>

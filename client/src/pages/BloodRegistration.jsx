@@ -6,10 +6,6 @@ import {
   FaUser,
   FaEnvelope,
   FaPhone,
-  FaIdCard,
-  FaClock,
-  FaWeightHanging,
-  FaNotesMedical,
   FaShieldAlt,
   FaExclamationTriangle,
   FaPaperPlane,
@@ -17,15 +13,11 @@ import {
 import { Header, Footer } from "../common/layouts";
 import api from "../api/axios";
 import notify from "../common/utils/notify";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const inputClass =
   "w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm " +
   "outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 transition-all placeholder:text-slate-300";
-
-const selectClass =
-  "w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm " +
-  "outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 transition-all";
 
 const labelClass = "text-xs font-bold uppercase tracking-widest text-slate-500";
 
@@ -33,18 +25,12 @@ const INIT = {
   fullName: "",
   email: "",
   phone: "",
-  gender: "",
-  age: "",
-  weight: "",
-  nationalId: "",
-  bloodGroup: "",
-  healthConditions: "",
-  medications: "",
   donationDate: "",
   donationTime: "",
   consentDonate: false,
   consentTest: false,
   consentTerms: false,
+  consentPrivacy: false,
 };
 
 
@@ -79,19 +65,13 @@ const BloodRegistration = () => {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
       e.push("Please enter a valid email address");
     if (!formData.phone.trim()) e.push("Phone Number is required");
-    if (!formData.gender) e.push("Gender is required");
-    if (!formData.age) e.push("Age is required");
-    if (!formData.weight) e.push("Weight is required");
-    if (!formData.nationalId.trim()) e.push("National ID is required");
     if (!formData.donationDate) e.push("Donation date is required");
     if (!formData.donationTime) e.push("Donation time is required");
-    const age = parseInt(formData.age);
-    if (age < 16 || age > 70) e.push("Age must be between 16 and 70 years");
-    if (parseInt(formData.weight) < 50) e.push("Weight must be at least 50 kg");
     if (!formData.consentDonate) e.push("Blood donation consent is required");
     if (!formData.consentTest)
       e.push("Infectious Disease Test consent is required");
     if (!formData.consentTerms) e.push("Hospital Terms consent is required");
+    if (!formData.consentPrivacy) e.push("Donor privacy notice acknowledgment is required");
     return e;
   };
 
@@ -107,8 +87,6 @@ const BloodRegistration = () => {
     try {
       const response = await api.post("/blood-donation/register", {
         ...formData,
-        age: parseInt(formData.age),
-        weight: parseInt(formData.weight),
       });
       if (response.data.success) {
         notify.success("Registration successful!");
@@ -268,105 +246,18 @@ const BloodRegistration = () => {
                 </Field>
               </div>
 
-              <div className="grid sm:grid-cols-3 gap-5">
-                <Field label="Gender" required>
-                  <select
-                    name="gender"
-                    value={formData.gender}
-                    onChange={handleInputChange}
-                    className={selectClass}
-                  >
-                    <option value="">Select gender</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </Field>
-
-                <Field label="Blood Group">
-                  <select
-                    name="bloodGroup"
-                    value={formData.bloodGroup}
-                    onChange={handleInputChange}
-                    className={selectClass}
-                  >
-                    <option value="">Optional</option>
-                    {["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"].map(
-                      (g) => (
-                        <option key={g} value={g}>
-                          {g}
-                        </option>
-                      ),
-                    )}
-                  </select>
-                </Field>
-
-                <Field label="National ID" required>
-                  <input
-                    type="text"
-                    name="nationalId"
-                    placeholder="ID Number"
-                    value={formData.nationalId}
-                    onChange={handleInputChange}
-                    className={inputClass}
-                  />
-                </Field>
-              </div>
             </div>
           </section>
 
-  
           <section>
-            <SectionHeader icon={FaNotesMedical} title="Health Information" />
-            <div className="space-y-5">
-              <div className="grid sm:grid-cols-2 gap-5">
-                <Field label="Age (16 – 70)" required>
-                  <input
-                    type="number"
-                    name="age"
-                    placeholder="Years"
-                    value={formData.age}
-                    onChange={handleInputChange}
-                    min="16"
-                    max="70"
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Weight (kg, min 50)" required>
-                  <input
-                    type="number"
-                    name="weight"
-                    placeholder="kg"
-                    value={formData.weight}
-                    onChange={handleInputChange}
-                    min="50"
-                    className={inputClass}
-                  />
-                </Field>
-              </div>
-
-              <Field label="Existing Health Conditions">
-                <textarea
-                  name="healthConditions"
-                  placeholder="List any existing health conditions, or write 'None'"
-                  value={formData.healthConditions}
-                  onChange={handleInputChange}
-                  rows={3}
-                  className={`${inputClass} resize-none`}
-                />
-              </Field>
-
-              <Field label="Current Medications">
-                <textarea
-                  name="medications"
-                  placeholder="List any current medications, or write 'None'"
-                  value={formData.medications}
-                  onChange={handleInputChange}
-                  rows={3}
-                  className={`${inputClass} resize-none`}
-                />
-              </Field>
-            </div>
+            <SectionHeader icon={FaShieldAlt} title="Eligibility & Screening" />
+            <p className="text-sm text-slate-600 leading-relaxed">
+              A trained member of the blood donation team will confirm eligibility,
+              identity and any health screening information in person. Please do
+              not submit your age, gender, blood group, health conditions,
+              medication details, National ID, weight or other screening
+              information in this public form.
+            </p>
           </section>
 
           
@@ -415,7 +306,26 @@ const BloodRegistration = () => {
                 {
                   name: "consentTerms",
                   title: "I agree to hospital terms and conditions",
-                  body: "I have read and agree to the hospital's privacy policy and terms of service.",
+                  body: "I have read and agree to the hospital's terms of service.",
+                  required: true,
+                },
+                {
+                  name: "consentPrivacy",
+                  title: "I acknowledge the blood donor privacy notice",
+                  body: (
+                    <>
+                      Use my name and contact details to manage this registration and
+                      contact me about my preferred appointment. Authorized donation
+                      programme staff manage donor records; system superadmin may
+                      review limited contact, appointment and consent records in
+                      read-only mode.
+                      Donor record views and changes are logged. Donor privacy notice
+                      v1.0 (11 November 2026).
+                      Records are retained only as long as needed for these purposes
+                      or as required or permitted by law.
+                      See the <Link to="/privacy-policy" className="font-semibold text-red-700 underline">Privacy Policy</Link>.
+                    </>
+                  ),
                   required: true,
                 },
               ].map(({ name, title, body, required }) => (

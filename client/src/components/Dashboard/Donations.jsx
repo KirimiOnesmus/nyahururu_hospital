@@ -10,22 +10,16 @@ import {
   FaExclamationTriangle,
   FaPhone,
   FaEnvelope,
-  FaIdCard,
   FaChevronDown,
   FaEdit,
   FaTrash,
   FaSave,
-  FaMale,
-  FaFemale,
-  FaWeight,
-  FaBirthdayCake,
   FaSearch,
-  FaTimes,
   FaPlus,
 } from "react-icons/fa";
 import notify from "../../common/utils/notify";
 import {
-  Modal, Spinner, EmptyState, StatCard, Button, SearchBox, Input, TextArea, Select, FormField, PageHeader, StatusBadge as SharedStatusBadge, Avatar, DataTable,
+  Modal, Spinner, EmptyState, StatCard,
 } from "../../common/components";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
@@ -87,21 +81,17 @@ const BloodBadge = ({ group }) =>
 
 
 const BloodDistribution = ({ stats }) => {
-  const max = Math.max(
-    ...BLOOD_GROUPS.map((bg) => stats.find((s) => s.id === bg)?.count || 0),
-    1,
-  );
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-6">
       <div className="flex items-center gap-2 mb-5">
         <FaTint className="text-red-500" />
         <h3 className="font-bold text-gray-800 text-sm uppercase tracking-wider">
-          Blood Group Distribution
+          Reported blood groups (counts of 5+)
         </h3>
       </div>
       <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
         {BLOOD_GROUPS.map((bg) => {
-          const count = stats.find((s) => s.id === bg)?.count || 0;
+          const count = stats.find((s) => s.id === bg)?.count;
 
           return (
             <div
@@ -110,7 +100,7 @@ const BloodDistribution = ({ stats }) => {
             >
               <div className="w-full  h-24 flex flex-col justify-end overflow-hidden">
                 <span className="text-2xl font-bold text-red-600">{bg}</span>
-                <span className="text-sm text-gray-600 mt-1">{count}</span>
+                <span className="text-sm text-gray-600 mt-1">{count ?? "—"}</span>
               </div>
             </div>
           );
@@ -120,10 +110,10 @@ const BloodDistribution = ({ stats }) => {
   );
 };
 
-const DonorRow = ({ donor, expanded, onToggle, onEdit, onDelete }) => (
+const DonorRow = ({ donor, expanded, onToggle, onEdit, onDelete, canManage, canDelete }) => (
   <div className="bg-white rounded-2xl overflow-hidden  transition-all">
     <button
-      className="w-full text-left p-4 grid grid-cols-2 md:grid-cols-6 gap-4 items-center hover:bg-gray-50/80 transition-colors cursor-pointer"
+      className="w-full text-left p-4 grid grid-cols-2 md:grid-cols-4 gap-4 items-center hover:bg-gray-50/80 transition-colors cursor-pointer"
       onClick={onToggle}
     >
       <div className="col-span-2 md:col-span-1 flex items-center gap-3">
@@ -138,10 +128,6 @@ const DonorRow = ({ donor, expanded, onToggle, onEdit, onDelete }) => (
         </div>
       </div>
 
-      <div className="hidden md:block">
-        <BloodBadge group={donor.bloodGroup} />
-      </div>
-
       <div className="hidden md:flex flex-col gap-1">
         <span className="flex items-center gap-1.5 text-xs text-gray-600">
           <FaPhone className="text-gray-300 text-[10px]" />
@@ -152,22 +138,6 @@ const DonorRow = ({ donor, expanded, onToggle, onEdit, onDelete }) => (
           {donor.email}
         </span>
       </div>
-
-      <div className="hidden md:flex flex-col gap-1">
-        <span className="flex items-center gap-1.5 text-xs text-gray-600 capitalize">
-          {donor.gender === "male" ? (
-            <FaMale className="text-blue-400" />
-          ) : (
-            <FaFemale className="text-pink-400" />
-          )}
-          {donor.gender}
-        </span>
-        <span className="flex items-center gap-1.5 text-xs text-gray-400">
-          <FaBirthdayCake className="text-gray-300 text-[10px]" />
-          {donor.age} yrs
-        </span>
-      </div>
-
 
       <div className="hidden md:block">
         <p className="text-xs font-semibold text-gray-800">
@@ -190,62 +160,46 @@ const DonorRow = ({ donor, expanded, onToggle, onEdit, onDelete }) => (
 
     {expanded && (
       <div className="border-t border-gray-100 bg-gray-50/60 p-5">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-5">
-          <div>
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
-              Personal
-            </p>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-2 text-gray-700">
-                <FaIdCard className="text-gray-300 shrink-0" />
-                <span className="text-gray-400 text-xs">National ID:</span>
-                <span className="font-medium text-xs">
-                  {donor.nationalId || "—"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-gray-700">
-                <FaWeight className="text-gray-300 shrink-0" />
-                <span className="text-gray-400 text-xs">Weight:</span>
-                <span className="font-medium text-xs">
-                  {donor.weight ? `${donor.weight} kg` : "—"}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="md:col-span-2">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
-              Medical
-            </p>
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div>
-                <p className="text-gray-400 mb-1">Health Conditions</p>
-                <p className="text-gray-800">
-                  {donor.healthConditions || "None reported"}
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-400 mb-1">Medications</p>
-                <p className="text-gray-800">
-                  {donor.medications || "None reported"}
-                </p>
-              </div>
-            </div>
+        <div className="mb-5 rounded-xl border border-gray-200 bg-white p-4">
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-3">
+            Consent record · Donor privacy notice v{donor.consentPrivacyVersion || "—"}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-700">
+            {[
+              ["Privacy notice acknowledged", donor.consentPrivacy, donor.consentPrivacyAt],
+              ["Donation consent recorded", donor.consentDonate, donor.consentDonateAt],
+              ["Testing consent recorded", donor.consentTest, donor.consentTestAt],
+              ["Terms accepted", donor.consentTerms, donor.consentTermsAt],
+            ].map(([label, accepted, recordedAt]) => (
+              <p key={label}>
+                <span className="font-semibold">{label}:</span>{" "}
+                {accepted && recordedAt
+                  ? new Date(recordedAt).toLocaleString("en-KE")
+                  : "Not recorded"}
+              </p>
+            ))}
           </div>
         </div>
-        <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
-          <button
-            onClick={() => onEdit(donor)}
-            className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors"
-          >
-            <FaEdit /> Update Status
-          </button>
-          <button
-            onClick={() => onDelete(donor.donorId)}
-            className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors"
-          >
-            <FaTrash /> Delete
-          </button>
-        </div>
+        {(canManage || canDelete) && (
+          <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
+            {canManage && (
+              <button
+                onClick={() => onEdit(donor)}
+                className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors"
+              >
+                <FaEdit /> Update Status
+              </button>
+            )}
+            {canDelete && (
+              <button
+                onClick={() => onDelete(donor.donorId)}
+                className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors"
+              >
+                <FaTrash /> Delete
+              </button>
+            )}
+          </div>
+        )}
       </div>
     )}
   </div>
@@ -253,6 +207,9 @@ const DonorRow = ({ donor, expanded, onToggle, onEdit, onDelete }) => (
 
 
 const Donations = () => {
+  const currentRole = localStorage.getItem("role");
+  const canManageDonors = ["admin", "staff"].includes(currentRole);
+  const canDeleteRecords = currentRole === "admin";
   const [donors, setDonors] = useState([]);
   const [upcoming, setUpcoming] = useState([]);
   const [stats, setStats] = useState(null);
@@ -262,8 +219,6 @@ const Donations = () => {
   const [expandedDonor, setExpandedDonor] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [filterBG, setFilterBG] = useState("");
-  const [filterGender, setFilterGender] = useState("");
 
   const [statusModal, setStatusModal] = useState(false);
   const [editingDonor, setEditingDonor] = useState(null);
@@ -288,8 +243,6 @@ const Donations = () => {
         api.get("/blood-donation", {
           params: {
             status: filterStatus || undefined,
-            bloodGroup: filterBG || undefined,
-            gender: filterGender || undefined,
           },
         }),
         api.get("/blood-donation/schedule/upcoming"),
@@ -305,7 +258,7 @@ const Donations = () => {
     } finally {
       setLoading(false);
     }
-  }, [filterStatus, filterBG, filterGender]);
+  }, [filterStatus]);
 
   useEffect(() => {
     fetchData();
@@ -327,8 +280,7 @@ const Donations = () => {
         d.fullName?.toLowerCase().includes(q) ||
         d.email?.toLowerCase().includes(q) ||
         d.phone?.includes(q) ||
-        d.donorId?.toLowerCase().includes(q) ||
-        d.bloodGroup?.toLowerCase().includes(q),
+        d.donorId?.toLowerCase().includes(q),
     );
   }, [donors, searchTerm]);
 
@@ -555,7 +507,7 @@ const Donations = () => {
                   <input
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search name, email, phone, ID, blood group…"
+                  placeholder="Search name, email, phone, or donor reference…"
                     className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent"
                   />
                 </div>
@@ -571,14 +523,6 @@ const Donations = () => {
                         ["completed", "Completed"],
                         ["cancelled", "Cancelled"],
                         ["deferred", "Deferred"],
-                      ],
-                    },
-                    {
-                      val: filterBG,
-                      set: setFilterBG,
-                      opts: [
-                        ["", "All Blood Groups"],
-                        ...BLOOD_GROUPS.map((b) => [b, b]),
                       ],
                     },
                    
@@ -607,16 +551,18 @@ const Donations = () => {
                 <div className="space-y-3">
                   {filteredDonors.map((donor) => (
                     <DonorRow
-                      key={donor.id}
+                      key={donor.donorId}
                       donor={donor}
-                      expanded={expandedDonor === donor.id}
+                      expanded={expandedDonor === donor.donorId}
                       onToggle={() =>
                         setExpandedDonor(
-                          expandedDonor === donor.id ? null : donor.id,
+                          expandedDonor === donor.donorId ? null : donor.donorId,
                         )
                       }
                       onEdit={openStatusModal}
                       onDelete={handleDeleteDonor}
+                      canManage={canManageDonors}
+                      canDelete={canDeleteRecords}
                     />
                   ))}
                 </div>
@@ -630,7 +576,7 @@ const Donations = () => {
               {loading ? (
                 <Spinner />
               ) : upcoming.length === 0 ? (
-                <Empty
+                <EmptyState
                   icon={FaCalendarCheck}
                   text="No upcoming donations scheduled"
                 />
@@ -638,7 +584,7 @@ const Donations = () => {
                 <div className="space-y-3">
                   {upcoming.map((d) => (
                     <div
-                      key={d.id}
+                      key={d.donorId}
                       className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center gap-4 transition-shadow"
                     >
                       <div className="w-11 h-11 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
@@ -649,7 +595,6 @@ const Donations = () => {
                           {d.fullName}
                         </p>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <BloodBadge group={d.bloodGroup} />
                           <span className="text-xs text-gray-400 flex items-center gap-1">
                             <FaPhone className="text-[10px]" />
                             {d.phone}
@@ -687,12 +632,14 @@ const Donations = () => {
                     Displayed live on the public donation page
                   </p>
                 </div>
-                <button
-                  onClick={() => openUrgentModal()}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition-colors shadow-red-200 cursor-pointer"
-                >
-                  <FaPlus className="text-xs" /> New Request
-                </button>
+                {canManageDonors && (
+                  <button
+                    onClick={() => openUrgentModal()}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition-colors shadow-red-200 cursor-pointer"
+                  >
+                    <FaPlus className="text-xs" /> New Request
+                  </button>
+                )}
               </div>
 
               {loading ? (
@@ -736,32 +683,34 @@ const Donations = () => {
                             {req.contactNumber}
                           </span>
                         </div>
-                        <div className="flex flex-col gap-2 shrink-0">
-                          <button
-                            onClick={() =>
-                              toggleUrgentStatus(req.id, req.isActive)
-                            }
-                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${req.isActive ? "bg-gray-200 text-gray-700 hover:bg-gray-300" : "bg-emerald-500 text-white hover:bg-emerald-600"}`}
-                          >
-                            {req.isActive ? "Deactivate" : "Activate"}
-                          </button>
-                          <button
-                            onClick={() => openUrgentModal(req)}
-                            className="px-3 py-1.5 bg-blue-500 text-white rounded-xl text-xs font-semibold hover:bg-blue-600 transition-colors cursor-pointer"
-                          >
-                            <FaEdit className="inline mr-1" />
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeleteUrgent(req.id)}
-                            className="px-3 py-1.5 bg-red-500 text-white rounded-xl text-xs font-semibold hover:bg-red-600 transition-colors cursor-pointer"
-                          >
-                            <FaTrash className="inline mr-1" />
-                            Delete
-                          </button>
+                        {canManageDonors && (
+                          <div className="flex flex-col gap-2 shrink-0">
+                            <button
+                              onClick={() => toggleUrgentStatus(req.id, req.isActive)}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${req.isActive ? "bg-gray-200 text-gray-700 hover:bg-gray-300" : "bg-emerald-500 text-white hover:bg-emerald-600"}`}
+                            >
+                              {req.isActive ? "Deactivate" : "Activate"}
+                            </button>
+                            <button
+                              onClick={() => openUrgentModal(req)}
+                              className="px-3 py-1.5 bg-blue-500 text-white rounded-xl text-xs font-semibold hover:bg-blue-600 transition-colors cursor-pointer"
+                            >
+                              <FaEdit className="inline mr-1" />
+                              Edit
+                            </button>
+                            {canDeleteRecords && (
+                              <button
+                                onClick={() => handleDeleteUrgent(req.id)}
+                                className="px-3 py-1.5 bg-red-500 text-white rounded-xl text-xs font-semibold hover:bg-red-600 transition-colors cursor-pointer"
+                              >
+                                <FaTrash className="inline mr-1" />
+                                Delete
+                              </button>
+                            )}
+                          </div>
+                        )}
                         </div>
                       </div>
-                    </div>
                   ))}
                 </div>
               )}

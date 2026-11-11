@@ -146,7 +146,7 @@ const ACTION_DEFINITIONS = [
   { title:"Logistics",          icon: FaTruck,              path:"/dashboard/logistics",     color:"bg-cyan-500",   roles:["superadmin","admin","it"]                              },
   { title:"Notices",            icon: FaBullhorn,           path:"/dashboard/notices",       color:"bg-violet-500", roles:["superadmin","admin","it","communication","research"]   },
   { title:"Tenders",            icon: FaGavel,              path:"/dashboard/tenders",       color:"bg-lime-600",   roles:["superadmin","admin","it","communication","research"]   },
-  { title:"Donations",          icon: BiSolidDonateHeart,   path:"/dashboard/donations",     color:"bg-rose-500",   roles:["superadmin","admin","it"]                              },
+  { title:"Donations",          icon: BiSolidDonateHeart,   path:"/dashboard/donations",     color:"bg-rose-500",   roles:["superadmin","admin","staff"]                       },
   { title:"Fraud Reports",      icon: FaExclamationTriangle,path:"/dashboard/fraud",         color:"bg-orange-600", roles:["superadmin","admin","it"]                              },
   { title:"Audit Logs",         icon: FaClipboardCheck,     path:"/dashboard/audit-logs",    color:"bg-slate-600",  roles:["superadmin"]                                          },
   { title:"View Feedback",      icon: FaComments,           path:"/dashboard/feedback",      color:"bg-fuchsia-500",roles:["superadmin","admin","it","communication"]              },

@@ -404,7 +404,7 @@ exports.sendFeedbackReplyEmail = async (
   );
 
 exports.sendDonorRegistrationEmail = async (donorData) => {
-  const { fullName, email, donationDate, donationTime, phone } = donorData;
+    const { fullName, email, donationDate, donationTime } = donorData;
   const formattedDate = new Date(donationDate).toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
@@ -425,7 +425,6 @@ exports.sendDonorRegistrationEmail = async (donorData) => {
       ${detailTable([
         ["Date", formattedDate],
         ["Time", donationTime],
-        ["Phone", phone || "Not provided"],
       ])}
     `),
     HMIS_NAME,
