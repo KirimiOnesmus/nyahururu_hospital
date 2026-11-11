@@ -1,6 +1,6 @@
 import { disconnectSocket } from "./socket";
 import api from './axios';
-import { rotateClientSessionId } from './session';
+import { announceSessionLogin, rotateClientSessionId } from './session';
 
 const toApiError = (error, fallback) => {
   const data = error.response?.data;
@@ -25,6 +25,7 @@ export const loginUser = async (email, password) => {
       localStorage.setItem('role', data.user.role);
       localStorage.setItem('collection', 'users');
     }
+    if (data.user?.id != null) announceSessionLogin({ accountId: data.user.id, collection: 'users' });
     return data;
   } catch (error) {
     throw toApiError(error, 'Login failed');
@@ -78,6 +79,8 @@ export const loginResearcher = async (email, password) => {
     });
 
         const data = response.data.data || response.data;
+
+    if (data.researcher?.id != null) announceSessionLogin({ accountId: data.researcher.id, collection: 'researchers' });
 
     if (data.researcher) {
       localStorage.setItem('role', data.researcher.role || 'researcher');

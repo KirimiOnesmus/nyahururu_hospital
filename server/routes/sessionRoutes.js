@@ -17,7 +17,12 @@ router.post("/activity", protectEither, async (req, res, next) => {
         message: "This session ended because your account became active in another device, browser, or tab.",
       });
     }
-    return res.status(200).json({ success: true, lastActiveAt: new Date().toISOString() });
+    return res.status(200).json({
+      success: true,
+      accountId: String(account.id),
+      collection: account.collection,
+      lastActiveAt: new Date().toISOString(),
+    });
   } catch (error) {
     return next(error);
   }

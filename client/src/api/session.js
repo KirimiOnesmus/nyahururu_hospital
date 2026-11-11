@@ -1,6 +1,8 @@
 const STAFF_KEYS = ["role", "collection"];
 const RESEARCHER_KEYS = ["role", "collection", "researcher"];
 const CLIENT_SESSION_KEY = "ncrh.clientSessionId";
+const CLIENT_ACCOUNT_KEY = "ncrh.clientSessionAccount";
+const LOGIN_NOTICE_KEY = "ncrh.sessionLoginNotice";
 const TAB_INSTANCE_ID = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
 
 const createClientSessionId = () => {
@@ -18,6 +20,15 @@ let clientSessionId = sessionStorage.getItem(CLIENT_SESSION_KEY) || createClient
 sessionStorage.setItem(CLIENT_SESSION_KEY, clientSessionId);
 
 let sessionChannel = null;
+const handleLoginNotice = (notice) => {
+  if (notice?.type !== "login" || !localStorage.getItem("role")) return;
+  const currentAccount = sessionStorage.getItem(CLIENT_ACCOUNT_KEY);
+  const eventAccount = `${notice.collection}:${notice.accountId}`;
+  if (currentAccount === eventAccount && notice.sessionId !== clientSessionId) {
+    window.location.assign("/hmis?reason=session-elsewhere");
+  }
+};
+
 if (typeof BroadcastChannel !== "undefined") {
   sessionChannel = new BroadcastChannel("ncrh-client-session-tabs");
   sessionChannel.addEventListener("message", (event) => {
@@ -26,8 +37,15 @@ if (typeof BroadcastChannel !== "undefined") {
       sessionStorage.setItem(CLIENT_SESSION_KEY, clientSessionId);
       sessionChannel.postMessage({ type: "claim", tabId: TAB_INSTANCE_ID, sessionId: clientSessionId });
     }
+
+    handleLoginNotice(event.data);
   });
   sessionChannel.postMessage({ type: "claim", tabId: TAB_INSTANCE_ID, sessionId: clientSessionId });
+} else {
+  window.addEventListener("storage", (event) => {
+    if (event.key !== LOGIN_NOTICE_KEY || !event.newValue) return;
+    try { handleLoginNotice(JSON.parse(event.newValue)); } catch { /* Ignore malformed cross-tab notice. */ }
+  });
 }
 
 export const getClientSessionId = () => clientSessionId;
@@ -43,6 +61,23 @@ export const setClientSessionId = (sessionId) => {
   if (typeof sessionId !== "string" || !sessionId) return;
   clientSessionId = sessionId;
   sessionStorage.setItem(CLIENT_SESSION_KEY, sessionId);
+};
+
+export const setClientSessionAccount = ({ accountId, collection }) => {
+  const account = `${collection}:${accountId}`;
+  sessionStorage.setItem(CLIENT_ACCOUNT_KEY, account);
+};
+
+export const announceSessionLogin = ({ accountId, collection }) => {
+  setClientSessionAccount({ accountId, collection });
+  const notice = {
+    type: "login",
+    accountId: String(accountId),
+    collection,
+    sessionId: clientSessionId,
+  };
+  if (sessionChannel) sessionChannel.postMessage(notice);
+  else localStorage.setItem(LOGIN_NOTICE_KEY, JSON.stringify({ ...notice, nonce: Date.now() }));
 };
 
 export const setStaffSession = ({ role }) => {
