@@ -60,18 +60,19 @@ module.exports = (sequelize, DataTypes) => {
       },
       nationalId: {
         type: DataTypes.STRING(30),
-        allowNull: false,
+        // Collected by the blood office only when operationally required;
+        // it is deliberately not part of public self-registration.
+        allowNull: true,
         unique: true,
-        validate: { notEmpty: { msg: "National ID is required" } },
       },
       gender: {
         type: DataTypes.ENUM(...GENDER_VALUES),
-        allowNull: false,
+        allowNull: true,
       },
 
       age: {
         type: DataTypes.INTEGER.UNSIGNED,
-        allowNull: false,
+        allowNull: true,
         validate: {
           min: { args: [16], msg: "Age must be at least 16" },
           max: { args: [70], msg: "Age must not exceed 70" },
@@ -79,7 +80,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       weight: {
         type: DataTypes.FLOAT,
-        allowNull: false,
+        allowNull: true,
         validate: { min: { args: [50], msg: "Weight must be at least 50 kg" } },
       },
       bloodGroup: {
@@ -89,13 +90,13 @@ module.exports = (sequelize, DataTypes) => {
       },
       healthConditions: {
         type: DataTypes.TEXT,
-        allowNull: false,
-        defaultValue: "",
+        allowNull: true,
+        defaultValue: null,
       },
       medications: {
         type: DataTypes.TEXT,
-        allowNull: false,
-        defaultValue: "",
+        allowNull: true,
+        defaultValue: null,
       },
 
       donationDate: {
@@ -145,6 +146,31 @@ module.exports = (sequelize, DataTypes) => {
             if (value !== true) throw new Error("Terms consent is required");
           },
         },
+      },
+      consentPrivacy: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
+      consentPrivacyVersion: {
+        type: DataTypes.STRING(30),
+        allowNull: true,
+      },
+      consentPrivacyAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      consentDonateAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      consentTestAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      consentTermsAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
       },
 
       status: {

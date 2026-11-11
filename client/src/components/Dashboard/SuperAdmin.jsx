@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { FaHeartbeat, FaUsers, FaPowerOff, FaSyncAlt } from "react-icons/fa";
+import { FaHeartbeat, FaUsers, FaPowerOff, FaSyncAlt, FaTint } from "react-icons/fa";
 import api from "../../api/axios";
 import notify from "../../common/utils/notify";
 
@@ -76,6 +76,12 @@ export default function SuperAdmin() {
             <div className="flex items-center gap-3"><FaUsers className="text-primary" /><h2 className="font-semibold text-ink">User accounts</h2></div>
             <p className="mt-4 text-sm text-ink-muted">Review staff accounts and add users. The protected superadmin account is excluded from editing and deletion.</p>
             <Link className="mt-4 inline-flex rounded-xl bg-primary px-4 py-2 font-semibold text-white" to="/dashboard/users">Open user management</Link>
+          </article>
+
+          <article className="rounded-2xl border border-line bg-surface p-5">
+            <div className="flex items-center gap-3"><FaTint className="text-primary" /><h2 className="font-semibold text-ink">Blood donation</h2></div>
+            <p className="mt-4 text-sm text-ink-muted">Review donor contact, appointment, and consent records. Health screening and identity-document details are excluded.</p>
+            <Link className="mt-4 inline-flex rounded-xl bg-primary px-4 py-2 font-semibold text-white" to="/dashboard/donations">Open read-only donor overview</Link>
           </article>
         </section>
 

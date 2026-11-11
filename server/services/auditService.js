@@ -67,6 +67,8 @@ const log = async ({
   changes,
   metadata,
   actor,
+  transaction,
+  required = false,
 }) => {
   try {
     const caller = actor || extractCaller(req);
@@ -86,10 +88,9 @@ const log = async ({
       severity: sev,
       changes: changes || null,
       metadata: { ...(caller.metadata || {}), ...(metadata || {}) } || null,
-    });
+    }, transaction ? { transaction } : undefined);
 
-
-    emitSocket("audit:new", {
+    const publishAuditEvent = () => emitSocket("audit:new", {
       id: entry.id,
       timestamp: entry.createdAt,
       user: {
@@ -106,9 +107,14 @@ const log = async ({
       userAgent: client.userAgent,
       sessionId: client.sessionId,
     });
+
+    if (transaction) transaction.afterCommit(publishAuditEvent);
+    else publishAuditEvent();
+    return entry;
   } catch (err) {
-  
     console.error("[AuditService] Failed to write audit log:", err.message);
+    if (required) throw err;
+    return null;
   }
 };
 

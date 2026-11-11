@@ -26,7 +26,7 @@ const STEPS = [
     bg: "bg-red-50",
     border: "border-red-100",
     title: "Registration",
-    body: "Complete a simple registration form with your personal information, medical history, and preferred donation time.",
+    body: "Share your name and contact details and request a preferred donation time. Eligibility and health screening take place in person with the donation team.",
   },
   {
     num: "2",
