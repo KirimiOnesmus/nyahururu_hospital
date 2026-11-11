@@ -7,6 +7,7 @@ import notify from "../../common/utils/notify";
 export default function SuperAdmin() {
   const [health, setHealth] = useState(null);
   const [maintenance, setMaintenance] = useState(false);
+  const [settingsAvailable, setSettingsAvailable] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -17,7 +18,10 @@ export default function SuperAdmin() {
         api.get("/system/health"), api.get("/system/settings"),
       ]);
       if (healthResult.status === "fulfilled") setHealth(healthResult.value.data);
-      if (settingsResult.status === "fulfilled") setMaintenance(settingsResult.value.data.maintenanceMode);
+      if (settingsResult.status === "fulfilled") {
+        setMaintenance(settingsResult.value.data.maintenanceMode);
+        setSettingsAvailable(settingsResult.value.data.settingsAvailable !== false);
+      }
       if (healthResult.status === "rejected" && settingsResult.status === "rejected") {
         notify.error("Unable to load system status");
       }
@@ -62,7 +66,8 @@ export default function SuperAdmin() {
             <div className="flex items-center gap-3"><FaPowerOff className="text-primary" /><h2 className="font-semibold text-ink">System availability</h2></div>
             <p className="mt-4 text-2xl font-bold text-ink">{maintenance ? "Maintenance mode" : "Online"}</p>
             <p className="mt-1 text-sm text-ink-muted">Maintenance mode pauses normal API access while preserving sign-in and system controls.</p>
-            <button className="mt-4 rounded-xl bg-primary px-4 py-2 font-semibold text-white disabled:opacity-50" onClick={toggleMaintenance} disabled={saving}>
+            {!settingsAvailable && <p className="mt-2 text-sm font-medium text-amber-700">Run the database migrations to enable maintenance controls.</p>}
+            <button className="mt-4 rounded-xl bg-primary px-4 py-2 font-semibold text-white disabled:opacity-50" onClick={toggleMaintenance} disabled={saving || !settingsAvailable}>
               {saving ? "Updating…" : maintenance ? "Bring system online" : "Enable maintenance mode"}
             </button>
           </article>
