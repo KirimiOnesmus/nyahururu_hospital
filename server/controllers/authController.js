@@ -13,6 +13,7 @@ const {
   setAuthCookies,
   revokeAuthSession,
 } = require("../utils/tokenService");
+const { startSession, assertSessionActive } = require("../services/activeSessionService");
 
 
 exports.login = asyncHandler(async (req, res) => {
@@ -88,7 +89,8 @@ exports.login = asyncHandler(async (req, res) => {
   await user.save();
 
   const { token: accessToken } = signAccessToken(user);
-  const { token: refreshToken } = signRefreshToken(user);
+  await startSession({ req, res, accountId: user.id, collection: "users" });
+  const { token: refreshToken } = signRefreshToken(user, { collection: "users" });
 
 
   setAuthCookies(res, accessToken, refreshToken);
@@ -163,6 +165,14 @@ exports.refresh = asyncHandler(async (req, res) => {
     throw new AppError("Account not found or deactivated.", 401);
   }
 
+  if (!(await assertSessionActive(req, res, { id: user.id, collection: "users", jti: decoded.jti }))) {
+    return res.status(401).json({
+      success: false,
+      code: "SESSION_ACTIVE_ELSEWHERE",
+      message: "This session ended because your account became active in another device, browser, or tab.",
+    });
+  }
+
 
   await TokenBlacklist.upsert({
     jti: decoded.jti,
@@ -170,7 +180,7 @@ exports.refresh = asyncHandler(async (req, res) => {
   });
 
   const { token: accessToken } = signAccessToken(user);
-  const { token: newRefreshToken } = signRefreshToken(user);
+  const { token: newRefreshToken } = signRefreshToken(user, { collection: "users" });
   setAuthCookies(res, accessToken, newRefreshToken);
 
   return sendSuccess(res, 200, "Token refreshed");

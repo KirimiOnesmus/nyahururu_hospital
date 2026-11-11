@@ -53,6 +53,18 @@ const LoginForm = () => {
       );
     }
 
+    if (searchParams.get("reason") === "session-elsewhere") {
+      notify.info("You were signed out because this account became active in another device, browser, or tab.");
+      const params = new URLSearchParams(searchParams);
+      params.delete("reason");
+      const query = params.toString();
+      window.history.replaceState(
+        {},
+        document.title,
+        `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`
+      );
+    }
+
     const isVerifying = searchParams.get("verify");
     const token = searchParams.get("token");
     const emailParam = searchParams.get("email");

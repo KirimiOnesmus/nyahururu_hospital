@@ -47,7 +47,7 @@ const init = (httpServer, allowedOrigins = []) => {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET, JWT_VERIFY_OPTIONS);
       if (decoded.jti) {
-        const { TokenBlacklist, User, Researcher } = require("../sequelize/models");
+        const { TokenBlacklist, User, Researcher, ActiveSession } = require("../sequelize/models");
         const blacklisted = await TokenBlacklist.findOne({ where: { jti: decoded.jti } });
         if (blacklisted) {
           socket.data.role = null;
@@ -67,6 +67,18 @@ const init = (httpServer, allowedOrigins = []) => {
             return next();
           }
         }
+
+        const sessionId = socket.handshake.auth?.sessionId;
+        if (sessionId) {
+          const session = await ActiveSession.findByPk(sessionId);
+          const collection = decoded.collection === "researchers" ? "researchers" : "users";
+          if (!session || session.revokedAt || String(session.accountId) !== String(decoded.id) || session.collection !== collection) {
+            const error = new Error("This session ended because your account became active elsewhere.");
+            error.data = { code: "SESSION_ACTIVE_ELSEWHERE" };
+            return next(error);
+          }
+          socket.data.activeSessionId = sessionId;
+        }
       }
       socket.data.user = decoded;
       socket.data.role = decoded.role || null;
@@ -78,6 +90,7 @@ const init = (httpServer, allowedOrigins = []) => {
   });
 
   io.on("connection", (socket) => {
+    if (socket.data.activeSessionId) socket.join(`active-session:${socket.data.activeSessionId}`);
     socket.on("join:role", (role) => {
       if (typeof role !== "string" || !role) return;
       if (socket.data.role && socket.data.role === role) {

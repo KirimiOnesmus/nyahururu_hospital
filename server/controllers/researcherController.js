@@ -1,6 +1,7 @@
 const authService   = require("../services/researcherService")
 const { asyncHandler, sendSuccess } = require("../utils/appError");
 const { setAuthCookies, revokeAuthSession, signRefreshToken } = require("../utils/tokenService");
+const { startSession } = require("../services/activeSessionService");
 
 exports.register = asyncHandler(async (req, res) => {
   const result = await authService.register(req.body);
@@ -18,7 +19,8 @@ exports.verifyEmail = asyncHandler(async (req, res) => {
 
 exports.login = asyncHandler(async (req, res) => {
   const { token, researcher } = await authService.login(req.body);
-  const { token: refreshToken } = signRefreshToken({ id: researcher.id });
+  await startSession({ req, res, accountId: researcher.id, collection: "researchers" });
+  const { token: refreshToken } = signRefreshToken(researcher, { collection: "researchers" });
   setAuthCookies(res, token, refreshToken);
   sendSuccess(res, 200, "Login successful.", { researcher });
 });

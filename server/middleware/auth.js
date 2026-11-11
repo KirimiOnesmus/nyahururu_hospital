@@ -6,6 +6,13 @@ const JWT_VERIFY_OPTIONS = { algorithms: ["HS256"] };
 const { User, TokenBlacklist, Researcher } = require("../sequelize/models");
 const { AppError, asyncHandler } = require("../utils/appError");
 const { RESEARCHER_ROLES, RESEARCHER_STATUSES } = require("../constants/researchIndex");
+const { assertSessionActive } = require("../services/activeSessionService");
+
+const sendConcurrentSessionEnded = (res) => res.status(401).json({
+  success: false,
+  code: "SESSION_ACTIVE_ELSEWHERE",
+  message: "This session ended because your account became active in another device, browser, or tab.",
+});
 
 
 const extractToken = (req) => {
@@ -83,6 +90,8 @@ exports.verifyToken = asyncHandler(async (req, res, next) => {
 
   if (user.isActive === false) throw new AppError("Your account has been deactivated.", 403);
 
+  if (!(await assertSessionActive(req, res, decoded))) return sendConcurrentSessionEnded(res);
+
 
   const MUST_CHANGE_PASSWORD_ALLOWLIST = [
     { method: "POST", path: "/api/profile/change-password" },
@@ -151,6 +160,7 @@ exports.protectResearcher = asyncHandler(async (req, res, next) => {
   if (researcher.isActive === false) {
     throw new AppError("Your account has been deactivated.", 403);
   }
+  if (!(await assertSessionActive(req, res, decoded))) return sendConcurrentSessionEnded(res);
   if (researcher.status === RESEARCHER_STATUSES.SUSPENDED) {
     throw new AppError("Your account has been suspended. Please contact support.", 403);
   }
@@ -218,6 +228,8 @@ exports.protectEither = asyncHandler(async (req, res, next) => {
       throw new AppError("Your account has been suspended.", 403);
     }
 
+    if (!(await assertSessionActive(req, res, decoded))) return sendConcurrentSessionEnded(res);
+
     req.researcher = researcher;
     req.decodedToken = decoded;
   } else {
@@ -225,6 +237,8 @@ exports.protectEither = asyncHandler(async (req, res, next) => {
     const user = await User.findByPk(decoded.id, { attributes: { exclude: ["password"] } });
     if (!user) throw new AppError("User not found.", 401);
     if (user.isActive === false) throw new AppError("Your account has been deactivated.", 403);
+
+    if (!(await assertSessionActive(req, res, decoded))) return sendConcurrentSessionEnded(res);
 
     req.user = user;
     req.decodedToken = decoded;
@@ -250,6 +264,7 @@ exports.protectReviewers = asyncHandler(async (req, res, next) => {
     if (researcher.isActive === false) {
       throw new AppError("Your account has been deactivated.", 403);
     }
+    if (!(await assertSessionActive(req, res, decoded))) return sendConcurrentSessionEnded(res);
 
     const allowedRoles = [
       RESEARCHER_ROLES.REVIEWER,
@@ -269,6 +284,7 @@ exports.protectReviewers = asyncHandler(async (req, res, next) => {
    
     const user = await User.findByPk(decoded.id, { attributes: { exclude: ["password"] } });
     if (!user) throw new AppError("User not found.", 401);
+    if (!(await assertSessionActive(req, res, decoded))) return sendConcurrentSessionEnded(res);
 
     if (!["admin", "superadmin", "research"].includes(user.role)) {
       throw new AppError(
@@ -299,6 +315,7 @@ exports.optionalResearcher = async (req, res, next) => {
     if (decoded.collection === "researchers") {
       const researcher = await Researcher.findByPk(decoded.id);
       if (researcher && researcher.isActive !== false) {
+        if (!(await assertSessionActive(req, res, decoded))) return next();
         req.researcher = researcher;
         req.decodedToken = decoded;
       }
@@ -323,6 +340,7 @@ exports.optionalStaff = async (req, res, next) => {
     }
     const user = await User.findByPk(decoded.id, { attributes: { exclude: ["password"] } });
     if (user && user.isActive !== false) {
+      if (!(await assertSessionActive(req, res, decoded))) return next();
       req.user = user;
       req.decodedToken = decoded;
     }
