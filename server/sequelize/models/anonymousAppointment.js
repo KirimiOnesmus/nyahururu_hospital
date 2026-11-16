@@ -1,5 +1,7 @@
 "use strict";
 
+const { literal } = require("sequelize");
+
 // This model deliberately uses snake_case attribute names (case_code,
 // case_type, contact_method, etc.) instead of the codebase's usual
 // camelCase — because the existing Mongoose schema and the anonymous
@@ -79,6 +81,7 @@ module.exports = (sequelize, DataTypes) => {
       created_at: {
         type: DataTypes.DATE,
         allowNull: false,
+        defaultValue: literal("CURRENT_TIMESTAMP"),
       },
     },
     {
