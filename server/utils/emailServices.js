@@ -404,28 +404,31 @@ exports.sendFeedbackReplyEmail = async (
   );
 
 exports.sendDonorRegistrationEmail = async (donorData) => {
-    const { fullName, email, donationDate, donationTime } = donorData;
-  const formattedDate = new Date(donationDate).toLocaleDateString("en-US", {
+  const { fullName, email, donorId, donationDate, donationTime } = donorData;
+  const formattedDate = new Date(`${donationDate}T00:00:00Z`).toLocaleDateString("en-KE", {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: "UTC",
   });
   return sendMail(
     email,
-    "Blood Donation Registration Confirmation - Thank You for Saving Lives!",
+    `Blood Donation Registration Received - ${donorId}`,
     hmisShell(`
-      <h2 style="color:#B91C1C;margin-top:0;">Blood Donation Registration Confirmed</h2>
+      <h2 style="color:#B91C1C;margin-top:0;">Blood Donation Registration Received</h2>
       <p style="color:#374151;line-height:1.7;">
         Dear <strong style="color:#e53935;">${fullName}</strong>,
       </p>
       <p style="color:#374151;line-height:1.7;">
-        Your blood donation registration has been received successfully.
+        We have received your preferred blood donation visit. The blood donation office will contact you to confirm the appointment. This message does not confirm donation eligibility, which is assessed by staff during screening.
       </p>
       ${detailTable([
+        ["Donor reference", donorId],
         ["Date", formattedDate],
         ["Time", donationTime],
       ])}
+      <p style="color:#374151;line-height:1.7;">Please keep your donor reference and share it if you contact the blood donation office.</p>
     `),
     HMIS_NAME,
   );

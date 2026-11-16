@@ -4,11 +4,10 @@ import {
   FaCheckCircle,
   FaCalendarAlt,
   FaUser,
-  FaEnvelope,
-  FaPhone,
   FaShieldAlt,
   FaExclamationTriangle,
   FaPaperPlane,
+  FaCopy,
 } from "react-icons/fa";
 import { Header, Footer } from "../common/layouts";
 import api from "../api/axios";
@@ -58,6 +57,7 @@ const BloodRegistration = () => {
   const [loading, setLoading] = useState(false);
   const [availability, setAvailability] = useState(null);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [registrationConfirmation, setRegistrationConfirmation] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -114,9 +114,11 @@ const BloodRegistration = () => {
         ...formData,
       });
       if (response.data.success) {
-        notify.success("Registration successful!");
-        setFormData(INIT);
-        navigate("/");
+        setRegistrationConfirmation({
+          ...response.data.data,
+          email: formData.email.trim(),
+          fullName: formData.fullName.trim(),
+        });
       } else {
   
         notify.error(response.data.message || "Registration failed.");
@@ -142,6 +144,15 @@ const BloodRegistration = () => {
     if (errors.length > 0) setErrors([]);
   };
 
+  const copyDonorReference = async () => {
+    try {
+      await navigator.clipboard.writeText(registrationConfirmation.donorId);
+      notify.success("Donor reference copied");
+    } catch {
+      notify.error("Copy failed. Please select and copy the donor reference.");
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-canvas">
       <div className="sticky top-0 z-50 bg-white border-b border-slate-200">
@@ -149,6 +160,53 @@ const BloodRegistration = () => {
       </div>
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 md:px-10 py-12">
+        {registrationConfirmation ? (
+          <section className="max-w-2xl mx-auto bg-white border border-emerald-200 rounded-2xl p-6 sm:p-10 shadow-sm" aria-live="polite">
+            <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mb-5">
+              <FaCheckCircle className="text-emerald-600 text-2xl" />
+            </div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-emerald-700 mb-2">Registration received</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-3">
+              Thank you, {registrationConfirmation.fullName}.
+            </h1>
+            <p className="text-sm text-slate-600 leading-relaxed mb-6">
+              Your preferred donation visit has been recorded. The blood donation office will contact you at <strong>{registrationConfirmation.email}</strong> to confirm the appointment. This is not confirmation that the appointment time is final or that donation eligibility has been approved.
+            </p>
+
+            <p className="text-xs text-slate-600 mb-6 rounded-lg bg-slate-50 border border-slate-200 p-3">
+              Appointment request status: <strong>{registrationConfirmation.appointmentRegistrationStatus === "pending" ? "Awaiting office confirmation" : registrationConfirmation.appointmentRegistrationStatus}</strong>
+            </p>
+
+            <div className="rounded-xl border border-red-100 bg-red-50 p-5 mb-6">
+              <p className="text-xs font-bold uppercase tracking-wider text-red-800 mb-2">Your donor reference</p>
+              <div className="flex flex-wrap items-center gap-3">
+                <code className="text-lg sm:text-xl font-bold tracking-wide text-slate-900 break-all" aria-label="Donor reference">
+                  {registrationConfirmation.donorId}
+                </code>
+                <button type="button" onClick={copyDonorReference} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-red-200 text-sm font-semibold text-red-800 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500">
+                  <FaCopy aria-hidden="true" /> Copy
+                </button>
+              </div>
+              <p className="text-xs text-slate-600 mt-2">Keep this reference and share it if you contact the blood donation office.</p>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4 mb-7">
+              <div className="rounded-xl border border-slate-200 p-4">
+                <p className="text-xs text-slate-500 mb-1">Preferred date</p>
+                <p className="font-semibold text-slate-800">{new Date(`${registrationConfirmation.donationDate}T00:00:00Z`).toLocaleDateString("en-KE", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 p-4">
+                <p className="text-xs text-slate-500 mb-1">Preferred time</p>
+                <p className="font-semibold text-slate-800">{registrationConfirmation.donationTime}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <button type="button" onClick={() => navigate("/")} className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold">Return to home</button>
+              <button type="button" onClick={() => { setRegistrationConfirmation(null); setFormData(INIT); }} className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50">Register another donor</button>
+            </div>
+          </section>
+        ) : <>
   
         <div className="mb-8">
           <p className="text-xs font-semibold uppercase tracking-widest text-red-500 mb-1">
@@ -401,6 +459,7 @@ const BloodRegistration = () => {
             </button>
           </div>
         </div>
+        </>}
       </main>
 
       <Footer />

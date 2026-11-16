@@ -196,10 +196,14 @@ exports.registerDonor = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Registration successful",
+      message: "Registration received. The blood donation office will confirm your preferred appointment.",
       data: {
         donorId: donor.donorId,
         registrationDate: donor.createdAt,
+        donationDate: appointment.donationDate,
+        donationTime: appointment.donationTime,
+        appointmentStatus: appointment.status,
+        appointmentRegistrationStatus: appointment.registrationStatus,
       },
     });
   } catch (error) {
