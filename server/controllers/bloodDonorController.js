@@ -374,13 +374,38 @@ exports.getDonorScreening = async (req, res) => {
 
 exports.getAllDonors = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status } = req.query;
+    const { page = "1", limit = "10", status } = req.query;
+    const rawSearch = req.query.search;
+
+    if (typeof rawSearch !== "undefined" && typeof rawSearch !== "string") {
+      return res.status(400).json({ success: false, message: "Search must be a text value." });
+    }
+    const search = rawSearch?.trim() || "";
+    if (search.length > 100) {
+      return res.status(400).json({ success: false, message: "Search must be 100 characters or fewer." });
+    }
+
+    const pageNum = Number(page);
+    const requestedLimit = Number(limit);
+    if (!Number.isInteger(pageNum) || pageNum < 1 || !Number.isInteger(requestedLimit) || requestedLimit < 1) {
+      return res.status(400).json({ success: false, message: "Page and limit must be positive whole numbers." });
+    }
+    if (status && !BloodDonor.STATUSES.includes(status)) {
+      return res.status(400).json({ success: false, message: "Invalid donor status filter." });
+    }
 
     const where = {};
     if (status)     where.status = status;
+    if (search) {
+      // Search only the routine contact/reference fields already returned to
+      // authorized directory readers. Screening fields remain excluded.
+      const literalSearch = search.replace(/[\\%_]/g, "\\$&");
+      where[Op.or] = ["fullName", "email", "phone", "donorId"].map((field) => ({
+        [field]: { [Op.like]: `%${literalSearch}%` },
+      }));
+    }
 
-    const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 10));
+    const limitNum = Math.min(100, requestedLimit);
     const offset = (pageNum - 1) * limitNum;
 
     const { rows: donors, count: total } = await BloodDonor.findAndCountAll({
@@ -395,7 +420,7 @@ exports.getAllDonors = async (req, res) => {
       req,
       action: "view",
       resource: "BloodDonor",
-      description: "Viewed blood donor directory",
+      description: search ? "Searched blood donor directory" : "Viewed blood donor directory",
       required: true,
     });
 
