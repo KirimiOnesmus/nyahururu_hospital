@@ -64,7 +64,9 @@ module.exports = {
     const [donorIdColumn] = await sequelize.query(`
       SELECT CHARACTER_SET_NAME AS characterSet, COLLATION_NAME AS collationName
       FROM information_schema.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'blood_donors' AND COLUMN_NAME = 'donor_id'
+      WHERE BINARY TABLE_SCHEMA = BINARY DATABASE()
+        AND BINARY TABLE_NAME = BINARY 'blood_donors'
+        AND BINARY COLUMN_NAME = BINARY 'donor_id'
       LIMIT 1
     `);
     const donorIdCharacterSet = donorIdColumn[0]?.characterSet;
@@ -89,18 +91,19 @@ module.exports = {
       FROM blood_donors d
       WHERE NOT EXISTS (
         SELECT 1 FROM blood_donation_appointments a
-        WHERE a.donor_id = d.donor_id AND a.donation_date = d.donation_date
-          AND a.donation_time = d.donation_time AND a.status = d.status
-          AND a.registration_status = d.registration_status
+        WHERE BINARY a.donor_id = BINARY d.donor_id AND a.donation_date = d.donation_date
+          AND BINARY a.donation_time = BINARY d.donation_time
+          AND BINARY a.status = BINARY d.status
+          AND BINARY a.registration_status = BINARY d.registration_status
       )
     `);
-    await sequelize.query(`UPDATE blood_donors SET blood_group_source = IF(blood_group = '', 'unknown', 'self_reported') WHERE blood_group_source = 'unknown'`);
+    await sequelize.query(`UPDATE blood_donors SET blood_group_source = IF(BINARY blood_group = BINARY '', 'unknown', 'self_reported') WHERE BINARY blood_group_source = BINARY 'unknown'`);
     await sequelize.query(`
       INSERT INTO blood_donation_events
         (donor_id, appointment_id, donation_date, status, verification_status, verified_by, verified_at, created_at, updated_at)
       SELECT d.donor_id, a.id, d.donation_date, 'completed', 'legacy_unverified', NULL, NULL, d.created_at, d.updated_at
-      FROM blood_donors d JOIN blood_donation_appointments a ON a.donor_id = d.donor_id
-      WHERE d.status = 'completed' AND NOT EXISTS (
+      FROM blood_donors d JOIN blood_donation_appointments a ON BINARY a.donor_id = BINARY d.donor_id
+      WHERE BINARY d.status = BINARY 'completed' AND NOT EXISTS (
         SELECT 1 FROM blood_donation_events e WHERE e.appointment_id = a.id
       )
     `);
