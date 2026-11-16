@@ -35,7 +35,7 @@ const STEPS = [
     bg: "bg-emerald-50",
     border: "border-emerald-100",
     title: "Health Screening",
-    body: "Quick medical check including blood pressure, pulse, and haemoglobin test to ensure you're eligible to donate safely.",
+    body: "The donation team will ask about your health and may check your pulse, blood pressure, weight and haemoglobin. Staff will confirm whether it is safe for you to donate that day.",
   },
   {
     num: "3",
@@ -44,7 +44,7 @@ const STEPS = [
     bg: "bg-red-50",
     border: "border-red-100",
     title: "Blood Donation",
-    body: "The actual donation takes only 8–10 minutes in a safe, sterile environment with trained medical staff.",
+    body: "Blood collection usually takes about 10 minutes. Trained staff use sterile, single-use collection equipment; allow extra time for screening and recovery.",
   },
   {
     num: "4",
@@ -53,7 +53,7 @@ const STEPS = [
     bg: "bg-emerald-50",
     border: "border-emerald-100",
     title: "Rest & Recovery",
-    body: "Enjoy complimentary refreshments and rest for 10–15 minutes before resuming your normal activities.",
+    body: "Rest and have a refreshment after donating. Drink fluids and avoid strenuous activity for the rest of the day, following any instructions from the donation team.",
   },
 ];
 
@@ -62,22 +62,22 @@ const STATS = [
     icon: BiDonateBlood,
     color: "text-red-600",
     bg: "bg-red-50",
-    value: "450 ml",
-    label: "Per Donation",
+    value: "About 450 ml",
+    label: "Typical whole-blood collection",
   },
   {
     icon: BsPeople,
     color: "text-emerald-600",
     bg: "bg-emerald-50",
-    value: "3 Lives",
-    label: "Can Be Saved",
+    value: "Several patients",
+    label: "May benefit when blood components are used separately",
   },
   {
     icon: FaRegChartBar,
     color: "text-blue-600",
     bg: "bg-blue-50",
-    value: "56 Days",
-    label: "Recovery Period",
+    value: "Staff assessed",
+    label: "Eligibility and repeat-donation timing",
   },
 ];
 
@@ -239,7 +239,7 @@ const BloodDonation = () => {
             How Blood Donation Works
           </h3>
           <p className="text-slate-500 text-sm mb-7">
-            A simple 4-step process that takes less than an hour.
+            Your visit includes registration, screening, collection and recovery. The full visit takes longer than collection alone.
           </p>
 
           <div className="grid md:grid-cols-2 gap-4">
@@ -270,6 +270,24 @@ const BloodDonation = () => {
             )}
           </div>
         </div>
+
+        <section className="mb-14 bg-white border border-slate-200 rounded-2xl p-6 sm:p-8" aria-labelledby="donor-guidance-heading">
+          <p className="text-xs font-semibold uppercase tracking-widest text-red-600 mb-1">Helpful guidance</p>
+          <h3 id="donor-guidance-heading" className="text-2xl font-bold text-slate-800 mb-5">Before and after your visit</h3>
+          <div className="grid md:grid-cols-2 gap-6 text-sm text-slate-600 leading-relaxed">
+            <div>
+              <h4 className="font-bold text-slate-800 mb-2">Before screening</h4>
+              <p>Tell the donation team about your current health, medical history and any medicines you take. If you feel unwell, let staff know before donation. The team will decide whether it is safe for you to donate.</p>
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-800 mb-2">After donating</h4>
+              <p>Rest and take a refreshment, drink plenty of fluids over the next day, and avoid strenuous activity for the rest of the day. Follow the donation team’s advice if you feel unwell.</p>
+            </div>
+          </div>
+          <p className="mt-5 pt-4 border-t border-slate-100 text-xs text-slate-500 leading-relaxed">
+            Donation eligibility and the interval before another donation vary by country and personal circumstances. Hospital staff will advise you after screening. Read the <a href="https://www.who.int/news-room/questions-and-answers/item/blood-products-why-should-i-donate-blood" target="_blank" rel="noreferrer" className="font-semibold text-red-700 underline">World Health Organization blood donation guidance</a> for general information.
+          </p>
+        </section>
 
         <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center">
           <p className="text-xs font-semibold uppercase tracking-widest text-red-600 mb-2">
