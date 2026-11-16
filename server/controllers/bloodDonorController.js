@@ -2,7 +2,7 @@
 
 const { Op } = require("sequelize");
 const logger = require("../utils/logger");
-const { BloodDonor, sequelize } = require("../sequelize/models");
+const { BloodDonor, BloodDonationAppointment, BloodDonationEvent, sequelize } = require("../sequelize/models");
 const emailService = require("../utils/emailServices");
 const audit = require("../services/auditService");
 
@@ -16,14 +16,13 @@ const BLOOD_DONATION_DAILY_CAPACITY = Number.isInteger(configuredDailyCapacity) 
 const CAPACITY_STATUSES = ["registered", "confirmed"];
 const DONOR_LIST_ATTRIBUTES = [
   "donorId", "fullName", "email", "phone",
-  "donationDate", "donationTime", "consentDonate", "consentTest",
+  "consentDonate", "consentTest",
   "consentTerms", "consentPrivacy", "consentPrivacyVersion",
   "consentPrivacyAt", "consentDonateAt", "consentTestAt", "consentTermsAt",
-  "status", "registrationStatus", "createdAt", "updatedAt",
-  "registrationSource",
+  "createdAt", "updatedAt", "registrationSource", "bloodGroupSource",
 ];
 const DONOR_SCREENING_ATTRIBUTES = [
-  "age", "gender", "weight", "bloodGroup", "healthConditions", "medications",
+  "age", "gender", "weight", "bloodGroup", "bloodGroupVerifiedAt", "healthConditions", "medications",
 ];
 
 const donorSummary = (donor) => {
@@ -50,15 +49,22 @@ const lockDonationCapacityDate = async (date, transaction) => {
   );
 };
 
-const countScheduledDonations = (date, transaction, excludeDonorId) => {
+const countScheduledDonations = (date, transaction) => {
   const where = {
     donationDate: date,
     status: { [Op.in]: CAPACITY_STATUSES },
     registrationStatus: { [Op.ne]: "rejected" },
   };
-  if (excludeDonorId) where.donorId = { [Op.ne]: excludeDonorId };
-  return BloodDonor.count({ where, transaction });
+  return BloodDonationAppointment.count({ where, transaction });
 };
+
+const createAppointment = (donor, values, options) => BloodDonationAppointment.create({
+  donorId: donor.donorId,
+  donationDate: values.donationDate,
+  donationTime: values.donationTime,
+  status: values.status || "registered",
+  registrationStatus: values.registrationStatus || "pending",
+}, options);
 
 const capacityResponse = (res, booked) => res.status(409).json({
   success: false,
@@ -150,8 +156,6 @@ exports.registerDonor = async (req, res) => {
       phone: phone.trim(),
       // Eligibility and clinical screening are completed by donation staff;
       // public registration collects only what is needed to arrange contact.
-      donationDate,
-      donationTime,
       consentDonate,
       consentTest,
       consentTerms,
@@ -163,6 +167,7 @@ exports.registerDonor = async (req, res) => {
       consentTestAt: consentRecordedAt,
       consentTermsAt: consentRecordedAt,
     }, { transaction });
+    const appointment = await createAppointment(donor, { donationDate, donationTime }, { transaction });
 
     await audit.log({
       req,
@@ -182,8 +187,8 @@ exports.registerDonor = async (req, res) => {
         fullName:      donor.fullName,
         email:         donor.email,
         donorId:       donor.donorId,
-        donationDate:  donor.donationDate,
-        donationTime:  donor.donationTime,
+        donationDate:  appointment.donationDate,
+        donationTime:  appointment.donationTime,
       });
     } catch (emailError) {
       logger.error({ errorName: emailError?.name }, "Failed to send blood donor registration email");
@@ -278,14 +283,9 @@ exports.registerOfficeWalkIn = async (req, res) => {
 
     const consentRecordedAt = new Date();
     transaction = await sequelize.transaction({ isolationLevel: "READ COMMITTED" });
-    if (normalizedEmail) {
-      const existingDonor = await BloodDonor.findOne({ where: { email: normalizedEmail }, transaction });
-      if (existingDonor) {
-        await transaction.rollback();
-        transaction = null;
-        return res.status(409).json({ success: false, message: "This email is already registered. Find the existing donor record instead." });
-      }
-    }
+    const existingDonor = normalizedEmail
+      ? await BloodDonor.findOne({ where: { email: normalizedEmail }, transaction, lock: transaction.LOCK.UPDATE })
+      : null;
 
     await lockDonationCapacityDate(donationDate, transaction);
     const booked = await countScheduledDonations(donationDate, transaction);
@@ -295,19 +295,15 @@ exports.registerOfficeWalkIn = async (req, res) => {
       return capacityResponse(res, booked);
     }
 
-    const donor = await BloodDonor.createWithUniqueId({
+    const profileUpdates = {
       fullName: fullName.trim(),
       email: normalizedEmail,
       phone: phone.trim(),
-      donationDate,
-      donationTime,
       age: parsedAge,
       gender,
       weight: parsedWeight,
-      bloodGroup,
       healthConditions: typeof healthConditions === "string" ? healthConditions.trim() || null : null,
       medications: typeof medications === "string" ? medications.trim() || null : null,
-      registrationSource: "office",
       consentDonate,
       consentTest,
       consentTerms,
@@ -317,16 +313,44 @@ exports.registerOfficeWalkIn = async (req, res) => {
       consentDonateAt: consentRecordedAt,
       consentTestAt: consentRecordedAt,
       consentTermsAt: consentRecordedAt,
-    }, { transaction });
+    };
+    const donor = existingDonor
+      ? existingDonor
+      : await BloodDonor.createWithUniqueId({
+        ...profileUpdates,
+        bloodGroup,
+        bloodGroupSource: "self_reported",
+        registrationSource: "office",
+      }, { transaction });
+    if (existingDonor) {
+      donor.set(profileUpdates);
+      // Preserve an existing office verification. A new self-reported value
+      // updates provenance only when the profile was not already verified.
+      if (existingDonor.bloodGroupSource !== "office_verified") {
+        donor.bloodGroup = bloodGroup;
+        donor.bloodGroupSource = "self_reported";
+      }
+      await donor.save({ transaction });
+    }
+    const appointment = await createAppointment(donor, { donationDate, donationTime }, { transaction });
 
     await audit.log({
       req,
-      action: "create",
+      action: existingDonor ? "update" : "create",
       resource: "BloodDonor",
       resourceId: donor.donorId,
-      description: "Blood donation office recorded an in-person walk-in donor",
-      changes: { fields: ["fullName", "phone", "age", "gender", "weight", "bloodGroup", "healthConditions", "medications"] },
+      description: existingDonor ? "Blood donation office updated an existing donor profile for a new visit" : "Blood donation office recorded an in-person walk-in donor",
+      changes: existingDonor ? { fields: Object.keys(profileUpdates) } : { fields: ["fullName", "phone", "age", "gender", "weight", "bloodGroup", "healthConditions", "medications"] },
       metadata: { registrationSource: "office", consentPrivacyVersion: DONOR_PRIVACY_NOTICE_VERSION },
+      transaction,
+      required: true,
+    });
+    await audit.log({
+      req,
+      action: "create",
+      resource: "BloodDonationAppointment",
+      resourceId: appointment.id,
+      description: "Blood donation office scheduled an in-person donor visit",
       transaction,
       required: true,
     });
@@ -353,7 +377,7 @@ exports.getDonorScreening = async (req, res) => {
   try {
     const donor = await BloodDonor.findOne({
       where: { donorId: req.params.donorId },
-      attributes: ["donorId", ...DONOR_SCREENING_ATTRIBUTES],
+      attributes: ["donorId", ...DONOR_SCREENING_ATTRIBUTES, "bloodGroupSource"],
     });
     if (!donor) return res.status(404).json({ success: false, message: "Donor not found" });
 
@@ -369,6 +393,36 @@ exports.getDonorScreening = async (req, res) => {
   } catch (error) {
     logger.error({ errorName: error?.name }, "Donor screening lookup failed");
     return res.status(500).json({ success: false, message: "Screening details could not be loaded." });
+  }
+};
+
+exports.verifyDonorBloodGroup = async (req, res) => {
+  let transaction;
+  try {
+    transaction = await sequelize.transaction();
+    const donor = await BloodDonor.findOne({ where: { donorId: req.params.donorId }, transaction, lock: transaction.LOCK.UPDATE });
+    if (!donor) {
+      await transaction.rollback();
+      transaction = null;
+      return res.status(404).json({ success: false, message: "Donor not found" });
+    }
+    if (!donor.bloodGroup) {
+      await transaction.rollback();
+      transaction = null;
+      return res.status(409).json({ success: false, message: "A blood group must be recorded before it can be verified." });
+    }
+    donor.bloodGroupSource = "office_verified";
+    donor.bloodGroupVerifiedBy = req.user.id;
+    donor.bloodGroupVerifiedAt = new Date();
+    await donor.save({ transaction });
+    await audit.log({ req, action: "update", resource: "BloodDonorScreening", resourceId: donor.donorId, description: "Verified donor blood group", changes: { fields: ["bloodGroupSource", "bloodGroupVerifiedBy", "bloodGroupVerifiedAt"] }, transaction, required: true });
+    await transaction.commit();
+    transaction = null;
+    return res.status(200).json({ success: true, message: "Blood group marked as office verified." });
+  } catch (error) {
+    if (transaction && !transaction.finished) await transaction.rollback();
+    logger.error({ errorName: error?.name }, "Donor blood group verification failed");
+    return res.status(500).json({ success: false, message: "Blood group could not be verified." });
   }
 };
 
@@ -395,7 +449,13 @@ exports.getAllDonors = async (req, res) => {
     }
 
     const where = {};
-    if (status)     where.status = status;
+    if (status) {
+      const matchingAppointments = await BloodDonationAppointment.findAll({
+        attributes: ["donorId"], where: { status }, raw: true,
+      });
+      const ids = [...new Set(matchingAppointments.map((item) => item.donorId))];
+      where.donorId = { [Op.in]: ids.length ? ids : ["__no_matching_donor__"] };
+    }
     if (search) {
       // Search only the routine contact/reference fields already returned to
       // authorized directory readers. Screening fields remain excluded.
@@ -424,9 +484,39 @@ exports.getAllDonors = async (req, res) => {
       required: true,
     });
 
+    const appointments = await BloodDonationAppointment.findAll({
+      where: { donorId: { [Op.in]: donors.map((donor) => donor.donorId) } },
+      order: [["donationDate", "DESC"], ["createdAt", "DESC"]],
+    });
+    const latestAppointment = new Map();
+    appointments.forEach((appointment) => {
+      if (!latestAppointment.has(appointment.donorId)) latestAppointment.set(appointment.donorId, appointment);
+    });
+    const donorRows = donors.map((donor) => {
+      const row = donor.get({ plain: true });
+      const appointment = latestAppointment.get(donor.donorId);
+      return { ...row, ...(appointment ? {
+        donationDate: appointment.donationDate,
+        donationTime: appointment.donationTime,
+        status: appointment.status,
+        registrationStatus: appointment.registrationStatus,
+        appointmentId: appointment.id,
+      } : { donationDate: null, donationTime: null, status: null, registrationStatus: null, appointmentId: null }) };
+    });
+
     res.status(200).json({
       success: true,
-      data: donors.map(donorSummary),
+      data: donorRows.map((row) => {
+        const appointment = latestAppointment.get(row.donorId);
+        return {
+          ...donorSummary(row),
+          donationDate: appointment?.donationDate || null,
+          donationTime: appointment?.donationTime || null,
+          status: appointment?.status || null,
+          registrationStatus: appointment?.registrationStatus || null,
+          appointmentId: appointment?.id || null,
+        };
+      }),
       pagination: {
         total,
         page: pageNum,
@@ -444,7 +534,7 @@ exports.updateDonor = async (req, res) => {
   let transaction;
   try {
     const { donorId } = req.params;
-    const editableFields = ["fullName", "phone", "donationDate", "donationTime", "status", "registrationStatus"];
+    const editableFields = ["fullName", "phone"];
     const updates = Object.fromEntries(editableFields
       .filter((field) => Object.prototype.hasOwnProperty.call(req.body, field))
       .map((field) => [field, req.body[field]]));
@@ -458,27 +548,6 @@ exports.updateDonor = async (req, res) => {
       await transaction.rollback();
       transaction = null;
       return res.status(404).json({ success: false, message: "Donor not found" });
-    }
-
-    const resultingStatus = updates.status || donor.status;
-    const resultingRegistrationStatus = updates.registrationStatus || donor.registrationStatus;
-    const resultingDate = updates.donationDate || donor.donationDate;
-    if (updates.donationDate && !validateDonationDate(updates.donationDate)) {
-      await transaction.rollback();
-      transaction = null;
-      return res.status(400).json({ success: false, message: "Please provide a valid preferred donation date." });
-    }
-    const wasScheduled = CAPACITY_STATUSES.includes(donor.status) && donor.registrationStatus !== "rejected";
-    const willBeScheduled = CAPACITY_STATUSES.includes(resultingStatus) && resultingRegistrationStatus !== "rejected";
-    const becomesScheduled = willBeScheduled && (!wasScheduled || Boolean(updates.donationDate));
-    if (becomesScheduled) {
-      await lockDonationCapacityDate(resultingDate, transaction);
-      const booked = await countScheduledDonations(resultingDate, transaction, donor.donorId);
-      if (booked >= BLOOD_DONATION_DAILY_CAPACITY) {
-        await transaction.rollback();
-        transaction = null;
-        return capacityResponse(res, booked);
-      }
     }
 
     donor.set(updates);
@@ -516,15 +585,21 @@ exports.updateDonor = async (req, res) => {
 exports.updateDonorStatus = async (req, res) => {
   let transaction;
   try {
-    const { donorId } = req.params;
+    const { appointmentId } = req.params;
     const { status, registrationStatus } = req.body;
 
     transaction = await sequelize.transaction({ isolationLevel: "READ COMMITTED" });
-    const donor = await BloodDonor.findOne({ where: { donorId }, transaction });
+    const appointment = await BloodDonationAppointment.findByPk(appointmentId, { transaction, lock: transaction.LOCK.UPDATE });
+    if (!appointment) {
+      await transaction.rollback();
+      transaction = null;
+      return res.status(404).json({ success: false, message: "Donation appointment not found" });
+    }
+    const donor = await BloodDonor.findOne({ where: { donorId: appointment.donorId }, transaction });
     if (!donor) {
       await transaction.rollback();
       transaction = null;
-      return res.status(404).json({ success: false, message: "Donor not found" });
+      return res.status(404).json({ success: false, message: "Appointment donor profile not found" });
     }
 
     if (status && !BloodDonor.STATUSES.includes(status)) {
@@ -543,14 +618,14 @@ exports.updateDonorStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: "Provide a donation or registration status." });
     }
 
-    const resultingStatus = status || donor.status;
-    const resultingRegistrationStatus = registrationStatus || donor.registrationStatus;
-    const wasScheduled = CAPACITY_STATUSES.includes(donor.status) && donor.registrationStatus !== "rejected";
+    const resultingStatus = status || appointment.status;
+    const resultingRegistrationStatus = registrationStatus || appointment.registrationStatus;
+    const wasScheduled = CAPACITY_STATUSES.includes(appointment.status) && appointment.registrationStatus !== "rejected";
     const willBeScheduled = CAPACITY_STATUSES.includes(resultingStatus) && resultingRegistrationStatus !== "rejected";
     const becomesScheduled = willBeScheduled && !wasScheduled;
     if (becomesScheduled) {
-      await lockDonationCapacityDate(donor.donationDate, transaction);
-      const booked = await countScheduledDonations(donor.donationDate, transaction, donor.donorId);
+      await lockDonationCapacityDate(appointment.donationDate, transaction);
+      const booked = await countScheduledDonations(appointment.donationDate, transaction);
       if (booked >= BLOOD_DONATION_DAILY_CAPACITY) {
         await transaction.rollback();
         transaction = null;
@@ -558,17 +633,40 @@ exports.updateDonorStatus = async (req, res) => {
       }
     }
 
-    if (status) donor.status = status;
-    if (registrationStatus) donor.registrationStatus = registrationStatus;
-
-    await donor.save({ transaction });
+    if (status) appointment.status = status;
+    if (registrationStatus) appointment.registrationStatus = registrationStatus;
+    await appointment.save({ transaction });
+    // Completing an appointment creates one distinct, staff-verified event.
+    // The unique appointment key makes repeated status updates idempotent.
+    if (resultingStatus === "completed") {
+      const actorId = req.user?.id || req.user?.userId || null;
+      const [event, created] = await BloodDonationEvent.findOrCreate({
+        where: { appointmentId: appointment.id },
+        defaults: {
+          donorId: appointment.donorId,
+          appointmentId: appointment.id,
+          donationDate: appointment.donationDate,
+          status: "completed",
+          verificationStatus: "verified",
+          verifiedBy: actorId,
+          verifiedAt: new Date(),
+        },
+        transaction,
+      });
+      if (!created && event.verificationStatus !== "verified") {
+        event.verificationStatus = "verified";
+        event.verifiedBy = req.user?.id || null;
+        event.verifiedAt = new Date();
+        await event.save({ transaction });
+      }
+    }
 
     await audit.log({
       req,
       action: "update",
-      resource: "BloodDonor",
-      resourceId: donor.donorId,
-      description: "Updated blood donor workflow status",
+      resource: "BloodDonationAppointment",
+      resourceId: appointment.id,
+      description: resultingStatus === "completed" ? "Recorded staff-verified donation event" : "Updated donation appointment workflow status",
       changes: { fields: [status && "status", registrationStatus && "registrationStatus"].filter(Boolean) },
       transaction,
       required: true,
@@ -579,7 +677,7 @@ exports.updateDonorStatus = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Status updated successfully",
-      data: donorSummary(donor),
+      data: { ...donorSummary(donor), donationDate: appointment.donationDate, donationTime: appointment.donationTime, status: appointment.status, registrationStatus: appointment.registrationStatus, appointmentId: appointment.id },
     });
   } catch (error) {
     if (transaction && !transaction.finished) {
@@ -604,6 +702,8 @@ exports.deleteDonor = async (req, res) => {
       return res.status(404).json({ success: false, message: "Donor not found" });
     }
     const deletedDonorId = donor.donorId;
+    await BloodDonationEvent.destroy({ where: { donorId: deletedDonorId }, transaction });
+    await BloodDonationAppointment.destroy({ where: { donorId: deletedDonorId }, transaction });
     await donor.destroy({ transaction });
     await audit.log({
       req,
@@ -626,32 +726,32 @@ exports.deleteDonor = async (req, res) => {
 
 exports.getUpcomingDonations = async (req, res) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const donations = await BloodDonor.findAll({
-      attributes: DONOR_LIST_ATTRIBUTES,
-      where: {
-        donationDate: { [Op.gte]: today },
-        status: { [Op.in]: ["registered", "confirmed"] },
-      },
-      order: [
-        ["donationDate", "ASC"],
-        ["donationTime", "ASC"],
-      ],
+    const today = new Date().toISOString().slice(0, 10);
+    const donations = await BloodDonationAppointment.findAll({
+      where: { donationDate: { [Op.gte]: today }, status: { [Op.in]: ["registered", "confirmed"] }, registrationStatus: { [Op.ne]: "rejected" } },
+      include: [{ model: BloodDonor, as: "donor", attributes: ["donorId", "fullName", "phone", "email", "registrationSource"] }],
+      order: [["donationDate", "ASC"], ["donationTime", "ASC"]],
     });
 
     await audit.log({
       req,
       action: "view",
-      resource: "BloodDonor",
+      resource: "BloodDonationAppointment",
       description: "Viewed upcoming donor appointments",
       required: true,
     });
 
     res.status(200).json({
       success: true,
-      data: donations.map(donorSummary),
+      data: donations.map((appointment) => ({
+        ...(appointment.donor?.get({ plain: true }) || {}),
+        appointmentId: appointment.id,
+        donorId: appointment.donorId,
+        donationDate: appointment.donationDate,
+        donationTime: appointment.donationTime,
+        status: appointment.status,
+        registrationStatus: appointment.registrationStatus,
+      })),
       count: donations.length,
     });
   } catch (error) {
@@ -673,7 +773,7 @@ exports.getDonationStats = async (req, res) => {
         order: [[sequelize.fn("COUNT", sequelize.col("id")), "DESC"]],
         raw: true,
       }),
-      BloodDonor.findAll({
+      BloodDonationAppointment.findAll({
         attributes: [
           "status",
           [sequelize.fn("COUNT", sequelize.col("id")), "count"],
@@ -711,5 +811,31 @@ exports.getDonationStats = async (req, res) => {
   } catch (error) {
     logger.error({ errorName: error?.name }, "Blood donation statistics lookup failed");
     res.status(500).json({ success: false, message: "An unexpected error occurred. Please try again later." });
+  }
+};
+
+exports.getDonationEvents = async (req, res) => {
+  try {
+    const events = await BloodDonationEvent.findAll({
+      include: [{ model: BloodDonor, as: "donor", attributes: ["donorId", "fullName"] }],
+      order: [["donationDate", "DESC"], ["createdAt", "DESC"]],
+      limit: 200,
+    });
+    await audit.log({ req, action: "view", resource: "BloodDonationEvent", description: "Viewed donation event history", required: true });
+    return res.status(200).json({
+      success: true,
+      data: events.map((event) => ({
+        id: event.id,
+        donorId: event.donorId,
+        fullName: event.donor?.fullName || "Unknown donor",
+        donationDate: event.donationDate,
+        status: event.status,
+        verificationStatus: event.verificationStatus,
+        verifiedAt: event.verifiedAt,
+      })),
+    });
+  } catch (error) {
+    logger.error({ errorName: error?.name }, "Donation event history lookup failed");
+    return res.status(500).json({ success: false, message: "Donation history could not be loaded." });
   }
 };
