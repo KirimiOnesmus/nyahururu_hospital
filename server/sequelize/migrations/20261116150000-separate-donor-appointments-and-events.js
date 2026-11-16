@@ -19,7 +19,9 @@ module.exports = {
       updated_at: { type: Sequelize.DATE, allowNull: false },
     });
     await queryInterface.addIndex("blood_donation_appointments", ["donor_id"]);
-    await queryInterface.addIndex("blood_donation_appointments", ["donation_date", "status", "registration_status"]);
+    await queryInterface.addIndex("blood_donation_appointments", ["donation_date", "status", "registration_status"], {
+      name: "bda_date_status_reg_idx",
+    });
     await queryInterface.createTable("blood_donation_events", {
       id: { type: Sequelize.BIGINT.UNSIGNED, autoIncrement: true, primaryKey: true, allowNull: false },
       donor_id: { type: Sequelize.STRING(50), allowNull: false },
