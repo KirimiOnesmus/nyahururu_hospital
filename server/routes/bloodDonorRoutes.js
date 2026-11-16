@@ -10,6 +10,7 @@ const {
     getDonationStats,
     registerOfficeWalkIn,
     getDonorScreening,
+    getDonationAvailability,
 } = require("../controllers/bloodDonorController");
 const { verifyToken } = require("../middleware/auth");
 const { AppError } = require("../utils/appError");
@@ -46,6 +47,7 @@ const authorizeBloodDonorAdmin = (req, res, next) => {
 
 // Public routes
 router.post("/register",  registerDonor);
+router.get("/availability", getDonationAvailability);
 
 router.post("/office-register", verifyToken, authorizeBloodDonationOffice, registerOfficeWalkIn);
 
