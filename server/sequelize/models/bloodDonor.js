@@ -45,7 +45,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       email: {
         type: DataTypes.STRING(255),
-        allowNull: false,
+        allowNull: true,
         validate: {
           isEmail: { msg: "Invalid email" },
         },
@@ -108,6 +108,11 @@ module.exports = (sequelize, DataTypes) => {
       donationTime: {
         type: DataTypes.STRING(20),
         allowNull: false,
+      },
+      registrationSource: {
+        type: DataTypes.ENUM("public", "office"),
+        allowNull: false,
+        defaultValue: "public",
       },
 
       consentDonate: {

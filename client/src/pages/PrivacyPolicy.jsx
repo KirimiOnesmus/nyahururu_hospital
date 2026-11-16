@@ -135,7 +135,7 @@ const PrivacyPolicy = () => {
                 </p>
 
                 <p className="mt-3">
-                  For blood donor registration, the public form collects your
+                  For online blood donor registration, the public form collects your
                   name, email address, phone number and preferred appointment
                   details to manage the request and contact you. It does not
                   request your age, gender, National ID, weight, blood group,
@@ -145,15 +145,28 @@ const PrivacyPolicy = () => {
                 </p>
 
                 <p className="mt-3">
-                  Donor contact and appointment records are available to
-                  authorised donation programme staff for management and to the
-                  system superadmin for read-only oversight of limited contact,
-                  appointment and consent information. IT and other
-                  application roles are not authorized to retrieve donor
-                  records through the website APIs. Health screening details and
-                  identity-document numbers are not included in donor directory
-                  responses. Views and changes to donor records are recorded in
-                  the system audit log. Consent
+                  If you visit the blood donation office without an online
+                  registration, authorized office staff may record screening
+                  information such as age, gender, weight, blood group, relevant
+                  health conditions and medications after explaining the
+                  purpose and recording your consent. These screening details
+                  are available only through a restricted, audited workflow to
+                  blood donation office accounts; they are not
+                  included in routine donor lists or available to the
+                  superadmin account.
+                </p>
+
+                <p className="mt-3">
+                  Donor contact and appointment records are available to the
+                  blood donation office and administrators for management; the
+                  system superadmin has read-only oversight of limited contact,
+                  appointment and consent information. IT and unrelated
+                  application roles cannot retrieve donor records. Screening
+                  details are restricted to blood donation office accounts and
+                  are not returned in routine donor directory responses or to
+                  administrators or the superadmin. Views of restricted
+                  screening details and changes to donor records are recorded
+                  in the system audit log. Consent
                   acknowledgements are stored with the notice version and the
                   time they were recorded. Donor records are retained only for
                   as long as reasonably necessary for the registration and

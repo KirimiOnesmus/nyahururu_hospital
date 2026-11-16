@@ -14,6 +14,10 @@ const DONOR_LIST_ATTRIBUTES = [
   "consentTerms", "consentPrivacy", "consentPrivacyVersion",
   "consentPrivacyAt", "consentDonateAt", "consentTestAt", "consentTermsAt",
   "status", "registrationStatus", "createdAt", "updatedAt",
+  "registrationSource",
+];
+const DONOR_SCREENING_ATTRIBUTES = [
+  "age", "gender", "weight", "bloodGroup", "healthConditions", "medications",
 ];
 
 const donorSummary = (donor) => {
@@ -82,6 +86,7 @@ exports.registerDonor = async (req, res) => {
       consentTest,
       consentTerms,
       consentPrivacy,
+      registrationSource: "public",
       consentPrivacyVersion: DONOR_PRIVACY_NOTICE_VERSION,
       consentPrivacyAt: consentRecordedAt,
       consentDonateAt: consentRecordedAt,
@@ -154,6 +159,130 @@ exports.getDonor = async (req, res) => {
   } catch (error) {
     logger.error({ errorName: error?.name }, "Blood donor record lookup failed");
     res.status(500).json({ success: false, message: "An unexpected error occurred. Please try again later." });
+  }
+};
+
+exports.registerOfficeWalkIn = async (req, res) => {
+  let transaction;
+  try {
+    const {
+      fullName, email, phone, donationDate, donationTime,
+      age, gender, weight, bloodGroup, healthConditions, medications,
+      consentDonate, consentTest, consentTerms, consentPrivacy,
+    } = req.body;
+    const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() || null : null;
+    const parsedAge = Number(age);
+    const parsedWeight = Number(weight);
+
+    if (typeof fullName !== "string" || !fullName.trim() || typeof phone !== "string" || !phone.trim() || !donationDate || !donationTime) {
+      return res.status(400).json({ success: false, message: "Name, phone number, visit date, and visit time are required." });
+    }
+    if (email != null && typeof email !== "string") {
+      return res.status(400).json({ success: false, message: "Please provide a valid email address." });
+    }
+    if (normalizedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ success: false, message: "Please provide a valid email address." });
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(donationDate) || Number.isNaN(Date.parse(`${donationDate}T00:00:00Z`))) {
+      return res.status(400).json({ success: false, message: "Please provide a valid visit date." });
+    }
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(donationTime)) {
+      return res.status(400).json({ success: false, message: "Please provide a valid visit time." });
+    }
+    if (!Number.isInteger(parsedAge) || parsedAge < 16 || parsedAge > 70) {
+      return res.status(400).json({ success: false, message: "Donor age must be between 16 and 70 years." });
+    }
+    if (!Number.isFinite(parsedWeight) || parsedWeight < 50) {
+      return res.status(400).json({ success: false, message: "Donor weight must be at least 50 kg." });
+    }
+    if (!BloodDonor.GENDERS.includes(gender) || !BloodDonor.BLOOD_GROUPS.includes(bloodGroup) || !bloodGroup) {
+      return res.status(400).json({ success: false, message: "Select a valid gender and blood group." });
+    }
+    if (consentDonate !== true || consentTest !== true || consentTerms !== true || consentPrivacy !== true) {
+      return res.status(400).json({ success: false, message: "Record each required consent before registering the walk-in donor." });
+    }
+
+    const consentRecordedAt = new Date();
+    transaction = await sequelize.transaction();
+    if (normalizedEmail) {
+      const existingDonor = await BloodDonor.findOne({ where: { email: normalizedEmail }, transaction });
+      if (existingDonor) {
+        await transaction.rollback();
+        transaction = null;
+        return res.status(409).json({ success: false, message: "This email is already registered. Find the existing donor record instead." });
+      }
+    }
+
+    const donor = await BloodDonor.createWithUniqueId({
+      fullName: fullName.trim(),
+      email: normalizedEmail,
+      phone: phone.trim(),
+      donationDate,
+      donationTime,
+      age: parsedAge,
+      gender,
+      weight: parsedWeight,
+      bloodGroup,
+      healthConditions: typeof healthConditions === "string" ? healthConditions.trim() || null : null,
+      medications: typeof medications === "string" ? medications.trim() || null : null,
+      registrationSource: "office",
+      consentDonate,
+      consentTest,
+      consentTerms,
+      consentPrivacy,
+      consentPrivacyVersion: DONOR_PRIVACY_NOTICE_VERSION,
+      consentPrivacyAt: consentRecordedAt,
+      consentDonateAt: consentRecordedAt,
+      consentTestAt: consentRecordedAt,
+      consentTermsAt: consentRecordedAt,
+    }, { transaction });
+
+    await audit.log({
+      req,
+      action: "create",
+      resource: "BloodDonor",
+      resourceId: donor.donorId,
+      description: "Blood donation office recorded an in-person walk-in donor",
+      changes: { fields: ["fullName", "phone", "age", "gender", "weight", "bloodGroup", "healthConditions", "medications"] },
+      metadata: { registrationSource: "office", consentPrivacyVersion: DONOR_PRIVACY_NOTICE_VERSION },
+      transaction,
+      required: true,
+    });
+    await transaction.commit();
+    transaction = null;
+
+    return res.status(201).json({
+      success: true,
+      message: "Walk-in donor recorded successfully.",
+      data: { donorId: donor.donorId, registrationDate: donor.createdAt },
+    });
+  } catch (error) {
+    if (transaction && !transaction.finished) await transaction.rollback();
+    logger.error({ errorName: error?.name }, "Blood donation office walk-in registration failed");
+    return res.status(500).json({ success: false, message: "Walk-in donor could not be recorded. Please try again." });
+  }
+};
+
+exports.getDonorScreening = async (req, res) => {
+  try {
+    const donor = await BloodDonor.findOne({
+      where: { donorId: req.params.donorId },
+      attributes: ["donorId", ...DONOR_SCREENING_ATTRIBUTES],
+    });
+    if (!donor) return res.status(404).json({ success: false, message: "Donor not found" });
+
+    await audit.log({
+      req,
+      action: "view",
+      resource: "BloodDonorScreening",
+      resourceId: donor.donorId,
+      description: "Viewed restricted donor screening details",
+      required: true,
+    });
+    return res.status(200).json({ success: true, data: donor });
+  } catch (error) {
+    logger.error({ errorName: error?.name }, "Donor screening lookup failed");
+    return res.status(500).json({ success: false, message: "Screening details could not be loaded." });
   }
 };
 
