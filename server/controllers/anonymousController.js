@@ -23,7 +23,7 @@ const generateCaseCode = async (caseType) => {
   const todayCases = await AnonymousAppointment.count({
     where: {
       case_type: caseType,
-      createdAt: { [Op.gte]: startOfDay, [Op.lte]: endOfDay },
+      created_at: { [Op.gte]: startOfDay, [Op.lte]: endOfDay },
     },
   });
 
@@ -108,6 +108,10 @@ exports.createAnonymousAppointment = async (req, res) => {
       }
     }
 
+    // created_at is assigned by the database default, so refresh the instance
+    // before returning its persisted timestamp to the caller.
+    await appointment.reload();
+
     res.status(201).json({
       success: true,
       message: "Anonymous appointment request submitted successfully",
@@ -119,7 +123,7 @@ exports.createAnonymousAppointment = async (req, res) => {
         preferred_date: appointment.preferred_date,
         preferred_time: appointment.preferred_time,
         status:         appointment.status,
-        created_at:     appointment.createdAt,
+        created_at:     appointment.created_at,
       },
     });
   } catch (error) {
@@ -149,7 +153,7 @@ exports.getAllAnonymousAppointments = async (req, res) => {
 
       order: [
         ["asap", "DESC"],
-        ["createdAt", "DESC"],
+        ["created_at", "DESC"],
       ],
       offset,
       limit: limitNum,
