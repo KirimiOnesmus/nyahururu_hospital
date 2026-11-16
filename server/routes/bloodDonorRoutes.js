@@ -13,16 +13,16 @@ const { verifyToken } = require("../middleware/auth");
 const { AppError } = require("../utils/appError");
 
 // IT does not need donor records. Superadmin may read the restricted directory
-// for oversight, while staff/admin alone may operate donor workflows.
+// for oversight, while donation-office staff/admin alone may operate workflows.
 const authorizeBloodDonorReader = (req, res, next) => {
-    if (!["admin", "staff", "superadmin"].includes(req.user?.role)) {
+    if (!["admin", "superadmin", "blood_donation"].includes(req.user?.role)) {
         return next(new AppError("Blood donor records are restricted to authorized donation staff.", 403));
     }
     return next();
 };
 
 const authorizeBloodDonorStaff = (req, res, next) => {
-    if (!["admin", "staff"].includes(req.user?.role)) {
+    if (!["admin", "blood_donation"].includes(req.user?.role)) {
         return next(new AppError("Blood donor records are restricted to authorized donation staff.", 403));
     }
     return next();

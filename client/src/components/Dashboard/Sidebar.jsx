@@ -90,9 +90,9 @@ const Sidebar = () => {
           icon: IconChat,
         },
         {
-          title: "Donations",
+          title: "Blood Donation Office",
           path: "/dashboard/donations",
-          roles: ["superadmin", "it", "admin"],
+          roles: ["superadmin", "admin", "blood_donation"],
           icon: IconHeart,
         },
       ],

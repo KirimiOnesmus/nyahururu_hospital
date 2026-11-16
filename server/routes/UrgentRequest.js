@@ -17,28 +17,28 @@ router.get("/active", getActiveUrgentRequests);
 router.post(
   "/",
   verifyToken,
-  authorizeRoles("admin", "staff"),
+  authorizeRoles("admin", "blood_donation"),
   createUrgentRequest
 );
 
 router.get(
   "/",
   verifyToken,
-  authorizeRoles("admin", "staff"),
+  authorizeRoles("admin", "superadmin", "blood_donation"),
   getAllUrgentRequests
 );
 
 router.put(
   "/:id",
   verifyToken,
-  authorizeRoles("admin", "staff"),
+  authorizeRoles("admin", "blood_donation"),
   updateUrgentRequest
 );
 
 router.patch(
   "/:id/toggle",
   verifyToken,
-  authorizeRoles("admin", "staff"),
+  authorizeRoles("admin", "blood_donation"),
   toggleUrgentRequestStatus
 );
 

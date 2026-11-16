@@ -14,9 +14,10 @@ import {
 import notify from "../../common/utils/notify";
 
 
-const ROLES = ["superadmin", "admin", "doctor", "it", "communication", "nurse", "receptionist"];
+const ROLES = ["superadmin", "admin", "doctor", "it", "communication", "nurse", "receptionist", "blood_donation"];
 
 const ROLE_CONFIG = {
+  blood_donation: { bg: "bg-red-100", text: "text-red-700", dot: "bg-red-500", icon: FaUser },
   superadmin:    { bg: "bg-violet-100",  text: "text-violet-700",  dot: "bg-violet-500",  icon: FaUserShield },
   admin:         { bg: "bg-blue-100",    text: "text-blue-700",    dot: "bg-blue-500",    icon: FaUserCog    },
   doctor:        { bg: "bg-emerald-100", text: "text-emerald-700", dot: "bg-emerald-500", icon: FaUserMd     },

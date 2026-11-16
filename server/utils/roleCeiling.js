@@ -10,6 +10,7 @@ const ROLE_RANK = {
   pharmacist: 0,
   communication: 0,
   research: 0,
+  blood_donation: 0,
   staff: 0,
   vendor: 0,
 };

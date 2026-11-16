@@ -579,6 +579,7 @@ const EditUserPage = () => {
                       <option value="it">IT Support</option>
                       <option value="communication">Communication</option>
                       <option value="research">Research</option>
+                      <option value="blood_donation">Blood Donation Office</option>
                     </select>
                   </div>
                   {isDoctor && (
