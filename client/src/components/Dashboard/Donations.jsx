@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useSocket } from "../../api/socket";
 import api from "../../api/axios";
+import { Link } from "react-router-dom";
 import {
   FaTint,
   FaUsers,
@@ -23,6 +24,32 @@ import {
 } from "../../common/components";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+
+const getLocalVisitDetails = () => {
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, "0");
+  return {
+    donationDate: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+    donationTime: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
+  };
+};
+
+const createWalkInForm = () => ({
+  fullName: "",
+  email: "",
+  phone: "",
+  ...getLocalVisitDetails(),
+  age: "",
+  gender: "",
+  weight: "",
+  bloodGroup: "",
+  healthConditions: "",
+  medications: "",
+  consentDonate: false,
+  consentTest: false,
+  consentTerms: false,
+  consentPrivacy: false,
+});
 
 const STATUS_CONFIG = {
   registered: {
@@ -110,7 +137,7 @@ const BloodDistribution = ({ stats }) => {
   );
 };
 
-const DonorRow = ({ donor, expanded, onToggle, onEdit, onDelete, canManage, canDelete }) => (
+const DonorRow = ({ donor, expanded, onToggle, onEdit, onDelete, canManage, canDelete, canViewScreening, screening, screeningLoading, onToggleScreening }) => (
   <div className="bg-white rounded-2xl overflow-hidden  transition-all">
     <button
       className="w-full text-left p-4 grid grid-cols-2 md:grid-cols-4 gap-4 items-center hover:bg-gray-50/80 transition-colors cursor-pointer"
@@ -125,6 +152,7 @@ const DonorRow = ({ donor, expanded, onToggle, onEdit, onDelete, canManage, canD
             {donor.fullName}
           </p>
           <p className="text-[10px] text-gray-400 font-mono">{donor.donorId}</p>
+          {donor.registrationSource === "office" && <span className="text-[10px] font-semibold text-red-600">Office walk-in</span>}
         </div>
       </div>
 
@@ -180,6 +208,29 @@ const DonorRow = ({ donor, expanded, onToggle, onEdit, onDelete, canManage, canD
             ))}
           </div>
         </div>
+        {canViewScreening && (
+          <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold text-amber-900">Restricted screening details</p>
+                <p className="text-[11px] text-amber-800">Access is recorded in the audit log.</p>
+              </div>
+              <button type="button" onClick={() => onToggleScreening(donor.donorId)} className="px-3 py-2 rounded-lg bg-white border border-amber-300 text-xs font-semibold text-amber-900 hover:bg-amber-100">
+                {screeningLoading ? "Loading…" : screening ? "Hide details" : "View details"}
+              </button>
+            </div>
+            {screening && (
+              <dl className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-gray-700">
+                <div><dt className="font-semibold">Age</dt><dd>{screening.age ?? "Not recorded"}</dd></div>
+                <div><dt className="font-semibold">Gender</dt><dd>{screening.gender || "Not recorded"}</dd></div>
+                <div><dt className="font-semibold">Weight</dt><dd>{screening.weight ? `${screening.weight} kg` : "Not recorded"}</dd></div>
+                <div><dt className="font-semibold">Blood group</dt><dd>{screening.bloodGroup || "Not recorded"}</dd></div>
+                <div className="sm:col-span-2"><dt className="font-semibold">Health conditions</dt><dd>{screening.healthConditions || "Not recorded"}</dd></div>
+                <div className="sm:col-span-2"><dt className="font-semibold">Medications</dt><dd>{screening.medications || "Not recorded"}</dd></div>
+              </dl>
+            )}
+          </div>
+        )}
         {(canManage || canDelete) && (
           <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
             {canManage && (
@@ -210,6 +261,8 @@ const Donations = () => {
   const currentRole = localStorage.getItem("role");
   const canManageDonors = ["admin", "blood_donation"].includes(currentRole);
   const canDeleteRecords = currentRole === "admin";
+  const canViewScreening = currentRole === "blood_donation";
+  const canRegisterWalkIn = currentRole === "blood_donation";
   const [donors, setDonors] = useState([]);
   const [upcoming, setUpcoming] = useState([]);
   const [stats, setStats] = useState(null);
@@ -219,6 +272,11 @@ const Donations = () => {
   const [expandedDonor, setExpandedDonor] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [walkInModal, setWalkInModal] = useState(false);
+  const [walkInSaving, setWalkInSaving] = useState(false);
+  const [walkInForm, setWalkInForm] = useState(createWalkInForm);
+  const [screeningDetails, setScreeningDetails] = useState({});
+  const [screeningLoadingId, setScreeningLoadingId] = useState(null);
 
   const [statusModal, setStatusModal] = useState(false);
   const [editingDonor, setEditingDonor] = useState(null);
@@ -320,6 +378,51 @@ const Donations = () => {
     }
   };
 
+  const handleWalkInChange = (event) => {
+    const { name, value, type, checked } = event.target;
+    setWalkInForm((current) => ({ ...current, [name]: type === "checkbox" ? checked : value }));
+  };
+
+  const handleWalkInSubmit = async (event) => {
+    event.preventDefault();
+    setWalkInSaving(true);
+    try {
+      const response = await api.post("/blood-donation/office-register", {
+        ...walkInForm,
+        age: Number(walkInForm.age),
+        weight: Number(walkInForm.weight),
+      });
+      notify.success(`Walk-in donor recorded · ${response.data.data.donorId}`);
+      setWalkInModal(false);
+      setWalkInForm(createWalkInForm());
+      fetchData();
+    } catch (err) {
+      notify.error(err.response?.data?.message || "Failed to record walk-in donor");
+    } finally {
+      setWalkInSaving(false);
+    }
+  };
+
+  const toggleDonorScreening = async (donorId) => {
+    if (screeningDetails[donorId]) {
+      setScreeningDetails((current) => {
+        const next = { ...current };
+        delete next[donorId];
+        return next;
+      });
+      return;
+    }
+    setScreeningLoadingId(donorId);
+    try {
+      const response = await api.get(`/blood-donation/${donorId}/screening`);
+      setScreeningDetails((current) => ({ ...current, [donorId]: response.data.data }));
+    } catch (err) {
+      notify.error(err.response?.data?.message || "Failed to load screening details");
+    } finally {
+      setScreeningLoadingId(null);
+    }
+  };
+
   const openUrgentModal = (req = null) => {
     setEditingUrgent(req);
     setUrgentForm(
@@ -414,18 +517,25 @@ const Donations = () => {
     <div className="min-h-screen bg-canvas">
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
-        <div className="mb-8 fade-up">
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center shadow-red-200">
-              <FaTint className="text-white text-lg" />
+        <div className="mb-8 fade-up flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center shadow-red-200">
+                <FaTint className="text-white text-lg" />
+              </div>
+              <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+                Blood Donation
+              </h1>
             </div>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">
-              Blood Donation
-            </h1>
+            <p className="text-sm text-gray-400 ml-13 pl-0.5">
+              Manage donors, track donations, monitor urgent requests
+            </p>
           </div>
-          <p className="text-sm text-gray-400 ml-13 pl-0.5">
-            Manage donors, track donations, monitor urgent requests
-          </p>
+          {canRegisterWalkIn && (
+            <button type="button" onClick={() => { setWalkInForm(createWalkInForm()); setWalkInModal(true); }} className="flex items-center gap-2 px-4 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 shadow-sm">
+              <FaPlus className="text-xs" /> Register walk-in donor
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -563,6 +673,10 @@ const Donations = () => {
                       onDelete={handleDeleteDonor}
                       canManage={canManageDonors}
                       canDelete={canDeleteRecords}
+                      canViewScreening={canViewScreening}
+                      screening={screeningDetails[donor.donorId]}
+                      screeningLoading={screeningLoadingId === donor.donorId}
+                      onToggleScreening={toggleDonorScreening}
                     />
                   ))}
                 </div>
@@ -719,6 +833,86 @@ const Donations = () => {
         </div>
       </div>
 
+
+      <Modal
+        open={walkInModal}
+        onClose={() => setWalkInModal(false)}
+        title="Register walk-in donor"
+        subtitle="Record a donor who arrived at the office without a public appointment. Confirm consent before saving."
+        size="lg"
+      >
+        <form onSubmit={handleWalkInSubmit} className="max-h-[75vh] space-y-5 overflow-y-auto pr-1">
+          <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className="sm:col-span-2 text-xs font-semibold text-gray-600">Full name *
+              <input name="fullName" value={walkInForm.fullName} onChange={handleWalkInChange} required maxLength={150} autoComplete="name" className="mt-1 w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+            </label>
+            <label className="text-xs font-semibold text-gray-600">Phone number *
+              <input name="phone" value={walkInForm.phone} onChange={handleWalkInChange} required maxLength={30} autoComplete="tel" className="mt-1 w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+            </label>
+            <label className="text-xs font-semibold text-gray-600">Email (optional)
+              <input type="email" name="email" value={walkInForm.email} onChange={handleWalkInChange} maxLength={255} autoComplete="email" className="mt-1 w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+            </label>
+            <label className="text-xs font-semibold text-gray-600">Visit date *
+              <input type="date" name="donationDate" value={walkInForm.donationDate} onChange={handleWalkInChange} required className="mt-1 w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+            </label>
+            <label className="text-xs font-semibold text-gray-600">Visit time *
+              <input type="time" name="donationTime" value={walkInForm.donationTime} onChange={handleWalkInChange} required className="mt-1 w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+            </label>
+          </section>
+
+          <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <h3 className="text-sm font-bold text-gray-800">Donation screening details</h3>
+            <p className="mt-1 text-xs text-gray-600">These health details are restricted to blood donation office accounts. Record only information needed for the screening process.</p>
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <label className="text-xs font-semibold text-gray-600">Age *
+                <input type="number" name="age" min="16" max="70" step="1" value={walkInForm.age} onChange={handleWalkInChange} required className="mt-1 w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+              </label>
+              <label className="text-xs font-semibold text-gray-600">Gender *
+                <select name="gender" value={walkInForm.gender} onChange={handleWalkInChange} required className="mt-1 w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-white">
+                  <option value="">Select</option><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option>
+                </select>
+              </label>
+              <label className="text-xs font-semibold text-gray-600">Weight (kg) *
+                <input type="number" name="weight" min="50" step="0.1" value={walkInForm.weight} onChange={handleWalkInChange} required className="mt-1 w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+              </label>
+              <label className="sm:col-span-3 text-xs font-semibold text-gray-600">Blood group *
+                <select name="bloodGroup" value={walkInForm.bloodGroup} onChange={handleWalkInChange} required className="mt-1 w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-white">
+                  <option value="">Select blood group</option>{BLOOD_GROUPS.map((group) => <option key={group} value={group}>{group}</option>)}
+                </select>
+              </label>
+              <label className="sm:col-span-3 text-xs font-semibold text-gray-600">Relevant health conditions
+                <textarea name="healthConditions" value={walkInForm.healthConditions} onChange={handleWalkInChange} rows={2} maxLength={5000} className="mt-1 w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+              </label>
+              <label className="sm:col-span-3 text-xs font-semibold text-gray-600">Relevant medications
+                <textarea name="medications" value={walkInForm.medications} onChange={handleWalkInChange} rows={2} maxLength={5000} className="mt-1 w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+              </label>
+            </div>
+          </section>
+
+          <section className="space-y-2 rounded-xl border border-gray-200 p-4">
+            <h3 className="text-sm font-bold text-gray-800">Consent record · notice v1.0</h3>
+            <p className="text-xs text-gray-600">Confirm that the donor has reviewed and agreed to each item. The system records the consent and time. <Link to="/privacy-policy" target="_blank" className="font-semibold text-red-700 underline">Privacy Policy</Link></p>
+            {[
+              ["consentDonate", "Donor consents to donate blood."],
+              ["consentTest", "Donor consents to infectious disease testing."],
+              ["consentTerms", "Donor agrees to the hospital terms."],
+              ["consentPrivacy", "Donor acknowledges the privacy notice and use of contact and screening information for the donation programme."],
+            ].map(([name, label]) => (
+              <label key={name} className="flex items-start gap-2 py-1 text-xs text-gray-700">
+                <input type="checkbox" name={name} checked={walkInForm[name]} onChange={handleWalkInChange} required className="mt-0.5 accent-red-600" />
+                <span>{label}</span>
+              </label>
+            ))}
+          </section>
+
+          <div className="flex justify-end gap-3 border-t border-gray-100 pt-4">
+            <button type="button" onClick={() => setWalkInModal(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg">Cancel</button>
+            <button type="submit" disabled={walkInSaving} className="px-5 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg disabled:opacity-60">
+              {walkInSaving ? "Saving…" : "Save walk-in donor"}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       <Modal
         open={statusModal}
