@@ -61,6 +61,24 @@ module.exports = {
         updated_at: { type: Sequelize.DATE, allowNull: false },
       });
     }
+    const [donorIdColumn] = await sequelize.query(`
+      SELECT CHARACTER_SET_NAME AS characterSet, COLLATION_NAME AS collationName
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'blood_donors' AND COLUMN_NAME = 'donor_id'
+      LIMIT 1
+    `);
+    const donorIdCharacterSet = donorIdColumn[0]?.characterSet;
+    const donorIdCollation = donorIdColumn[0]?.collationName;
+    if (!/^utf8mb4$/.test(donorIdCharacterSet || "") || !/^utf8mb4_[a-zA-Z0-9_]+$/.test(donorIdCollation || "")) {
+      throw new Error("Could not determine the donor_id charset and collation for blood donation tables.");
+    }
+    // Match the source donor key so MySQL comparisons and Sequelize joins do
+    // not mix the database default collation with the existing table collation.
+    for (const tableName of ["blood_donation_appointments", "blood_donation_events"]) {
+      await sequelize.query(
+        `ALTER TABLE \`${tableName}\` MODIFY \`donor_id\` VARCHAR(50) CHARACTER SET ${donorIdCharacterSet} COLLATE ${donorIdCollation} NOT NULL`,
+      );
+    }
     await ensureIndex(queryInterface, "blood_donation_events", ["donor_id", "donation_date"], "bde_donor_date_idx");
     // Preserve existing schedule data. Historic completed records are marked
     // unverified because their original verifier was not stored.
