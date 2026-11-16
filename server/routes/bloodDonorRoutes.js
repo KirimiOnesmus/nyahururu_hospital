@@ -11,6 +11,8 @@ const {
     registerOfficeWalkIn,
     getDonorScreening,
     getDonationAvailability,
+    getDonationEvents,
+    verifyDonorBloodGroup,
 } = require("../controllers/bloodDonorController");
 const { verifyToken } = require("../middleware/auth");
 const { AppError } = require("../utils/appError");
@@ -55,11 +57,13 @@ router.post("/office-register", verifyToken, authorizeBloodDonationOffice, regis
 router.get("/", verifyToken, authorizeBloodDonorReader, getAllDonors);
 
 router.get("/:donorId/screening", verifyToken, authorizeBloodDonationOffice, getDonorScreening);
+router.patch("/:donorId/blood-group/verify", verifyToken, authorizeBloodDonationOffice, verifyDonorBloodGroup);
+router.get("/events", verifyToken, authorizeBloodDonorReader, getDonationEvents);
 
 router.put("/:donorId", verifyToken, authorizeBloodDonorStaff, updateDonor);
 
 router.patch(
-  "/:donorId/status",
+  "/appointments/:appointmentId/status",
   verifyToken,
   authorizeBloodDonorStaff,
   updateDonorStatus

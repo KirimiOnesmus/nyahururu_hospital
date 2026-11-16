@@ -88,6 +88,14 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: "",
       },
+      bloodGroupSource: {
+        type: DataTypes.ENUM("self_reported", "office_verified", "unknown"),
+        allowNull: false,
+        defaultValue: "unknown",
+        field: "blood_group_source",
+      },
+      bloodGroupVerifiedBy: { type: DataTypes.BIGINT.UNSIGNED, allowNull: true, field: "blood_group_verified_by" },
+      bloodGroupVerifiedAt: { type: DataTypes.DATE, allowNull: true, field: "blood_group_verified_at" },
       healthConditions: {
         type: DataTypes.TEXT,
         allowNull: true,
@@ -99,16 +107,6 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: null,
       },
 
-      donationDate: {
-        type: DataTypes.DATEONLY,
-        allowNull: false,
-      },
-      // Free-form time string ("10:00 AM", "14:30"); the original Mongoose
-      // field was `String`. Preserved to keep the current API contract.
-      donationTime: {
-        type: DataTypes.STRING(20),
-        allowNull: false,
-      },
       registrationSource: {
         type: DataTypes.ENUM("public", "office"),
         allowNull: false,
@@ -178,16 +176,6 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
       },
 
-      status: {
-        type: DataTypes.ENUM(...DONOR_STATUSES),
-        allowNull: false,
-        defaultValue: "registered",
-      },
-      registrationStatus: {
-        type: DataTypes.ENUM(...REGISTRATION_STATUSES),
-        allowNull: false,
-        defaultValue: "pending",
-      },
     },
     {
       tableName: "blood_donors",
@@ -195,8 +183,6 @@ module.exports = (sequelize, DataTypes) => {
         { unique: true, fields: ["donor_id"] },
         { unique: true, fields: ["national_id"] },
         { fields: ["email"] },
-        { fields: ["donation_date"] },
-        { fields: ["status"] },
       ],
       hooks: {
         beforeValidate: (donor) => {

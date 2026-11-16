@@ -133,11 +133,14 @@ const BloodDistribution = ({ stats }) => {
           );
         })}
       </div>
+      <p className="mt-4 text-xs text-gray-500">
+        Counts are donor profiles by reported blood group, not available blood units. Groups are verified separately by donation office staff.
+      </p>
     </div>
   );
 };
 
-const DonorRow = ({ donor, expanded, onToggle, onEdit, onDelete, canManage, canDelete, canViewScreening, screening, screeningLoading, onToggleScreening }) => (
+const DonorRow = ({ donor, expanded, onToggle, onDelete, canDelete, canViewScreening, screening, screeningLoading, onToggleScreening, onVerifyBloodGroup }) => (
   <div className="bg-white rounded-2xl overflow-hidden  transition-all">
     <button
       className="w-full text-left p-4 grid grid-cols-2 md:grid-cols-4 gap-4 items-center hover:bg-gray-50/80 transition-colors cursor-pointer"
@@ -169,17 +172,17 @@ const DonorRow = ({ donor, expanded, onToggle, onEdit, onDelete, canManage, canD
 
       <div className="hidden md:block">
         <p className="text-xs font-semibold text-gray-800">
-          {new Date(donor.donationDate).toLocaleDateString("en-KE", {
+          {new Date(donor.createdAt).toLocaleDateString("en-KE", {
             day: "numeric",
             month: "short",
             year: "numeric",
           })}
         </p>
-        <p className="text-[10px] text-gray-400">{donor.donationTime}</p>
+        <p className="text-[10px] text-gray-400">Profile created</p>
       </div>
 
       <div className="flex items-center justify-between md:justify-start gap-3">
-        <LocalStatusBadge status={donor.status} />
+        <span className="text-xs font-semibold text-gray-500">Donor profile</span>
         <FaChevronDown
           className={`text-gray-300 text-xs transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
         />
@@ -224,23 +227,18 @@ const DonorRow = ({ donor, expanded, onToggle, onEdit, onDelete, canManage, canD
                 <div><dt className="font-semibold">Age</dt><dd>{screening.age ?? "Not recorded"}</dd></div>
                 <div><dt className="font-semibold">Gender</dt><dd>{screening.gender || "Not recorded"}</dd></div>
                 <div><dt className="font-semibold">Weight</dt><dd>{screening.weight ? `${screening.weight} kg` : "Not recorded"}</dd></div>
-                <div><dt className="font-semibold">Blood group</dt><dd>{screening.bloodGroup || "Not recorded"}</dd></div>
+                <div><dt className="font-semibold">Blood group</dt><dd>{screening.bloodGroup || "Not recorded"} · {screening.bloodGroupSource === "office_verified" ? "Office verified" : screening.bloodGroupSource === "self_reported" ? "Self reported" : "Unknown status"}{screening.bloodGroupVerifiedAt ? ` · ${new Date(screening.bloodGroupVerifiedAt).toLocaleDateString("en-KE")}` : ""}</dd></div>
+                {screening.bloodGroup && screening.bloodGroupSource !== "office_verified" && (
+                  <button type="button" onClick={() => onVerifyBloodGroup(donor.donorId)} className="text-left text-xs font-semibold text-amber-900 underline">Mark blood group as office verified</button>
+                )}
                 <div className="sm:col-span-2"><dt className="font-semibold">Health conditions</dt><dd>{screening.healthConditions || "Not recorded"}</dd></div>
                 <div className="sm:col-span-2"><dt className="font-semibold">Medications</dt><dd>{screening.medications || "Not recorded"}</dd></div>
               </dl>
             )}
           </div>
         )}
-        {(canManage || canDelete) && (
+        {canDelete && (
           <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
-            {canManage && (
-              <button
-                onClick={() => onEdit(donor)}
-                className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors"
-              >
-                <FaEdit /> Update Status
-              </button>
-            )}
             {canDelete && (
               <button
                 onClick={() => onDelete(donor.donorId)}
@@ -265,6 +263,7 @@ const Donations = () => {
   const canRegisterWalkIn = currentRole === "blood_donation";
   const [donors, setDonors] = useState([]);
   const [upcoming, setUpcoming] = useState([]);
+  const [donationEvents, setDonationEvents] = useState([]);
   const [stats, setStats] = useState(null);
   const [urgentRequests, setUrgentRequests] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -275,7 +274,6 @@ const Donations = () => {
   const [donorPage, setDonorPage] = useState(1);
   const [donorPagination, setDonorPagination] = useState({ total: 0, page: 1, limit: 10, pages: 0 });
   const fetchSequence = useRef(0);
-  const [filterStatus, setFilterStatus] = useState("");
   const [walkInModal, setWalkInModal] = useState(false);
   const [walkInSaving, setWalkInSaving] = useState(false);
   const [walkInForm, setWalkInForm] = useState(createWalkInForm);
@@ -310,10 +308,9 @@ const Donations = () => {
     const requestSequence = ++fetchSequence.current;
     setLoading(true);
     try {
-      const [donorsRes, upcomingRes, statsRes, urgentRes] = await Promise.all([
+      const [donorsRes, upcomingRes, statsRes, urgentRes, eventsRes] = await Promise.all([
         api.get("/blood-donation", {
           params: {
-            status: filterStatus || undefined,
             search: debouncedSearchTerm || undefined,
             page: donorPage,
             limit: donorPagination.limit,
@@ -322,6 +319,7 @@ const Donations = () => {
         api.get("/blood-donation/schedule/upcoming"),
         api.get("/blood-donation/reports/statistics"),
         api.get("/urgent-request"),
+        api.get("/blood-donation/events"),
       ]);
       if (requestSequence !== fetchSequence.current) return;
       setDonors(donorsRes.data.data || []);
@@ -329,12 +327,13 @@ const Donations = () => {
       setUpcoming(upcomingRes.data.data || []);
       setStats(statsRes.data.data || {});
       setUrgentRequests(urgentRes.data.data || []);
+      setDonationEvents(eventsRes.data.data || []);
     } catch {
       if (requestSequence === fetchSequence.current) notify.error("Failed to load donation data");
     } finally {
       if (requestSequence === fetchSequence.current) setLoading(false);
     }
-  }, [debouncedSearchTerm, donorPage, donorPagination.limit, filterStatus]);
+  }, [debouncedSearchTerm, donorPage, donorPagination.limit]);
 
   useEffect(() => {
     fetchData();
@@ -370,7 +369,7 @@ const Donations = () => {
     if (!editingDonor) return;
     try {
       await api.patch(
-        `/blood-donation/${editingDonor.donorId}/status`,
+        `/blood-donation/appointments/${editingDonor.appointmentId}/status`,
         statusForm,
       );
       notify.success("Status updated");
@@ -389,6 +388,19 @@ const Donations = () => {
       fetchData();
     } catch (err) {
       notify.error(err.response?.data?.message || "Failed to delete donor");
+    }
+  };
+
+  const handleVerifyBloodGroup = async (donorId) => {
+    try {
+      await api.patch(`/blood-donation/${donorId}/blood-group/verify`);
+      setScreeningDetails((current) => ({
+        ...current,
+        [donorId]: { ...current[donorId], bloodGroupSource: "office_verified" },
+      }));
+      notify.success("Blood group verification recorded");
+    } catch (err) {
+      notify.error(err.response?.data?.message || "Could not verify blood group");
     }
   };
 
@@ -519,6 +531,7 @@ const Donations = () => {
   const TABS = [
     { key: "donors", label: "All Donors", icon: FaUsers },
     { key: "upcoming", label: "Upcoming", icon: FaCalendarCheck },
+    { key: "history", label: "Donation History", icon: FaCheckCircle },
     { key: "urgent", label: "Urgent Requests", icon: FaExclamationTriangle },
   ];
 
@@ -635,39 +648,6 @@ const Donations = () => {
                     className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent"
                   />
                 </div>
-                <div className="flex gap-2 flex-wrap">
-                  {[
-                    {
-                      val: filterStatus,
-                      set: setFilterStatus,
-                      opts: [
-                        ["", "All Status"],
-                        ["registered", "Registered"],
-                        ["confirmed", "Confirmed"],
-                        ["completed", "Completed"],
-                        ["cancelled", "Cancelled"],
-                        ["deferred", "Deferred"],
-                      ],
-                    },
-                   
-                  ].map(({ val, set, opts }, i) => (
-                    <select
-                      key={i}
-                      value={val}
-                      onChange={(e) => {
-                        set(e.target.value);
-                        setDonorPage(1);
-                      }}
-                      className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm cursor-pointer outline-none focus:ring-2 focus:ring-red-400 bg-white text-gray-600"
-                    >
-                      {opts.map(([v, l]) => (
-                        <option key={v} value={v}>
-                          {l}
-                        </option>
-                      ))}
-                    </select>
-                  ))}
-                </div>
               </div>
 
               {loading ? (
@@ -686,7 +666,6 @@ const Donations = () => {
                           expandedDonor === donor.donorId ? null : donor.donorId,
                         )
                       }
-                      onEdit={openStatusModal}
                       onDelete={handleDeleteDonor}
                       canManage={canManageDonors}
                       canDelete={canDeleteRecords}
@@ -694,6 +673,7 @@ const Donations = () => {
                       screening={screeningDetails[donor.donorId]}
                       screeningLoading={screeningLoadingId === donor.donorId}
                       onToggleScreening={toggleDonorScreening}
+                      onVerifyBloodGroup={handleVerifyBloodGroup}
                     />
                   ))}
                 </div>
@@ -746,7 +726,7 @@ const Donations = () => {
                 <div className="space-y-3">
                   {upcoming.map((d) => (
                     <div
-                      key={d.donorId}
+                      key={d.appointmentId}
                       className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center gap-4 transition-shadow"
                     >
                       <div className="w-11 h-11 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
@@ -764,6 +744,7 @@ const Donations = () => {
                         </div>
                       </div>
                       <div className="text-right shrink-0">
+                        <LocalStatusBadge status={d.status} />
                         <p className="text-xs text-gray-400">Scheduled</p>
                         <p className="text-sm font-bold text-gray-800">
                           {new Date(d.donationDate).toLocaleDateString(
@@ -774,7 +755,34 @@ const Donations = () => {
                         <p className="text-xs text-gray-400">
                           {d.donationTime}
                         </p>
+                        {canManageDonors && (
+                          <button type="button" onClick={() => openStatusModal(d)} className="mt-2 text-xs font-semibold text-red-700 underline">
+                            Manage appointment
+                          </button>
+                        )}
                       </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "history" && (
+            <div className="p-6">
+              {loading ? <Spinner /> : donationEvents.length === 0 ? (
+                <EmptyState icon={FaCheckCircle} text="No completed donation events recorded" />
+              ) : (
+                <div className="space-y-3">
+                  {donationEvents.map((event) => (
+                    <div key={event.id} className="bg-white border border-gray-100 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-gray-900 text-sm">{event.fullName}</p>
+                        <p className="text-xs text-gray-500">{event.donorId} · {new Date(`${event.donationDate}T00:00:00`).toLocaleDateString("en-KE")}</p>
+                      </div>
+                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${event.verificationStatus === "verified" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                        {event.verificationStatus === "verified" ? "Office verified" : "Legacy · unverified"}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -965,7 +973,7 @@ const Donations = () => {
       <Modal
         open={statusModal}
         onClose={() => setStatusModal(false)}
-        title="Update Donor Status"
+        title="Update Appointment Status"
         subtitle={editingDonor?.fullName}
       >
         <form onSubmit={handleStatusUpdate} className="space-y-4">
