@@ -8,6 +8,7 @@ const roleShortCodes = {
   pharmacist: "PH",
   communication: "CM",
   research: "RS",
+  blood_donation: "BD",
   vendor: "VN",
 };
 

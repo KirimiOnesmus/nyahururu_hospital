@@ -15,6 +15,7 @@ const USER_ROLES = [
   "pharmacist",
   "communication",
   "research",
+  "blood_donation",
 ];
 
 module.exports = (sequelize, DataTypes) => {

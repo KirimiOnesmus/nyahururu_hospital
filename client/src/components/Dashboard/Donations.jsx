@@ -208,7 +208,7 @@ const DonorRow = ({ donor, expanded, onToggle, onEdit, onDelete, canManage, canD
 
 const Donations = () => {
   const currentRole = localStorage.getItem("role");
-  const canManageDonors = ["admin", "staff"].includes(currentRole);
+  const canManageDonors = ["admin", "blood_donation"].includes(currentRole);
   const canDeleteRecords = currentRole === "admin";
   const [donors, setDonors] = useState([]);
   const [upcoming, setUpcoming] = useState([]);

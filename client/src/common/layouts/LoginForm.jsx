@@ -22,6 +22,7 @@ const STAFF_ROLES = [
   "doctor",
   "staff",
   "research",
+  "blood_donation",
 ];
 
 const RESEARCHER_REGISTER_PATH = "/research/register";
@@ -128,7 +129,7 @@ const LoginForm = () => {
           }
 
           notify.success("You're signed in.");
-          navigate("/dashboard");
+          navigate(data.user.role === "blood_donation" ? "/dashboard/donations" : "/dashboard");
         } else {
           notify.error("We couldn't sign you in. Check your email and password.");
         }
@@ -169,7 +170,7 @@ const LoginForm = () => {
     setShowChangePassword(false);
     setTempPassword("");
     notify.success("Password updated. Taking you to the dashboard…");
-    setTimeout(() => navigate("/dashboard"), 600);
+    setTimeout(() => navigate(localStorage.getItem("role") === "blood_donation" ? "/dashboard/donations" : "/dashboard"), 600);
   };
 
   const handlePasswordLogout = () => {

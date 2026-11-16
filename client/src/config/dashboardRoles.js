@@ -27,7 +27,7 @@ export const DASHBOARD_NAV = [
       {
         title: "Dashboard",
         path: "/dashboard",
-        roles: ["superadmin", "admin", "it", "doctor", "communication", "research", "staff"],
+        roles: ["superadmin", "admin", "it", "doctor", "communication", "research", "staff", "blood_donation"],
         icon: FaTh,
       },
       { title: "Hospitals", path: "/dashboard/hospitals", roles: ["superadmin"], icon: FaHospital },
@@ -62,9 +62,9 @@ export const DASHBOARD_NAV = [
         icon: FaComments,
       },
       {
-        title: "Donations",
+        title: "Blood Donation Office",
         path: "/dashboard/donations",
-        roles: ["superadmin", "admin", "staff"],
+        roles: ["superadmin", "admin", "blood_donation"],
         icon: BiSolidDonateHeart,
       },
     ],

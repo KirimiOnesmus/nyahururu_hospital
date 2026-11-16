@@ -19,12 +19,19 @@ const Dashboard = () => {
         "doctor",
         "staff",
         "superadmin",
-        "research"
+        "research",
+        "blood_donation",
       ].includes(storedRole)
     ) {
       navigate("/");
     } else {
       setRole(storedRole);
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    if (localStorage.getItem("role") === "blood_donation") {
+      navigate("/dashboard/donations", { replace: true });
     }
   }, [navigate]);
 
