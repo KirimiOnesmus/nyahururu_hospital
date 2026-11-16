@@ -246,10 +246,10 @@ const BloodRegistration = () => {
             <FaHeart className="text-amber-600 text-sm" />
           </div>
           <p className="text-slate-700 text-sm leading-relaxed">
-            Your donation can save up to <strong>3 lives</strong>. Blood is
-            essential for surgeries, trauma care, and treating blood disorders.
-            All equipment is sterile and single-use to ensure your complete
-            safety.
+            Donated blood helps patients who need surgery, emergency care or
+            treatment for blood disorders. Blood components may help more than
+            one patient. The donation team will explain the process and assess
+            your eligibility in person.
           </p>
         </div>
 
@@ -263,8 +263,8 @@ const BloodRegistration = () => {
             },
             {
               icon: FaCheckCircle,
-              title: "45 Minutes",
-              body: "The entire process from screening to completion.",
+              title: "Allow time for your visit",
+              body: "Screening, collection and recovery all take time; the collection itself is only one part of the visit.",
             },
             {
               icon: FaShieldAlt,
