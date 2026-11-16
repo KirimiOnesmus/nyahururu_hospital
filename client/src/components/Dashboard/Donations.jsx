@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useSocket } from "../../api/socket";
 import api from "../../api/axios";
 import { Link } from "react-router-dom";
@@ -271,6 +271,10 @@ const Donations = () => {
   const [activeTab, setActiveTab] = useState("donors");
   const [expandedDonor, setExpandedDonor] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [donorPage, setDonorPage] = useState(1);
+  const [donorPagination, setDonorPagination] = useState({ total: 0, page: 1, limit: 10, pages: 0 });
+  const fetchSequence = useRef(0);
   const [filterStatus, setFilterStatus] = useState("");
   const [walkInModal, setWalkInModal] = useState(false);
   const [walkInSaving, setWalkInSaving] = useState(false);
@@ -294,29 +298,43 @@ const Donations = () => {
     isActive: true,
   });
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm.trim());
+      setDonorPage(1);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchTerm]);
+
   const fetchData = useCallback(async () => {
+    const requestSequence = ++fetchSequence.current;
     setLoading(true);
     try {
       const [donorsRes, upcomingRes, statsRes, urgentRes] = await Promise.all([
         api.get("/blood-donation", {
           params: {
             status: filterStatus || undefined,
+            search: debouncedSearchTerm || undefined,
+            page: donorPage,
+            limit: donorPagination.limit,
           },
         }),
         api.get("/blood-donation/schedule/upcoming"),
         api.get("/blood-donation/reports/statistics"),
         api.get("/urgent-request"),
       ]);
+      if (requestSequence !== fetchSequence.current) return;
       setDonors(donorsRes.data.data || []);
+      setDonorPagination(donorsRes.data.pagination || { total: 0, page: 1, limit: 10, pages: 0 });
       setUpcoming(upcomingRes.data.data || []);
       setStats(statsRes.data.data || {});
       setUrgentRequests(urgentRes.data.data || []);
     } catch {
-      notify.error("Failed to load donation data");
+      if (requestSequence === fetchSequence.current) notify.error("Failed to load donation data");
     } finally {
-      setLoading(false);
+      if (requestSequence === fetchSequence.current) setLoading(false);
     }
-  }, [filterStatus]);
+  }, [debouncedSearchTerm, donorPage, donorPagination.limit, filterStatus]);
 
   useEffect(() => {
     fetchData();
@@ -331,16 +349,12 @@ const Donations = () => {
     [stats],
   );
 
-  const filteredDonors = useMemo(() => {
-    const q = searchTerm.toLowerCase();
-    return donors.filter(
-      (d) =>
-        d.fullName?.toLowerCase().includes(q) ||
-        d.email?.toLowerCase().includes(q) ||
-        d.phone?.includes(q) ||
-        d.donorId?.toLowerCase().includes(q),
-    );
-  }, [donors, searchTerm]);
+  useEffect(() => {
+    const lastPage = Math.max(1, donorPagination.pages);
+    if (donorPage > lastPage) {
+      setDonorPage(lastPage);
+    }
+  }, [donorPage, donorPagination.pages]);
 
   const openStatusModal = (donor) => {
     setEditingDonor(donor);
@@ -640,7 +654,10 @@ const Donations = () => {
                     <select
                       key={i}
                       value={val}
-                      onChange={(e) => set(e.target.value)}
+                      onChange={(e) => {
+                        set(e.target.value);
+                        setDonorPage(1);
+                      }}
                       className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm cursor-pointer outline-none focus:ring-2 focus:ring-red-400 bg-white text-gray-600"
                     >
                       {opts.map(([v, l]) => (
@@ -655,11 +672,11 @@ const Donations = () => {
 
               {loading ? (
                 <Spinner />
-              ) : filteredDonors.length === 0 ? (
+              ) : donors.length === 0 ? (
                 <EmptyState icon={FaUsers} text="No donors found" />
               ) : (
                 <div className="space-y-3">
-                  {filteredDonors.map((donor) => (
+                  {donors.map((donor) => (
                     <DonorRow
                       key={donor.donorId}
                       donor={donor}
@@ -679,6 +696,37 @@ const Donations = () => {
                       onToggleScreening={toggleDonorScreening}
                     />
                   ))}
+                </div>
+              )}
+
+              {!loading && (
+                <div className="mt-5 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-gray-100 pt-4">
+                  <p className="text-xs text-gray-500" aria-live="polite">
+                    {donorPagination.total === 0
+                      ? "No donors to display"
+                      : `Showing ${(donorPage - 1) * donorPagination.limit + 1}–${Math.min(donorPage * donorPagination.limit, donorPagination.total)} of ${donorPagination.total} donors`}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDonorPage((page) => Math.max(1, page - 1))}
+                      disabled={donorPage <= 1}
+                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-xs text-gray-500 px-1">
+                      Page {donorPage} of {Math.max(1, donorPagination.pages)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setDonorPage((page) => page + 1)}
+                      disabled={donorPagination.pages === 0 || donorPage >= donorPagination.pages}
+                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      Next
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
