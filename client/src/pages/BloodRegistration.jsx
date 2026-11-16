@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   FaHeart,
   FaCheckCircle,
@@ -56,7 +56,32 @@ const BloodRegistration = () => {
   const [formData, setFormData] = useState(INIT);
   const [errors, setErrors] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [availability, setAvailability] = useState(null);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!formData.donationDate) {
+      setAvailability(null);
+      setAvailabilityLoading(false);
+      return undefined;
+    }
+
+    let active = true;
+    setAvailabilityLoading(true);
+    api.get("/blood-donation/availability", { params: { date: formData.donationDate } })
+      .then(({ data }) => {
+        if (active) setAvailability(data.data);
+      })
+      .catch(() => {
+        if (active) setAvailability(null);
+      })
+      .finally(() => {
+        if (active) setAvailabilityLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [formData.donationDate]);
 
   const validateDonor = () => {
     const e = [];
@@ -273,6 +298,15 @@ const BloodRegistration = () => {
                   min={new Date().toISOString().split("T")[0]}
                   className={inputClass}
                 />
+                <p className="text-xs text-slate-500" aria-live="polite">
+                  {availabilityLoading
+                    ? "Checking office availability…"
+                    : availability
+                      ? availability.available > 0
+                        ? `${availability.available} of ${availability.capacity} appointments available for this date.`
+                        : "The blood donation office is fully booked for this date. Please choose another date."
+                      : "Appointment availability is confirmed when you submit your registration."}
+                </p>
               </Field>
               <Field label="Preferred Time" required>
                 <input
@@ -357,7 +391,7 @@ const BloodRegistration = () => {
           <div className="pt-1">
             <button
               onClick={handleRegistration}
-              disabled={loading}
+              disabled={loading || availability?.available === 0}
               className="flex items-center gap-2 px-6 py-2.5 bg-red-600 hover:bg-red-700
                          text-white text-sm font-semibold rounded-xl transition-colors duration-150  cursor-pointer
                          disabled:opacity-60 disabled:cursor-not-allowed"

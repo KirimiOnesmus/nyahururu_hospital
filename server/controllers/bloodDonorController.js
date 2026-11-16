@@ -8,6 +8,12 @@ const audit = require("../services/auditService");
 
 const DONOR_PRIVACY_NOTICE_VERSION = "1.0";
 const MIN_BLOOD_GROUP_AGGREGATE_SIZE = 5;
+// Override per deployment; keep a conservative default until the office sets its daily limit.
+const configuredDailyCapacity = Number.parseInt(process.env.BLOOD_DONATION_DAILY_CAPACITY, 10);
+const BLOOD_DONATION_DAILY_CAPACITY = Number.isInteger(configuredDailyCapacity) && configuredDailyCapacity > 0
+  ? configuredDailyCapacity
+  : 10;
+const CAPACITY_STATUSES = ["registered", "confirmed"];
 const DONOR_LIST_ATTRIBUTES = [
   "donorId", "fullName", "email", "phone",
   "donationDate", "donationTime", "consentDonate", "consentTest",
@@ -25,6 +31,62 @@ const donorSummary = (donor) => {
   return Object.fromEntries(DONOR_LIST_ATTRIBUTES
     .filter((field) => Object.prototype.hasOwnProperty.call(record, field))
     .map((field) => [field, record[field]]));
+};
+
+const validateDonationDate = (date) => /^\d{4}-\d{2}-\d{2}$/.test(date || "") &&
+  !Number.isNaN(Date.parse(`${date}T00:00:00Z`)) &&
+  new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) === date;
+
+const lockDonationCapacityDate = async (date, transaction) => {
+  // A transaction-scoped row lock serializes bookings across app instances
+  // without requiring a second database connection per request.
+  await sequelize.query(
+    "INSERT IGNORE INTO blood_donation_capacity_days (donation_date) VALUES (?)",
+    { replacements: [date], transaction },
+  );
+  await sequelize.query(
+    "SELECT donation_date FROM blood_donation_capacity_days WHERE donation_date = ? FOR UPDATE",
+    { replacements: [date], transaction },
+  );
+};
+
+const countScheduledDonations = (date, transaction, excludeDonorId) => {
+  const where = {
+    donationDate: date,
+    status: { [Op.in]: CAPACITY_STATUSES },
+    registrationStatus: { [Op.ne]: "rejected" },
+  };
+  if (excludeDonorId) where.donorId = { [Op.ne]: excludeDonorId };
+  return BloodDonor.count({ where, transaction });
+};
+
+const capacityResponse = (res, booked) => res.status(409).json({
+  success: false,
+  code: "DONATION_CAPACITY_REACHED",
+  message: "The blood donation office is fully booked for this date. Please choose another date.",
+  data: { capacity: BLOOD_DONATION_DAILY_CAPACITY, booked, available: 0 },
+});
+
+exports.getDonationAvailability = async (req, res) => {
+  const { date } = req.query;
+  if (!validateDonationDate(date)) {
+    return res.status(400).json({ success: false, message: "Please provide a valid date (YYYY-MM-DD)." });
+  }
+  try {
+    const booked = await countScheduledDonations(date);
+    return res.status(200).json({
+      success: true,
+      data: {
+        date,
+        capacity: BLOOD_DONATION_DAILY_CAPACITY,
+        booked,
+        available: Math.max(0, BLOOD_DONATION_DAILY_CAPACITY - booked),
+      },
+    });
+  } catch (error) {
+    logger.error({ errorName: error?.name }, "Blood donation availability lookup failed");
+    return res.status(500).json({ success: false, message: "Availability could not be loaded. Please try again." });
+  }
 };
 
 
@@ -45,10 +107,10 @@ exports.registerDonor = async (req, res) => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       return res.status(400).json({ success: false, message: "Please provide a valid email address." });
     }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(donationDate) || Number.isNaN(Date.parse(`${donationDate}T00:00:00Z`))) {
+    if (!validateDonationDate(donationDate)) {
       return res.status(400).json({ success: false, message: "Please provide a valid preferred donation date." });
     }
-    if (!/^\d{2}:\d{2}$/.test(donationTime)) {
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(donationTime)) {
       return res.status(400).json({ success: false, message: "Please provide a valid preferred donation time." });
     }
 
@@ -61,7 +123,7 @@ exports.registerDonor = async (req, res) => {
 
     const normalizedEmail = email.trim().toLowerCase();
     const consentRecordedAt = new Date();
-    transaction = await sequelize.transaction();
+    transaction = await sequelize.transaction({ isolationLevel: "READ COMMITTED" });
 
     const existingDonor = await BloodDonor.findOne({
       where: { email: normalizedEmail },
@@ -72,6 +134,14 @@ exports.registerDonor = async (req, res) => {
       await transaction.rollback();
       transaction = null;
       return res.status(400).json({ success: false, message: "Email already registered" });
+    }
+
+    await lockDonationCapacityDate(donationDate, transaction);
+    const booked = await countScheduledDonations(donationDate, transaction);
+    if (booked >= BLOOD_DONATION_DAILY_CAPACITY) {
+      await transaction.rollback();
+      transaction = null;
+      return capacityResponse(res, booked);
     }
 
     const donor = await BloodDonor.createWithUniqueId({
@@ -128,7 +198,11 @@ exports.registerDonor = async (req, res) => {
       },
     });
   } catch (error) {
-    if (transaction && !transaction.finished) await transaction.rollback();
+    if (transaction && !transaction.finished) {
+      try { await transaction.rollback(); } catch (rollbackError) {
+        logger.error({ errorName: rollbackError?.name }, "Blood donor registration rollback failed");
+      }
+    }
     logger.error({ errorName: error?.name }, "Blood donor registration failed");
     res.status(500).json({
       success: false,
@@ -183,7 +257,7 @@ exports.registerOfficeWalkIn = async (req, res) => {
     if (normalizedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
       return res.status(400).json({ success: false, message: "Please provide a valid email address." });
     }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(donationDate) || Number.isNaN(Date.parse(`${donationDate}T00:00:00Z`))) {
+    if (!validateDonationDate(donationDate)) {
       return res.status(400).json({ success: false, message: "Please provide a valid visit date." });
     }
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(donationTime)) {
@@ -203,7 +277,7 @@ exports.registerOfficeWalkIn = async (req, res) => {
     }
 
     const consentRecordedAt = new Date();
-    transaction = await sequelize.transaction();
+    transaction = await sequelize.transaction({ isolationLevel: "READ COMMITTED" });
     if (normalizedEmail) {
       const existingDonor = await BloodDonor.findOne({ where: { email: normalizedEmail }, transaction });
       if (existingDonor) {
@@ -211,6 +285,14 @@ exports.registerOfficeWalkIn = async (req, res) => {
         transaction = null;
         return res.status(409).json({ success: false, message: "This email is already registered. Find the existing donor record instead." });
       }
+    }
+
+    await lockDonationCapacityDate(donationDate, transaction);
+    const booked = await countScheduledDonations(donationDate, transaction);
+    if (booked >= BLOOD_DONATION_DAILY_CAPACITY) {
+      await transaction.rollback();
+      transaction = null;
+      return capacityResponse(res, booked);
     }
 
     const donor = await BloodDonor.createWithUniqueId({
@@ -257,7 +339,11 @@ exports.registerOfficeWalkIn = async (req, res) => {
       data: { donorId: donor.donorId, registrationDate: donor.createdAt },
     });
   } catch (error) {
-    if (transaction && !transaction.finished) await transaction.rollback();
+    if (transaction && !transaction.finished) {
+      try { await transaction.rollback(); } catch (rollbackError) {
+        logger.error({ errorName: rollbackError?.name }, "Blood donor walk-in rollback failed");
+      }
+    }
     logger.error({ errorName: error?.name }, "Blood donation office walk-in registration failed");
     return res.status(500).json({ success: false, message: "Walk-in donor could not be recorded. Please try again." });
   }
@@ -341,7 +427,7 @@ exports.updateDonor = async (req, res) => {
       return res.status(400).json({ success: false, message: "No editable donor fields were provided." });
     }
 
-    transaction = await sequelize.transaction();
+    transaction = await sequelize.transaction({ isolationLevel: "READ COMMITTED" });
     const donor = await BloodDonor.findOne({ where: { donorId }, transaction });
     if (!donor) {
       await transaction.rollback();
@@ -349,6 +435,26 @@ exports.updateDonor = async (req, res) => {
       return res.status(404).json({ success: false, message: "Donor not found" });
     }
 
+    const resultingStatus = updates.status || donor.status;
+    const resultingRegistrationStatus = updates.registrationStatus || donor.registrationStatus;
+    const resultingDate = updates.donationDate || donor.donationDate;
+    if (updates.donationDate && !validateDonationDate(updates.donationDate)) {
+      await transaction.rollback();
+      transaction = null;
+      return res.status(400).json({ success: false, message: "Please provide a valid preferred donation date." });
+    }
+    const wasScheduled = CAPACITY_STATUSES.includes(donor.status) && donor.registrationStatus !== "rejected";
+    const willBeScheduled = CAPACITY_STATUSES.includes(resultingStatus) && resultingRegistrationStatus !== "rejected";
+    const becomesScheduled = willBeScheduled && (!wasScheduled || Boolean(updates.donationDate));
+    if (becomesScheduled) {
+      await lockDonationCapacityDate(resultingDate, transaction);
+      const booked = await countScheduledDonations(resultingDate, transaction, donor.donorId);
+      if (booked >= BLOOD_DONATION_DAILY_CAPACITY) {
+        await transaction.rollback();
+        transaction = null;
+        return capacityResponse(res, booked);
+      }
+    }
 
     donor.set(updates);
     await donor.save({ transaction });
@@ -372,7 +478,11 @@ exports.updateDonor = async (req, res) => {
       data: donorSummary(donor),
     });
   } catch (error) {
-    if (transaction && !transaction.finished) await transaction.rollback();
+    if (transaction && !transaction.finished) {
+      try { await transaction.rollback(); } catch (rollbackError) {
+        logger.error({ errorName: rollbackError?.name }, "Blood donor update rollback failed");
+      }
+    }
     logger.error({ errorName: error?.name }, "Blood donor update failed");
     res.status(500).json({ success: false, message: "An unexpected error occurred. Please try again later." });
   }
@@ -384,7 +494,7 @@ exports.updateDonorStatus = async (req, res) => {
     const { donorId } = req.params;
     const { status, registrationStatus } = req.body;
 
-    transaction = await sequelize.transaction();
+    transaction = await sequelize.transaction({ isolationLevel: "READ COMMITTED" });
     const donor = await BloodDonor.findOne({ where: { donorId }, transaction });
     if (!donor) {
       await transaction.rollback();
@@ -406,6 +516,21 @@ exports.updateDonorStatus = async (req, res) => {
       await transaction.rollback();
       transaction = null;
       return res.status(400).json({ success: false, message: "Provide a donation or registration status." });
+    }
+
+    const resultingStatus = status || donor.status;
+    const resultingRegistrationStatus = registrationStatus || donor.registrationStatus;
+    const wasScheduled = CAPACITY_STATUSES.includes(donor.status) && donor.registrationStatus !== "rejected";
+    const willBeScheduled = CAPACITY_STATUSES.includes(resultingStatus) && resultingRegistrationStatus !== "rejected";
+    const becomesScheduled = willBeScheduled && !wasScheduled;
+    if (becomesScheduled) {
+      await lockDonationCapacityDate(donor.donationDate, transaction);
+      const booked = await countScheduledDonations(donor.donationDate, transaction, donor.donorId);
+      if (booked >= BLOOD_DONATION_DAILY_CAPACITY) {
+        await transaction.rollback();
+        transaction = null;
+        return capacityResponse(res, booked);
+      }
     }
 
     if (status) donor.status = status;
@@ -432,7 +557,11 @@ exports.updateDonorStatus = async (req, res) => {
       data: donorSummary(donor),
     });
   } catch (error) {
-    if (transaction && !transaction.finished) await transaction.rollback();
+    if (transaction && !transaction.finished) {
+      try { await transaction.rollback(); } catch (rollbackError) {
+        logger.error({ errorName: rollbackError?.name }, "Blood donor status rollback failed");
+      }
+    }
     logger.error({ errorName: error?.name }, "Blood donor status update failed");
     res.status(500).json({ success: false, message: "An unexpected error occurred. Please try again later." });
   }
