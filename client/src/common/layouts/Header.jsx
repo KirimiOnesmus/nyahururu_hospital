@@ -15,7 +15,7 @@ const Header = () => {
   const mobileMenuRef = useRef(null);
 
   const navigate = useNavigate();
-  const { pathname, search } = useLocation();
+  const { pathname, search, hash } = useLocation();
 
   useEffect(() => {
     setActiveDropdown(null);
@@ -84,7 +84,18 @@ const Header = () => {
 
   const navLinks = [
     { name: "Home", path: "/" },
-    { name: "About Us", path: "/about" },
+    {
+      name: "About Us",
+      dropdown: "about",
+      items: [
+        { name: "History", path: "/about#about", section: "about" },
+        { name: "Mission & Vision", path: "/about#mission-vision", section: "mission-vision" },
+        { name: "Strategic Plan", path: "/about#strategy", section: "strategy" },
+        { name: "Management Team", path: "/about#org-structure", section: "org-structure" },
+        { name: "Board of Management", path: "/about#board", section: "board" },
+        { name: "Careers", path: "/careers" },
+      ],
+    },
     { name: "Our Departments", dropdown: "departments", items: divisions },
     { name: "Our Specialists", path: "/doctors" },
     {
@@ -104,21 +115,22 @@ const Header = () => {
     { name: "Financial Aid", path: "/financial-aid" },
   ];
 
-  const DropdownPanel = ({ children, align = "left" }) => (
+  const DropdownPanel = ({ children, align = "left", variant }) => (
     <div
-      className={`absolute top-full ${align === "right" ? "right-0" : "left-0"} mt-1
-                  w-56 bg-surface border border-line rounded-xl shadow-md overflow-hidden z-50`}
+      className={`absolute top-full ${align === "right" ? "right-0" : "left-0"} ${variant === "about" ? "mt-0 w-64 bg-[#285398] border-0 rounded-none" : "mt-1 w-56 bg-surface border border-line rounded-xl"} shadow-md overflow-hidden z-50`}
     >
       {children}
     </div>
   );
 
-  const DropdownItem = ({ label, onClick, active }) => (
+  const DropdownItem = ({ label, onClick, active, variant }) => (
     <button
       type="button"
       onClick={onClick}
       className={`w-full text-left min-h-11 px-4 py-2.5 text-sm font-medium transition-colors
-                  ${active ? "bg-primary-soft text-primary font-semibold" : "text-ink hover:bg-canvas hover:text-primary"}`}
+                  ${variant === "about"
+                    ? `text-white border-b border-white/40 ${active ? "bg-[#1f477f] font-semibold" : "hover:bg-[#214982]"}`
+                    : active ? "bg-primary-soft text-primary font-semibold" : "text-ink hover:bg-canvas hover:text-primary"}`}
     >
       {label}
     </button>
@@ -189,7 +201,7 @@ const Header = () => {
                     onClick={() => toggleDropdown(link.dropdown)}
                     aria-expanded={activeDropdown === link.dropdown}
                     className={`flex items-center gap-0.5 min-h-11 px-3 py-2 text-sm font-semibold rounded-xl transition-colors ${
-                      activeDropdown === link.dropdown
+                      activeDropdown === link.dropdown || (link.dropdown === "about" && pathname === "/about")
                         ? "text-primary bg-primary-soft"
                         : "text-ink hover:text-primary hover:bg-canvas"
                     }`}
@@ -204,7 +216,7 @@ const Header = () => {
                   </button>
 
                   {activeDropdown === link.dropdown && (
-                    <DropdownPanel>
+                    <DropdownPanel variant={link.dropdown}>
                       {link.dropdown === "departments" ? (
                         loadingDivisions ? (
                           <div className="px-4 py-3 text-sm text-ink-muted">Loading departments…</div>
@@ -226,7 +238,10 @@ const Header = () => {
                             key={it.path}
                             label={it.name}
                             onClick={() => goTo(it.path)}
-                            active={pathname === it.path}
+                            active={it.section
+                              ? pathname === "/about" && (hash === `#${it.section}` || (!hash && it.section === "about"))
+                              : pathname === it.path}
+                            variant={link.dropdown}
                           />
                         ))
                       )}
@@ -349,7 +364,7 @@ const Header = () => {
                       </button>
 
                       {activeDropdown === link.dropdown && (
-                        <div className="ml-3 mt-1 border-l-2 border-primary-soft pl-3 space-y-0.5">
+                        <div className={`${link.dropdown === "about" ? "ml-0 mt-1 bg-[#285398] space-y-0" : "ml-3 mt-1 border-l-2 border-primary-soft pl-3 space-y-0.5"}`}>
                           {link.dropdown === "departments" ? (
                             loadingDivisions ? (
                               <p className="py-2 text-xs text-ink-muted">Loading departments…</p>
@@ -380,11 +395,7 @@ const Header = () => {
                                   e.stopPropagation();
                                   goTo(it.path);
                                 }}
-                                className={`w-full text-left min-h-11 px-3 py-2 rounded-xl text-sm ${
-                                  pathname === it.path
-                                    ? "bg-primary-soft text-primary font-semibold"
-                                    : "text-ink-muted hover:bg-canvas hover:text-primary"
-                                }`}
+                                className={`w-full text-left min-h-11 px-3 py-2 text-sm ${link.dropdown === "about" ? `text-white border-b border-white/40 ${it.section && pathname === "/about" && (hash === `#${it.section}` || (!hash && it.section === "about")) ? "bg-[#1f477f] font-semibold" : "hover:bg-[#214982]"}` : `rounded-xl ${pathname === it.path ? "bg-primary-soft text-primary font-semibold" : "text-ink-muted hover:bg-canvas hover:text-primary"}`}`}
                               >
                                 {it.name}
                               </button>
