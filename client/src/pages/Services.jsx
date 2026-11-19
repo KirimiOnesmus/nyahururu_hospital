@@ -8,6 +8,7 @@ import { FaTimes, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
 const BACKEND_URL = ASSET_BASE_URL;
 const PAGE_SIZE = 6;
+const divisionLabel = (division) => division === "Specialist Clinics" ? "Clinics (Specialized Clinics)" : division;
 
 
 const ServiceSlider = ({ services }) => {
@@ -18,7 +19,7 @@ const ServiceSlider = ({ services }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {services.map((service) => (
           <div key={service.id} className="relative">
-            {service.nhifCovered && (
+            {service.hasShaCoverage && (
               <span
                 className="absolute top-3 right-3 z-10 text-xs px-2.5 py-0.5 rounded-full
                            font-semibold bg-emerald-600 text-white border border-emerald-700"
@@ -148,7 +149,7 @@ const Services = () => {
           <h2 className="text-2xl md:text-3xl font-bold text-slate-800">
             Our Services &amp; Departments
             {selectedDivision && (
-              <span className="text-blue-600"> — {selectedDivision}</span>
+              <span className="text-blue-600"> — {divisionLabel(selectedDivision)}</span>
             )}
           </h2>
         </div>
@@ -190,7 +191,7 @@ const Services = () => {
                   >
                     <option value="">All Divisions</option>
                     {allDivisions.map((d) => (
-                      <option key={d} value={d}>{d}</option>
+                      <option key={d} value={d}>{divisionLabel(d)}</option>
                     ))}
                   </select>
                 </div>
@@ -200,7 +201,7 @@ const Services = () => {
                     Category
                     {selectedDivision && (
                       <span className="normal-case font-normal text-slate-400 ml-1">
-                        (in {selectedDivision})
+                        (in {divisionLabel(selectedDivision)})
                       </span>
                     )}
                   </label>

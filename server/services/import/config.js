@@ -3,7 +3,7 @@
 const { z } = require("zod");
 
 const schema = z.object({
-  IMPORT_ENABLED_ENTITIES: z.string().default("services"),
+  IMPORT_ENABLED_ENTITIES: z.string().default("services,serviceItems,ambulanceServices"),
   IMPORT_MAX_FILE_BYTES: z.coerce.number().int().min(1024).max(5 * 1024 * 1024).default(2 * 1024 * 1024),
   IMPORT_BATCH_TTL_HOURS: z.coerce.number().int().min(1).max(72).default(24),
   IMPORT_SNAPSHOT_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(30),

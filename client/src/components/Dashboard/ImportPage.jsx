@@ -72,7 +72,7 @@ export default function ImportPage() {
   const onCommit = async () => {
     if (!batch?.batchId && !batch?.id) return;
     const id = batch.batchId || batch.id;
-    if (!window.confirm(`Commit ${batch.summary?.rows ?? batch.rowCount} service rows?`)) return;
+    if (!window.confirm(`Commit ${batch.summary?.rows ?? batch.rowCount} ${selectedEntity?.label || "catalogue"} rows?`)) return;
     setLoading(true); setError("");
     try {
       await commitImport(id);
@@ -83,7 +83,7 @@ export default function ImportPage() {
 
   const onRollback = async () => {
     const id = batch?.batchId || batch?.id;
-    if (!id || !window.confirm("Roll back this import? This restores the previous service data.")) return;
+    if (!id || !window.confirm("Roll back this import? This restores the records changed by that batch.")) return;
     setLoading(true); setError("");
     try { await rollbackImport(id); await selectBatch(id); await refreshHistory(); }
     catch (err) { setError(err.response?.data?.error?.message || "Could not roll back the import."); }
@@ -146,7 +146,7 @@ export default function ImportPage() {
       </section>}
 
       {batch && <section className="rounded-xl bg-surface p-5 sm:p-6" aria-live="polite">
-        <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wider text-primary">Batch {batchId}</p><h2 className="mt-1 text-xl font-bold capitalize">{batch.status?.replaceAll("_", " ")}</h2></div><div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wider text-primary">Batch {batchId} · {batch.entity || selectedEntity?.key}</p><h2 className="mt-1 text-xl font-bold capitalize">{batch.status?.replaceAll("_", " ")}</h2></div><div className="flex flex-wrap gap-2">
           {batch.errorCount > 0 || summary?.errors > 0 ? <button className={secondaryClass} onClick={onErrors} type="button"><FaFileCsv /> Error CSV</button> : null}
           {canCommit && <button className={buttonClass} onClick={onCommit} disabled={loading} type="button"><FaCheckCircle /> Commit import</button>}
           {["validated", "failed", "awaiting_approval"].includes(batch.status) && <button className={secondaryClass} onClick={onDiscard} disabled={loading} type="button">Discard</button>}
@@ -154,7 +154,7 @@ export default function ImportPage() {
         </div></div>
         <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-6">{[["Rows", summary?.rows ?? batch.rowCount], ["Create", summary?.create ?? batch.createdCount], ["Update", summary?.update ?? batch.updatedCount], ["Unchanged", summary?.unchanged ?? batch.unchangedCount], ["Errors", summary?.errors ?? batch.errorCount], ["Warnings", summary?.warnings ?? batch.warningCount]].map(([label, value]) => <div className="rounded-lg bg-canvas p-3" key={label}><p className="text-xs text-ink-muted">{label}</p><p className="text-xl font-bold">{value ?? 0}</p></div>)}</div>
         {batch.errors?.length > 0 && <div className="mt-5 overflow-auto"><h3 className="mb-2 text-sm font-bold">Validation errors</h3><table className="w-full min-w-[600px] text-left text-sm"><thead><tr className="border-b border-line text-ink-muted"><th className="py-2">Row</th><th>Column</th><th>Issue</th></tr></thead><tbody>{batch.errors.map((item, index) => <tr className="border-b border-line" key={`${item.row}-${item.column}-${index}`}><td className="py-2">{item.row}</td><td>{item.column}</td><td>{item.message}</td></tr>)}</tbody></table></div>}
-        {batch.preview?.length > 0 && <div className="mt-5 overflow-auto"><h3 className="mb-2 text-sm font-bold">Preview (first 100 rows)</h3><table className="w-full min-w-[680px] text-left text-sm"><thead><tr className="border-b border-line text-ink-muted"><th className="py-2">Row</th><th>Action</th><th>Service</th><th>Changed fields</th></tr></thead><tbody>{batch.preview.map((item) => <tr className="border-b border-line" key={item.row}><td className="py-2">{item.row}</td><td className="capitalize">{item.action}</td><td>{item.key}</td><td>{item.changedFields?.join(", ") || "—"}</td></tr>)}</tbody></table></div>}
+        {batch.preview?.length > 0 && <div className="mt-5 overflow-auto"><h3 className="mb-2 text-sm font-bold">Preview (first 100 rows)</h3><table className="w-full min-w-[680px] text-left text-sm"><thead><tr className="border-b border-line text-ink-muted"><th className="py-2">Row</th><th>Action</th><th>Record key</th><th>Changed fields</th></tr></thead><tbody>{batch.preview.map((item) => <tr className="border-b border-line" key={item.row}><td className="py-2">{item.row}</td><td className="capitalize">{item.action}</td><td>{item.key}</td><td>{item.changedFields?.join(", ") || "—"}</td></tr>)}</tbody></table></div>}
       </section>}
 
       <section className="rounded-xl bg-surface p-5 sm:p-6">

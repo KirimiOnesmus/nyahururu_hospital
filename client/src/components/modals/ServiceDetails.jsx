@@ -3,38 +3,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 import { ASSET_BASE_URL } from "../../config/env";
 import { Header, Footer } from "../../common/layouts";
-import {
-  FaStethoscope,
-  FaCheckCircle,
-  FaClock,
-  FaPhone,
-  FaMapMarkerAlt,
-  FaUser,
-  FaMoneyBillWave,
-  FaHospital,
-  FaTags,
-  FaArrowLeft,
-} from "react-icons/fa";
+import { FaStethoscope, FaCheckCircle, FaHospital, FaTags, FaArrowLeft } from "react-icons/fa";
 
-const BACKEND_URL = ASSET_BASE_URL;
-
-const InfoTile = ({ icon: Icon, iconColor, label, value }) => (
-  <div className="bg-white rounded-xl p-5">
-    <div className="flex items-center gap-2 mb-2">
-      <Icon className={`text-base ${iconColor}`} />
-      <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">{label}</h3>
-    </div>
-    <p className="text-slate-700 text-sm leading-relaxed">{value}</p>
-  </div>
-);
-
-const Badge = ({ icon: Icon, label, color }) => (
-  <span
-    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${color}`}
-  >
-    <Icon className="text-[10px]" /> {label}
-  </span>
-);
+const formatKes = (value) => value == null ? "Price to be confirmed" : `KES ${Number(value).toLocaleString()}`;
+const divisionLabel = (division) => division === "Specialist Clinics" ? "Clinics (Specialized Clinics)" : division;
 
 const ServiceDetails = () => {
   const { id } = useParams();
@@ -44,210 +16,55 @@ const ServiceDetails = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchServiceDetails = async () => {
-      try {
-        setLoading(true);
-        const res = await api.get(`/services/${id}`);
-        setService(res.data);
-      } catch (err) {
-        console.error("Failed to fetch service details:", err);
-        setError("Failed to load service details.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchServiceDetails();
+    let active = true;
+    api.get(`/services/${id}`).then(({ data }) => { if (active) setService(data); })
+      .catch(() => { if (active) setError("Failed to load service details."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [id]);
 
-  const Shell = ({ children }) => (
-    <div className="min-h-screen flex flex-col bg-canvas">
-      <div className="sticky top-0 z-50 bg-surface border-b border-line">
-        <Header />
+  const Shell = ({ children }) => <div className="min-h-screen flex flex-col bg-canvas">
+    <div className="sticky top-0 z-50 bg-surface border-b border-line"><Header /></div>
+    <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-10">{children}</main><Footer />
+  </div>;
+  const backButton = <button onClick={() => navigate("/services")} className="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-blue-600 mb-8"><FaArrowLeft /> Back to Services</button>;
+
+  if (loading) return <Shell>{backButton}<div className="py-28 text-center text-slate-500">Loading service details…</div></Shell>;
+  if (error || !service) return <Shell>{backButton}<div className="py-28 text-center"><FaStethoscope className="mx-auto text-3xl text-red-400" /><h2 className="mt-4 text-xl font-bold text-slate-800">Service Not Found</h2><p className="mt-2 text-slate-500">{error || "The service you're looking for doesn't exist or has been removed."}</p></div></Shell>;
+
+  const covered = (service.items || []).filter((item) => item.shaCovered);
+  const uncovered = (service.items || []).filter((item) => !item.shaCovered);
+  const priceLists = [["Services covered by SHA", covered], ["Services not covered by SHA", uncovered]];
+
+  return <Shell>
+    {backButton}
+    <article>
+      {service.imageUrl && <img src={`${ASSET_BASE_URL}${service.imageUrl}`} alt={service.name} className="w-full max-h-[420px] object-cover rounded-2xl mb-8" />}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700"><FaHospital /> {divisionLabel(service.division)}</span>
+        {service.category && <span className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700"><FaTags /> {service.category}</span>}
       </div>
-      <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-10">{children}</main>
-      <Footer />
-    </div>
-  );
+      <h1 className="text-3xl md:text-4xl font-bold text-slate-800">{service.name}</h1>
+      <p className="mt-4 max-w-4xl text-slate-600 leading-relaxed whitespace-pre-line">{service.description}</p>
 
-  if (loading) {
-    return (
-      <Shell>
-        <div className="flex flex-col items-center justify-center py-32 gap-4">
-          <div className="w-10 h-10 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
-          <p className="text-slate-500 text-sm">Loading service details…</p>
-        </div>
-      </Shell>
-    );
-  }
-
-  if (error || !service) {
-    return (
-      <Shell>
-        <div className="flex flex-col items-center justify-center py-32 gap-4 text-center">
-          <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
-            <FaStethoscope className="text-2xl text-red-400" />
-          </div>
-          <h2 className="text-xl font-bold text-slate-800">Service Not Found</h2>
-          <p className="text-slate-500 text-sm max-w-sm">
-            {error || "The service you're looking for doesn't exist or has been removed."}
-          </p>
-          <button
-            onClick={() => navigate("/services")}
-            className="mt-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm
-                       font-semibold rounded-xl transition-colors duration-150 cursor-pointer"
-          >
-            Back to Services
-          </button>
-        </div>
-      </Shell>
-    );
-  }
-
-  const infoTiles = [
-    service.serviceHours && {
-      icon: FaClock,
-      iconColor: "text-blue-600",
-      label: "Service Hours",
-      value: service.serviceHours,
-    },
-    service.location && {
-      icon: FaMapMarkerAlt,
-      iconColor: "text-emerald-600",
-      label: "Location",
-      value: service.location,
-    },
-    service.headOfDepartment && {
-      icon: FaUser,
-      iconColor: "text-violet-600",
-      label: "Department Head",
-      value: service.headOfDepartment,
-    },
-    service.tariffInfo && {
-      icon: FaMoneyBillWave,
-      iconColor: "text-amber-600",
-      label: "Pricing",
-      value: service.tariffInfo,
-    },
-    service.contactInfo && {
-      icon: FaPhone,
-      iconColor: "text-indigo-600",
-      label: "Contact",
-      value: service.contactInfo,
-    },
-  ].filter(Boolean);
-
-  return (
-    <Shell>
-      <button
-        onClick={() => navigate("/services")}
-        className="flex items-center gap-2 text-sm font-semibold text-slate-500
-                   hover:text-blue-600 transition-colors duration-150 mb-8 cursor-pointer"
-      >
-        <FaArrowLeft className="text-xs" /> Back to Services
-      </button>
-
-      <div className="bg-white rounded-2xl overflow-hidden mb-6">
-        <div className="flex flex-col md:flex-row items-center md:items-start gap-6 p-8">
-          <div className="shrink-0">
-            {service.imageUrl ? (
-              <img
-                src={`${BACKEND_URL}${service.imageUrl}`}
-                alt={service.name}
-                className="h-36 w-36 object-cover rounded-xl"
-              />
-            ) : (
-              <div className="h-36 w-36 rounded-xl bg-blue-600 flex items-center justify-center">
-                <FaStethoscope className="text-5xl text-white" />
-              </div>
-            )}
-          </div>
-
-          <div className="flex-1 text-center md:text-left">
-            <div className="flex flex-wrap gap-2 mb-3 justify-center md:justify-start">
-              {service.category && (
-                <Badge
-                  icon={FaTags}
-                  label={service.category}
-                  color="bg-violet-50 text-violet-700"
-                />
-              )}
-              {service.division && (
-                <Badge
-                  icon={FaHospital}
-                  label={service.division}
-                  color="bg-blue-50 text-blue-700"
-                />
-              )}
-              {service.nhifCovered && (
-                <Badge
-                  icon={FaCheckCircle}
-                  label="SHA Covered"
-                  color="bg-emerald-50 text-emerald-700"
-                />
-              )}
-            </div>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-800">{service.name}</h1>
-          </div>
-        </div>
-
-        <div className="px-8 py-6">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">
-            About This Service
-          </h2>
-          <p className="text-slate-700 leading-relaxed text-[0.97rem] whitespace-pre-line">
-            {service.description || "No detailed description available for this service."}
-          </p>
-        </div>
+      <div className="mt-10 grid gap-10 md:grid-cols-2">
+        {priceLists.map(([heading, items]) => <section key={heading}>
+          <div className="flex items-center gap-2 mb-4"><FaCheckCircle className={heading.includes("not") ? "text-slate-400" : "text-emerald-600"} /><h2 className="text-lg font-bold text-slate-800">{heading}</h2><span className="text-sm text-slate-400">{items.length}</span></div>
+          {items.length ? <ul className="divide-y divide-slate-200">
+            {items.map((item) => <li key={item.id} className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 py-3">
+              <span className="text-sm text-slate-700">{item.name}</span>
+              <span className="sm:text-right text-xs text-slate-500">Cash/mobile: {formatKes(item.cashPrice)}{item.shaCovered ? <><br />SHA: {formatKes(item.shaPrice)}</> : null}</span>
+            </li>)}
+          </ul> : <p className="text-sm text-slate-500">No services listed in this group.</p>}
+        </section>)}
       </div>
-
-      {infoTiles.length > 0 && (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          {infoTiles.map((tile) => (
-            <InfoTile key={tile.label} {...tile} />
-          ))}
-        </div>
-      )}
-
-      {service.features?.length > 0 && (
-        <div className="bg-white rounded-2xl p-6 mb-6">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">
-            Key Features
-          </h3>
-          <div className="grid sm:grid-cols-2 gap-2.5">
-            {service.features.map((feature, i) => (
-              <div key={i} className="flex items-start gap-2.5">
-                <FaCheckCircle className="text-blue-500 mt-0.5 shrink-0 text-sm" />
-                <span className="text-slate-700 text-sm leading-relaxed">{feature}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="bg-white rounded-2xl p-8 text-center">
-        <h3 className="text-xl font-bold text-slate-800 mb-1">Ready to Get Started?</h3>
-        <p className="text-slate-500 text-sm mb-6">
-          Book an appointment or explore other services.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <button
-            onClick={() => navigate("/appointment")}
-            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold
-                       rounded-xl transition-colors duration-150 cursor-pointer"
-          >
-            Book Appointment
-          </button>
-          <button
-            onClick={() => navigate("/services")}
-            className="px-6 py-2.5 border border-slate-200 hover:border-blue-400 text-slate-600
-                       hover:text-blue-600 text-sm font-semibold rounded-xl transition-colors duration-150 cursor-pointer"
-          >
-            View All Services
-          </button>
-        </div>
+      <div className="mt-12 py-8 text-center border-t border-slate-200">
+        <h2 className="text-xl font-bold text-slate-800">Ready to get started?</h2>
+        <p className="mt-2 text-sm text-slate-500">Book an appointment or explore other hospital services.</p>
+        <button onClick={() => navigate("/appointment")} className="mt-5 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Book an appointment</button>
       </div>
-    </Shell>
-  );
+    </article>
+  </Shell>;
 };
 
 export default ServiceDetails;

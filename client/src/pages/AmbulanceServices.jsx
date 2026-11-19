@@ -61,6 +61,7 @@ const AmbulanceServices = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [bookingId, setBookingId] = useState(null);
+  const [serviceOptions, setServiceOptions] = useState([]);
 
   const [constituencies, setConstituencies] = useState([]);
   const [wards, setWards] = useState([]);
@@ -68,6 +69,7 @@ const AmbulanceServices = () => {
   const [loadingWards, setLoadingWards] = useState(false);
 
   useEffect(() => {
+    api.get("/ambulance-services").then(({ data }) => setServiceOptions(Array.isArray(data) ? data : [])).catch(() => setServiceOptions([]));
     const fetchConstituencies = async () => {
       setLoadingConst(true);
       try {
@@ -245,6 +247,16 @@ const AmbulanceServices = () => {
             <strong>5–10 minutes</strong>.
           </p>
         </div>
+
+        {serviceOptions.length > 0 && <section className="mb-6">
+          <h2 className="mb-3 text-lg font-bold text-slate-800">Ambulance services and transfer prices</h2>
+          <div className="divide-y divide-slate-100 rounded-2xl bg-white px-5">
+            {serviceOptions.map((item) => <div key={item.id} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div><p className="font-semibold text-slate-800">{item.name}</p>{item.description && <p className="text-xs text-slate-500">{item.description}</p>}</div>
+              <p className="text-xs text-slate-600 sm:text-right">Cash/mobile: {item.cashPrice == null ? "Contact the hospital" : `KES ${Number(item.cashPrice).toLocaleString()}`}{item.shaCovered && item.shaPrice != null ? <><br />SHA: KES {Number(item.shaPrice).toLocaleString()}</> : null}</p>
+            </div>)}
+          </div>
+        </section>}
 
         <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100 overflow-hidden">
           <div className="p-7">
