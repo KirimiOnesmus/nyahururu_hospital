@@ -22,8 +22,27 @@ const LOW_STOCK_WHERE = sequelize.where(
 
 exports.getAllInventory = async (req, res) => {
   try {
+    const { search, category, stock } = req.query;
     const { requestedPaging, page, limit, offset } = getPagination(req.query);
+    const where = {};
+    if (category && category !== "all") where.category = category;
+    if (search) {
+      const escaped = String(search).replace(/[\\%_]/g, (m) => `\\${m}`);
+      const like = `%${escaped}%`;
+      where[Op.or] = [
+        { name: { [Op.like]: like } }, { category: { [Op.like]: like } },
+        { supplier: { [Op.like]: like } }, { batch: { [Op.like]: like } },
+        { sku: { [Op.like]: like } },
+      ];
+    }
+    if (stock === "expired") where.expiry = { [Op.lt]: new Date() };
+    if (stock === "low") where[Op.and] = [LOW_STOCK_WHERE, { [Op.or]: [{ expiry: null }, { expiry: { [Op.gte]: new Date() } }] }];
+    if (stock === "ok") where[Op.and] = [
+      sequelize.where(sequelize.col("quantity"), Op.gte, sequelize.col("min_threshold")),
+      { [Op.or]: [{ expiry: null }, { expiry: { [Op.gte]: new Date() } }] },
+    ];
     const { rows: inventory, count: total } = await Inventory.findAndCountAll({
+      where,
       include: AUTHOR_INCLUDE,
       order: [["createdAt", "DESC"]],
       limit,

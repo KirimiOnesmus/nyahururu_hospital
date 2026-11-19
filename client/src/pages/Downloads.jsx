@@ -166,35 +166,42 @@ const Downloads = () => {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
   const [downloading, setDownloading] = useState({});
 
   const fetchReports = useCallback(async () => {
     setLoading(true);
     setFetchError(false);
     try {
-      const response = await api.get("/reports");
+      const response = await api.get("/reports", {
+        params: { search: debouncedSearch || undefined, page, limit: 12 },
+      });
       const data = response.data.data ?? response.data ?? [];
       setReports(Array.isArray(data) ? data : []);
+      setPagination(response.data.pagination || { page: 1, pages: 1, total: data.length });
     } catch {
       setFetchError(true);
+      setReports([]);
+      setPagination({ page: 1, pages: 1, total: 0 });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [debouncedSearch, page]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  useEffect(() => { setPage(1); }, [debouncedSearch]);
 
   useEffect(() => {
     fetchReports();
   }, [fetchReports]);
 
-  const filteredReports = reports.filter((r) => {
-    if (!searchTerm) return true;
-    const q = searchTerm.toLowerCase();
-    return (
-      r.title?.toLowerCase().includes(q) ||
-      r.description?.toLowerCase().includes(q) ||
-      r.category?.toLowerCase().includes(q)
-    );
-  });
+  const filteredReports = reports;
 
   const handleDownload = async (report) => {
     setDownloading((prev) => ({ ...prev, [report.id]: true }));
@@ -249,7 +256,7 @@ const Downloads = () => {
               type="text"
               placeholder="Search by title, description, or category…"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
               className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50
                          text-sm text-slate-800 outline-none placeholder:text-slate-400
                          focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
@@ -258,8 +265,8 @@ const Downloads = () => {
 
           {!loading && !fetchError && (
             <p className="text-xs text-slate-400 shrink-0">
-              {filteredReports.length} of {reports.length}{" "}
-              {reports.length === 1 ? "report" : "reports"}
+              {filteredReports.length} of {pagination.total}{" "}
+              {pagination.total === 1 ? "report" : "reports"}
             </p>
           )}
         </div>
@@ -271,16 +278,27 @@ const Downloads = () => {
         ) : filteredReports.length === 0 ? (
           <EmptyState hasFilters={hasFilters} />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredReports.map((report) => (
-              <ReportCard
-                key={report.id}
-                report={report}
-                onDownload={handleDownload}
-                isDownloading={!!downloading[report.id]}
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {filteredReports.map((report) => (
+                <ReportCard
+                  key={report.id}
+                  report={report}
+                  onDownload={handleDownload}
+                  isDownloading={!!downloading[report.id]}
+                />
+              ))}
+            </div>
+            {pagination.pages > 1 && (
+              <div className="flex items-center justify-between mt-8">
+                <span className="text-xs text-slate-500">Page {page} of {pagination.pages}</span>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page <= 1} className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 disabled:opacity-40">Previous</button>
+                  <button type="button" onClick={() => setPage((current) => Math.min(pagination.pages, current + 1))} disabled={page >= pagination.pages} className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 disabled:opacity-40">Next</button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </main>
 

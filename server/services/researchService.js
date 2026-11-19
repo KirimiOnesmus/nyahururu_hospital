@@ -608,23 +608,45 @@ const getRevisionComparison = async (researchId, caller = {}) => {
   };
 };
 
-const getMyResearch = async (researcherId, { page, limit, submissionType }) => {
+const getMyResearch = async (researcherId, { page, limit, submissionType, status, search, includeCoInvestigators, sort }) => {
   const safePage = Math.max(1, Number(page) || PAGINATION.DEFAULT_PAGE);
   const safeLimit = Math.min(
     Number(limit) || PAGINATION.DEFAULT_LIMIT,
     PAGINATION.MAX_LIMIT,
   );
 
-  const where = {
+  const ownedWhere = {
     researcherId,
     isDeleted: false,
     submissionType: submissionType || SUBMISSION_TYPES.INITIAL_PROPOSAL,
   };
+  let coInvestigatorIds = [];
+  if (includeCoInvestigators && CoInvestigatorAssignment) {
+    const assignments = await CoInvestigatorAssignment.findAll({
+      where: { researcherId }, attributes: ["researchId"], raw: true,
+    });
+    coInvestigatorIds = assignments.map((assignment) => assignment.researchId);
+  }
+  const ownershipWhere = includeCoInvestigators
+    ? { [Op.or]: [ownedWhere, { id: { [Op.in]: coInvestigatorIds }, isDeleted: false, submissionType: ownedWhere.submissionType }] }
+    : ownedWhere;
+  const sharedConditions = [ownershipWhere];
+  if (search) {
+    const like = `%${likeEscape(search)}%`;
+    sharedConditions.push({ [Op.or]: [
+      { title: { [Op.like]: like } },
+      { researchId: { [Op.like]: like } },
+      { discipline: { [Op.like]: like } },
+    ] });
+  }
+  const statuses = status ? String(status).split(",").map((value) => value.trim()).filter(Boolean) : [];
+  const where = { [Op.and]: [...sharedConditions, ...(statuses.length ? [{ status: statuses.length > 1 ? { [Op.in]: statuses } : statuses[0] }] : [])] };
 
   const { rows: papers, count: total } = await Research.findAndCountAll({
     where,
     attributes: [
       "id",
+      "researcherId",
       "title",
       "discipline",
       "submissionType",
@@ -667,10 +689,22 @@ const getMyResearch = async (researcherId, { page, limit, submissionType }) => {
         ],
       },
     ],
-    order: [["createdAt", "DESC"]],
+    order: [["createdAt", sort === "oldest" ? "ASC" : "DESC"]],
     offset: (safePage - 1) * safeLimit,
     limit: safeLimit,
     distinct: true,
+  });
+
+  const statusCountsRows = await Research.count({
+    where: { [Op.and]: sharedConditions },
+    attributes: ["status"],
+    group: ["status"],
+  });
+  const statusCounts = Object.fromEntries(statusCountsRows.map((row) => [row.status, Number(row.count)]));
+
+  papers.forEach((paper) => {
+    paper.setDataValue("myRole", coInvestigatorIds.includes(paper.id) && String(paper.researcherId) !== String(researcherId)
+      ? "co_investigator" : "principal_investigator");
   });
 
 
@@ -724,6 +758,7 @@ const getMyResearch = async (researcherId, { page, limit, submissionType }) => {
     page: safePage,
     limit: safeLimit,
     totalPages: Math.ceil(total / safeLimit),
+    statusCounts,
     papers,
   };
 };
@@ -2071,7 +2106,7 @@ const assignReviewer = async (researchId, reviewerEmail) => {
 
 const getAssignedResearch = async (
   reviewerId,
-  { page, limit, submissionType, includeCompleted, search },
+  { page, limit, submissionType, includeCompleted, search, status, decision, discipline, dateFrom, dateTo, sort },
 ) => {
   const safePage = Math.max(1, Number(page) || PAGINATION.DEFAULT_PAGE);
   const safeLimit = Math.min(
@@ -2086,6 +2121,8 @@ const getAssignedResearch = async (
       page: safePage,
       limit: safeLimit,
       totalPages: 0,
+      stats: { total: 0, pending: 0, revisionsSent: 0, avgTurnaround: null, avgScore: null, approvalPct: 0, revisionPct: 0, categories: [] },
+      categories: [],
       papers: [],
     };
   }
@@ -2121,6 +2158,33 @@ const getAssignedResearch = async (
     };
   }
   if (submissionType) where.submissionType = submissionType;
+  const decisionStatuses = {
+    approved: [RESEARCH_STATUSES.APPROVED],
+    revision_needed: [RESEARCH_STATUSES.REVISION_REQUESTED],
+    rejected: [RESEARCH_STATUSES.REJECTED],
+    suspended: [RESEARCH_STATUSES.SUSPENDED],
+    pending_committee: [RESEARCH_STATUSES.PENDING_COMMITTEE_REVIEW],
+    in_progress: [RESEARCH_STATUSES.UNDER_REVIEW, RESEARCH_STATUSES.SUBMITTED],
+  };
+  if (decision && decisionStatuses[decision]) where.status = { [Op.in]: decisionStatuses[decision] };
+  else if (status) {
+    const statuses = String(status).split(",").map((value) => value.trim()).filter(Boolean);
+    where.status = statuses.length > 1 ? { [Op.in]: statuses } : statuses[0];
+  }
+  if (discipline) where.discipline = discipline;
+  if (dateFrom || dateTo) {
+    const dateRange = {};
+    if (dateFrom) dateRange[Op.gte] = new Date(`${dateFrom}T00:00:00.000Z`);
+    if (dateTo) dateRange[Op.lte] = new Date(`${dateTo}T23:59:59.999Z`);
+    where[Op.and] = [...(where[Op.and] || []), { [Op.or]: [
+      { reviewedAt: dateRange }, { assignedAt: dateRange }, { createdAt: dateRange },
+    ] }];
+  }
+
+  const order = sort === "assigned" ? [["assignedAt", "DESC"]]
+    : sort === "priority" ? [["priority", "ASC"], ["assignedAt", "DESC"]]
+    : sort === "deadline" ? [["reviewDeadline", "ASC"], ["assignedAt", "DESC"]]
+    : [["reviewedAt", "DESC"], ["assignedAt", "DESC"]];
 
   const { rows: papers, count: total } = await Research.findAndCountAll({
     where,
@@ -2143,11 +2207,30 @@ const getAssignedResearch = async (
       "parentResearchId",
     ],
     include: RESEARCHER_LIST_INCLUDE,
-    order: [["assignedAt", "DESC"]],
+    order,
     offset: (safePage - 1) * safeLimit,
     limit: safeLimit,
     distinct: true,
   });
+
+  const summaryRows = await Research.findAll({
+    where: { id: { [Op.in]: assignedIds } },
+    attributes: ["status", "discipline", "assignedAt", "reviewedAt", "aggregateScore", "parentResearchId", "id"],
+    raw: true,
+  });
+  const studyKey = (row) => String(row.parentResearchId || row.id);
+  const distinctStudies = (rows) => new Set(rows.map(studyKey)).size;
+  const decidedRows = summaryRows.filter((row) => [RESEARCH_STATUSES.APPROVED, RESEARCH_STATUSES.REJECTED, RESEARCH_STATUSES.SUSPENDED].includes(row.status) && row.assignedAt && row.reviewedAt);
+  const stats = {
+    total: distinctStudies(summaryRows),
+    pending: distinctStudies(summaryRows.filter((row) => [RESEARCH_STATUSES.UNDER_REVIEW, RESEARCH_STATUSES.SUBMITTED, RESEARCH_STATUSES.REVISION_REQUESTED].includes(row.status))),
+    revisionsSent: distinctStudies(summaryRows.filter((row) => row.status === RESEARCH_STATUSES.REVISION_REQUESTED)),
+    avgTurnaround: decidedRows.length ? Number((decidedRows.reduce((sum, row) => sum + (new Date(row.reviewedAt) - new Date(row.assignedAt)) / 86400000, 0) / decidedRows.length).toFixed(1)) : null,
+    avgScore: (() => { const scored = summaryRows.filter((row) => row.aggregateScore != null); return scored.length ? Number((scored.reduce((sum, row) => sum + Number(row.aggregateScore), 0) / scored.length).toFixed(1)) : null; })(),
+    approvalPct: summaryRows.length ? Math.round((summaryRows.filter((row) => row.status === RESEARCH_STATUSES.APPROVED).length / summaryRows.length) * 100) : 0,
+    revisionPct: summaryRows.length ? Math.round((summaryRows.filter((row) => [RESEARCH_STATUSES.REVISION_REQUESTED, RESEARCH_STATUSES.REJECTED, RESEARCH_STATUSES.SUSPENDED].includes(row.status)).length / summaryRows.length) * 100) : 0,
+    categories: [...new Set(summaryRows.map((row) => row.discipline).filter(Boolean))],
+  };
 
   const plain = papers.map((p) => p.toJSON());
   const childParentIds = [
@@ -2169,6 +2252,8 @@ const getAssignedResearch = async (
     page: safePage,
     limit: safeLimit,
     totalPages: Math.ceil(total / safeLimit),
+    stats,
+    categories: stats.categories,
     papers: plain,
   };
 };
@@ -2485,12 +2570,25 @@ const getAllResearchCommittee = async ({
       { abstract: { [Op.like]: like } },
       { researchId: { [Op.like]: like } },
       { seruNumber: { [Op.like]: like } },
+      { "$researcher.name$": { [Op.like]: like } },
     ];
   }
 
 
   const nesting = !submissionType && !status && !stage && !search;
   if (nesting) where.parentResearchId = null;
+
+  const statusCountRows = await Research.count({
+    where: { isDeleted: false }, group: ["status"],
+  });
+  const statusCounts = Object.fromEntries(statusCountRows.map((row) => [row.status, Number(row.count)]));
+  const systemTotal = Object.values(statusCounts).reduce((sum, count) => sum + count, 0);
+  const repositoryStats = {
+    total: systemTotal,
+    approved: statusCounts[RESEARCH_STATUSES.APPROVED] || 0,
+    inProgress: [RESEARCH_STATUSES.UNDER_REVIEW, RESEARCH_STATUSES.REVISION_REQUESTED, RESEARCH_STATUSES.PENDING_COMMITTEE_REVIEW, RESEARCH_STATUSES.SUSPENDED, RESEARCH_STATUSES.REJECTED].reduce((sum, key) => sum + (statusCounts[key] || 0), 0),
+    published: statusCounts[RESEARCH_STATUSES.CLOSED] || 0,
+  };
 
   const { rows: papers, count: total } = await Research.findAndCountAll({
     where,
@@ -2527,6 +2625,7 @@ const getAllResearchCommittee = async ({
     page: safePage,
     limit: safeLimit,
     totalPages: Math.ceil(total / safeLimit),
+    stats: repositoryStats,
     papers,
   };
 };
@@ -3259,7 +3358,7 @@ const getRecordTimeline = async (researchId) => {
 };
 
 const getAllResearchAdmin = async ({
-  submissionType,
+  stage,
   status,
   search,
   page,
@@ -3271,17 +3370,47 @@ const getAllResearchAdmin = async ({
     PAGINATION.MAX_LIMIT,
   );
 
-  const where = {};
-  if (submissionType) where.submissionType = submissionType;
-  if (status) where.status = status;
+  const rootWhere = { parentResearchId: null, isDeleted: false };
+  const continuingChildren = await Research.findAll({
+    where: { submissionType: SUBMISSION_TYPES.CONTINUING_REVIEW, isDeleted: false, parentResearchId: { [Op.ne]: null } },
+    attributes: ["parentResearchId"], raw: true,
+  });
+  const closureChildren = await Research.findAll({
+    where: { submissionType: SUBMISSION_TYPES.STUDY_CLOSURE, status: { [Op.in]: [RESEARCH_STATUSES.APPROVED, RESEARCH_STATUSES.CLOSED] }, isDeleted: false, parentResearchId: { [Op.ne]: null } },
+    attributes: ["parentResearchId"], raw: true,
+  });
+  const continuingIds = [...new Set(continuingChildren.map((child) => child.parentResearchId))];
+  const closedIds = [...new Set(closureChildren.map((child) => child.parentResearchId))];
+  const roots = await Research.findAll({ where: rootWhere, attributes: ["id", "status"], raw: true });
+  const allClosedIds = new Set([...closedIds.map(String), ...roots.filter((root) => root.status === RESEARCH_STATUSES.CLOSED).map((root) => String(root.id))]);
+  const allContinuingIds = new Set(continuingIds.map(String));
+  const stageCounts = {
+    proposal: roots.filter((root) => !allClosedIds.has(String(root.id)) && !allContinuingIds.has(String(root.id))).length,
+    continuing_review: roots.filter((root) => !allClosedIds.has(String(root.id)) && allContinuingIds.has(String(root.id))).length,
+    closed: roots.filter((root) => allClosedIds.has(String(root.id))).length,
+  };
+  if (stage === "proposal") rootWhere.id = { [Op.notIn]: [...allClosedIds, ...allContinuingIds] };
+  if (stage === "continuing_review") rootWhere.id = { [Op.in]: [...continuingIds.filter((id) => !allClosedIds.has(String(id)))] };
+  if (stage === "closed") rootWhere.id = { [Op.in]: [...allClosedIds] };
+  const where = { [Op.and]: [rootWhere] };
+  if (status) {
+    const matchingChildren = await Research.findAll({ where: { status, isDeleted: false, parentResearchId: { [Op.ne]: null } }, attributes: ["parentResearchId"], raw: true });
+    where[Op.and].push({ [Op.or]: [{ status }, { id: { [Op.in]: matchingChildren.map((child) => child.parentResearchId) } }] });
+  }
   if (search) {
     const like = `%${likeEscape(search)}%`;
-    where[Op.or] = [
-      { title: { [Op.like]: like } },
-      { abstract: { [Op.like]: like } },
-      { researchId: { [Op.like]: like } },
-      { seruNumber: { [Op.like]: like } },
-    ];
+    const matchingChildren = await Research.findAll({
+      where: { isDeleted: false, parentResearchId: { [Op.ne]: null }, [Op.or]: [
+        { title: { [Op.like]: like } }, { abstract: { [Op.like]: like } },
+        { researchId: { [Op.like]: like } }, { seruNumber: { [Op.like]: like } },
+      ] }, attributes: ["parentResearchId"], raw: true,
+    });
+    where[Op.and].push({ [Op.or]: [
+      { title: { [Op.like]: like } }, { abstract: { [Op.like]: like } },
+      { researchId: { [Op.like]: like } }, { seruNumber: { [Op.like]: like } },
+      { "$researcher.name$": { [Op.like]: like } },
+      { id: { [Op.in]: matchingChildren.map((child) => child.parentResearchId) } },
+    ] });
   }
 
   const { rows: papers, count: total } = await Research.findAndCountAll({
@@ -3322,11 +3451,14 @@ const getAllResearchAdmin = async ({
     distinct: true,
   });
 
+  await attachChildSubmissions(papers);
+
   return {
     total,
     page: safePage,
     limit: safeLimit,
     totalPages: Math.ceil(total / safeLimit),
+    stageCounts,
     papers,
   };
 };

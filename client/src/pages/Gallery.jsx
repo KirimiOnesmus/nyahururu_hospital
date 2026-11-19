@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Header, Footer } from "../common/layouts";
 import api from "../api/axios";
 import { ASSET_BASE_URL } from "../config/env";
@@ -158,7 +158,9 @@ const Gallery = () => {
   const [activeType, setActiveType] = useState("all");
   const [lightboxItem, setLightboxItem] = useState(null);
   const [gridSize, setGridSize] = useState("normal"); 
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
+  const [facets, setFacets] = useState({ categoryCounts: {}, images: 0, videos: 0 });
 
 
   useEffect(() => {
@@ -170,59 +172,51 @@ const Gallery = () => {
     try {
       setLoading(true);
       setErrored(false);
-      const [galleryRes, catRes] = await Promise.all([
-        api.get("/gallery", { params: { visible: true } }),
-        api.get("/gallery/categories").catch(() => ({ data: [] })),
-      ]);
-      const data = Array.isArray(galleryRes.data) ? galleryRes.data : galleryRes.data.data || [];
-      const publicItems = data.filter(
-        (i) => i.visible !== false && !EXCLUDED_CATEGORIES.includes(i.category)
-      );
-      setItems(publicItems);
-      const cats = Array.isArray(catRes.data) ? catRes.data : catRes.data.data || [];
-      setCategories(cats.filter((c) => !EXCLUDED_CATEGORIES.includes(c.name || c)));
+      const galleryRes = await api.get("/gallery", {
+        params: {
+          visible: true,
+          excludeCategory: EXCLUDED_CATEGORIES[0],
+          search: debouncedSearch || undefined,
+          category: activeCategory === "all" ? undefined : activeCategory,
+          type: activeType === "all" ? undefined : activeType,
+          page,
+          limit: PAGE_SIZE,
+        },
+      });
+      const data = galleryRes.data.data || [];
+      setItems(data);
+      setPagination(galleryRes.data.meta || { page: 1, pages: 1, total: data.length });
+      setFacets(galleryRes.data.facets || { categoryCounts: {}, images: 0, videos: 0 });
     } catch {
       setItems([]);
+      setPagination({ page: 1, pages: 1, total: 0 });
       setErrored(true);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [debouncedSearch, activeCategory, activeType, page]);
 
   useEffect(() => { fetchGallery(); }, [fetchGallery]);
 
+  useEffect(() => {
+    api.get("/gallery/categories")
+      .then(({ data }) => {
+        const cats = Array.isArray(data) ? data : data.data || [];
+        setCategories(cats.filter((category) => !EXCLUDED_CATEGORIES.includes(category.name || category)));
+      })
+      .catch(() => setCategories([]));
+  }, []);
 
-  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [debouncedSearch, activeCategory, activeType]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, activeCategory, activeType]);
 
-  const filtered = useMemo(() => {
-    const q = debouncedSearch.toLowerCase();
-    return items.filter((item) => {
-      const matchSearch = !q || item.title?.toLowerCase().includes(q) || item.description?.toLowerCase().includes(q);
-      const matchCat = activeCategory === "all" || item.category === activeCategory;
-      const matchType = activeType === "all" || item.type === activeType;
-      return matchSearch && matchCat && matchType;
-    });
-  }, [items, debouncedSearch, activeCategory, activeType]);
-
-  const visibleItems = filtered.slice(0, visibleCount);
-  const hasMore = visibleCount < filtered.length;
-
-  const stats = useMemo(() => ({
-    total: items.length,
-    images: items.filter((i) => i.type === "image").length,
-    videos: items.filter((i) => i.type === "video").length,
-  }), [items]);
-
-  const allCategories = useMemo(() => {
-    const fromItems = [...new Set(items.map((i) => i.category).filter(Boolean))];
-    const fromApi = categories.map((c) => c.name || c);
-    return [...new Set([...fromItems, ...fromApi])]
-      .filter((c) => !EXCLUDED_CATEGORIES.includes(c))
-      .sort();
-  }, [items, categories]);
+  const allCategories = [...new Set(categories.map((category) => category.name || category))].sort();
+  const stats = { total: pagination.total, images: facets.images, videos: facets.videos };
+  const visibleItems = items;
+  const filtered = items;
+  const totalPages = Math.max(1, pagination.pages || 1);
 
   const hasActiveFilters = !!search || activeCategory !== "all" || activeType !== "all";
-  const clearFilters = () => { setSearch(""); setActiveCategory("all"); setActiveType("all"); };
+  const clearFilters = () => { setSearch(""); setActiveCategory("all"); setActiveType("all"); setPage(1); };
 
   return (
     <div className="min-h-screen flex flex-col bg-canvas">
@@ -296,7 +290,7 @@ const Gallery = () => {
                 ].map(({ key, label, icon: Icon }) => (
                   <button
                     key={key}
-                    onClick={() => setActiveType(key)}
+                  onClick={() => { setActiveType(key); setPage(1); }}
                     aria-pressed={activeType === key}
                     className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                       activeType === key
@@ -333,7 +327,7 @@ const Gallery = () => {
             {allCategories.length > 0 && (
               <div className="flex items-center gap-2 flex-wrap">
                 <button
-                  onClick={() => setActiveCategory("all")}
+                  onClick={() => { setActiveCategory("all"); setPage(1); }}
                   className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                     activeCategory === "all"
                       ? "bg-blue-600 text-white"
@@ -343,11 +337,11 @@ const Gallery = () => {
                   All
                 </button>
                 {allCategories.map((cat) => {
-                  const count = items.filter((i) => i.category === cat).length;
+                  const count = facets.categoryCounts[cat] || 0;
                   return (
                     <button
                       key={cat}
-                      onClick={() => setActiveCategory(cat)}
+                      onClick={() => { setActiveCategory(cat); setPage(1); }}
                       className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                         activeCategory === cat
                           ? "bg-blue-600 text-white"
@@ -411,7 +405,7 @@ const Gallery = () => {
           ) : (
             <>
               <p className="text-xs text-slate-400 mb-5">
-                Showing <span className="font-semibold text-slate-600">{visibleItems.length}</span> of {filtered.length} items
+                Showing <span className="font-semibold text-slate-600">{visibleItems.length}</span> of {pagination.total} items
               </p>
 
               <div className={`grid gap-4 ${
@@ -483,14 +477,21 @@ const Gallery = () => {
                 ))}
               </div>
 
-              {hasMore && (
-                <div className="flex justify-center mt-8">
-                  <button
-                    onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-                    className="px-6 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:border-blue-400 hover:text-blue-600 transition-colors duration-200 cursor-pointer"
-                  >
-                    Load more ({filtered.length - visibleItems.length} remaining)
-                  </button>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-8">
+                  <span className="text-xs text-slate-500">Page {page} of {totalPages}</span>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setPage((current) => Math.max(1, current - 1))}
+                      disabled={page <= 1}
+                      className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 disabled:opacity-40"
+                    >Previous</button>
+                    <button
+                      onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                      disabled={page >= totalPages}
+                      className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 disabled:opacity-40"
+                    >Next</button>
+                  </div>
                 </div>
               )}
             </>

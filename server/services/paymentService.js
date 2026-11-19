@@ -559,6 +559,44 @@ const getAllRevenueSummary = async ({
   };
 };
 
+const getMyPayments = async (researcherId, { page = 1, limit = 10, status, search } = {}) => {
+  const safePage = Math.max(1, Number(page) || 1);
+  const safeLimit = Math.min(Math.max(1, Number(limit) || 10), 50);
+  const where = { researcherId, type: PAYMENT_TYPES.PROPOSAL_SUBMISSION };
+  if (status) where.status = status;
+  if (search) {
+    const like = `%${String(search).trim().slice(0, 100)}%`;
+    where[Op.or] = [
+      { mpesaReceiptNumber: { [Op.like]: like } },
+      { checkoutRequestId: { [Op.like]: like } },
+      { "$research.title$": { [Op.like]: like } },
+    ];
+  }
+  const { rows, count } = await Payment.findAndCountAll({
+    where,
+    attributes: ["id", "status", "amount", "mpesaReceiptNumber", "checkoutRequestId", "createdAt", "transactionDate", "researchId"],
+    include: [{ model: Research, as: "research", attributes: ["id", "title"], required: false }],
+    order: [["createdAt", "DESC"]],
+    offset: (safePage - 1) * safeLimit,
+    limit: safeLimit,
+    distinct: true,
+  });
+  const summaries = await Payment.findAll({
+    where: { researcherId, type: PAYMENT_TYPES.PROPOSAL_SUBMISSION },
+    attributes: ["status", [sequelize.fn("COUNT", sequelize.col("id")), "count"], [sequelize.fn("SUM", sequelize.col("amount")), "amount"]],
+    group: ["status"], raw: true,
+  });
+  const stats = summaries.reduce((out, row) => {
+    out[row.status] = { count: Number(row.count || 0), amount: Number(row.amount || 0) };
+    return out;
+  }, {});
+  stats.completed ||= { count: 0, amount: 0 };
+  stats.completed.receiptCount = await Payment.count({
+    where: { researcherId, type: PAYMENT_TYPES.PROPOSAL_SUBMISSION, status: PAYMENT_STATUSES.COMPLETED, mpesaReceiptNumber: { [Op.ne]: null } },
+  });
+  return { payments: rows, total: count, page: safePage, limit: safeLimit, totalPages: Math.ceil(count / safeLimit), stats };
+};
+
 module.exports = {
   initiatePayment,
   processCallback,
@@ -569,4 +607,5 @@ module.exports = {
   getRevenueForResearch,
   getResearchRevenueAdmin,
   getAllRevenueSummary,
+  getMyPayments,
 };

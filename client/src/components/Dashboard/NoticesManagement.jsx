@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useSocket } from "../../api/socket";
 import {
   FaPlus, FaBullhorn, FaCalendarAlt, FaClock,
@@ -63,6 +63,9 @@ const NoticesManagement = () => {
   const [filterCategory,  setFilterCategory]  = useState("all");
   const [filterStatus,    setFilterStatus]    = useState("all");
   const [sortBy,          setSortBy]          = useState("newest");
+  const [page,            setPage]            = useState(1);
+  const [pagination,      setPagination]      = useState({ page: 1, pages: 1, total: 0 });
+  const [noticeStats,     setNoticeStats]     = useState({ total: 0, active: 0, scheduled: 0, expired: 0 });
   const [selectedNotices, setSelectedNotices] = useState([]);
 
   const [createModal,     setCreateModal]     = useState(false);
@@ -73,48 +76,38 @@ const NoticesManagement = () => {
   const fetchNotices = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get("/notices");
-      setNotices(Array.isArray(res.data) ? res.data : res.data.data || []);
+      const sort = ({ newest: "-createdAt", oldest: "createdAt", alphabetical: "title", upcoming: "startDate" })[sortBy];
+      const res = await api.get("/notices", { params: {
+        search: searchTerm || undefined,
+        audience: filterAudience,
+        category: filterCategory,
+        status: filterStatus,
+        sort,
+        page, limit: 20,
+      } });
+      const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+      setNotices(data);
+      setPagination(res.data.meta || { page: 1, pages: 1, total: data.length });
+      setNoticeStats(res.data.meta?.stats || { total: data.length, active: 0, scheduled: 0, expired: 0 });
     } catch (err) {
       notify.error(err.response?.data?.message || "Failed to fetch notices");
       setNotices([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [searchTerm, filterAudience, filterCategory, filterStatus, sortBy, page]);
 
   useEffect(() => { fetchNotices(); }, [fetchNotices]);
+  useEffect(() => { setPage(1); }, [searchTerm, filterAudience, filterCategory, filterStatus, sortBy]);
 
   // Real-time updates via Socket.IO
   useSocket("notices:created", fetchNotices);
   useSocket("notices:updated", fetchNotices);
   useSocket("notices:deleted", fetchNotices);
 
-  const stats = useMemo(() => ({
-    total:     notices.length,
-    active:    notices.filter(n => n.status === "active").length,
-    scheduled: notices.filter(n => n.status === "scheduled").length,
-    expired:   notices.filter(n => n.status === "expired").length,
-  }), [notices]);
+  const stats = noticeStats;
 
-  const filteredNotices = useMemo(() => {
-    const q = searchTerm.toLowerCase();
-    return notices
-      .filter(n => {
-        const matchSearch = n.title?.toLowerCase().includes(q) || n.content?.toLowerCase().includes(q);
-        const matchAudience  = filterAudience  === "all" || n.audience  === filterAudience;
-        const matchCategory  = filterCategory  === "all" || n.category  === filterCategory;
-        const matchStatus    = filterStatus    === "all" || n.status    === filterStatus;
-        return matchSearch && matchAudience && matchCategory && matchStatus;
-      })
-      .sort((a, b) => {
-        if (sortBy === "newest")       return new Date(b.createdAt) - new Date(a.createdAt);
-        if (sortBy === "oldest")       return new Date(a.createdAt) - new Date(b.createdAt);
-        if (sortBy === "alphabetical") return a.title?.localeCompare(b.title);
-        if (sortBy === "upcoming")     return new Date(a.startDate) - new Date(b.startDate);
-        return 0;
-      });
-  }, [notices, searchTerm, filterAudience, filterCategory, filterStatus, sortBy]);
+  const filteredNotices = notices;
 
   const setField = (key, val) => setFormData(p => ({ ...p, [key]: val }));
 
@@ -409,9 +402,14 @@ const NoticesManagement = () => {
               rowKey={(n) => nid(n)}
             />
             <div className="px-5 py-3 border-t border-gray-100 bg-white rounded-b-2xl">
-              <p className="text-xs text-gray-400">
-                Showing <span className="font-semibold text-gray-600">{filteredNotices.length}</span> of <span className="font-semibold text-gray-600">{notices.length}</span> notices
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-gray-400">Showing {filteredNotices.length} of {pagination.total} notices</p>
+                <div className="flex items-center gap-2 text-xs">
+                  <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Previous</button>
+                  <span>Page {page} of {Math.max(1, pagination.pages)}</span>
+                  <button disabled={page >= pagination.pages} onClick={() => setPage((p) => p + 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Next</button>
+                </div>
+              </div>
             </div>
           </>
         )}

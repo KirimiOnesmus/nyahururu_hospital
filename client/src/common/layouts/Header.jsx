@@ -26,9 +26,8 @@ const Header = () => {
     const fetchDivisions = async () => {
       try {
         setLoadingDivisions(true);
-        const res = await api.get("/services");
-        const unique = [...new Set(res.data.map((s) => s.division).filter(Boolean))].sort();
-        setDivisions(unique);
+        const res = await api.get("/services/filters");
+        setDivisions(res.data.divisions || []);
       } catch (error) {
         console.error("Division fetch failed", error.message);
         setDivisions([]);

@@ -48,6 +48,9 @@ const UsersPages = () => {
   const [loading,      setLoading]      = useState(false);
   const [searchTerm,   setSearchTerm]   = useState("");
   const [filterRole,   setFilterRole]   = useState("all");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0, roleStats: {} });
   const [viewModal,    setViewModal]    = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const navigate = useNavigate();
@@ -56,16 +59,27 @@ const UsersPages = () => {
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.get("/users");
-      setUsers(Array.isArray(res.data) ? res.data : res.data.data || []);
+      const res = await api.get("/users", { params: {
+        search: debouncedSearch || undefined,
+        role: filterRole === "all" ? undefined : filterRole,
+        page, limit: 20,
+      } });
+      const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+      setUsers(data);
+      setPagination(res.data.meta || { page: 1, pages: 1, total: data.length, roleStats: {} });
     } catch (err) {
       notify.error(err.response?.data?.message || "Error fetching users");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [debouncedSearch, filterRole, page]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
+  useEffect(() => {
+    const timer = setTimeout(() => { setPage(1); setDebouncedSearch(searchTerm.trim()); }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+  useEffect(() => { setPage(1); }, [filterRole]);
 
 
   useSocket("users:created", fetchUsers);
@@ -73,24 +87,12 @@ const UsersPages = () => {
   useSocket("users:deleted", fetchUsers);
 
 
-  const filteredUsers = useMemo(() => {
-    const q = searchTerm.toLowerCase();
-    return users.filter(u => {
-      const matchSearch =
-        u.name?.toLowerCase().includes(q) ||
-        u.email?.toLowerCase().includes(q) ||
-        u.role?.toLowerCase().includes(q);
-      const matchRole = filterRole === "all" || u.role === filterRole;
-      return matchSearch && matchRole;
-    });
-  }, [users, searchTerm, filterRole]);
+  const filteredUsers = users;
 
 
   const roleStats = useMemo(() => {
-    const s = {};
-    ROLES.forEach(r => { s[r] = users.filter(u => u.role === r).length; });
-    return s;
-  }, [users]);
+    return pagination.roleStats || {};
+  }, [pagination.roleStats]);
 
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this user?")) return;
@@ -191,7 +193,7 @@ const UsersPages = () => {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatCard
-            label="Total Users" value={users.length} icon={FaUser}
+            label="Total Users" value={pagination.total} icon={FaUser}
             accent={{ bg:"bg-blue-50", icon:"text-blue-500", num:"text-blue-600" }}
           />
           <StatCard
@@ -273,7 +275,7 @@ const UsersPages = () => {
           </div>
           {(searchTerm || filterRole !== "all") && (
             <div className="flex items-center gap-1.5 text-xs text-gray-400">
-              <span className="font-semibold text-gray-700">{filteredUsers.length}</span> of {users.length} users
+              <span className="font-semibold text-gray-700">{filteredUsers.length}</span> of {pagination.total} users
               <button onClick={() => { setSearchTerm(""); setFilterRole("all"); }} className="ml-1 text-gray-300 hover:text-red-400 transition-colors cursor-pointer">
                 <FaTimes />
               </button>
@@ -295,8 +297,13 @@ const UsersPages = () => {
             />
             <div className="px-5 py-3 border-t border-gray-100 bg-white rounded-b-2xl flex items-center justify-between">
               <p className="text-xs text-gray-400">
-                Showing <span className="font-semibold text-gray-600">{filteredUsers.length}</span> of <span className="font-semibold text-gray-600">{users.length}</span> users
+                Showing <span className="font-semibold text-gray-600">{filteredUsers.length}</span> of <span className="font-semibold text-gray-600">{pagination.total}</span> users
               </p>
+              <div className="flex items-center gap-2 text-xs">
+                <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Previous</button>
+                <span>Page {page} of {Math.max(1, pagination.pages)}</span>
+                <button disabled={!pagination.hasNext && page >= pagination.pages} onClick={() => setPage((p) => p + 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Next</button>
+              </div>
             </div>
           </>
         )}

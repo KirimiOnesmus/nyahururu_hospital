@@ -183,6 +183,10 @@ const ReviewHistory = () => {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [categories, setCategories] = useState([]);
+  const [historyStats, setHistoryStats] = useState({ total: 0, avgScore: null, approvalPct: 0, revisionPct: 0 });
 
 
   const load = useCallback(async () => {
@@ -190,18 +194,27 @@ const ReviewHistory = () => {
     try {
       const res = await research.getAssignedResearch({
         search: search || undefined,
-        page: 1,
-        limit: 100,          
+        decision: decisionFilter === "all" ? undefined : decisionFilter,
+        discipline: categoryFilter === "all" ? undefined : categoryFilter,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        sort: "history",
+        page,
+        limit: PAGE_SIZE,
         includeCompleted: "all", 
       });
       setItems(Array.isArray(res.papers) ? res.papers : []);
+      setTotal(Number(res.total || 0));
+      setTotalPages(Math.max(1, Number(res.totalPages || 1)));
+      setCategories(res.categories || []);
+      setHistoryStats(res.stats || { total: 0, avgScore: null, approvalPct: 0, revisionPct: 0 });
     } catch (err) {
       notify.error(err.message || "Failed to load review history");
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, [search, decisionFilter, categoryFilter, dateFrom, dateTo, page]);
 
   useEffect(() => {
     const t = setTimeout(load, 300);
@@ -209,37 +222,8 @@ const ReviewHistory = () => {
   }, [load]);
 
 
-  const categoryOptions = useMemo(() => {
-    const set = new Set(
-      items.map((i) => i.category || i.discipline).filter(Boolean),
-    );
-    return Array.from(set);
-  }, [items]);
-
-
-  const filtered = useMemo(() => {
-    return items
-      .filter((i) => {
-        if (decisionFilter !== "all" && decisionKeyFor(i) !== decisionFilter)
-          return false;
-        if (
-          categoryFilter !== "all" &&
-          (i.category || i.discipline) !== categoryFilter
-        )
-          return false;
-  
-        const dateRef = i.reviewedAt || i.assignedAt || i.createdAt;
-        if (dateFrom && new Date(dateRef) < new Date(dateFrom)) return false;
-        if (dateTo && new Date(dateRef) > new Date(dateTo)) return false;
-        return true;
-      })
-      .sort((a, b) => {
-  
-        const dateA = new Date(a.reviewedAt || a.assignedAt || a.createdAt || 0);
-        const dateB = new Date(b.reviewedAt || b.assignedAt || b.createdAt || 0);
-        return dateB - dateA;
-      });
-  }, [items, decisionFilter, categoryFilter, dateFrom, dateTo]);
+  const categoryOptions = categories;
+  const filtered = items;
 
 
   const grouped = useMemo(() => {
@@ -261,33 +245,10 @@ const ReviewHistory = () => {
     setPage(1);
   }, [decisionFilter, categoryFilter, dateFrom, dateTo, search]);
 
-  const totalPages = Math.max(1, Math.ceil(grouped.length / PAGE_SIZE));
-  const pageItems = grouped.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageItems = grouped;
 
 
-  const stats = useMemo(() => {
-    const studyKey = (i) => i.parentResearchId || i.id;
-    const total = new Set(items.map(studyKey)).size;
-    const reviewCount = items.length;
-    const withScore = items.filter(
-      (i) => i.aggregateScore !== null && i.aggregateScore !== undefined,
-    );
-    const avgScore = withScore.length
-      ? (
-          withScore.reduce((sum, i) => sum + Number(i.aggregateScore), 0) /
-          withScore.length
-        ).toFixed(1)
-      : null;
-    const approvedCount = items.filter(
-      (i) => decisionKeyFor(i) === "approved",
-    ).length;
-    const revisionCount = items.filter((i) =>
-      ["revision_needed", "rejected", "suspended"].includes(decisionKeyFor(i)),
-    ).length;
-    const approvalPct = reviewCount ? Math.round((approvedCount / reviewCount) * 100) : 0;
-    const revisionPct = reviewCount ? Math.round((revisionCount / reviewCount) * 100) : 0;
-    return { total, avgScore, approvalPct, revisionPct };
-  }, [items]);
+  const stats = historyStats;
 
   const [expandedRows, setExpandedRows] = useState(() => new Set());
   const toggleRow = (id) =>
@@ -561,8 +522,8 @@ const ReviewHistory = () => {
             <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50 flex-wrap gap-3">
               <p className="text-sm text-slate-500">
                 Showing {(page - 1) * PAGE_SIZE + 1}–
-                {Math.min(page * PAGE_SIZE, grouped.length)} of{" "}
-                {grouped.length} records
+                {Math.min(page * PAGE_SIZE, total)} of{" "}
+                {total} records
               </p>
               <div className="flex items-center gap-1.5">
                 <button

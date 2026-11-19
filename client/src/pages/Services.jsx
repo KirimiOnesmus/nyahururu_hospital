@@ -11,25 +11,12 @@ const PAGE_SIZE = 6;
 
 
 const ServiceSlider = ({ services }) => {
-  const [page, setPage] = useState(0);
-
-  const totalPages = Math.ceil(services.length / PAGE_SIZE);
-  const canPrev = page > 0;
-  const canNext = page < totalPages - 1;
-
-
-  useEffect(() => {
-    setPage(0);
-  }, [services]);
-
-  const currentSlice = services.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
-
   if (!services.length) return null;
 
   return (
     <div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {currentSlice.map((service) => (
+        {services.map((service) => (
           <div key={service.id} className="relative">
             {service.nhifCovered && (
               <span
@@ -50,136 +37,67 @@ const ServiceSlider = ({ services }) => {
       </div>
 
    
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-6">
-        
-          <div className="flex items-center gap-2">
-            {Array.from({ length: totalPages }).map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setPage(i)}
-                aria-label={`Go to page ${i + 1}`}
-                className={`rounded-full transition-all duration-200 cursor-pointer ${
-                  i === page
-                    ? "w-6 h-2 bg-blue-600"
-                    : "w-2 h-2 bg-slate-300 hover:bg-slate-400"
-                }`}
-              />
-            ))}
-          </div>
-
-    
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-400 font-medium">
-              {page + 1} / {totalPages}
-            </span>
-            <button
-              onClick={() => setPage((p) => p - 1)}
-              disabled={!canPrev}
-              aria-label="Previous page"
-              className={`
-                w-9 h-9 rounded-full border flex items-center justify-center transition-all duration-150
-                ${canPrev
-                  ? "border-slate-300 text-slate-600 hover:border-blue-400 hover:text-blue-600 bg-white cursor-pointer"
-                  : "border-slate-100 text-slate-300 bg-slate-50 cursor-not-allowed"}
-              `}
-            >
-              <FaChevronLeft className="text-xs" />
-            </button>
-            <button
-              onClick={() => setPage((p) => p + 1)}
-              disabled={!canNext}
-              aria-label="Next page"
-              className={`
-                w-9 h-9 rounded-full border flex items-center justify-center transition-all duration-150
-                ${canNext
-                  ? "border-slate-300 text-slate-600 hover:border-blue-400 hover:text-blue-600 bg-white cursor-pointer"
-                  : "border-slate-100 text-slate-300 bg-slate-50 cursor-not-allowed"}
-              `}
-            >
-              <FaChevronRight className="text-xs" />
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
 const Services = () => {
+  const [searchParams] = useSearchParams();
   const [services, setServices] = useState([]);
-  const [filteredServices, setFilteredServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedDivision, setSelectedDivision] = useState(null);
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedDivision, setSelectedDivision] = useState(() => searchParams.get("division") || null);
+  const [selectedCategory, setSelectedCategory] = useState(() => searchParams.get("category") || null);
   const [allDivisions, setAllDivisions] = useState([]);
   const [allCategories, setAllCategories] = useState([]);
   const [categoriesInDivision, setCategoriesInDivision] = useState([]);
-  const [searchParams] = useSearchParams();
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
 
-  const filterServices = (list, division, category) => {
-    let result = list;
-    if (division) result = result.filter((s) => s.division === division);
-    if (category) result = result.filter((s) => s.category === category);
-    setFilteredServices(result);
-  };
+  useEffect(() => {
+    api.get("/services/filters").then(({ data }) => {
+      setAllDivisions(data.divisions || []);
+      setAllCategories(data.categories || []);
+      setCategoriesInDivision(data.categoriesByDivision?.[selectedDivision] || []);
+    }).catch((err) => console.error("Failed to load service filters:", err));
+  }, [selectedDivision]);
 
   useEffect(() => {
     let isMounted = true;
-
     const fetchServices = async () => {
       try {
         setLoading(true);
-        const res = await api.get("/services");
+        const res = await api.get("/services", {
+          params: {
+            page,
+            limit: PAGE_SIZE,
+            division: selectedDivision || undefined,
+            category: selectedCategory || undefined,
+          },
+        });
         if (!isMounted) return;
-
-        const data = res.data;
+        const data = Array.isArray(res.data) ? res.data : res.data.data || [];
         setServices(data);
+        setPagination(res.data.meta || { page: 1, pages: 1, total: data.length });
         setError(null);
-
-        const divisions = [...new Set(data.map((s) => s.division).filter(Boolean))].sort();
-        const categories = [...new Set(data.map((s) => s.category).filter(Boolean))].sort();
-        setAllDivisions(divisions);
-        setAllCategories(categories);
-
-        const divParam = searchParams.get("division");
-        const catParam = searchParams.get("category");
-
-        if (divParam) {
-          const div = decodeURIComponent(divParam);
-          setSelectedDivision(div);
-          const divCats = [
-            ...new Set(data.filter((s) => s.division === div).map((s) => s.category).filter(Boolean)),
-          ].sort();
-          setCategoriesInDivision(divCats);
-          if (catParam) {
-            const cat = decodeURIComponent(catParam);
-            setSelectedCategory(cat);
-            filterServices(data, div, cat);
-          } else {
-            filterServices(data, div, null);
-          }
-        } else if (catParam) {
-          const cat = decodeURIComponent(catParam);
-          setSelectedCategory(cat);
-          filterServices(data, null, cat);
-        } else {
-          setFilteredServices(data);
-        }
       } catch (err) {
         console.error("Failed to fetch services:", err);
         if (!isMounted) return;
         setError("Failed to load services. Please try again.");
         setServices([]);
-        setFilteredServices([]);
+        setPagination({ page: 1, pages: 1, total: 0 });
       } finally {
         if (isMounted) setLoading(false);
       }
     };
-
     fetchServices();
     return () => { isMounted = false; };
+  }, [page, selectedDivision, selectedCategory]);
+
+  useEffect(() => {
+    setSelectedDivision(searchParams.get("division") || null);
+    setSelectedCategory(searchParams.get("category") || null);
+    setPage(1);
   }, [searchParams]);
 
   const handleDivisionChange = (division) => {
@@ -187,25 +105,22 @@ const Services = () => {
       setSelectedDivision(null);
       setSelectedCategory(null);
       setCategoriesInDivision([]);
-      filterServices(services, null, null);
+      setPage(1);
       return;
     }
     setSelectedDivision(division);
     setSelectedCategory(null);
-    const divCats = [
-      ...new Set(services.filter((s) => s.division === division).map((s) => s.category).filter(Boolean)),
-    ].sort();
-    setCategoriesInDivision(divCats);
-    filterServices(services, division, null);
+    setCategoriesInDivision([]);
+    setPage(1);
   };
 
   const handleCategoryChange = (category) => {
     if (!category || category === selectedCategory) {
       setSelectedCategory(null);
-      filterServices(services, selectedDivision, null);
+      setPage(1);
     } else {
       setSelectedCategory(category);
-      filterServices(services, selectedDivision, category);
+      setPage(1);
     }
   };
 
@@ -213,10 +128,11 @@ const Services = () => {
     setSelectedDivision(null);
     setSelectedCategory(null);
     setCategoriesInDivision([]);
-    setFilteredServices(services);
+    setPage(1);
   };
 
   const hasActiveFilter = selectedDivision || selectedCategory;
+  const totalPages = Math.max(1, pagination.pages || 1);
 
   return (
     <div className="min-h-screen flex flex-col bg-canvas">
@@ -244,9 +160,9 @@ const Services = () => {
               <div className="flex items-center gap-4 md:mr-auto">
                 <p className="text-sm text-slate-500">
                   Showing{" "}
-                  <span className="font-bold text-slate-800">{filteredServices.length}</span>{" "}
-                  of{" "}
                   <span className="font-bold text-slate-800">{services.length}</span>{" "}
+                  of{" "}
+                  <span className="font-bold text-slate-800">{pagination.total}</span>{" "}
                   services
                 </p>
                 {hasActiveFilter && (
@@ -316,7 +232,7 @@ const Services = () => {
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-5 py-4 rounded-xl">
             {error}
           </div>
-        ) : filteredServices.length === 0 ? (
+        ) : services.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
             <p className="text-slate-600 font-semibold">
               No services found with the selected filters.
@@ -330,7 +246,30 @@ const Services = () => {
             </button>
           </div>
         ) : (
-          <ServiceSlider services={filteredServices} />
+          <>
+            <ServiceSlider services={services} />
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-6">
+                <span className="text-xs text-slate-500">Page {page} of {totalPages}</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={page <= 1}
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 text-slate-600 disabled:opacity-40"
+                    aria-label="Previous services page"
+                  ><FaChevronLeft className="text-xs" /></button>
+                  <button
+                    type="button"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 text-slate-600 disabled:opacity-40"
+                    aria-label="Next services page"
+                  ><FaChevronRight className="text-xs" /></button>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {!loading && (

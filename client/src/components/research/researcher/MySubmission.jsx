@@ -289,50 +289,48 @@ const MySubmissions = () => {
   const [status, setStatus]   = useState("all");
   const [sort, setSort]       = useState("newest");
   const [page, setPage]       = useState(1);
+  const [total, setTotal]     = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [statusCounts, setStatusCounts] = useState({});
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
   
-      const [ownedRes, coInvStudies] = await Promise.all([
-        research.getMyResearch(),
-        research.getCoInvestigatorStudies().catch(() => []),
-      ]);
-      const owned = (Array.isArray(ownedRes.papers) ? ownedRes.papers : [])
-        .map((p) => ({ ...p, myRole: "principal_investigator" }));
-      const coInv = coInvStudies.map((p) => ({ ...p, myRole: "co_investigator" }));
-      setPapers([...owned, ...coInv]);
+      const response = await research.getMyResearch({
+        includeCoInvestigators: true,
+        status: status === "all" ? undefined : status,
+        sort,
+        page,
+        limit: PAGE_SIZE,
+      });
+      setPapers(Array.isArray(response.papers) ? response.papers : []);
+      setTotal(Number(response.total || 0));
+      setTotalPages(Math.max(1, Number(response.totalPages || 1)));
+      setStatusCounts(response.statusCounts || {});
     } catch {
       notify.error("Failed to load your submissions");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [status, sort, page]);
 
   useEffect(() => { load(); }, [load]);
 
 
-  const filteredSorted = useMemo(() => {
-    let list = status === "all" ? papers : papers.filter((p) => p.status === status);
-    list = [...list].sort((a, b) => {
-      const diff = new Date(a.createdAt) - new Date(b.createdAt);
-      return sort === "newest" ? -diff : diff;
-    });
-    return list;
-  }, [papers, status, sort]);
+  const filteredSorted = papers;
 
 
   useEffect(() => { setPage(1); }, [status, sort]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE));
-  const pageItems = filteredSorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageItems = filteredSorted;
 
   const stats = useMemo(() => ({
-    total: papers.length,
-    active: papers.filter((p) => ["submitted", "under_review", "pending_committee_review"].includes(p.status)).length,
-    approved: papers.filter((p) => p.status === "approved").length,
-    actionRequired: papers.filter((p) => ["rejected", "revision_requested"].includes(p.status)).length,
-  }), [papers]);
+    total: Object.values(statusCounts).reduce((sum, count) => sum + Number(count || 0), 0),
+    active: ["submitted", "under_review", "pending_committee_review"].reduce((sum, key) => sum + Number(statusCounts[key] || 0), 0),
+    approved: Number(statusCounts.approved || 0),
+    actionRequired: Number(statusCounts.rejected || 0) + Number(statusCounts.revision_requested || 0),
+  }), [statusCounts]);
 
   const handleView = (item) => navigate(`/research/dashboard/view/${item.id}`);
   const handleResubmit = (item) => {
@@ -346,8 +344,25 @@ const MySubmissions = () => {
   const handleSubmitFinal = (item) => navigate(`/research/dashboard/submit-final/${item.id}`);
   const handleNewProposal = () => navigate("/research/dashboard/submit-proposal");
 
-  const handleExport = () => {
-    const rows = filteredSorted.map((p) => ({
+  const handleExport = async () => {
+    const allPapers = [];
+    try {
+      const exportPageCount = Math.ceil(total / 50);
+      for (let exportPage = 1; exportPage <= exportPageCount; exportPage += 1) {
+        const response = await research.getMyResearch({
+          includeCoInvestigators: true,
+          status: status === "all" ? undefined : status,
+          sort,
+          page: exportPage,
+          limit: 50,
+        });
+        allPapers.push(...(response.papers || []));
+      }
+    } catch {
+      notify.error("Could not load all submissions for export");
+      return;
+    }
+    const rows = allPapers.map((p) => ({
       id: p.researchId, title: p.title, status: p.status,
       type: SUBMISSION_TYPE_LABELS[p.submissionType] || p.submissionType, submitted: fmt(p.createdAt), 
     }));
@@ -435,15 +450,15 @@ const MySubmissions = () => {
             </select>
           </div>
           <p className="text-xs text-slate-400">
-            {filteredSorted.length === 0
+            {total === 0
               ? "No results"
-              : `Showing ${(page - 1) * PAGE_SIZE + 1}-${Math.min(page * PAGE_SIZE, filteredSorted.length)} of ${filteredSorted.length}`}
+              : `Showing ${(page - 1) * PAGE_SIZE + 1}-${Math.min(page * PAGE_SIZE, total)} of ${total}`}
           </p>
         </div>
 
         {loading ? (
           <PageSpinner label="Loading your submissions…" />
-        ) : filteredSorted.length === 0 ? (
+        ) : total === 0 ? (
           <EmptyState
             icon={FaFlask}
             title={status === "all" ? "No submissions yet" : "No matching submissions"}
@@ -486,11 +501,11 @@ const MySubmissions = () => {
         )}
 
    
-        {!loading && filteredSorted.length > 0 && (
+        {!loading && total > 0 && (
           <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between
             bg-slate-50 flex-wrap gap-3">
             <p className="text-xs text-slate-500">
-              Showing {pageItems.length} of {filteredSorted.length} submissions
+              Showing {pageItems.length} of {total} submissions
             </p>
             <div className="flex items-center gap-1.5">
               <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))}

@@ -92,6 +92,9 @@ const ReviewerDashboard = ({ user }) => {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [queueStats, setQueueStats] = useState({ total: 0, pending: 0, avgTurnaround: null });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -99,16 +102,18 @@ const ReviewerDashboard = ({ user }) => {
       const res = await research.getAssignedResearch({
         submissionType: typeFilter === "all" ? undefined : typeFilter,
         search: search || undefined,
-        page: 1,
-        limit: 100,
+        page,
+        limit: 10,
       });
       setAllAssigned(Array.isArray(res.papers) ? res.papers : []);
+      setTotalPages(Math.max(1, Number(res.totalPages || 1)));
+      setQueueStats(res.stats || { total: 0, pending: 0, avgTurnaround: null });
     } catch (err) {
       notify.error(err.message || "Failed to load review queue");
     } finally {
       setLoading(false);
     }
-  }, [typeFilter, search]);
+  }, [typeFilter, search, page]);
 
   useEffect(() => {
     const t = setTimeout(load, 300);
@@ -117,11 +122,6 @@ const ReviewerDashboard = ({ user }) => {
 
   const queue = useMemo(
     () => allAssigned.filter((q) => ACTIVE_STATUSES.includes(q.status)),
-    [allAssigned]
-  );
-
-  const decided = useMemo(
-    () => allAssigned.filter((q) => !ACTIVE_STATUSES.includes(q.status)),
     [allAssigned]
   );
 
@@ -144,25 +144,15 @@ const ReviewerDashboard = ({ user }) => {
     return [...map.values()];
   }, [queue]);
 
-  const allStudyCount = useMemo(
-    () => new Set(allAssigned.map(studyKey)).size,
-    [allAssigned]
-  );
+  const allStudyCount = Number(queueStats.total || 0);
 
   const scoringProgress =
     allStudyCount === 0
       ? 0
-      : Math.round(((allStudyCount - queueByStudy.length) / allStudyCount) * 100);
+      : Math.round(((allStudyCount - Number(queueStats.pending || 0)) / allStudyCount) * 100);
+  const avgTurnaroundDays = queueStats.avgTurnaround;
 
-  const avgTurnaroundDays = useMemo(() => {
-    const withDates = decided.filter((h) => h.assignedAt && h.reviewedAt);
-    if (withDates.length === 0) return null;
-    const totalDays = withDates.reduce((sum, h) => {
-      const diff = (new Date(h.reviewedAt) - new Date(h.assignedAt)) / (1000 * 60 * 60 * 24);
-      return sum + diff;
-    }, 0);
-    return (totalDays / withDates.length).toFixed(1);
-  }, [decided]);
+  useEffect(() => { setPage(1); }, [typeFilter, search]);
 
   const handleReview = (item) => navigate(`/research/dashboard/review/${item.id}`);
 
@@ -192,14 +182,14 @@ const ReviewerDashboard = ({ user }) => {
             </h2>
             <p className="text-indigo-200 text-sm mt-1">{user?.institution}</p>
           </div>
-          {queueByStudy.length > 0 && (
+          {queueStats.pending > 0 && (
             <div
               className="flex items-center gap-2 bg-red-500/30 border border-red-400/40
               rounded-xl px-4 py-2 self-start sm:self-auto"
             >
               <FaBell className="text-red-300 animate-pulse" />
               <span className="text-white text-sm font-bold">
-                {queueByStudy.length} assigned item{queueByStudy.length !== 1 ? "s" : ""}
+                {queueStats.pending} assigned item{queueStats.pending !== 1 ? "s" : ""}
               </span>
             </div>
           )}
@@ -214,7 +204,7 @@ const ReviewerDashboard = ({ user }) => {
             </p>
             <FaInbox className="text-indigo-400" />
           </div>
-          <p className="text-3xl font-bold text-slate-900">{queueByStudy.length}</p>
+          <p className="text-3xl font-bold text-slate-900">{queueStats.pending}</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-5">
@@ -255,12 +245,12 @@ const ReviewerDashboard = ({ user }) => {
                 <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
                   <FaInbox className="text-indigo-500" />
                   My review queue
-                  {queueByStudy.length > 0 && (
+                  {queueStats.pending > 0 && (
                     <span
                       className="bg-red-100 text-red-600 text-xs font-bold
                       px-2 py-0.5 rounded-full"
                     >
-                      {queueByStudy.length}
+                      {queueStats.pending}
                     </span>
                   )}
                 </h3>
@@ -413,6 +403,15 @@ const ReviewerDashboard = ({ user }) => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+            {!loading && totalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3 text-sm text-slate-500">
+                <span>Page {page} of {totalPages}</span>
+                <div className="flex gap-2">
+                  <button type="button" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="rounded border px-3 py-1 disabled:opacity-40">Previous</button>
+                  <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="rounded border px-3 py-1 disabled:opacity-40">Next</button>
+                </div>
               </div>
             )}
           </div>

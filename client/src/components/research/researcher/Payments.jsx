@@ -103,75 +103,62 @@ const StatCard = ({
 
 
 const Payments = () => {
-  const [papers, setPapers] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [paymentStats, setPaymentStats] = useState({});
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await research.getMyResearch();
-      setPapers(Array.isArray(res.papers) ? res.papers : []);
+      const res = await research.getMyPayments({
+        page, limit: PAGE_SIZE, status: status === "all" ? undefined : status,
+      });
+      setTransactions((res.payments || []).map((payment) => ({
+        id: payment.mpesaReceiptNumber || payment.checkoutRequestId || payment.id,
+        receiptNumber: payment.mpesaReceiptNumber,
+        title: payment.research?.title || "Research proposal submission",
+        researchId: payment.researchId,
+        date: payment.transactionDate || payment.createdAt,
+        amount: payment.amount,
+        status: payment.status || "pending",
+        researchItemId: payment.researchId,
+      })));
+      setTotal(Number(res.total || 0));
+      setTotalPages(Math.max(1, Number(res.totalPages || 1)));
+      setPaymentStats(res.stats || {});
     } catch {
       notify.error("Failed to load your payment records");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [status, page]);
 
   useEffect(() => {
     load();
   }, [load]);
 
 
-  const transactions = useMemo(
-    () =>
-      papers
-        .filter((p) => p.submissionPayment)
-        .map((p) => ({
-          id:
-            p.submissionPayment?.mpesaReceiptNumber ||
-            p.submissionPayment?.checkoutRequestId ||
-            p.id,
-          receiptNumber: p.submissionPayment?.mpesaReceiptNumber,
-          title: p.title,
-          researchId: p.researchId,
-          date:
-            p.submissionPayment?.paidAt ||
-            p.submissionPayment?.createdAt ||
-            p.createdAt,
-          amount: p.submissionPayment?.amount,
-          status: p.submissionPayment?.status || "pending",
-          researchItemId: p.id,
-        })),
-    [papers],
-  );
-
-  const filtered = useMemo(
-    () =>
-      status === "all"
-        ? transactions
-        : transactions.filter((t) => t.status === status),
-    [transactions, status],
-  );
+  const filtered = transactions;
 
   useEffect(() => {
     setPage(1);
   }, [status]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageItems = filtered;
 
   const stats = useMemo(() => {
-    const completed = transactions.filter((t) => t.status === "completed");
-    const pending = transactions.filter((t) => t.status === "pending");
+    const completed = paymentStats.completed || {};
+    const pending = paymentStats.pending || {};
     return {
-      totalPaid: completed.reduce((sum, t) => sum + Number(t.amount || 0), 0),
-      pendingCount: pending.length,
-      receiptCount: completed.filter((t) => t.receiptNumber).length,
+      totalPaid: Number(completed.amount || 0),
+      pendingCount: Number(pending.count || 0),
+      receiptCount: Number(completed.receiptCount || 0),
     };
-  }, [transactions]);
+  }, [paymentStats]);
 
   const handleDownloadReceipt = (txn) => {
     if (!txn.receiptNumber) {
@@ -183,12 +170,34 @@ const Payments = () => {
     );
   };
 
-  const handleDownloadStatement = () => {
-    if (transactions.length === 0) {
+  const handleDownloadStatement = async () => {
+    if (total === 0) {
       notify.error("No transactions to export yet");
       return;
     }
-    const rows = transactions.map((t) => ({
+    const allPayments = [];
+    const exportPages = Math.ceil(total / 50);
+    try {
+      for (let exportPage = 1; exportPage <= exportPages; exportPage += 1) {
+        const result = await research.getMyPayments({
+          page: exportPage,
+          limit: 50,
+          status: status === "all" ? undefined : status,
+        });
+        allPayments.push(...(result.payments || []).map((payment) => ({
+          id: payment.mpesaReceiptNumber || payment.checkoutRequestId || payment.id,
+          receiptNumber: payment.mpesaReceiptNumber,
+          title: payment.research?.title || "Research proposal submission",
+          date: payment.transactionDate || payment.createdAt,
+          amount: payment.amount,
+          status: payment.status || "pending",
+        })));
+      }
+    } catch {
+      notify.error("Could not load all transactions for export");
+      return;
+    }
+    const rows = allPayments.map((t) => ({
       id: t.receiptNumber || t.id,
       title: t.title,
       date: fmtDate(t.date),
@@ -285,7 +294,7 @@ const Payments = () => {
 
           {loading ? (
             <PageSpinner label="Loading transactions…" />
-          ) : filtered.length === 0 ? (
+          ) : total === 0 ? (
             <EmptyState
               icon={FaFlask}
               title="No transactions yet"
@@ -380,8 +389,8 @@ const Payments = () => {
               >
                 <p className="text-xs text-slate-500">
                   Showing {(page - 1) * PAGE_SIZE + 1}–
-                  {Math.min(page * PAGE_SIZE, filtered.length)} of{" "}
-                  {filtered.length} transactions
+                  {Math.min(page * PAGE_SIZE, total)} of{" "}
+                  {total} transactions
                 </p>
                 <div className="flex items-center gap-1.5">
                   <button

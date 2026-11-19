@@ -250,6 +250,7 @@ const AllResearch = () => {
   const [stageFilter, setStageFilter] = useState("All Stages");
   const [page, setPage]               = useState(1);
   const [total, setTotal]             = useState(0);
+  const [repositoryStats, setRepositoryStats] = useState({ inProgress: 0, published: 0 });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -261,6 +262,7 @@ const AllResearch = () => {
       });
       setPapers((Array.isArray(res.papers) ? res.papers : []).map(normalise));
       setTotal(res.total || 0);
+      setRepositoryStats(res.stats || { inProgress: 0, published: 0 });
     } catch (err) {
       if (err?.response?.status === 422) {
         notify.error("Invalid filter or page request — please adjust and retry.");
@@ -289,8 +291,8 @@ const AllResearch = () => {
 
   const stats = {
     total,
-    inProgress: papers.filter((p) => ["under_review", "under_committee", "final_paper"].includes(p.stage)).length,
-    published:  papers.filter((p) => ["published", "completed"].includes(p.stage)).length,
+    inProgress: repositoryStats.inProgress,
+    published: repositoryStats.published,
     impact:     papers[0]?.institutionalImpact ?? "—",
   };
 

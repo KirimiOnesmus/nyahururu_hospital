@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import api from "../../api/axios";
 import {
   FaSearch,
@@ -69,49 +69,50 @@ const FeedbackPage = () => {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
+  const [feedbackStats, setFeedbackStats] = useState({ total: 0, handled: 0, pending: 0 });
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [replyModalOpen, setReplyModalOpen] = useState(false);
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [replyMessage, setReplyMessage] = useState("");
   const [replySending, setReplySending] = useState(false);
 
-  const fetchFeedback = async () => {
+  const fetchFeedback = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.get("/feedback");
-      setFeedbackList(Array.isArray(res.data) ? res.data : []);
+      const res = await api.get("/feedback", { params: {
+        search: debouncedSearch || undefined,
+        status: filterStatus === "all" ? undefined : filterStatus,
+        page, limit: 20,
+      } });
+      const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+      setFeedbackList(data);
+      setPagination(res.data.meta || { page: 1, pages: 1, total: data.length });
+      setFeedbackStats(res.data.meta?.stats || { total: data.length, handled: 0, pending: 0 });
     } catch (err) {
       console.error("Error fetching feedback:", err);
       notify.error("Error fetching feedback");
     } finally {
       setLoading(false);
     }
-  };
+  }, [debouncedSearch, filterStatus, page]);
 
   useEffect(() => {
     fetchFeedback();
-  }, []);
+  }, [fetchFeedback]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => { setPage(1); setDebouncedSearch(search.trim()); }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+  useEffect(() => { setPage(1); }, [filterStatus]);
 
 
-  const filtered = feedbackList.filter((fb) => {
-    const q = search.toLowerCase();
-    const matchSearch =
-      fb.name?.toLowerCase().includes(q) ||
-      fb.email?.toLowerCase().includes(q) ||
-      fb.message?.toLowerCase().includes(q);
-    const matchStatus =
-      filterStatus === "all" ||
-      (filterStatus === "handled"
-        ? fb.status === "handled"
-        : fb.status !== "handled");
-    return matchSearch && matchStatus;
-  });
+  const filtered = feedbackList;
 
-  const stats = {
-    total: feedbackList.length,
-    handled: feedbackList.filter((f) => f.status === "handled").length,
-    pending: feedbackList.filter((f) => f.status !== "handled").length,
-  };
+  const stats = feedbackStats;
 
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this feedback?")) return;
@@ -333,6 +334,7 @@ const FeedbackPage = () => {
               )}
             </div>
           ) : (
+            <>
             <DataTable
               columns={[
                 {
@@ -379,6 +381,15 @@ const FeedbackPage = () => {
               data={filtered}
               rowKey={(fb) => fb.id}
             />
+            <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+              <p className="text-xs text-gray-400">Showing {filtered.length} of {pagination.total} feedback items</p>
+              <div className="flex items-center gap-2 text-xs">
+                <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Previous</button>
+                <span>Page {page} of {Math.max(1, pagination.pages)}</span>
+                <button disabled={page >= pagination.pages} onClick={() => setPage((p) => p + 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Next</button>
+              </div>
+            </div>
+            </>
           )}
         </div>
       </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useSocket } from "../../api/socket";
 import {
   FaPlus, FaSearch, FaFilter, FaGavel, FaCalendarAlt, FaClock,
@@ -112,6 +112,8 @@ const TenderPage = () => {
   const [filterCategory,  setFilterCategory]  = useState("all");
   const [filterStatus,    setFilterStatus]    = useState("all");
   const [sortBy,          setSortBy]          = useState("newest");
+  const [page,             setPage]             = useState(1);
+  const [pagination,       setPagination]       = useState({ page: 1, pages: 1, total: 0 });
   const [selectedTenders, setSelectedTenders] = useState([]);
 
   const [createModal,    setCreateModal]    = useState(false);
@@ -132,12 +134,15 @@ const TenderPage = () => {
         category: filterCategory !== "all" ? filterCategory : undefined,
         status:   filterStatus  !== "all" ? filterStatus   : undefined,
         sortBy,
+        page,
+        limit: 12,
       };
       const res = await api.get("/tenders", { params });
      
       if (res.data.success) {
         setTenders(res.data.data || []);
         setStats(res.data.stats || {});
+        setPagination(res.data.pagination || { page: 1, pages: 1, total: res.data.data?.length || 0 });
       } else {
         setTenders(Array.isArray(res.data) ? res.data : []);
       }
@@ -147,9 +152,10 @@ const TenderPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, filterCategory, filterStatus, sortBy]);
+  }, [searchTerm, filterCategory, filterStatus, sortBy, page]);
 
   useEffect(() => { fetchTenders(); }, [fetchTenders]);
+  useEffect(() => { setPage(1); }, [searchTerm, filterCategory, filterStatus, sortBy]);
 
   // Real-time updates via Socket.IO
   useSocket("tenders:created", fetchTenders);
@@ -478,7 +484,14 @@ const TenderPage = () => {
                 rowKey={(t) => t.id}
               />
               <div className="px-5 py-3 border-t border-gray-100 bg-white rounded-b-2xl">
-                <p className="text-xs text-gray-400"><span className="font-semibold text-gray-600">{tenders.length}</span> tenders</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-400">Showing {tenders.length} of {pagination.total} tenders</p>
+                  <div className="flex items-center gap-2 text-xs">
+                    <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Previous</button>
+                    <span>Page {page} of {Math.max(1, pagination.pages)}</span>
+                    <button disabled={page >= pagination.pages} onClick={() => setPage((p) => p + 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Next</button>
+                  </div>
+                </div>
               </div>
             </>
           )}

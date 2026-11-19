@@ -65,16 +65,32 @@ exports.generateNewPassword = () => {
 };
 
 exports.getAllUsers = asyncHandler(async (req, res) => {
+  const { search, role } = req.query;
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
   const offset = (page - 1) * limit;
+  const where = {};
+  if (role && role !== "all") where.role = role;
+  if (search) {
+    const escaped = String(search).replace(/[\\%_]/g, (m) => `\\${m}`);
+    const like = { [Op.like]: `%${escaped}%` };
+    where[Op.or] = [
+      { name: like }, { firstName: like }, { lastName: like },
+      { email: like }, { role: like }, { department: like },
+    ];
+  }
 
-  const { rows: users, count: total } = await UserData.findAndCountAll({
+  const [{ rows: users, count: total }, groupedRoles] = await Promise.all([
+    UserData.findAndCountAll({
     attributes: { exclude: FULL_EXCLUDE },
+    where,
     offset,
     limit,
     order: [["createdAt", "DESC"]],
-  });
+    }),
+    UserData.count({ group: ["role"] }),
+  ]);
+  const roleStats = Object.fromEntries(groupedRoles.map(({ role, count: roleCount }) => [role, Number(roleCount)]));
 
   return sendSuccess(res, 200, "Users fetched", users, {
     page,
@@ -83,6 +99,7 @@ exports.getAllUsers = asyncHandler(async (req, res) => {
     pages: Math.ceil(total / limit),
     hasNext: offset + users.length < total,
     hasPrev: page > 1,
+    roleStats,
   });
 });
 

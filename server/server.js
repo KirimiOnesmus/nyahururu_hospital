@@ -11,6 +11,7 @@ const cron = require("node-cron");
 const { run: runResearchExpiryJob } = require("./scripts/researchExpiryJob");
 
 const { run: runReviewerReminderJob } = require("./scripts/reviewerReminderJob");
+const { purgeImportData } = require("./services/import/cleanup");
 
 const PORT = process.env.PORT || 5000;
 
@@ -39,6 +40,13 @@ const bootstrap = async () => {
 
 
   initSocket(server, allowedOrigins);
+
+  if (process.env.IMPORT_CLEANUP_CRON_ENABLED !== "false") {
+    cron.schedule("0 3 * * *", () => {
+      purgeImportData().catch((err) => logger.error({ err }, "Import batch cleanup failed"));
+    });
+    logger.info("Import batch cleanup scheduled (daily at 03:00, in-process)");
+  }
 
   if (process.env.RESEARCH_EXPIRY_CRON_ENABLED !== "false") {
 

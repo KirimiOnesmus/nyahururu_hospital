@@ -6,6 +6,8 @@ const unwrapList = (res) => ({
   limit: res.data.meta?.limit,
   total: res.data.meta?.total,
   totalPages: res.data.meta?.totalPages,
+  stats: res.data.meta?.stats,
+  categories: res.data.meta?.categories,
 });
 
 //  Shared 
@@ -38,9 +40,13 @@ export const getResearchDetails = async (id) => {
 //  Researcher — My Research 
 
 export const getMyResearch = async (filters = {}) => {
-  const { submissionType, page = 1, limit = 10 } = filters;
+  const { submissionType, status, search, includeCoInvestigators, sort, page = 1, limit = 10 } = filters;
   const params = new URLSearchParams({ page, limit });
   if (submissionType) params.append("submissionType", submissionType);
+  if (status) params.append("status", status);
+  if (search) params.append("search", search);
+  if (includeCoInvestigators) params.append("includeCoInvestigators", "true");
+  if (sort) params.append("sort", sort);
   const response = await api.get(`/research/my-research?${params}`);
   return { papers: response.data.data || [], ...response.data.meta };
 };
@@ -241,6 +247,13 @@ export const verifyPaymentStatus = async (checkoutRequestId) => {
   const response = await api.get(`/payments/status/${checkoutRequestId}`);
   return response.data?.data ?? response.data;
 };
+export const getMyPayments = async ({ page = 1, limit = 5, status, search } = {}) => {
+  const params = new URLSearchParams({ page, limit });
+  if (status) params.append("status", status);
+  if (search) params.append("search", search);
+  const response = await api.get(`/payments/mine?${params}`);
+  return { payments: response.data?.data || [], ...(response.data?.meta || {}) };
+};
 export const pollPaymentStatus = (checkoutRequestId, maxAttempts = 12) =>
   new Promise((resolve, reject) => {
     let attempts = 0;
@@ -258,10 +271,17 @@ export const pollPaymentStatus = (checkoutRequestId, maxAttempts = 12) =>
 
 export const getPendingReviews = async () => unwrapList(await api.get("/research/reviewer/assigned"));
 export const getAssignedResearch = async (filters = {}) => {
-  const { submissionType, includeCompleted, page = 1, limit = 20 } = filters;
+  const { submissionType, includeCompleted, search, status, decision, discipline, dateFrom, dateTo, sort, page = 1, limit = 20 } = filters;
   const p = new URLSearchParams({ page, limit });
   if (submissionType) p.append("submissionType", submissionType);
   if (includeCompleted) p.append("includeCompleted", includeCompleted);
+  if (search) p.append("search", search);
+  if (status) p.append("status", Array.isArray(status) ? status.join(",") : status);
+  if (decision) p.append("decision", decision);
+  if (discipline) p.append("discipline", discipline);
+  if (dateFrom) p.append("dateFrom", dateFrom);
+  if (dateTo) p.append("dateTo", dateTo);
+  if (sort) p.append("sort", sort);
   return unwrapList(await api.get(`/research/reviewer/assigned?${p}`));
 };
 export const submitReview = async (researchId, { decision, comment, criteria, attachments = [] }) => {
@@ -294,10 +314,18 @@ export const getResearchComments = async (researchId) => {
 export const inviteReviewer = async (data) => (await api.post("/reviewers/invite", data)).data;
 export const setReviewerPassword = async (data) => (await api.post("/reviewers/set-password", data)).data;
 export const resendInvite = async (id) => (await api.post(`/reviewers/${id}/resend-invite`)).data;
-export const listReviewers = async () => (await api.get("/reviewers")).data?.data || [];
+export const listReviewers = async (filters = {}) => {
+  const p = new URLSearchParams();
+  ["role", "search", "page", "limit"].forEach((key) => {
+    if (filters[key] !== undefined && filters[key] !== "") p.append(key, filters[key]);
+  });
+  const qs = p.toString();
+  return (await api.get(`/reviewers${qs ? `?${qs}` : ""}`)).data?.data || {};
+};
 export const listAllResearchers = async (filters = {}) => {
   const p = new URLSearchParams();
   if (filters.role) p.append("role", filters.role);
+  if (filters.search) p.append("search", filters.search);
   if (filters.limit) p.append("limit", filters.limit);
   if (filters.page) p.append("page", filters.page);
   const qs = p.toString();

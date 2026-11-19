@@ -39,6 +39,7 @@ exports.getMyResearch = asyncHandler(async (req, res) => {
     limit: result.limit,
     total: result.total,
     totalPages: result.totalPages,
+    statusCounts: result.statusCounts,
   });
 });
 
@@ -187,6 +188,8 @@ exports.getAssignedResearch = asyncHandler(async (req, res) => {
       limit: result.limit,
       total: result.total,
       totalPages: result.totalPages,
+      stats: result.stats,
+      categories: result.categories,
     },
   );
 });
@@ -273,6 +276,7 @@ exports.getAllResearchCommittee = asyncHandler(async (req, res) => {
     limit: result.limit,
     total: result.total,
     totalPages: result.totalPages,
+    stats: result.stats,
   });
 });
 
@@ -413,6 +417,7 @@ exports.getAllResearchAdmin = asyncHandler(async (req, res) => {
     limit: result.limit,
     total: result.total,
     totalPages: result.totalPages,
+    stageCounts: result.stageCounts,
   });
 });
 

@@ -31,6 +31,14 @@ exports.verifyPayment = asyncHandler(async (req, res) => {
   sendSuccess(res, 200, "Payment status retrieved.", result);
 });
 
+exports.getMyPayments = asyncHandler(async (req, res) => {
+  const result = await paymentService.getMyPayments(req.researcher.id, req.query);
+  sendSuccess(res, 200, "Payment records fetched successfully.", result.payments, {
+    page: result.page, limit: result.limit, total: result.total,
+    totalPages: result.totalPages, stats: result.stats,
+  });
+});
+
 
 exports.getDownloadToken = asyncHandler(async (req, res) => {
   const { paymentId, researchId } = req.params;

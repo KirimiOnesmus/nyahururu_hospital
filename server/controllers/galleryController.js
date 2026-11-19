@@ -6,6 +6,7 @@ const logger = require("../utils/logger");
 const path = require("path");
 const { Op } = require("sequelize");
 const { Gallery, User, sequelize } = require("../sequelize/models");
+const { getPagination, buildMeta } = require("../utils/pagination");
 
 
 
@@ -40,11 +41,16 @@ const safeUnlink = (filePath) => {
 exports.getAllGallery = async (req, res) => {
   try {
     const { category, type, visible, search, sort = "-uploadDate" } = req.query;
+    const excludedCategory = req.query.excludeCategory;
+    const { requestedPaging, page, limit, offset } = getPagination(req.query);
 
     const where = {};
     if (category && category !== "all") where.category = category;
     if (type && type !== "all") where.type = type;
     if (visible !== undefined) where.visible = visible === "true";
+    if (excludedCategory) {
+      where[Op.and] = [{ category: { [Op.ne]: excludedCategory } }];
+    }
 
     if (search) {
       const escaped = String(search).replace(/[\\%_]/g, (m) => `\\${m}`);
@@ -61,13 +67,39 @@ exports.getAllGallery = async (req, res) => {
       ];
     }
 
-    const items = await Gallery.findAll({
+    const { rows: items, count: total } = await Gallery.findAndCountAll({
       where,
       include: UPLOADER_INCLUDE,
       order: parseSort(sort),
+      distinct: true,
+      ...(requestedPaging ? { limit, offset } : {}),
     });
 
-    res.json(items);
+    if (!requestedPaging) return res.json(items);
+
+    const facetWhere = {};
+    if (visible !== undefined) facetWhere.visible = visible === "true";
+    if (excludedCategory) facetWhere.category = { [Op.ne]: excludedCategory };
+    const recentSince = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const [categoryRows, imageCount, videoCount, recentItems] = await Promise.all([
+      Gallery.findAll({
+        attributes: ["category", [sequelize.fn("COUNT", sequelize.col("id")), "count"]],
+        where: facetWhere,
+        group: ["category"],
+        raw: true,
+      }),
+      Gallery.count({ where: { ...facetWhere, type: "image" } }),
+      Gallery.count({ where: { ...facetWhere, type: "video" } }),
+      Gallery.count({ where: { ...facetWhere, uploadDate: { [Op.gte]: recentSince } } }),
+    ]);
+    const categoryCounts = Object.fromEntries(
+      categoryRows.filter((row) => row.category).map((row) => [row.category, Number(row.count)]),
+    );
+    return res.json({
+      data: items,
+      meta: buildMeta(page, limit, total, items.length, offset),
+      facets: { categoryCounts, images: imageCount, videos: videoCount, recentItems },
+    });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });

@@ -1,20 +1,32 @@
 const emitChange = require("../utils/emitChange");
 "use strict";
 
+const { Op } = require("sequelize");
 const { News } = require("../sequelize/models");
 const logger = require("../utils/logger");
 const { getPagination, buildMeta } = require("../utils/pagination");
 
 exports.getAllNews = async (req, res) => {
   try {
+    const where = {};
+    if (req.query.search) {
+      const escaped = String(req.query.search).replace(/[\\%_]/g, (m) => `\\${m}`);
+      const like = `%${escaped}%`;
+      where[Op.or] = [
+        { title: { [Op.like]: like } },
+        { content: { [Op.like]: like } },
+        { author: { [Op.like]: like } },
+      ];
+    }
     const { requestedPaging, page, limit, offset } = getPagination(req.query);
-    const { rows: news, count: total } = await News.findAndCountAll({
-      order: [["createdAt", "DESC"]],
-      limit,
-      offset,
-    });
+    const [{ rows: news, count: total }, allCount, withImage, withoutImage] = await Promise.all([
+      News.findAndCountAll({ where, order: [["createdAt", "DESC"]], limit, offset }),
+      News.count(),
+      News.count({ where: { imageUrl: { [Op.ne]: null } } }),
+      News.count({ where: { [Op.or]: [{ imageUrl: null }, { imageUrl: "" }] } }),
+    ]);
     if (!requestedPaging) return res.json(news);
-    return res.json({ data: news, meta: buildMeta(page, limit, total, news.length, offset) });
+    return res.json({ data: news, meta: { ...buildMeta(page, limit, total, news.length, offset), stats: { total: allCount, withImage, withoutImage } } });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });

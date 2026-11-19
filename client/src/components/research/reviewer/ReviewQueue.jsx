@@ -192,32 +192,34 @@ const ReviewQueue = () => {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("deadline");
   const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [queueStats, setQueueStats] = useState({ total: 0, pending: 0, revisionsSent: 0, avgTurnaround: null });
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [activeRes, completedRes] = await Promise.all([
-        research.getAssignedResearch({
-          search: search || undefined,
-          page: 1,
-          limit: 50,
-        }),
-        research.getAssignedResearch({
-          search: search || undefined,
-          page: 1,
-          limit: 50,
-          includeCompleted: true,
-        }),
-      ]);
-      const active = Array.isArray(activeRes.papers) ? activeRes.papers : [];
-      const completed = Array.isArray(completedRes.papers) ? completedRes.papers : [];
-      setItems([...active, ...completed]);
+      const statusFilter = tab === "completed" ? ["approved", "rejected", "suspended"]
+        : tab === "pending" ? "submitted"
+        : tab === "inProgress" ? "under_review" : undefined;
+      const res = await research.getAssignedResearch({
+        search: search || undefined,
+        status: statusFilter,
+        includeCompleted: "all",
+        sort,
+        page,
+        limit: PAGE_SIZE,
+      });
+      setItems(Array.isArray(res.papers) ? res.papers : []);
+      setTotal(Number(res.total || 0));
+      setTotalPages(Math.max(1, Number(res.totalPages || 1)));
+      setQueueStats(res.stats || { total: 0, pending: 0, revisionsSent: 0, avgTurnaround: null });
     } catch (err) {
       notify.error(err.message || "Failed to load assignments");
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, [search, tab, sort, page]);
 
   useEffect(() => {
     const t = setTimeout(load, 300);
@@ -227,9 +229,9 @@ const ReviewQueue = () => {
   const byTab = useMemo(() => {
     switch (tab) {
       case "pending":
-        return items.filter((i) => i.status === "under_review" && !i.draftReviewStartedAt);
+        return items.filter((i) => i.status === "submitted");
       case "inProgress":
-        return items.filter((i) => i.status === "under_review" && !!i.draftReviewStartedAt);
+        return items.filter((i) => i.status === "under_review");
       case "completed":
         return items.filter((i) => ["approved", "rejected", "suspended"].includes(i.status));
       default:
@@ -251,51 +253,15 @@ const ReviewQueue = () => {
     return top;
   }, [byTab]);
 
-  const sorted = useMemo(() => {
-    const list = [...grouped];
-    if (sort === "deadline") {
-      list.sort((a, b) => new Date(a.deadline || 0) - new Date(b.deadline || 0));
-    } else if (sort === "assigned") {
-      list.sort((a, b) => new Date(b.assignedAt || 0) - new Date(a.assignedAt || 0));
-    } else if (sort === "priority") {
-      const rank = { high: 0, medium: 1, normal: 2 };
-      list.sort((a, b) => (rank[a.priority] ?? 3) - (rank[b.priority] ?? 3));
-    }
-    return list;
-  }, [grouped, sort]);
+  const sorted = grouped;
 
   useEffect(() => {
     setPage(1);
   }, [tab, sort, search]);
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  const pageItems = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageItems = sorted;
 
-  const stats = useMemo(() => {
-    const studyKey = (i) => i.parentResearchId || i.id;
-    const distinct = (list) => new Set(list.map(studyKey)).size;
-    const pending = items.filter((i) =>
-      ["under_review", "pending", "revision_requested"].includes(i.status)
-    );
-    const decided = items.filter((i) => ["approved", "rejected", "suspended"].includes(i.status));
-    const revisionsSent = distinct(items.filter((i) => i.status === "revision_requested"));
-    const withDates = decided.filter((i) => i.assignedAt && i.reviewedAt);
-    const avgTurnaround = withDates.length
-      ? (
-          withDates.reduce(
-            (sum, i) =>
-              sum + (new Date(i.reviewedAt) - new Date(i.assignedAt)) / (1000 * 60 * 60 * 24),
-            0
-          ) / withDates.length
-        ).toFixed(1)
-      : null;
-    return {
-      total: distinct(items),
-      pending: distinct(pending),
-      revisionsSent,
-      avgTurnaround,
-    };
-  }, [items]);
+  const stats = queueStats;
 
   const handleReview = (item) => navigate(`/research/dashboard/review/${item.id}`);
 
@@ -603,8 +569,8 @@ const ReviewQueue = () => {
               bg-slate-50 flex-wrap gap-3"
             >
               <p className="text-sm text-slate-500">
-                Showing {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, sorted.length)} of{" "}
-                {sorted.length} assignments
+                Showing {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, total)} of{" "}
+                {total} assignments
               </p>
               <div className="flex items-center gap-1.5">
                 <button

@@ -5,6 +5,7 @@ const logger = require("../utils/logger");
 const {
   AmbulanceBooking, Vehicle, User, sequelize,
 } = require("../sequelize/models");
+const { getPagination, buildMeta } = require("../utils/pagination");
 
 
 const VALID_STATUSES = [
@@ -107,10 +108,35 @@ exports.createAmbulanceBooking = async (req, res) => {
 
 exports.getAllAmbulanceBookings = async (req, res) => {
   try {
-    const bookings = await AmbulanceBooking.findAll({
-      include: LIST_INCLUDE,
-      order: [["bookingDate", "DESC"]],
-    });
+    const { search, emergencyLevel, status } = req.query;
+    const where = {};
+    if (emergencyLevel && emergencyLevel !== "all") where.emergencyLevel = emergencyLevel;
+    if (status && status !== "all") where.status = status;
+    if (search) {
+      const escaped = String(search).replace(/[\\%_]/g, (m) => `\\${m}`);
+      const like = `%${escaped}%`;
+      where[Op.or] = [
+        { patientName: { [Op.like]: like } }, { phone: { [Op.like]: like } },
+        { status: { [Op.like]: like } }, { emergencyLevel: { [Op.like]: like } },
+        { currentLocation: { [Op.like]: like } }, { destinationHospital: { [Op.like]: like } },
+        { medicalCondition: { [Op.like]: like } },
+      ];
+    }
+    const { requestedPaging, page, limit, offset } = getPagination(req.query);
+    const [{ rows: bookings, count: total }, statusRows, emergencyRows] = await Promise.all([
+      AmbulanceBooking.findAndCountAll({ where, include: LIST_INCLUDE, order: [["bookingDate", "DESC"]], distinct: true, limit, offset }),
+      AmbulanceBooking.count({ group: ["status"] }),
+      AmbulanceBooking.count({ group: ["emergencyLevel"] }),
+    ]);
+    const statusCounts = Object.fromEntries(statusRows.map(({ status: key, count: value }) => [key, Number(value)]));
+    const emergencyCounts = Object.fromEntries(emergencyRows.map(({ emergencyLevel: key, count: value }) => [key, Number(value)]));
+    const stats = {
+      total,
+      pendingBookings: (statusCounts.Pending || 0) + (statusCounts.Waiting || 0),
+      assignedBookings: statusCounts.Assigned || 0,
+      criticalBookings: emergencyCounts.critical || 0,
+    };
+    if (requestedPaging) return res.json({ data: bookings, meta: { ...buildMeta(page, limit, total, bookings.length, offset), stats } });
     res.json(bookings);
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");

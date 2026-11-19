@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useSocket } from "../../api/socket";
 import api from "../../api/axios";
 import {
@@ -51,47 +51,47 @@ const AppointmentPage = () => {
   const [loading,            setLoading]            = useState(false);
   const [search,             setSearch]             = useState("");
   const [filterStatus,       setFilterStatus]       = useState("all");
+  const [debouncedSearch,    setDebouncedSearch]    = useState("");
+  const [page,               setPage]               = useState(1);
+  const [pagination,         setPagination]         = useState({ page: 1, pages: 1, total: 0 });
+  const [appointmentStats,   setAppointmentStats]   = useState({ total: 0, confirmed: 0, pending: 0, cancelled: 0 });
   const [selectedAppointment,setSelectedAppointment]= useState(null);
   const [showModal,          setShowModal]          = useState(false);
 
   const fetchAppointments = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.get("/appointments");
-      setAppointments(Array.isArray(res.data) ? res.data : res.data.data || []);
+      const res = await api.get("/appointments", { params: {
+        search: debouncedSearch || undefined,
+        status: filterStatus === "all" ? undefined : filterStatus,
+        page, limit: 20,
+      } });
+      const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+      setAppointments(data);
+      setPagination(res.data.meta || { page: 1, pages: 1, total: data.length });
+      setAppointmentStats(res.data.meta?.stats || { total: data.length, confirmed: 0, pending: 0, cancelled: 0 });
     } catch (err) {
       notify.error(err.response?.data?.message || "Error fetching appointments");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [debouncedSearch, filterStatus, page]);
 
   useEffect(() => { fetchAppointments(); }, [fetchAppointments]);
+  useEffect(() => {
+    const timer = setTimeout(() => { setPage(1); setDebouncedSearch(search.trim()); }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+  useEffect(() => { setPage(1); }, [filterStatus]);
 
  
   useSocket("appointments:created", fetchAppointments);
   useSocket("appointments:updated", fetchAppointments);
   useSocket("appointments:deleted", fetchAppointments);
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return appointments.filter(a => {
-      const matchSearch =
-        a.patientName?.toLowerCase().includes(q) ||
-        a.doctorId?.specialty?.toLowerCase().includes(q) ||
-        a.service?.toLowerCase().includes(q) ||
-        a.email?.toLowerCase().includes(q);
-      const matchStatus = filterStatus === "all" || a.status?.toLowerCase() === filterStatus;
-      return matchSearch && matchStatus;
-    });
-  }, [appointments, search, filterStatus]);
+  const filtered = appointments;
 
-  const stats = useMemo(() => ({
-    total:     appointments.length,
-    confirmed: appointments.filter(a => a.status?.toLowerCase() === "confirmed").length,
-    pending:   appointments.filter(a => a.status?.toLowerCase() === "pending").length,
-    cancelled: appointments.filter(a => a.status?.toLowerCase() === "cancelled").length,
-  }), [appointments]);
+  const stats = appointmentStats;
 
   const updateStatus = async (id, status) => {
     try {
@@ -243,7 +243,7 @@ const AppointmentPage = () => {
         <div className="flex flex-wrap gap-2 mb-5">
           {["all", "pending", "confirmed", "completed", "cancelled"].map(s => {
             const c = s === "all" ? null : scfg(s);
-            const count = s === "all" ? appointments.length : appointments.filter(a => a.status?.toLowerCase() === s).length;
+            const count = s === "all" ? appointmentStats.total : appointmentStats[s] || 0;
             return (
               <button
                 key={s}
@@ -276,10 +276,13 @@ const AppointmentPage = () => {
         ) : (
           <>
             <DataTable columns={columns} data={filtered} rowKey={(appt) => appt.id} />
-            <div className="px-5 py-3 border-t border-gray-100 bg-white rounded-b-2xl">
-              <p className="text-xs text-gray-400">
-                Showing <span className="font-semibold text-gray-600">{filtered.length}</span> of <span className="font-semibold text-gray-600">{appointments.length}</span> appointments
-              </p>
+            <div className="px-5 py-3 border-t border-gray-100 bg-white rounded-b-2xl flex items-center justify-between">
+              <p className="text-xs text-gray-400">Showing {filtered.length} of {pagination.total} appointments</p>
+              <div className="flex items-center gap-2 text-xs">
+                <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Previous</button>
+                <span>Page {page} of {Math.max(1, pagination.pages)}</span>
+                <button disabled={page >= pagination.pages} onClick={() => setPage((p) => p + 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Next</button>
+              </div>
             </div>
           </>
         )}

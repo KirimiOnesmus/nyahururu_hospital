@@ -86,6 +86,7 @@ exports.login = asyncHandler(async (req, res) => {
 
   user.failedLoginAttempts = 0;
   user.lockUntil = null;
+  user.lastLogin = new Date();
   await user.save();
 
   const { token: accessToken } = signAccessToken(user);

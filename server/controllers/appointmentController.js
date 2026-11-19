@@ -3,6 +3,7 @@ const emitChange = require("../utils/emitChange");
 
 const { Op } = require("sequelize");
 const { Appointment, Doctor } = require("../sequelize/models");
+const { getPagination, buildMeta } = require("../utils/pagination");
 const logger = require("../utils/logger");
 const emailService = require("../utils/emailServices");
 
@@ -62,6 +63,19 @@ exports.bookAppointment = async (req, res) => {
 exports.getAllAppointments = async (req, res) => {
   try {
     const where = {};
+    const statsWhere = {};
+    const { search, status } = req.query;
+
+    if (status && status !== "all") where.status = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+    if (search) {
+      const escaped = String(search).replace(/[\\%_]/g, (m) => `\\${m}`);
+      where[Op.or] = [
+        { patientName: { [Op.like]: `%${escaped}%` } },
+        { patientEmail: { [Op.like]: `%${escaped}%` } },
+        { service: { [Op.like]: `%${escaped}%` } },
+        { department: { [Op.like]: `%${escaped}%` } },
+      ];
+    }
 
     if (req.user.role === "doctor") {
 
@@ -70,12 +84,18 @@ exports.getAllAppointments = async (req, res) => {
         return res.status(400).json({ message: "No department assigned to this doctor" });
       }
       where.department = doctorProfile.department;
+      statsWhere.department = doctorProfile.department;
     }
 
-    const appointments = await Appointment.findAll({
-      where,
-      order: [["createdAt", "DESC"]],
-    });
+    const { requestedPaging, page, limit, offset } = getPagination(req.query);
+    const [{ rows: appointments, count: total }, statusRows, allCount] = await Promise.all([
+      Appointment.findAndCountAll({ where, order: [["createdAt", "DESC"]], limit, offset }),
+      Appointment.count({ where: statsWhere, group: ["status"] }),
+      Appointment.count({ where: statsWhere }),
+    ]);
+    const statusCounts = Object.fromEntries(statusRows.map(({ status: key, count: value }) => [String(key || "").toLowerCase(), Number(value)]));
+    const stats = { total: allCount, confirmed: statusCounts.confirmed || 0, pending: statusCounts.pending || 0, cancelled: statusCounts.cancelled || 0 };
+    if (requestedPaging) return res.json({ data: appointments, meta: { ...buildMeta(page, limit, total, appointments.length, offset), stats } });
     res.json(appointments);
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
