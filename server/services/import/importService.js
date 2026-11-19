@@ -3,12 +3,16 @@
 const crypto = require("crypto");
 const { parse } = require("csv-parse/sync");
 const { Op } = require("sequelize");
-const { Service, ImportBatch, sequelize } = require("../../sequelize/models");
+const { ImportBatch, sequelize } = require("../../sequelize/models");
 const audit = require("../auditService");
 const logger = require("../../utils/logger");
 const importConfig = require("./config");
 
-const definitions = new Map([["services", require("./entities/services")]]);
+const definitions = new Map([
+  ["services", require("./entities/services")],
+  ["serviceItems", require("./entities/serviceItems")],
+  ["ambulanceServices", require("./entities/ambulanceServices")],
+]);
 const unknownEnabledEntities = [...importConfig.enabledEntities].filter((key) => !definitions.has(key));
 if (unknownEnabledEntities.length) throw new Error(`Unknown import entity configuration: ${unknownEnabledEntities.join(", ")}`);
 const BATCH_FIELDS = ["id", "entity", "tier", "mode", "status", "originalFilename", "fileSha256", "fileSize", "rowCount", "createdCount", "updatedCount", "unchangedCount", "errorCount", "warningCount", "errors", "warnings", "preview", "uploadedBy", "approvedBy", "committedBy", "rolledBackBy", "committedAt", "rolledBackAt", "expiresAt", "createdAt"];
@@ -98,6 +102,12 @@ async function validateRows(definition, rows, mode) {
   const preview = [];
   let createdCount = 0, updatedCount = 0, unchangedCount = 0;
   let indexedExisting = null;
+  const referenceLookups = new Map();
+  for (const reference of definition.references || []) {
+    const keys = [...new Set(rows.map((row) => String(row[reference.column] ?? "").normalize("NFKC").trim()).filter(Boolean))];
+    const records = keys.length ? await reference.model.findAll({ where: { [reference.field]: { [Op.in]: keys } } }) : [];
+    referenceLookups.set(reference.column, new Map(records.map((record) => [String(record[reference.field]).normalize("NFKC").trim().toLocaleLowerCase("en"), record])));
+  }
   if (typeof definition.model.findAll === "function") {
     const keyColumn = definition.columns.find((column) => column.attribute === definition.naturalKey);
     const keys = [...new Set(rows.map((row) => String(row[keyColumn?.name] ?? "").normalize("NFKC").trim()).filter(Boolean))];
@@ -110,9 +120,16 @@ async function validateRows(definition, rows, mode) {
     const values = {};
     for (const column of definition.columns) {
       const value = parseCell(raw[column.name], column, rowNumber, errors);
-      if (value !== undefined) values[column.attribute] = value;
+      if (value === undefined) continue;
+      const reference = (definition.references || []).find((item) => item.column === column.name);
+      if (reference) {
+        const record = referenceLookups.get(column.name)?.get(String(value).normalize("NFKC").trim().toLocaleLowerCase("en"));
+        if (!record) errors.push({ row: rowNumber, column: column.name, code: "REFERENCE_NOT_FOUND", message: `No matching ${reference.field} record was found.` });
+        else values[column.attribute] = record.id;
+      } else values[column.attribute] = value;
     }
     const key = String(values[definition.naturalKey] ?? "").trim().toLocaleLowerCase("en");
+    if (key && definition.blockedNames?.includes(key)) errors.push({ row: rowNumber, column: definition.naturalKey, code: "EXCLUDED_RECORD", message: "This catalogue record is excluded from the services import." });
     if (key && seen.has(key)) errors.push({ row: rowNumber, column: definition.naturalKey, code: "DUPLICATE_KEY", message: "This natural key appears more than once in the file." });
     if (key) seen.add(key);
     const existing = key ? indexedExisting
@@ -139,6 +156,8 @@ async function validateRows(definition, rows, mode) {
     }
     if (values.itemsTotal != null && values.itemsShaCovered != null && values.itemsShaCovered > values.itemsTotal) errors.push({ row: normalized[index].row, column: "itemsShaCovered", code: "COVERED_EXCEEDS_TOTAL", message: "SHA-covered items cannot exceed the total item count." });
     if ((values.itemsTotal == null) !== (values.itemsShaCovered == null)) errors.push({ row: normalized[index].row, column: "itemsShaCovered", code: "ITEM_COUNTS_INCOMPLETE", message: "Provide both item counts to calculate SHA coverage." });
+    if ("shaCovered" in values && normalized[index].effective.shaCovered && normalized[index].effective.shaPrice == null) errors.push({ row: normalized[index].row, column: "shaPrice", code: "SHA_PRICE_REQUIRED", message: "An SHA-covered item must have an SHA price." });
+    if ("shaCovered" in values && !normalized[index].effective.shaCovered && normalized[index].effective.shaPrice != null) errors.push({ row: normalized[index].row, column: "shaPrice", code: "SHA_PRICE_NOT_ALLOWED", message: "An item not covered by SHA cannot have an SHA price." });
   }
   return { normalized: normalized.map(({ effective, ...row }) => row), errors: errors.slice(0, 200), errorCount: errors.length, preview, createdCount, updatedCount, unchangedCount };
 }

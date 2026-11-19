@@ -1,154 +1,17 @@
-"name","division","category","description","tariffInfo","headOfDepartment","contactInfo","serviceHours","location","cashMin","cashMax","shaMin","shaMax","itemsTotal","itemsShaCovered","isPublished","sortOrder"
-"Clinical Consultation","Outpatient","General Medicine","General outpatient consultations, minor procedures and clinic registration for adults and children.
-
-Main services: General (OPD) consultation, specialist consultation, ANC and child welfare clinic registration, minor stitching, wound dressing, cervical cancer screening, nebulization, injections, oxygen therapy, medical examinations and reports.
-
-Price range (cash/mobile money): KES 50 to 4,500
-SHA rates: KES 100 to 5,000
-
-Covered by SHA (35 of 83 items), including: Clinical consultation, ANC clinic registration, CWC registration, Excision of lipoma, Minor stitching, Mixtard injection.
-Not covered by SHA (48 items), including: Wound dressing, Removal of stitches, Nebulization, Oxygen therapy, Cervical cancer screening, Daily injections (IV/IM), Medical examination, Specialist consultation fee.","Cash/mobile money: KES 50 to 4,500. SHA: KES 100 to 5,000.","","","","","50","4500","100","5000","83","35","true","0"
-"Laboratory Services","Outpatient","Laboratory","Diagnostic blood, urine, stool and body-fluid tests, plus blood grouping and transfusion services.
-
-Main services: Full haemogram, blood sugar, liver and kidney function tests, lipid profile, thyroid tests, HIV and hepatitis tests, malaria, cultures and sensitivity, blood grouping and cross-match, PSA, pregnancy test.
-
-Price range (cash/mobile money): KES 100 to 4,000
-SHA rates: KES 100 to 5,000
-
-Covered by SHA (94 of 134 items), including: Full haemogram, Blood sugar, Liver function test, Lipid profile, Thyroid function tests, Hepatitis C, HbA1c, Urinalysis, Pregnancy test, Blood culture.
-Not covered by SHA (40 items), including: Vitamin D, Vitamin B12, Sodium, Chloride, Magnesium, FSH, Lipase, Anti-TPO, Oral glucose tolerance test, PSA profile.","Cash/mobile money: KES 100 to 4,000. SHA: KES 100 to 5,000.","","","","","100","4000","100","5000","134","94","true","1"
-"Radiology Department","Outpatient","Radiology","X-ray, ultrasound and contrast imaging studies.
-
-Main services: Ankle, barium swallow, barium meal, cervical spine, chest X-ray, knee, shoulder, hip joint, lumbar spine, skull, pelvis, abdominal ultrasound, obstetric ultrasound, pelvic ultrasound, HSG.
-
-Price range (cash/mobile money): KES 400 to 3,000
-SHA rates: KES 800 to 5,000
-
-Covered by SHA (71 of 101 items), including: Ankle, Barium swallow, Barium meal, Cervical spine, Chest X-ray, Knee, Abdominal ultrasound, Obstetric ultrasound, Pelvic ultrasound.
-Not covered by SHA (30 items), including: Cervical-thoracic spine, IVU, KUB ultrasound, Testicular ultrasound, Internal auditory meatus, Post-nasal space X-ray, Baby gram, Abdominal erect X-ray.","Cash/mobile money: KES 400 to 3,000. SHA: KES 800 to 5,000.","","","","","400","3000","800","5000","101","71","true","2"
-"Pharmacy Services","Outpatient","Pharmacy","Dispensing of medicines, IV fluids, injections and medical supplies.
-
-Main services: IV fluids (dextrose, Ringer's lactate), injectable antibiotics (amikacin, gentamicin, clindamycin, cefazolin), pain relief (diclofenac, tramadol, meloxicam), insulin, creams, bandages and catheters.
-
-Price range (cash/mobile money): KES 2 to 6,000
-SHA rates: KES 5 to 3,800
-
-Covered by SHA (43 of 49 items), including: Ringer's lactate, Diclofenac, Amikacin, Gentamicin injection, Tramadol injection, Mixtard insulin.
-Not covered by SHA (6 items), including: Dextose 50%, Kabiven periheral, Clindamycin Injection 300mg, Extraderm Cream, Cas Labetalol Injection per ml, Cetirizine Tablet 10mg.","Cash/mobile money: KES 2 to 6,000. SHA: KES 5 to 3,800.","","","","","2","6000","5","3800","49","43","true","3"
-"Family Planning","Outpatient","Maternal and Child Health","Contraceptive counselling, methods and procedures.
-
-Main services: Depo injection, implants (Jadelle, Norplant) insertion and removal, coil/IUCD insertion and removal, oral contraceptives, VIA/VILI cervical screening.
-
-Price range (cash/mobile money): KES 30 to 2,000
-SHA rates: KES 30 to 200
-
-Covered by SHA (4 of 15 items), including: Family Planning Clinic, Family Planning Pills, Norplant insertion, Coil Removal.
-Not covered by SHA (11 items), including: Depo, Implant-incission, Implant-removal, Oral Contraceptives, Coil insertion, IUCD removal, Via Villi, Special Coil Removal, Norplant Removal, Jadelle Insertion, Hormonal intrauterine Device.","Cash/mobile money: KES 30 to 2,000. SHA: KES 30 to 200.","","","","","30","2000","30","200","15","4","true","4"
-"Nutrition Services","Outpatient","Others","Nutrition assessment and review, plus therapeutic and supplementary feeds.
-
-Main services: Nutrition review, adult nutritional supplements (Ensure, Fresubin), infant formula, parenteral nutrition (Kabiven).
-
-Price range (cash/mobile money): KES 150 to 7,000
-SHA rates: KES 150
-
-Covered by SHA (2 of 13 items), including: Nutrition Review.
-Not covered by SHA (11 items), including: Nhif Nutrition Review, Fresubin 2kcal, Nan Formula, Ensure 400g (Adult), Provideextra, Rehabilitation, Supportan Cappucino, Proliche, Kabiven 1440mls (Bag) Peripheral, Nan 1, Ensure 400G Tin.","Cash/mobile money: KES 150 to 7,000. SHA: KES 150.","","","","","150","7000","150","150","13","2","true","5"
-"Registration","Outpatient","Others","Administrative, medical report, student research, mentorship and rotation fees.
-
-Main services: Medical report, master rotation fee, research fees (undergraduate, masters, PhD), mentorship fee.
-
-Price range (cash/mobile money): KES 1,000 to 10,000
-SHA rates: no SHA rates
-
-Covered by SHA: none of the listed items.
-Not covered by SHA (9 items), including: Medical report, Master Rotation Fee (Facilitation fee), Research Fee (Masters), Undergraduate Research, Mentorship Fee, research fee ( KMTC student), PHD Thesis, Rental Income(Big), Post $ Corporate-Doctorate Research.","Cash/mobile money: KES 1,000 to 10,000. SHA: no SHA rates.","","","","","1000","10000","","","9","0","false","6"
-"Mortuary Services","Outpatient","Others","Body storage, embalming, viewing, dressing, and burial and postmortem permits.
-
-Main services: Body storage per day, embalment, body viewing, body dressing, burial permit, postmortem permit, child and still-birth disposal.
-
-Price range (cash/mobile money): KES 200 to 3,000
-SHA rates: KES 700 to 750
-
-Covered by SHA (4 of 15 items), including: Body/Day(Home/Private)>5days, Body/Day(Hospital)>5days, Body Dressing, Body Per Day (Home/Private)(1-5).
-Not covered by SHA (11 items), including: Disposal Child, Body Viewing, Burial Permit, Hiring Of Viewing Area, Embalment, Embalment Private, Permit For Postmortem, Permit For Postmortem (Own Request), Still Birth Disposal, Reconstruction, Body For Study (Cavedors).","Cash/mobile money: KES 200 to 3,000. SHA: KES 700 to 750.","","","","","200","3000","700","750","15","4","false","7"
-"Inpatient Services","Inpatient","General Medicine","Admission, accommodation, nursing care and in-ward procedures for admitted patients, including maternity care.
-
-Main services: Admission fee, daily bed and nursing charges, doctor fee, oxygen therapy, blood transfusion, catheterization, nasogastric tube, nebulization, lumbar puncture, caesarean section, manual removal of placenta, manual vacuum aspiration, phototherapy.
-
-Price range (cash/mobile money): KES 10 to 93,400
-SHA rates: KES 10 to 280,000
-
-Covered by SHA (92 of 170 items), including: Admission fee, Daily bed charges, Nursing daily charges, Doctor fee, Blood transfusion, Caesarean section, Phototherapy, ECG.
-Not covered by SHA (78 items), including: Nebulization, Ripple mattress, Bladder irrigation, Ascitic tapping, NG tube, Inpatient catheterization, Episiotomy, Manual vacuum aspiration (MVA), Post-abortal care.","Cash/mobile money: KES 10 to 93,400. SHA: KES 10 to 280,000.","","","","","10","93400","10","280000","170","92","true","8"
-"Surgery","Inpatient","Surgery","General, orthopaedic, neuro, urological, ENT, eye, gynaecological and reconstructive surgical procedures.
-
-Main services: Appendicectomy, cholecystectomy, hernia repair, haemorrhoidectomy, thyroidectomy, mastectomy, myomectomy, cataract extraction, cleft lip and palate repair, craniotomy, amputations, laparoscopy, skin grafting.
-
-Price range (cash/mobile money): KES 300 to 160,000
-SHA rates: KES 300 to 800,000
-
-Covered by SHA (429 of 456 items), including: Appendicectomy, Cholecystectomy, Haemorrhoidectomy, Thyroidectomy, Simple mastectomy, Myomectomy, Cataract extraction, Cleft lip repair, Skin graft.
-Not covered by SHA (27 items), including: Ilizarov procedure, Intranasal ethmoidectomy, K-wire, Maxillectomy, Mediastinoscopy, Mandibular fractures (ORIF), Laparotomy: tuboplasty.","Cash/mobile money: KES 300 to 160,000. SHA: KES 300 to 800,000.","","","","","300","160000","300","800000","456","429","true","9"
-"Dental Services","Specialist Clinics","Dentistry","Dental examination, extractions, fillings, scaling, dentures, root canal and oral surgery.
-
-Main services: Tooth extraction, fillings (amalgam, composite), scaling, root canal treatment, dentures (partial and complete), orthodontic appliances, oral surgery, disimpaction.
-
-Price range (cash/mobile money): KES 50 to 15,000
-SHA rates: KES 200 to 20,000
-
-Covered by SHA (72 of 79 items), including: Dental extraction, Amalgam fillings, Composite fillings, Scaling, Root canal (molar), Complete denture, Open disimpaction, Minor oral surgery.
-Not covered by SHA (7 items), including: Closed Disimpaction, Close Dismpaction, Age Assessment, Attendance, Close Dismpaction - Nhif, Orthodontic Appliance REPAIR, Dental Disability Assessment.","Cash/mobile money: KES 50 to 15,000. SHA: KES 200 to 20,000.","","","","","50","15000","200","20000","79","72","true","10"
-"Ear, Nose and Throat (ENT)","Specialist Clinics","ENT","Diagnosis and treatment of ear, nose, throat and neck conditions, including hearing assessment.
-
-Main services: Ear syringing, aural toilet, nasal packing, tonsillectomy, adenoidectomy, tracheostomy, mastoidectomy, audiometry, tympanometry, laryngoscopy, removal of foreign bodies.
-
-Price range (cash/mobile money): KES 50 to 23,000
-SHA rates: KES 50 to 70,000
-
-Covered by SHA (41 of 43 items), including: Ear syringing, Tonsillectomy, Adeno-tonsillectomy, Tracheostomy, Mastoidectomy, Audiometry, Anterior nasal packing, Tympanometry.
-Not covered by SHA (2 items), including: Cautery Of Nose Bleeding, Electrical Cauterization.","Cash/mobile money: KES 50 to 23,000. SHA: KES 50 to 70,000.","","","","","50","23000","50","70000","43","41","true","11"
-"Ophthalmology","Specialist Clinics","Ophthalmology","Eye examination, treatment and eye surgery.
-
-Main services: Eye clinic review, corneal and conjunctival foreign body removal, chalazion, entropion correction, cataract surgery (ECCE + IOL), trabeculectomy, intravitreal injection, eye irrigation, fundoscopy, minor eye operations.
-
-Price range (cash/mobile money): KES 100 to 4,500
-SHA rates: KES 150 to 10,000
-
-Covered by SHA (37 of 37 items), including: Eye clinic review, Chalazion, Corneal foreign body, Cataract surgery (ECCE + IOL), Trabeculectomy, Intravitreal injection, Eye irrigation, Fundoscopy.
-Not covered by SHA: none.","Cash/mobile money: KES 100 to 4,500. SHA: KES 150 to 10,000.","","","","","100","4500","150","10000","37","37","true","12"
-"Rehabilitation and Physiotherapy","Specialist Clinics","Physiotherapy","Physiotherapy, occupational therapy, splints, assistive devices and rehabilitation.
-
-Main services: Physiotherapy sessions, occupational therapy, traction (cervical and lumbar), ultrasound and heat therapy, massage, splints (ankle-foot, cock-up), crutches, neck collars, foot care.
-
-Price range (cash/mobile money): KES 50 to 2,500
-SHA rates: KES 50 to 20,000
-
-Covered by SHA (59 of 74 items), including: Physiotherapy, Occupational therapy (adult), Ultrasound treatment, Electrical/manual massage, Ankle-foot splint (adult), Crutches, Neck collar, Foot care.
-Not covered by SHA (15 items), including: Cervical traction, Lumbar traction, Physiotherapy session, Special physiotherapy, Soft tissue manipulation, Inpatient physiotherapy, Postural drainage, Calcaneal pad.","Cash/mobile money: KES 50 to 2,500. SHA: KES 50 to 20,000.","","","","","50","2500","50","20000","74","59","true","13"
-"Orthopedics","Specialist Clinics","Orthopedics","Fracture and dislocation management, plaster of Paris (POP) casts, traction, splints and mobility aids.
-
-Main services: POP casts (below knee, above knee, below elbow), fracture and dislocation reduction, skeletal and skin traction, slings and strapping, splints, neck collars, crutches, wheelchair, orthopaedic review.
-
-Price range (cash/mobile money): KES 100 to 5,500
-SHA rates: KES 200 to 1,020
-
-Covered by SHA (4 of 55 items), including: Above Knee Pop PL, Orthopaedic Trauma, Othopaedic Review, Orthopaedic Undercast Padding 3 7.5Cm x 2.7M Soft Bandage.
-Not covered by SHA (51 items), including: Below-knee POP cast, Cylinder POP cast, Femur fracture reduction, Hip joint dislocation, Skeletal traction, Skin traction, Sling, Wheelchair.","Cash/mobile money: KES 100 to 5,500. SHA: KES 200 to 1,020.","","","","","100","5500","200","1020","55","4","true","14"
-"Urology and Dialysis","Specialist Clinics","Renal Dialysis","Haemodialysis and urological care, including catheter services and the renal clinic.
-
-Main services: Dialysis session, full dialysis package, haemodialysis, dialyzer, bloodlines, dialysis concentrates, temporary catheter insertion, renal clinic file.
-
-Price range (cash/mobile money): KES 150 to 10,650
-SHA rates: KES 350 to 10,650
-
-Covered by SHA (10 of 10 items), including: Temporary Catheter, Insertion - temporary catheter, Renal File, Dialysis Session, Dialyzer, Acid Concetrate, Biocarbonate, Bloodline, Hemodialysis, Full Dialysis Package.
-Not covered by SHA: none.","Cash/mobile money: KES 150 to 10,650. SHA: KES 350 to 10,650.","","","","","150","10650","350","10650","10","10","true","15"
-"Other Specialist Services","Specialist Clinics","Others","Psychiatry, cardiology, obstetrics and gynaecology, and gastroenterology specialist services.
-
-Main services: Psychiatric review, counselling, cardiology review, echocardiogram, vaginal lesion biopsy, partial gastrectomy.
-
-Price range (cash/mobile money): KES 500 to 43,000
-SHA rates: KES 1,000 to 123,200
-
-Covered by SHA (6 of 6 items), including: Counselling Service, psychiatric Review, Cardio-Review, Biopsy Of Lesion Of vaginal, Partial Gastrectomy, Echocardiogram.
-Not covered by SHA: none.","Cash/mobile money: KES 500 to 43,000. SHA: KES 1,000 to 123,200.","","","","","500","43000","1000","123200","6","6","true","16"
+"name","division","category","description"
+"Clinical Consultation","Outpatient","General Medicine","General outpatient consultations, minor procedures and clinic registration for adults and children."
+"Laboratory Services","Outpatient","Laboratory","Diagnostic blood, urine, stool and body-fluid tests, plus blood grouping and transfusion services."
+"Radiology Department","Outpatient","Radiology","X-ray, ultrasound and contrast imaging studies."
+"Pharmacy Services","Outpatient","Pharmacy","Dispensing of medicines, IV fluids, injections and medical supplies."
+"Family Planning","Outpatient","Maternal and Child Health","Contraceptive counselling, methods and procedures."
+"Nutrition Services","Outpatient","Others","Nutrition assessment and review, plus therapeutic and supplementary feeds."
+"Inpatient Services","Inpatient","General Medicine","Admission, accommodation, nursing care and in-ward procedures for admitted patients, including maternity care."
+"Surgery","Inpatient","Surgery","General, orthopaedic, neuro, urological, ENT, eye, gynaecological and reconstructive surgical procedures."
+"Dental Services","Specialist Clinics","Dentistry","Dental examination, extractions, fillings, scaling, dentures, root canal and oral surgery."
+"Ear, Nose and Throat (ENT)","Specialist Clinics","ENT","Diagnosis and treatment of ear, nose, throat and neck conditions, including hearing assessment."
+"Ophthalmology","Specialist Clinics","Ophthalmology","Eye examination, treatment and eye surgery."
+"Rehabilitation and Physiotherapy","Specialist Clinics","Physiotherapy","Physiotherapy, occupational therapy, splints, assistive devices and rehabilitation."
+"Orthopedics","Specialist Clinics","Orthopedics","Fracture and dislocation management, plaster of Paris (POP) casts, traction, splints and mobility aids."
+"Urology and Dialysis","Specialist Clinics","Renal Dialysis","Haemodialysis and urological care, including catheter services and the renal clinic."
+"Other Specialist Services","Specialist Clinics","Others","Psychiatry, cardiology, obstetrics and gynaecology, and gastroenterology specialist services."
+"Emergency and Casualty Services","Outpatient","Emergency Services","Emergency medical and casualty treatment services."

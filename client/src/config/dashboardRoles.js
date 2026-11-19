@@ -5,6 +5,7 @@ import {
   FaCalendarDay,
   FaBriefcase,
   FaStethoscope,
+  FaAmbulance,
   FaFileAlt,
   FaComments,
   FaExclamationTriangle,
@@ -49,6 +50,12 @@ export const DASHBOARD_NAV = [
         path: "/dashboard/services",
         roles: ["superadmin", "it", "admin"],
         icon: FaStethoscope,
+      },
+      {
+        title: "Ambulance Services",
+        path: "/dashboard/ambulance-services",
+        roles: ["it", "admin"],
+        icon: FaAmbulance,
       },
       {
         title: "Research",

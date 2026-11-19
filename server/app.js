@@ -44,6 +44,7 @@ const ambulanceRoutes        = require("./routes/ambulanceBookingRoutes");
 const anonymousAppointmentRoutes = require("./routes/anonymousRoute");
 const doctorRoutes           = require("./routes/doctorsRoutes");
 const serviceRoutes          = require("./routes/servicesRoutes");
+const ambulanceServiceRoutes = require("./routes/ambulanceServicesRoutes");
 const importRoutes           = require("./controllers/importController");
 const bloodDonorRoutes       = require("./routes/bloodDonorRoutes");
 
@@ -277,6 +278,7 @@ app.use("/api/ambulance-bookings", ambulanceRoutes);
 app.use("/api/anonymous",     anonymousAppointmentRoutes);
 app.use("/api/doctors",       doctorRoutes);
 app.use("/api/services",      serviceRoutes);
+app.use("/api/ambulance-services", ambulanceServiceRoutes);
 app.use("/api/admin/imports", importRoutes);
 app.use("/api/blood-donation", bloodDonorRoutes);
 

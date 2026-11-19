@@ -89,6 +89,7 @@ const FeedbackPg = lazy(() => import("./components/Dashboard/FeedbackPage"));
 const Fraud = lazy(() => import("./components/Dashboard/FraudPage"));
 const Careers = lazy(() => import("./components/Dashboard/CareersPage"));
 const ServicesList = lazy(() => import("./components/Dashboard/Services"));
+const AmbulanceServicesCatalog = lazy(() => import("./components/Dashboard/AmbulanceServicesCatalog"));
 const Profile = lazy(() => import("./components/Dashboard/ProfilePage"));
 const EditUserPage = lazy(() => import("./components/Dashboard/EditUserPage"));
 const InventoryPage = lazy(() => import("./components/Dashboard/InventoryPage"));
@@ -195,6 +196,7 @@ function App() {
             <Route path="/dashboard/fraud" element={<Guarded path="/dashboard/fraud"><Fraud /></Guarded>} />
             <Route path="/dashboard/careers" element={<Guarded path="/dashboard/careers"><Careers /></Guarded>} />
             <Route path="/dashboard/services" element={<Guarded path="/dashboard/services"><ServicesList /></Guarded>} />
+            <Route path="/dashboard/ambulance-services" element={<Guarded path="/dashboard/ambulance-services"><AmbulanceServicesCatalog /></Guarded>} />
             <Route path="/dashboard/profile" element={<Guarded path="/dashboard/profile"><Profile /></Guarded>} />
             <Route path="/dashboard/users/edit/:id" element={<Guarded path="/dashboard/users/edit/:id"><EditUserPage /></Guarded>} />
             <Route path="/dashboard/inventory" element={<Guarded path="/dashboard/inventory"><InventoryPage /></Guarded>} />

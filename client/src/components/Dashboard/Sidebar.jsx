@@ -78,6 +78,12 @@ const Sidebar = () => {
           icon: IconHospital,
         },
         {
+          title: "Ambulance Services",
+          path: "/dashboard/ambulance-services",
+          roles: ["it", "admin"],
+          icon: IconAmbulance,
+        },
+        {
           title: "Research",
           path: "/dashboard/research",
           roles: ["superadmin", "it", "admin", "research"],

@@ -41,6 +41,7 @@ import {
 } from "../../common/components";
 
 const DIVISIONS = ["Outpatient", "Inpatient", "Specialist Clinics"];
+const divisionLabel = (division) => division === "Specialist Clinics" ? "Clinics (Specialized Clinics)" : division;
 
 const SERVICE_CATEGORIES = [
   "General Medicine",
@@ -100,12 +101,7 @@ const EMPTY_FORM = {
   division: "",
   category: "",
   description: "",
-  headOfDepartment: "",
-  contactInfo: "",
-  serviceHours: "",
-  location: "",
-  tariffInfo: "",
-  nhifCovered: false,
+  items: [],
   image: null,
 };
 
@@ -132,7 +128,7 @@ const ServiceCard = ({ service, onView, onEdit, onDelete }) => {
           {service.division}
         </span>
 
-        {service.nhifCovered && (
+        {service.hasShaCoverage && (
           <span className="absolute top-3 right-3 bg-emerald-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1">
             <FaShieldAlt className="text-[9px]" />
             SHA
@@ -174,18 +170,7 @@ const ServiceCard = ({ service, onView, onEdit, onDelete }) => {
         </p>
 
         <div className="space-y-1.5">
-          {service.headOfDepartment && (
-            <p className="flex items-center gap-1.5 text-xs text-gray-600">
-              <FaUserMd className="text-gray-300 shrink-0" />
-              {service.headOfDepartment}
-            </p>
-          )}
-          {service.serviceHours && (
-            <p className="flex items-center gap-1.5 text-xs text-gray-600">
-              <FaClock className="text-gray-300 shrink-0" />
-              {service.serviceHours}
-            </p>
-          )}
+          <p className="text-xs text-gray-500">{service.hasShaCoverage ? "SHA-covered items listed" : "No SHA-covered items listed"}</p>
         </div>
       </div>
     </div>
@@ -250,7 +235,16 @@ const ServicesPage = () => {
 
   const filteredServices = services;
 
-  const openModal = (service = null) => {
+  const openModal = async (service = null) => {
+    if (service && !Array.isArray(service.items)) {
+      try {
+        const { data } = await api.get(`/services/manage/${service.id}`);
+        service = data;
+      } catch {
+        notify.error("Could not load service items for editing.");
+        return;
+      }
+    }
     setIsEditing(!!service);
     setSelectedService(service);
     if (service) {
@@ -259,12 +253,14 @@ const ServicesPage = () => {
         division: service.division || "",
         category: service.category || "",
         description: service.description || "",
-        headOfDepartment: service.headOfDepartment || "",
-        contactInfo: service.contactInfo || "",
-        serviceHours: service.serviceHours || "",
-        location: service.location || "",
-        tariffInfo: service.tariffInfo || "",
-        nhifCovered: service.nhifCovered || false,
+        items: (service.items || []).map((item) => ({
+          id: item.id,
+          name: item.name || "",
+          shaCovered: Boolean(item.shaCovered),
+          cashPrice: item.cashPrice ?? "",
+          shaPrice: item.shaPrice ?? "",
+          sortOrder: item.sortOrder ?? 0,
+        })),
         image: null,
       });
       setImagePreview(service.imageUrl ? `${IMG_BASE}${service.imageUrl}` : null);
@@ -281,6 +277,10 @@ const ServicesPage = () => {
   };
 
   const setField = (key, value) => setFormData((p) => ({ ...p, [key]: value }));
+  const setItemField = (index, key, value) => setFormData((p) => ({
+    ...p,
+    items: p.items.map((item, itemIndex) => itemIndex === index ? { ...item, [key]: value } : item),
+  }));
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -314,6 +314,11 @@ const ServicesPage = () => {
       notify.error("Description is required");
       return;
     }
+    const invalidItem = formData.items.find((item) => !item.name.trim() || (item.shaCovered && item.shaPrice === "") || (!item.shaCovered && item.shaPrice !== "" && item.shaPrice != null));
+    if (invalidItem) {
+      notify.error("Enter each item name and a valid SHA price for covered items.");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -322,11 +327,12 @@ const ServicesPage = () => {
       payload.append("division", formData.division);
       payload.append("category", formData.category);
       payload.append("description", formData.description.trim());
-      payload.append("nhifCovered", formData.nhifCovered);
-
-      ["headOfDepartment", "contactInfo", "serviceHours", "location", "tariffInfo"].forEach((k) => {
-        if (formData[k]?.trim()) payload.append(k, formData[k].trim());
-      });
+      payload.append("items", JSON.stringify(formData.items.map((item, sortOrder) => ({
+        ...item,
+        cashPrice: item.cashPrice === "" ? null : Number(item.cashPrice),
+        shaPrice: item.shaCovered ? Number(item.shaPrice) : null,
+        sortOrder,
+      }))));
 
       if (formData.image) payload.append("image", formData.image);
 
@@ -359,9 +365,14 @@ const ServicesPage = () => {
     }
   };
 
-  const handleViewService = (service) => {
-    setSelectedService(service);
-    setViewModal(true);
+  const handleViewService = async (service) => {
+    try {
+      const { data } = await api.get(`/services/manage/${service.id}`);
+      setSelectedService(data);
+      setViewModal(true);
+    } catch {
+      notify.error("Could not load service item details.");
+    }
   };
 
   const usedCategories = allCategories;
@@ -430,7 +441,7 @@ const ServicesPage = () => {
             <input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by name, description, or HOD…"
+              placeholder="Search departments and service descriptions…"
               className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
             />
           </div>
@@ -444,7 +455,7 @@ const ServicesPage = () => {
               <option value="all">All Divisions</option>
               {DIVISIONS.map((d) => (
                 <option key={d} value={d}>
-                  {d}
+                  {divisionLabel(d)}
                 </option>
               ))}
             </select>
@@ -529,38 +540,8 @@ const ServicesPage = () => {
         {selectedService &&
           (() => {
             const dc = divCfg(selectedService.division);
-            const details = [
-              {
-                icon: FaUserMd,
-                color: "text-blue-500",
-                label: "Head of Department",
-                value: selectedService.headOfDepartment,
-              },
-              {
-                icon: FaPhone,
-                color: "text-emerald-500",
-                label: "Contact",
-                value: selectedService.contactInfo,
-              },
-              {
-                icon: FaClock,
-                color: "text-violet-500",
-                label: "Service Hours",
-                value: selectedService.serviceHours,
-              },
-              {
-                icon: FaMapMarkerAlt,
-                color: "text-rose-500",
-                label: "Location",
-                value: selectedService.location,
-              },
-              {
-                icon: FaFileInvoiceDollar,
-                color: "text-amber-500",
-                label: "Tariff Info",
-                value: selectedService.tariffInfo,
-              },
-            ].filter((d) => d.value);
+            const coveredItems = (selectedService.items || []).filter((item) => item.shaCovered);
+            const uncoveredItems = (selectedService.items || []).filter((item) => !item.shaCovered);
 
             return (
               <>
@@ -582,7 +563,7 @@ const ServicesPage = () => {
                   <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
                     {selectedService.category}
                   </span>
-                  {selectedService.nhifCovered && (
+                  {selectedService.hasShaCoverage && (
                     <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full flex items-center gap-1">
                       <FaShieldAlt className="text-[10px]" />
                       SHA Covered
@@ -601,19 +582,20 @@ const ServicesPage = () => {
                 </div>
 
             
-                {details.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-                    {details.map(({ icon: Icon, color, label, value }) => (
-                      <div key={label} className="bg-gray-50 rounded-xl p-4">
-                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                          <Icon className={`${color} text-[10px]`} />
-                          {label}
-                        </p>
-                        <p className="text-sm text-gray-800 font-medium">{value}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                  {[["Covered by SHA", coveredItems], ["Not covered by SHA", uncoveredItems]].map(([heading, items]) => (
+                    <section key={heading} className="min-w-0">
+                      <h3 className="text-sm font-bold text-gray-800 mb-2">{heading} <span className="text-gray-400 font-normal">({items.length})</span></h3>
+                      <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                        {items.map((item) => <div key={item.id} className="flex items-start justify-between gap-3 py-2 text-sm">
+                          <span className="text-gray-700">{item.name}</span>
+                          <span className="shrink-0 text-right text-xs text-gray-500">{item.cashPrice != null ? `Cash KES ${Number(item.cashPrice).toLocaleString()}` : "Cash price pending"}{item.shaCovered && item.shaPrice != null ? <><br />SHA KES {Number(item.shaPrice).toLocaleString()}</> : null}</span>
+                        </div>)}
+                        {!items.length && <p className="text-xs text-gray-400 py-2">No items listed.</p>}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    </section>
+                  ))}
+                </div>
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
                   <button
@@ -642,9 +624,7 @@ const ServicesPage = () => {
         open={modalOpen}
         onClose={closeModal}
         title={isEditing ? "Edit Service" : "Add New Service"}
-        subtitle={
-          isEditing ? "Update department/service information" : "Create a new department or service"
-        }
+        subtitle={isEditing ? "Update the department and its service items" : "Create a service department and add its individual services"}
         size="2xl"
       >
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -668,7 +648,7 @@ const ServicesPage = () => {
                 <option value="">Select Division</option>
                 {DIVISIONS.map((d) => (
                   <option key={d} value={d}>
-                    {d}
+                    {divisionLabel(d)}
                   </option>
                 ))}
               </select>
@@ -702,73 +682,19 @@ const ServicesPage = () => {
             />
           </FormField>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField label="Head of Department">
-              <input
-                value={formData.headOfDepartment}
-                onChange={(e) => setField("headOfDepartment", e.target.value)}
-                placeholder="e.g., Dr. Jane Doe"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white"
-              />
-            </FormField>
-            <FormField label="Contact Information">
-              <input
-                value={formData.contactInfo}
-                onChange={(e) => setField("contactInfo", e.target.value)}
-                placeholder="+254 700 000 000"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white"
-              />
-            </FormField>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField label="Service Hours">
-              <input
-                value={formData.serviceHours}
-                onChange={(e) => setField("serviceHours", e.target.value)}
-                placeholder="Mon–Fri 8:00 AM – 5:00 PM"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white"
-              />
-            </FormField>
-            <FormField label="Location / Building">
-              <input
-                value={formData.location}
-                onChange={(e) => setField("location", e.target.value)}
-                placeholder="Main Building, Ground Floor"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white"
-              />
-            </FormField>
-          </div>
-
-          <FormField label="Tariff Information">
-            <textarea
-              value={formData.tariffInfo}
-              onChange={(e) => setField("tariffInfo", e.target.value)}
-              placeholder="Consultation: KES 500, Follow-up: KES 300"
-              rows={2}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-shadow bg-white resize-none"
-            />
-          </FormField>
-
-      
-          <label className="flex items-center gap-3 cursor-pointer select-none">
-            <div className="relative">
-              <input
-                type="checkbox"
-                checked={formData.nhifCovered}
-                onChange={(e) => setField("nhifCovered", e.target.checked)}
-                className="sr-only"
-              />
-              <div
-                className={`w-10 h-6 rounded-full transition-colors ${formData.nhifCovered ? "bg-emerald-500" : "bg-gray-200"}`}
-              >
-                <div
-                  className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${formData.nhifCovered ? "translate-x-5" : "translate-x-1"}`}
-                />
-              </div>
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div><h3 className="font-semibold text-gray-800">Individual services and prices</h3><p className="text-xs text-gray-500">Each service is listed under its own SHA coverage status.</p></div>
+              <button type="button" onClick={() => setField("items", [...formData.items, { name: "", shaCovered: false, cashPrice: "", shaPrice: "", sortOrder: formData.items.length }])} className="inline-flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700"><FaPlus /> Add service item</button>
             </div>
-            <span className="text-sm text-gray-700 font-medium">SHA Covered Service</span>
-          </label>
+            {formData.items.map((item, index) => <div key={item.id || `new-${index}`} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end border-b border-gray-100 pb-3">
+              <FormField label="Service description" className="md:col-span-5"><input value={item.name} onChange={(e) => setItemField(index, "name", e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" placeholder="e.g. Full haemogram" /></FormField>
+              <FormField label="Cash / mobile price (KES)" className="md:col-span-3"><input type="number" min="0" step="0.01" value={item.cashPrice} onChange={(e) => setItemField(index, "cashPrice", e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" placeholder="Optional" /></FormField>
+              <label className="md:col-span-2 flex items-center gap-2 pb-2 text-xs font-medium"><input type="checkbox" checked={item.shaCovered} onChange={(e) => { setItemField(index, "shaCovered", e.target.checked); if (!e.target.checked) setItemField(index, "shaPrice", ""); }} /> SHA covered</label>
+              <FormField label="SHA price (KES)" className="md:col-span-2"><input type="number" min="0" step="0.01" disabled={!item.shaCovered} value={item.shaPrice} onChange={(e) => setItemField(index, "shaPrice", e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm disabled:bg-gray-100" placeholder="Optional" /></FormField>
+              <button type="button" onClick={() => setField("items", formData.items.filter((_, itemIndex) => itemIndex !== index))} className="md:col-span-12 justify-self-end text-xs font-semibold text-rose-600">Remove item</button>
+            </div>)}
+          </section>
 
        
           <FormField label="Service Image (optional)">
