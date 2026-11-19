@@ -11,12 +11,10 @@ const serviceSchema = z.object({
   name: z.string().trim().min(1).max(255),
   description: z.string().trim().max(20000).nullable().optional(),
   cashPrice: optionalPrice.optional(),
-  shaPrice: optionalPrice.optional(),
-  shaCovered: z.boolean().optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().min(0).max(65535).optional(),
 }).strict();
-const publicFields = ["id", "name", "description", "cashPrice", "shaPrice", "shaCovered", "sortOrder"];
+const publicFields = ["id", "name", "description", "cashPrice", "sortOrder"];
 
 exports.list = async (_req, res) => {
   try {
@@ -40,7 +38,7 @@ exports.manageList = async (_req, res) => {
 
 function parseBody(req, partial = false) {
   const input = { ...req.body };
-  for (const key of ["shaCovered", "isActive"]) if (typeof input[key] === "string") input[key] = input[key] === "true";
+  if (typeof input.isActive === "string") input.isActive = input.isActive === "true";
   if (input.sortOrder != null) input.sortOrder = Number(input.sortOrder);
   return (partial ? serviceSchema.partial() : serviceSchema).safeParse(input);
 }
@@ -48,8 +46,6 @@ function parseBody(req, partial = false) {
 exports.create = async (req, res) => {
   const parsed = parseBody(req);
   if (!parsed.success) return res.status(400).json({ message: "Invalid ambulance service data.", errors: parsed.error.issues.map((item) => ({ field: item.path.join("."), message: item.message })) });
-  if (parsed.data.shaCovered && parsed.data.shaPrice == null) return res.status(400).json({ message: "Enter the SHA price for a covered ambulance service." });
-  if (!parsed.data.shaCovered && parsed.data.shaPrice != null) return res.status(400).json({ message: "An ambulance service not covered by SHA cannot have an SHA price." });
   try {
     const record = await AmbulanceService.create(parsed.data);
     await audit.log({ req, action: "create", resource: "ambulance_services", resourceId: record.id, description: "Created an ambulance service option", severity: "high", changes: { fields: Object.keys(parsed.data) }, required: true });
@@ -68,9 +64,6 @@ exports.update = async (req, res) => {
   try {
     const record = await AmbulanceService.findByPk(req.params.id);
     if (!record) return res.status(404).json({ message: "Ambulance service not found." });
-    const next = { ...record.get({ plain: true }), ...parsed.data };
-    if (next.shaCovered && next.shaPrice == null) return res.status(400).json({ message: "Enter the SHA price for a covered ambulance service." });
-    if (!next.shaCovered && next.shaPrice != null) return res.status(400).json({ message: "An ambulance service not covered by SHA cannot have an SHA price." });
     record.set(parsed.data);
     await record.save();
     await audit.log({ req, action: "update", resource: "ambulance_services", resourceId: record.id, description: "Updated an ambulance service option", severity: "high", changes: { fields: Object.keys(parsed.data) }, required: true });

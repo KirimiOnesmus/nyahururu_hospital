@@ -25,7 +25,7 @@ const Shell = ({ children }) => (
 );
 
 const DoctorDetails = () => {
-  const { id } = useParams();
+  const { id: slug } = useParams();
   const navigate = useNavigate();
   const [doctor, setDoctor] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -34,7 +34,7 @@ const DoctorDetails = () => {
   useEffect(() => {
     const fetchDoctor = async () => {
       try {
-        const res = await api.get(`/doctors/doctors/${id}`);
+        const res = await api.get(`/doctors/doctors/${slug}`);
         setDoctor(res.data.data);
       } catch (err) {
         console.error(err);
@@ -44,7 +44,7 @@ const DoctorDetails = () => {
       }
     };
     fetchDoctor();
-  }, [id]);
+  }, [slug]);
 
   if (loading) {
     return (

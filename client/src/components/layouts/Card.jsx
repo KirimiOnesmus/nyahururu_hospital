@@ -2,13 +2,18 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { IconHospital, IconArrowRight } from "../../common/icons";
 
-const Card = ({ id, image, title, buttonText, description }) => {
+const slugify = (value) => String(value || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+const Card = ({ slug, image, title, buttonText, description }) => {
   const navigate = useNavigate();
   const [imageError, setImageError] = useState(false);
 
   const hasValidImage = image && image.trim() !== "" && !imageError;
 
-  const handleNavigate = () => navigate(`/services/${id}`);
+  const handleNavigate = () => {
+    const publicSlug = slug || slugify(title);
+    if (publicSlug) navigate(`/services/${publicSlug}`);
+  };
 
   return (
     <div

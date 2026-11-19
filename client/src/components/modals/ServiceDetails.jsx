@@ -9,7 +9,7 @@ const formatKes = (value) => value == null ? "Price to be confirmed" : `KES ${Nu
 const divisionLabel = (division) => division === "Specialist Clinics" ? "Clinics (Specialized Clinics)" : division;
 
 const ServiceDetails = () => {
-  const { id } = useParams();
+  const { id: slug } = useParams();
   const navigate = useNavigate();
   const [service, setService] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -17,11 +17,11 @@ const ServiceDetails = () => {
 
   useEffect(() => {
     let active = true;
-    api.get(`/services/${id}`).then(({ data }) => { if (active) setService(data); })
+    api.get(`/services/${slug}`).then(({ data }) => { if (active) setService(data); })
       .catch(() => { if (active) setError("Failed to load service details."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [id]);
+  }, [slug]);
 
   const Shell = ({ children }) => <div className="min-h-screen flex flex-col bg-canvas">
     <div className="sticky top-0 z-50 bg-surface border-b border-line"><Header /></div>

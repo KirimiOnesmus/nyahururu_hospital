@@ -249,8 +249,16 @@ exports.getServiceFilters = async (_req, res) => {
 
 exports.getServiceById = async (req, res) => {
   try {
-    if (!/^[1-9]\d*$/.test(String(req.params.id))) return res.status(400).json({ message: "Invalid service id." });
-    const service = await fetchService(req.params.id, !!req.includeUnpublished);
+    const identifier = String(req.params.id);
+    let service;
+    if (/^[1-9]\d*$/.test(identifier)) service = await fetchService(identifier, !!req.includeUnpublished);
+    else {
+      const where = req.includeUnpublished ? {} : { isPublished: true };
+      const candidates = await Service.findAll({ where, attributes: SERVICE_FIELDS });
+      const slugify = (value) => String(value || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const match = candidates.find((item) => slugify(item.name) === identifier);
+      if (match) service = await fetchService(match.id, !!req.includeUnpublished);
+    }
     if (!service) return res.status(404).json({ message: "Service not found." });
     const plain = service.get({ plain: true });
     plain.hasShaCoverage = plain.items.some((item) => item.shaCovered);

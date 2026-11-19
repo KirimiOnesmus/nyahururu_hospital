@@ -4,7 +4,7 @@ const { Service, ServiceItem } = require("../../../sequelize/models");
 
 module.exports = {
   key: "serviceItems",
-  label: "Service item prices and SHA coverage",
+  label: "Services, prices and SHA coverage (by department)",
   tier: 1,
   model: ServiceItem,
   naturalKey: "importKey",

@@ -18,6 +18,12 @@ const iLike = (raw) => {
   return { [Op.like]: `%${escaped}%` };
 };
 
+const slugifyPublicDoctor = (doctor) => {
+  const user = doctor.user || doctor.userId || {};
+  const name = [user.firstName, user.lastName].filter(Boolean).join(" ") || "Unnamed Doctor";
+  return `${name}-${doctor.speciality || "specialist"}`.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+};
+
 
 const requireDoctorForUser = async (userId) => {
   const user = await User.findByPk(userId);
@@ -173,7 +179,7 @@ exports.getAllDoctors = async (req, res) => {
     res.status(200).json({
       success: true,
       count: doctors.length,
-      data: doctors,
+      data: doctors.map((doctor) => ({ ...doctor.get({ plain: true }), publicSlug: slugifyPublicDoctor(doctor) })),
       meta: buildMeta(page, limit, total, doctors.length, offset),
     });
   } catch (error) {
@@ -201,15 +207,19 @@ exports.getDoctorFilterOptions = async (_req, res) => {
 
 exports.getDoctorById = async (req, res) => {
   try {
-    const doctor = await Doctor.findByPk(req.params.id, {
-      include: [USER_INCLUDE],
-    });
+    const identifier = String(req.params.id);
+    let doctor;
+    if (/^[1-9]\d*$/.test(identifier)) doctor = await Doctor.findByPk(identifier, { include: [USER_INCLUDE] });
+    else {
+      const candidates = await Doctor.findAll({ include: [USER_INCLUDE] });
+      doctor = candidates.find((candidate) => slugifyPublicDoctor(candidate) === identifier);
+    }
 
     if (!doctor) {
       return res.status(404).json({ message: "Doctor not found" });
     }
 
-    res.status(200).json({ success: true, data: doctor });
+    res.status(200).json({ success: true, data: { ...doctor.get({ plain: true }), publicSlug: slugifyPublicDoctor(doctor) } });
   } catch (error) {
     console.error("Error fetching doctor:", error);
     res.status(500).json({

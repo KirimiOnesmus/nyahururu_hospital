@@ -9,6 +9,7 @@ import { FaTimes, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 const BACKEND_URL = ASSET_BASE_URL;
 const PAGE_SIZE = 6;
 const divisionLabel = (division) => division === "Specialist Clinics" ? "Clinics (Specialized Clinics)" : division;
+const serviceSlug = (name) => String(name || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 
 const ServiceSlider = ({ services }) => {
@@ -28,7 +29,7 @@ const ServiceSlider = ({ services }) => {
               </span>
             )}
             <Card
-              id={service.id}
+              slug={serviceSlug(service.name)}
               image={`${BACKEND_URL}${service.imageUrl}`}
               title={service.name}
               buttonText="Learn More"

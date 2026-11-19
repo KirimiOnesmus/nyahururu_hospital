@@ -11,7 +11,7 @@ Bulk imports are available to an authenticated superadmin in **Dashboard → Bul
 5. Sign in again if the last successful password login is older than the configured fresh-auth window (15 minutes by default). Token refresh does not reset this window.
 6. Commit the validated batch, then review the public service and ambulance pages. A committed batch can be rolled back for the configured snapshot window if affected rows have not changed since commit.
 
-Import the department rows first, then service items, then ambulance options. Service item rows reference the parent department by exact name. Keep the CSV files in `docs/data/` as review drafts until current prices and SHA coverage have been confirmed by the hospital.
+Import the department rows first, then service items, then ambulance options. Service item rows reference the parent department by exact name. Each service-item row contains its own `shaCovered`, `cashPrice`, and `shaPrice`; SHA is not a separate upload. Ambulance rows contain cash/mobile pricing only. Keep the CSV files in `docs/data/` as review drafts until current prices and SHA coverage have been confirmed by the hospital.
 
 Commit runs inside one database transaction. A failed row prevents partial changes. Each operation is audited, imports do not send messages, and a single aggregate change event follows a successful commit.
 
