@@ -265,7 +265,7 @@ const Gallery = () => {
 
 
         <section className="max-w-7xl mx-auto px-6 top-[64px] z-30">
-          <div className="bg-white/95 backdrop-blur rounded-2xl border border-slate-100 shadow-sm p-4 md:p-5">
+          <div className="py-2 md:py-3">
             <div className="flex flex-col md:flex-row gap-3 mb-4">
               <div className="relative flex-1">
                 <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />

@@ -57,7 +57,7 @@ const ApplyCareer = () => {
         <Header />
       </div>
       <div className="main flex-1 px-6 md:px-12 py-10 max-w-3xl mx-auto w-full">
-        <h2 className="text-3xl font-bold mb-6 border-l-4 border-blue-500 pl-3">
+        <h2 className="text-3xl font-bold mb-6">
           Apply for this Position
         </h2>
 

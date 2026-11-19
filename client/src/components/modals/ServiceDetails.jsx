@@ -19,7 +19,7 @@ import {
 const BACKEND_URL = ASSET_BASE_URL;
 
 const InfoTile = ({ icon: Icon, iconColor, label, value }) => (
-  <div className="bg-white border border-slate-200 rounded-xl p-5">
+  <div className="bg-white rounded-xl p-5">
     <div className="flex items-center gap-2 mb-2">
       <Icon className={`text-base ${iconColor}`} />
       <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">{label}</h3>
@@ -30,7 +30,7 @@ const InfoTile = ({ icon: Icon, iconColor, label, value }) => (
 
 const Badge = ({ icon: Icon, label, color }) => (
   <span
-    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${color}`}
+    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${color}`}
   >
     <Icon className="text-[10px]" /> {label}
   </span>
@@ -84,7 +84,7 @@ const ServiceDetails = () => {
     return (
       <Shell>
         <div className="flex flex-col items-center justify-center py-32 gap-4 text-center">
-          <div className="w-16 h-16 rounded-full bg-red-50 border border-red-200 flex items-center justify-center">
+          <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
             <FaStethoscope className="text-2xl text-red-400" />
           </div>
           <h2 className="text-xl font-bold text-slate-800">Service Not Found</h2>
@@ -146,14 +146,14 @@ const ServiceDetails = () => {
         <FaArrowLeft className="text-xs" /> Back to Services
       </button>
 
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden mb-6">
-        <div className="flex flex-col md:flex-row items-center md:items-start gap-6 p-8 border-b border-slate-100">
+      <div className="bg-white rounded-2xl overflow-hidden mb-6">
+        <div className="flex flex-col md:flex-row items-center md:items-start gap-6 p-8">
           <div className="shrink-0">
             {service.imageUrl ? (
               <img
                 src={`${BACKEND_URL}${service.imageUrl}`}
                 alt={service.name}
-                className="h-36 w-36 object-cover rounded-xl border border-slate-200"
+                className="h-36 w-36 object-cover rounded-xl"
               />
             ) : (
               <div className="h-36 w-36 rounded-xl bg-blue-600 flex items-center justify-center">
@@ -168,21 +168,21 @@ const ServiceDetails = () => {
                 <Badge
                   icon={FaTags}
                   label={service.category}
-                  color="bg-violet-50 border-violet-200 text-violet-700"
+                  color="bg-violet-50 text-violet-700"
                 />
               )}
               {service.division && (
                 <Badge
                   icon={FaHospital}
                   label={service.division}
-                  color="bg-blue-50 border-blue-200 text-blue-700"
+                  color="bg-blue-50 text-blue-700"
                 />
               )}
               {service.nhifCovered && (
                 <Badge
                   icon={FaCheckCircle}
                   label="SHA Covered"
-                  color="bg-emerald-50 border-emerald-200 text-emerald-700"
+                  color="bg-emerald-50 text-emerald-700"
                 />
               )}
             </div>
@@ -209,7 +209,7 @@ const ServiceDetails = () => {
       )}
 
       {service.features?.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-6">
+        <div className="bg-white rounded-2xl p-6 mb-6">
           <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">
             Key Features
           </h3>
@@ -224,7 +224,7 @@ const ServiceDetails = () => {
         </div>
       )}
 
-      <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center">
+      <div className="bg-white rounded-2xl p-8 text-center">
         <h3 className="text-xl font-bold text-slate-800 mb-1">Ready to Get Started?</h3>
         <p className="text-slate-500 text-sm mb-6">
           Book an appointment or explore other services.
