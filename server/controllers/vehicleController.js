@@ -13,15 +13,33 @@ const normalizePlate = (raw) => (raw ? String(raw).trim().toUpperCase() : raw);
 
 exports.getAllVehicles = async (req, res) => {
   try {
+    const { search, status } = req.query;
     const { requestedPaging, page, limit, offset } = getPagination(req.query);
-    const { rows: vehicles, count: total } = await Vehicle.findAndCountAll({
-      include: AUTHOR_INCLUDE,
-      order: [["createdAt", "DESC"]],
-      limit,
-      offset,
-    });
+    const where = {};
+    if (status && status !== "all") where.status = status;
+    if (search) {
+      const escaped = String(search).replace(/[\\%_]/g, (m) => `\\${m}`);
+      const like = `%${escaped}%`;
+      where[Op.or] = [
+        { plate: { [Op.like]: like } }, { type: { [Op.like]: like } },
+        { driver: { [Op.like]: like } }, { make: { [Op.like]: like } },
+        { model: { [Op.like]: like } },
+      ];
+    }
+    const [{ rows: vehicles, count: total }, statusRows, maintenanceDue] = await Promise.all([
+      Vehicle.findAndCountAll({ where, include: AUTHOR_INCLUDE, order: [["createdAt", "DESC"]], limit, offset }),
+      Vehicle.count({ group: ["status"] }),
+      Vehicle.count({ where: { nextService: { [Op.lte]: new Date() } } }),
+    ]);
+    const statusCounts = Object.fromEntries(statusRows.map(({ status: key, count: value }) => [key, Number(value)]));
+    const stats = {
+      total: statusRows.reduce((sum, row) => sum + Number(row.count), 0),
+      available: statusCounts.Available || 0,
+      inService: (statusCounts["In Service"] || 0) + (statusCounts["In Use"] || 0),
+      maintenanceDue,
+    };
     if (!requestedPaging) return res.json(vehicles);
-    return res.json({ data: vehicles, meta: buildMeta(page, limit, total, vehicles.length, offset) });
+    return res.json({ data: vehicles, meta: { ...buildMeta(page, limit, total, vehicles.length, offset), stats } });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });

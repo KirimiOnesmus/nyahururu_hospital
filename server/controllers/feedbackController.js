@@ -1,6 +1,7 @@
 const emitChange = require("../utils/emitChange");
 "use strict";
 
+const { Op } = require("sequelize");
 const { Feedback } = require("../sequelize/models");
 const logger = require("../utils/logger");
 const { sendFeedbackReplyEmail } = require("../utils/emailServices");
@@ -32,21 +33,31 @@ exports.submitFeedback = async (req, res) => {
 
 exports.getAllFeedback = async (req, res) => {
   try {
-    const { type, status } = req.query;
+    const { type, status, search } = req.query;
 
     const where = {};
     if (type) where.type = type;
     if (status) where.status = status;
+    if (search) {
+      const escaped = String(search).replace(/[\\%_]/g, (m) => `\\${m}`);
+      where[Op.or] = [
+        { name: { [Op.like]: `%${escaped}%` } },
+        { email: { [Op.like]: `%${escaped}%` } },
+        { subject: { [Op.like]: `%${escaped}%` } },
+        { message: { [Op.like]: `%${escaped}%` } },
+      ];
+    }
 
     const { requestedPaging, page, limit, offset } = getPagination(req.query);
-    const { rows: feedback, count: total } = await Feedback.findAndCountAll({
-      where,
-      order: [["createdAt", "DESC"]],
-      limit,
-      offset,
-    });
+    const [{ rows: feedback, count: total }, statusRows, allCount] = await Promise.all([
+      Feedback.findAndCountAll({ where, order: [["createdAt", "DESC"]], limit, offset }),
+      Feedback.count({ group: ["status"] }),
+      Feedback.count(),
+    ]);
     if (!requestedPaging) return res.json(feedback);
-    return res.json({ data: feedback, meta: buildMeta(page, limit, total, feedback.length, offset) });
+    const statusCounts = Object.fromEntries(statusRows.map(({ status: key, count: value }) => [key, Number(value)]));
+    const stats = { total: allCount, handled: statusCounts.handled || 0, pending: allCount - (statusCounts.handled || 0) };
+    return res.json({ data: feedback, meta: { ...buildMeta(page, limit, total, feedback.length, offset), stats } });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });

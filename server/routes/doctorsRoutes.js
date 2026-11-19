@@ -5,6 +5,7 @@ const {
   updateAvailability,
   toggleAvailability,
   getAllDoctors,
+  getDoctorFilterOptions,
   getDoctorById,
   getDoctorsByDepartment 
 } = require('../controllers/doctorController');
@@ -16,6 +17,7 @@ router.put('/availability', verifyToken, authorizeRoles('doctor'), updateAvailab
 router.put('/toggle-availability', verifyToken, authorizeRoles('doctor'), toggleAvailability);
 
 router.get('/doctors', getAllDoctors);
+router.get('/doctors/filter-options', getDoctorFilterOptions);
 router.get('/doctors/:id', getDoctorById);
 
 router.get('/doctors/department/:department', getDoctorsByDepartment);

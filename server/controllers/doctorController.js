@@ -142,18 +142,30 @@ exports.toggleAvailability = async (req, res) => {
 
 exports.getAllDoctors = async (req, res) => {
   try {
-    const { speciality, department, available } = req.query;
+    const { speciality, department, available, search } = req.query;
 
     const where = {};
     if (speciality) where.speciality = iLike(speciality);
     if (department) where.department = iLike(department);
     if (available === "true") where.isAvailableNow = true;
+    if (search) {
+      const searchCondition = {
+        [Op.or]: [
+          { speciality: iLike(search) },
+          { department: iLike(search) },
+          { "$user.firstName$": iLike(search) },
+          { "$user.lastName$": iLike(search) },
+        ],
+      };
+      Object.assign(where, searchCondition);
+    }
 
     const { page, limit, offset } = getPagination(req.query);
     const { rows: doctors, count: total } = await Doctor.findAndCountAll({
       where,
       include: [USER_INCLUDE],
       order: [["rating", "DESC"]],
+      distinct: true,
       limit,
       offset,
     });
@@ -170,6 +182,20 @@ exports.getAllDoctors = async (req, res) => {
       success: false,
       message: "Error fetching doctors",
     });
+  }
+};
+
+exports.getDoctorFilterOptions = async (_req, res) => {
+  try {
+    const doctors = await Doctor.findAll({
+      attributes: ["speciality"],
+      group: ["speciality"],
+      order: [["speciality", "ASC"]],
+    });
+    res.json({ specialities: doctors.map((doctor) => doctor.speciality).filter(Boolean) });
+  } catch (error) {
+    logger.error({ err: error }, "Error fetching doctor filter options");
+    res.status(500).json({ message: "Error fetching doctor filter options" });
   }
 };
 

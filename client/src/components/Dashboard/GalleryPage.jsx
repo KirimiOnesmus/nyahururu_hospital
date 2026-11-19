@@ -37,6 +37,10 @@ const GalleryPage = () => {
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterType,     setFilterType]     = useState("all");
   const [sortBy,         setSortBy]         = useState("newest");
+  const [page,           setPage]           = useState(1);
+  const [pagination,     setPagination]     = useState({ page: 1, pages: 1, total: 0 });
+  const [facets,         setFacets]         = useState({ images: 0, videos: 0, recentItems: 0 });
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [viewMode,       setViewMode]       = useState("grid");
   const [selectedItems,  setSelectedItems]  = useState([]);
   const [uploadModal,    setUploadModal]    = useState(false);
@@ -51,18 +55,29 @@ const GalleryPage = () => {
       const params = {};
       if (filterCategory !== "all") params.category = filterCategory;
       if (filterType     !== "all") params.type     = filterType;
-      if (searchTerm)               params.search   = searchTerm;
+      if (debouncedSearch)          params.search   = debouncedSearch;
+      params.page = page;
+      params.limit = 24;
       const sortMap = { newest:"-uploadDate", oldest:"uploadDate", alphabetical:"title" };
       params.sort = sortMap[sortBy] || "-uploadDate";
       const res = await api.get("/gallery", { params });
-      setGalleryItems(Array.isArray(res.data) ? res.data : res.data.data || []);
+      const data = Array.isArray(res.data) ? res.data : res.data.data || [];
+      setGalleryItems(data);
+      setPagination(res.data.meta || { page: 1, pages: 1, total: data.length });
+      setFacets(res.data.facets || { images: 0, videos: 0, recentItems: 0 });
     } catch (err) {
       notify.error(err.response?.data?.message || "Error fetching gallery");
       setGalleryItems([]);
     } finally {
       setLoading(false);
     }
-  }, [filterCategory, filterType, sortBy, searchTerm]);
+  }, [filterCategory, filterType, sortBy, debouncedSearch, page]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => { setPage(1); setDebouncedSearch(searchTerm.trim()); }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+  useEffect(() => { setPage(1); }, [filterCategory, filterType, sortBy]);
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -82,13 +97,11 @@ const GalleryPage = () => {
   useSocket("gallery:deleted", fetchGallery);
 
   const stats = useMemo(() => ({
-    totalImages:    galleryItems.filter(i => i.type === "image").length,
-    totalVideos:    galleryItems.filter(i => i.type === "video").length,
+    totalImages:    facets.images,
+    totalVideos:    facets.videos,
     totalCategories:categories.length,
-    recentItems:    galleryItems.filter(i =>
-      new Date(i.uploadDate) > new Date(Date.now() - 7*24*60*60*1000)
-    ).length,
-  }), [galleryItems, categories]);
+    recentItems:    facets.recentItems,
+  }), [facets, categories]);
 
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
@@ -385,7 +398,16 @@ const GalleryPage = () => {
               ))}
 
               <div className="px-5 py-3 bg-gray-50/60 border-t border-gray-100">
-                <p className="text-xs text-gray-400"><span className="font-semibold text-gray-600">{galleryItems.length}</span> items</p>
+                <p className="text-xs text-gray-400">Showing {galleryItems.length} of {pagination.total} items</p>
+              </div>
+            </div>
+          )}
+          {!loading && pagination.pages > 1 && (
+            <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 text-xs">
+              <span>Page {page} of {pagination.pages} · {pagination.total} items</span>
+              <div className="flex gap-2">
+                <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Previous</button>
+                <button disabled={page >= pagination.pages} onClick={() => setPage((p) => p + 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Next</button>
               </div>
             </div>
           )}

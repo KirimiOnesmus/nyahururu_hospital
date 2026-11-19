@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { useSocket } from "../../api/socket";
 import api from "../../api/axios";
 import {
   FaAmbulance, FaPlus, FaSearch, FaEdit, FaTrash, FaCheckCircle,
@@ -89,6 +88,14 @@ const LogisticsPage = () => {
   const [searchBooking,   setSearchBooking]   = useState("");
   const [filterVStatus,   setFilterVStatus]   = useState("all");
   const [filterEmergency, setFilterEmergency] = useState("all");
+  const [debouncedVehicleSearch, setDebouncedVehicleSearch] = useState("");
+  const [debouncedBookingSearch, setDebouncedBookingSearch] = useState("");
+  const [vehiclePage, setVehiclePage] = useState(1);
+  const [bookingPage, setBookingPage] = useState(1);
+  const [vehiclePagination, setVehiclePagination] = useState({ page: 1, pages: 1, total: 0 });
+  const [bookingPagination, setBookingPagination] = useState({ page: 1, pages: 1, total: 0 });
+  const [vehicleStats, setVehicleStats] = useState({ total: 0, available: 0, inService: 0, maintenanceDue: 0 });
+  const [bookingStats, setBookingStats] = useState({ total: 0, pendingBookings: 0, assignedBookings: 0, criticalBookings: 0 });
   const [expandedBooking, setExpandedBooking] = useState(null);
   const [vehicleModal,   setVehicleModal]   = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
@@ -101,68 +108,63 @@ const LogisticsPage = () => {
   const fetchVehicles = useCallback(async () => {
     try {
       setLoadingVehicles(true);
-      const res = await api.get("/vehicles");
-      setVehicles(Array.isArray(res.data) ? res.data : res.data.data || []);
+      const res = await api.get("/vehicles", { params: { search: debouncedVehicleSearch || undefined, status: filterVStatus, page: vehiclePage, limit: 20 } });
+      const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+      setVehicles(data);
+      setVehiclePagination(res.data.meta || { page: 1, pages: 1, total: data.length });
+      setVehicleStats(res.data.meta?.stats || { total: data.length, available: 0, inService: 0, maintenanceDue: 0 });
     } catch (err) {
       notify.error(err.response?.data?.message || "Error fetching vehicles");
       setVehicles([]);
     } finally {
       setLoadingVehicles(false);
     }
-  }, []);
+  }, [debouncedVehicleSearch, filterVStatus, vehiclePage]);
 
   const fetchBookings = useCallback(async () => {
     try {
       setLoadingBookings(true);
-      const res = await api.get("/ambulance-bookings");
-      setBookings(Array.isArray(res.data) ? res.data : res.data.data || []);
+      const res = await api.get("/ambulance-bookings", { params: { search: debouncedBookingSearch || undefined, emergencyLevel: filterEmergency, page: bookingPage, limit: 20 } });
+      const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+      setBookings(data);
+      setBookingPagination(res.data.meta || { page: 1, pages: 1, total: data.length });
+      setBookingStats(res.data.meta?.stats || { total: data.length, pendingBookings: 0, assignedBookings: 0, criticalBookings: 0 });
     } catch (err) {
       notify.error(err.response?.data?.message || "Error fetching bookings");
       setBookings([]);
     } finally {
       setLoadingBookings(false);
     }
-  }, []);
+  }, [debouncedBookingSearch, filterEmergency, bookingPage]);
 
   useEffect(() => { fetchVehicles(); fetchBookings(); }, [fetchVehicles, fetchBookings]);
+  useEffect(() => {
+    const timer = setTimeout(() => { setVehiclePage(1); setDebouncedVehicleSearch(searchVehicle.trim()); }, 300);
+    return () => clearTimeout(timer);
+  }, [searchVehicle]);
+  useEffect(() => {
+    const timer = setTimeout(() => { setBookingPage(1); setDebouncedBookingSearch(searchBooking.trim()); }, 300);
+    return () => clearTimeout(timer);
+  }, [searchBooking]);
+  useEffect(() => { setVehiclePage(1); }, [filterVStatus]);
+  useEffect(() => { setBookingPage(1); }, [filterEmergency]);
 
 
   const stats = useMemo(() => ({
-    totalVehicles:   vehicles.length,
-    available:       vehicles.filter(v => v.status === "Available").length,
-    inService:       vehicles.filter(v => v.status === "In Service" || v.status === "In Use").length,
-    maintenanceDue:  vehicles.filter(v => v.nextService && new Date(v.nextService) <= new Date()).length,
-    totalBookings:   bookings.length,
-    pendingBookings: bookings.filter(b => b.status === "Pending" || b.status === "Waiting").length,
-    assignedBookings:bookings.filter(b => b.status === "Assigned").length,
-    criticalBookings:bookings.filter(b => b.emergencyLevel === "critical").length,
-  }), [vehicles, bookings]);
+    totalVehicles: vehicleStats.total,
+    available: vehicleStats.available,
+    inService: vehicleStats.inService,
+    maintenanceDue: vehicleStats.maintenanceDue,
+    totalBookings: bookingStats.total,
+    pendingBookings: bookingStats.pendingBookings,
+    assignedBookings: bookingStats.assignedBookings,
+    criticalBookings: bookingStats.criticalBookings,
+  }), [vehicleStats, bookingStats]);
 
  
-  const filteredVehicles = useMemo(() => {
-    const q = searchVehicle.toLowerCase();
-    return vehicles.filter(v => {
-      const matchSearch =
-        v.plate?.toLowerCase().includes(q) ||
-        v.type?.toLowerCase().includes(q) ||
-        v.driver?.toLowerCase().includes(q);
-      const matchStatus = filterVStatus === "all" || v.status === filterVStatus;
-      return matchSearch && matchStatus;
-    });
-  }, [vehicles, searchVehicle, filterVStatus]);
+  const filteredVehicles = vehicles;
 
-  const filteredBookings = useMemo(() => {
-    const q = searchBooking.toLowerCase();
-    return bookings.filter(b => {
-      const matchSearch =
-        b.patientName?.toLowerCase().includes(q) ||
-        b.status?.toLowerCase().includes(q) ||
-        b.emergencyLevel?.toLowerCase().includes(q) ||
-        b.phone?.includes(q);
-      const matchEmergency = filterEmergency === "all" || b.emergencyLevel === filterEmergency;
-      return matchSearch && matchEmergency;
-    });
-  }, [bookings, searchBooking, filterEmergency]);
+  const filteredBookings = bookings;
 
 
   const openVehicleModal = (v = null) => {
@@ -372,7 +374,14 @@ const LogisticsPage = () => {
                     rowKey={(v) => v.id}
                   />
                   <div className="px-5 py-3 border-t border-gray-100 bg-white rounded-b-2xl">
-                    <p className="text-xs text-gray-400"><span className="font-semibold text-gray-600">{filteredVehicles.length}</span> of {vehicles.length} vehicles</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-gray-400">Showing {filteredVehicles.length} of {vehiclePagination.total} vehicles</p>
+                      <div className="flex items-center gap-2 text-xs">
+                        <button disabled={vehiclePage <= 1} onClick={() => setVehiclePage((p) => p - 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Previous</button>
+                        <span>Page {vehiclePage} of {Math.max(1, vehiclePagination.pages)}</span>
+                        <button disabled={vehiclePage >= vehiclePagination.pages} onClick={() => setVehiclePage((p) => p + 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Next</button>
+                      </div>
+                    </div>
                   </div>
                 </>
               )}
@@ -478,8 +487,15 @@ const LogisticsPage = () => {
                   ))}
 
                   <p className="text-xs text-gray-400 px-1">
-                    Showing <span className="font-semibold text-gray-600">{filteredBookings.length}</span> of {bookings.length} bookings
+                    Showing <span className="font-semibold text-gray-600">{filteredBookings.length}</span> of {bookingPagination.total} bookings
                   </p>
+                  <div className="flex items-center justify-between rounded-xl bg-white px-4 py-3 text-xs">
+                    <span>Page {bookingPage} of {Math.max(1, bookingPagination.pages)}</span>
+                    <div className="flex gap-2">
+                      <button disabled={bookingPage <= 1} onClick={() => setBookingPage((p) => p - 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Previous</button>
+                      <button disabled={bookingPage >= bookingPagination.pages} onClick={() => setBookingPage((p) => p + 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Next</button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

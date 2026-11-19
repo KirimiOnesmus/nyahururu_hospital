@@ -1,5 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { useSocket } from "../../api/socket";
+import React, { useEffect, useState, useCallback } from "react";
 import api from "../../api/axios";
 import { ASSET_BASE_URL } from "../../config/env";
 import {
@@ -199,6 +198,10 @@ const ServicesPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDivision, setFilterDivision] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
+  const [allCategories, setAllCategories] = useState([]);
+  const [serviceStats, setServiceStats] = useState({ total: 0, outpatient: 0, inpatient: 0, clinics: 0, sha: 0 });
   const [submitting, setSubmitting] = useState(false);
 
   const [viewModal, setViewModal] = useState(false);
@@ -212,42 +215,40 @@ const ServicesPage = () => {
   const fetchServices = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.get("/services");
-      setServices(Array.isArray(res.data) ? res.data : res.data.data || []);
+      const res = await api.get("/services", { params: {
+        search: searchTerm || undefined,
+        division: filterDivision,
+        category: filterCategory,
+        page, limit: 20,
+      } });
+      const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+      setServices(data);
+      setPagination(res.data.meta || { page: 1, pages: 1, total: data.length });
     } catch (err) {
       notify.error(err.response?.data?.message || "Error fetching services");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [searchTerm, filterDivision, filterCategory, page]);
 
   useEffect(() => {
     fetchServices();
   }, [fetchServices]);
 
-  const stats = useMemo(
-    () => ({
-      total: services.length,
-      outpatient: services.filter((s) => s.division === "Outpatient").length,
-      inpatient: services.filter((s) => s.division === "Inpatient").length,
-      clinics: services.filter((s) => s.division === "Specialist Clinics").length,
-      sha: services.filter((s) => s.nhifCovered).length,
-    }),
-    [services]
-  );
-
-  const filteredServices = useMemo(() => {
-    const q = searchTerm.toLowerCase();
-    return services.filter((s) => {
-      const matchSearch =
-        s.name?.toLowerCase().includes(q) ||
-        s.description?.toLowerCase().includes(q) ||
-        s.headOfDepartment?.toLowerCase().includes(q);
-      const matchDiv = filterDivision === "all" || s.division === filterDivision;
-      const matchCat = filterCategory === "all" || s.category === filterCategory;
-      return matchSearch && matchDiv && matchCat;
+  useEffect(() => { setPage(1); }, [searchTerm, filterDivision, filterCategory]);
+  useEffect(() => {
+    api.get("/services/filters").then(({ data }) => {
+      setAllCategories(data.categories || []);
+      setServiceStats(data.stats || { total: 0, outpatient: 0, inpatient: 0, clinics: 0, sha: 0 });
+    }).catch(() => {
+      setAllCategories([]);
+      setServiceStats({ total: 0, outpatient: 0, inpatient: 0, clinics: 0, sha: 0 });
     });
-  }, [services, searchTerm, filterDivision, filterCategory]);
+  }, []);
+
+  const stats = serviceStats;
+
+  const filteredServices = services;
 
   const openModal = (service = null) => {
     setIsEditing(!!service);
@@ -363,10 +364,7 @@ const ServicesPage = () => {
     setViewModal(true);
   };
 
-  const usedCategories = useMemo(
-    () => [...new Set(services.map((s) => s.category).filter(Boolean))].sort(),
-    [services]
-  );
+  const usedCategories = allCategories;
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -481,7 +479,7 @@ const ServicesPage = () => {
         {(searchTerm || filterDivision !== "all" || filterCategory !== "all") && (
           <p className="text-xs text-gray-400 mb-3 px-1">
             Showing <span className="font-semibold text-gray-600">{filteredServices.length}</span>{" "}
-            of <span className="font-semibold text-gray-600">{services.length}</span> services
+            of <span className="font-semibold text-gray-600">{pagination.total}</span> services
           </p>
         )}
 
@@ -506,6 +504,15 @@ const ServicesPage = () => {
                 onDelete={handleDelete}
               />
             ))}
+          </div>
+        )}
+        {!loading && pagination.pages > 1 && (
+          <div className="mt-5 flex items-center justify-between rounded-xl bg-white px-4 py-3 text-sm">
+            <span>Page {page} of {pagination.pages} · {pagination.total} services</span>
+            <div className="flex gap-2">
+              <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Previous</button>
+              <button disabled={page >= pagination.pages} onClick={() => setPage((p) => p + 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Next</button>
+            </div>
           </div>
         )}
       </div>

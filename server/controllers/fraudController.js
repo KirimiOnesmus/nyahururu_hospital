@@ -1,6 +1,7 @@
 const emitChange = require("../utils/emitChange");
 "use strict";
 
+const { Op } = require("sequelize");
 const { FraudReport } = require("../sequelize/models");
 const logger = require("../utils/logger");
 const { getPagination, buildMeta } = require("../utils/pagination");
@@ -47,18 +48,32 @@ exports.submitFraudReport = async (req, res) => {
 
 exports.getAllFraudReports = async (req, res) => {
   try {
-    const { status } = req.query;
-    const where = status ? { status } : {};
+    const { status, search } = req.query;
+    const where = status && status !== "all" ? { status } : {};
+    if (search) {
+      const escaped = String(search).replace(/[\\%_]/g, (m) => `\\${m}`);
+      where[Op.or] = [
+        { issue: { [Op.like]: `%${escaped}%` } },
+        { location: { [Op.like]: `%${escaped}%` } },
+        { details: { [Op.like]: `%${escaped}%` } },
+      ];
+    }
 
     const { requestedPaging, page, limit, offset } = getPagination(req.query);
-    const { rows: reports, count: total } = await FraudReport.findAndCountAll({
-      where,
-      order: [["createdAt", "DESC"]],
-      limit,
-      offset,
-    });
+    const [{ rows: reports, count: total }, statusRows, allCount] = await Promise.all([
+      FraudReport.findAndCountAll({ where, order: [["createdAt", "DESC"]], limit, offset }),
+      FraudReport.count({ group: ["status"] }),
+      FraudReport.count(),
+    ]);
     if (!requestedPaging) return res.json(reports);
-    return res.json({ data: reports, meta: buildMeta(page, limit, total, reports.length, offset) });
+    const statusCounts = Object.fromEntries(statusRows.map(({ status: key, count: value }) => [key, Number(value)]));
+    const stats = {
+      total: allCount,
+      reviewed: statusCounts.reviewed || 0,
+      pending: statusCounts.pending || 0,
+      dismissed: statusCounts.dismissed || 0,
+    };
+    return res.json({ data: reports, meta: { ...buildMeta(page, limit, total, reports.length, offset), stats } });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });

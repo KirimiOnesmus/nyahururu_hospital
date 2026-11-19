@@ -58,16 +58,16 @@ exports.getAllNotices = async (req, res) => {
     }
 
     const { requestedPaging, page, limit, offset } = getPagination(req.query);
-    const { rows: notices, count: total } = await Notice.findAndCountAll({
-      where,
-      include: AUTHOR_INCLUDE,
-      order: parseSort(sort),
-      limit,
-      offset,
-    });
+    const [{ rows: notices, count: total }, statusRows, allCount] = await Promise.all([
+      Notice.findAndCountAll({ where, include: AUTHOR_INCLUDE, order: parseSort(sort), limit, offset, distinct: true }),
+      Notice.count({ group: ["status"] }),
+      Notice.count(),
+    ]);
 
     if (!requestedPaging) return res.json(notices);
-    return res.json({ data: notices, meta: buildMeta(page, limit, total, notices.length, offset) });
+    const statusCounts = Object.fromEntries(statusRows.map(({ status: key, count: value }) => [key, Number(value)]));
+    const stats = { total: allCount, active: statusCounts.active || 0, scheduled: statusCounts.scheduled || 0, expired: statusCounts.expired || 0 };
+    return res.json({ data: notices, meta: { ...buildMeta(page, limit, total, notices.length, offset), stats } });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });

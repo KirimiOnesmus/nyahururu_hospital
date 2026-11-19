@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const {
   getAllServices,
+  getServiceFilters,
   getServiceById,
   createService,
   updateService,
@@ -14,6 +15,7 @@ const uploadServices = createUploader("services");
 
 // Public routes
 router.get("/", getAllServices);
+router.get("/filters", getServiceFilters);
 router.get("/:id", getServiceById);
 
 router.post(

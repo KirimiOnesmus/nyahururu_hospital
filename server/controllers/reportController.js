@@ -4,6 +4,7 @@ const fs = require("fs").promises;
 const { Op } = require("sequelize");
 const { Report, User, sequelize } = require("../sequelize/models");
 const { resolveUploadPath } = require("../utils/safePath");
+const { getPagination, buildMeta } = require("../utils/pagination");
 
 
 const SORT_MAP = {
@@ -54,6 +55,7 @@ exports.getAllReports = async (req, res) => {
   try {
     const { search, category, status, period, sortBy = "newest" } = req.query;
     const staff = isStaffViewer(req);
+    const { requestedPaging, page, limit, offset } = getPagination(req.query);
 
     const where = {};
     if (category && category !== "all") where.category = category;
@@ -67,6 +69,7 @@ exports.getAllReports = async (req, res) => {
       where[Op.or] = [
         { title: { [Op.like]: like } },
         { description: { [Op.like]: like } },
+        { category: { [Op.like]: like } },
 
         sequelize.literal(
           "JSON_SEARCH(tags, 'one', " +
@@ -82,11 +85,13 @@ exports.getAllReports = async (req, res) => {
       ? UPLOADER_INCLUDE
       : [{ model: User, as: "uploader", attributes: ["id", "name"] }];
 
-    const [reports, total, published, draft, archived, thisMonth] = await Promise.all([
-      Report.findAll({
+    const [reportResult, total, published, draft, archived, thisMonth] = await Promise.all([
+      Report.findAndCountAll({
         where,
         include: uploaderInclude,
         order: SORT_MAP[sortBy] || SORT_MAP.newest,
+        distinct: true,
+        ...(requestedPaging ? { limit, offset } : {}),
       }),
       staff ? Report.count() : Report.count({ where: { status: "published" } }),
       Report.count({ where: { status: "published" } }),
@@ -101,10 +106,13 @@ exports.getAllReports = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data: reports,
+      data: reportResult.rows,
       stats: staff
         ? { total, published, draft, archived, thisMonth }
         : { total: published, published, thisMonth },
+      ...(requestedPaging && {
+        pagination: buildMeta(page, limit, reportResult.count, reportResult.rows.length, offset),
+      }),
     });
   } catch (error) {
     res.status(500).json({

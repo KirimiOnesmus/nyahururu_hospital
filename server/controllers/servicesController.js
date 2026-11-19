@@ -162,8 +162,21 @@ exports.updateService = async (req, res) => {
 
 exports.getAllServices = async (req, res) => {
   try {
+    const { division, category, search } = req.query;
     const { requestedPaging, page, limit, offset } = getPagination(req.query);
+    const where = {};
+    if (division && division !== "all") where.division = division;
+    if (category && category !== "all") where.category = category;
+    if (search) {
+      const escaped = String(search).replace(/[\\%_]/g, (m) => `\\${m}`);
+      where[Op.or] = [
+        { name: { [Op.like]: `%${escaped}%` } },
+        { description: { [Op.like]: `%${escaped}%` } },
+        { headOfDepartment: { [Op.like]: `%${escaped}%` } },
+      ];
+    }
     const { rows: services, count: total } = await Service.findAndCountAll({
+      where,
       order: [["createdAt", "DESC"]],
       limit,
       offset,
@@ -173,6 +186,39 @@ exports.getAllServices = async (req, res) => {
   } catch (error) {
     logger.error({ err: error }, "Error fetching services");
     res.status(500).json({ message: "Server Error. Please try again later." });
+  }
+};
+
+exports.getServiceFilters = async (_req, res) => {
+  try {
+    const pairs = await Service.findAll({
+      attributes: ["division", "category"],
+      group: ["division", "category"],
+      order: [["division", "ASC"], ["category", "ASC"]],
+    });
+    const categoriesByDivision = {};
+    for (const row of pairs) {
+      const { division, category } = row.get({ plain: true });
+      if (!division || !category) continue;
+      categoriesByDivision[division] ||= [];
+      categoriesByDivision[division].push(category);
+    }
+    const [total, outpatient, inpatient, clinics, sha] = await Promise.all([
+      Service.count(),
+      Service.count({ where: { division: "Outpatient" } }),
+      Service.count({ where: { division: "Inpatient" } }),
+      Service.count({ where: { division: "Specialist Clinics" } }),
+      Service.count({ where: { nhifCovered: true } }),
+    ]);
+    return res.json({
+      divisions: [...new Set(pairs.map((row) => row.division).filter(Boolean))].sort(),
+      categories: [...new Set(pairs.map((row) => row.category).filter(Boolean))].sort(),
+      categoriesByDivision,
+      stats: { total, outpatient, inpatient, clinics, sha },
+    });
+  } catch (error) {
+    logger.error({ err: error }, "Error fetching service filters");
+    return res.status(500).json({ message: "Server Error. Please try again later." });
   }
 };
 

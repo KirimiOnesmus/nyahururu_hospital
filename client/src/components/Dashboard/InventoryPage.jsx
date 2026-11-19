@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useSocket } from "../../api/socket";
 import api from "../../api/axios";
 import { MdEdit, MdDelete, MdInventory2 } from "react-icons/md";
@@ -53,6 +53,10 @@ const InventoryPage = () => {
   const [search,      setSearch]      = useState("");
   const [filterCat,   setFilterCat]   = useState("all");
   const [filterStock, setFilterStock] = useState("all");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
+  const [stats, setStats] = useState({ total: 0, medicines: 0, equipment: 0, lowStock: 0, expired: 0 });
   const [modalOpen,   setModalOpen]   = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [formData,    setFormData]    = useState(EMPTY_FORM);
@@ -61,47 +65,36 @@ const InventoryPage = () => {
   const fetchInventory = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.get("/inventory");
-      setItems(Array.isArray(res.data) ? res.data : res.data.data || []);
+      const [res, statsRes] = await Promise.all([
+        api.get("/inventory", { params: { search: debouncedSearch || undefined, category: filterCat, stock: filterStock, page, limit: 20 } }),
+        api.get("/inventory/stats"),
+      ]);
+      const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+      setItems(data);
+      setPagination(res.data.meta || { page: 1, pages: 1, total: data.length });
+      const statsData = statsRes.data;
+      const categoryCount = (category) => Number(statsData.byCategory?.find((row) => row._id === category)?.count || 0);
+      setStats({ total: statsData.total || 0, medicines: categoryCount("Medicine"), equipment: categoryCount("Equipment"), lowStock: statsData.lowStock || 0, expired: statsData.expired || 0 });
     } catch (err) {
       notify.error(err.response?.data?.message || "Error fetching inventory");
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [debouncedSearch, filterCat, filterStock, page]);
 
   useEffect(() => { fetchInventory(); }, [fetchInventory]);
+  useEffect(() => {
+    const timer = setTimeout(() => { setPage(1); setDebouncedSearch(search.trim()); }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+  useEffect(() => { setPage(1); }, [filterCat, filterStock]);
 
   useSocket("inventory:created", fetchInventory);
   useSocket("inventory:updated", fetchInventory);
   useSocket("inventory:deleted", fetchInventory);
 
-  const stats = useMemo(() => ({
-    total:      items.length,
-    medicines:  items.filter(i => i.category === "Medicine").length,
-    equipment:  items.filter(i => i.category === "Equipment").length,
-    lowStock:   items.filter(i => isLowStock(i)).length,
-    expired:    items.filter(i => isExpired(i)).length,
-  }), [items]);
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return items.filter(i => {
-      const matchSearch =
-        i.name?.toLowerCase().includes(q) ||
-        i.category?.toLowerCase().includes(q) ||
-        i.supplier?.toLowerCase().includes(q) ||
-        i.batch?.toLowerCase().includes(q);
-      const matchCat   = filterCat   === "all" || i.category === filterCat;
-      const matchStock =
-        filterStock === "all"      ? true :
-        filterStock === "expired"  ? isExpired(i) :
-        filterStock === "low"      ? isLowStock(i) && !isExpired(i) :
-        filterStock === "ok"       ? !isLowStock(i) && !isExpired(i) : true;
-      return matchSearch && matchCat && matchStock;
-    });
-  }, [items, search, filterCat, filterStock]);
+  const filtered = items;
 
  
   const openModal = (item = null) => {
@@ -321,9 +314,14 @@ const InventoryPage = () => {
               rowKey={(item) => item.id}
             />
             <div className="px-5 py-3 border-t border-gray-100 bg-white rounded-b-2xl">
-              <p className="text-xs text-gray-400">
-                Showing <span className="font-semibold text-gray-600">{filtered.length}</span> of <span className="font-semibold text-gray-600">{items.length}</span> items
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-gray-400">Showing {filtered.length} of {pagination.total} items</p>
+                <div className="flex items-center gap-2 text-xs">
+                  <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Previous</button>
+                  <span>Page {page} of {Math.max(1, pagination.pages)}</span>
+                  <button disabled={page >= pagination.pages} onClick={() => setPage((p) => p + 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Next</button>
+                </div>
+              </div>
             </div>
           </>
         )}

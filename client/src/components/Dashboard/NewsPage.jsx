@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useSocket } from "../../api/socket";
 import api from "../../api/axios";
 import { ASSET_BASE_URL } from "../../config/env";
@@ -44,6 +44,10 @@ const NewsPage = () => {
   const [newsList,    setNewsList]    = useState([]);
   const [loading,     setLoading]     = useState(false);
   const [search,      setSearch]      = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
+  const [newsStats, setNewsStats] = useState({ total: 0, withImage: 0, withoutImage: 0 });
   const [submitting,  setSubmitting]  = useState(false);
 
   const [modalOpen,    setModalOpen]    = useState(false);
@@ -57,36 +61,31 @@ const NewsPage = () => {
   const fetchNews = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.get("/news");
-      setNewsList(Array.isArray(res.data) ? res.data : res.data.data || []);
+      const res = await api.get("/news", { params: { search: debouncedSearch || undefined, page, limit: 20 } });
+      const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+      setNewsList(data);
+      setPagination(res.data.meta || { page: 1, pages: 1, total: data.length });
+      setNewsStats(res.data.meta?.stats || { total: data.length, withImage: data.filter((item) => item.imageUrl).length, withoutImage: data.filter((item) => !item.imageUrl).length });
     } catch (err) {
       notify.error(err.response?.data?.message || "Error fetching news");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [debouncedSearch, page]);
 
   useEffect(() => { fetchNews(); }, [fetchNews]);
+  useEffect(() => {
+    const timer = setTimeout(() => { setPage(1); setDebouncedSearch(search.trim()); }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   useSocket("news:created", fetchNews);
   useSocket("news:updated", fetchNews);
   useSocket("news:deleted", fetchNews);
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    if (!q) return newsList;
-    return newsList.filter(n =>
-      n.title?.toLowerCase().includes(q) ||
-      n.author?.toLowerCase().includes(q) ||
-      n.content?.toLowerCase().includes(q)
-    );
-  }, [newsList, search]);
+  const filtered = newsList;
 
-  const stats = useMemo(() => ({
-    total:        newsList.length,
-    withImage:    newsList.filter(n => n.imageUrl).length,
-    withoutImage: newsList.filter(n => !n.imageUrl).length,
-  }), [newsList]);
+  const stats = newsStats;
 
  
   const openModal = (news = null) => {
@@ -250,7 +249,7 @@ const NewsPage = () => {
           </div>
           {search && (
             <div className="flex items-center gap-1.5 text-xs text-gray-400 self-center">
-              <span className="font-semibold text-gray-700">{filtered.length}</span> of {newsList.length}
+              <span className="font-semibold text-gray-700">{filtered.length}</span> of {pagination.total}
               <button onClick={() => setSearch("")} className="ml-1 text-gray-300 hover:text-rose-400 cursor-pointer">
                 <FaTimes />
               </button>
@@ -270,8 +269,13 @@ const NewsPage = () => {
               <DataTable columns={newsColumns} data={filtered} rowKey={(n) => n.id} />
               <div className="px-5 py-3 border-t border-gray-100 bg-white rounded-b-2xl">
                 <p className="text-xs text-gray-400">
-                  Showing <span className="font-semibold text-gray-600">{filtered.length}</span> of <span className="font-semibold text-gray-600">{newsList.length}</span> articles
+                  Showing {filtered.length} of {pagination.total} articles
                 </p>
+                <div className="flex items-center gap-2 text-xs">
+                  <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Previous</button>
+                  <span>Page {page} of {Math.max(1, pagination.pages)}</span>
+                  <button disabled={page >= pagination.pages} onClick={() => setPage((p) => p + 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Next</button>
+                </div>
               </div>
             </div>
 

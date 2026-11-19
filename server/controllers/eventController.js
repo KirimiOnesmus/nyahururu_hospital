@@ -8,14 +8,27 @@ const { getPagination, buildMeta } = require("../utils/pagination");
 
 exports.getAllEvents = async (req, res) => {
   try {
+    const where = {};
+    if (req.query.search) {
+      const escaped = String(req.query.search).replace(/[\\%_]/g, (m) => `\\${m}`);
+      const like = `%${escaped}%`;
+      where[Op.or] = [
+        { title: { [Op.like]: like } },
+        { description: { [Op.like]: like } },
+        { location: { [Op.like]: like } },
+      ];
+    }
     const { requestedPaging, page, limit, offset } = getPagination(req.query);
-    const { rows: events, count: total } = await Event.findAndCountAll({
-      order: [["createdAt", "DESC"]],
-      limit,
-      offset,
-    });
+    const now = new Date();
+    const [{ rows: events, count: total }, allCount, upcoming, past, withImage] = await Promise.all([
+      Event.findAndCountAll({ where, order: [["createdAt", "DESC"]], limit, offset }),
+      Event.count(),
+      Event.count({ where: { date: { [Op.gte]: now } } }),
+      Event.count({ where: { date: { [Op.lt]: now } } }),
+      Event.count({ where: { imageUrl: { [Op.ne]: null } } }),
+    ]);
     if (!requestedPaging) return res.json(events);
-    return res.json({ data: events, meta: buildMeta(page, limit, total, events.length, offset) });
+    return res.json({ data: events, meta: { ...buildMeta(page, limit, total, events.length, offset), stats: { total: allCount, upcoming, past, withImage } } });
   } catch (error) {
     logger.error({ err: error }, "Unexpected error");
     res.status(500).json({ message: "An unexpected error occurred. Please try again later." });

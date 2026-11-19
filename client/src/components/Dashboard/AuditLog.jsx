@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useSocket } from "../../api/socket";
 import api from "../../api/axios";
 import {
@@ -191,6 +191,8 @@ const AuditLog = () => {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [paginationMeta, setPaginationMeta] = useState({ total: 0, pages: 1 });
+  const [stats, setStats] = useState({ total: 0, today: 0, failedLogins: 0, critical: 0 });
   const [expandedId, setExpandedId] = useState(null);
   const [detailModal, setDetailModal] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -205,10 +207,18 @@ const AuditLog = () => {
       if (filterSeverity !== "all") params.severity = filterSeverity;
       if (dateFrom) params.from = dateFrom;
       if (dateTo) params.to = dateTo;
+      if (search.trim()) params.search = search.trim();
+      params.page = currentPage;
+      params.limit = ITEMS_PER_PAGE;
 
-      const res = await api.get("/audit-logs", { params });
+      const [res, statsRes] = await Promise.all([
+        api.get("/audit-logs", { params }),
+        api.get("/audit-logs/stats"),
+      ]);
       const data = Array.isArray(res.data) ? res.data : res.data.data || [];
       setLogs(data);
+      setPaginationMeta(res.data.meta || { total: data.length, pages: 1 });
+      setStats(statsRes.data?.data || { total: data.length, today: 0, failedLogins: 0, critical: 0 });
     } catch (err) {
       if (err.response?.status === 404) {
         setLogs(generateDemoLogs());
@@ -219,7 +229,7 @@ const AuditLog = () => {
     } finally {
       setLoading(false);
     }
-  }, [filterAction, filterResource, filterSeverity, dateFrom, dateTo]);
+  }, [filterAction, filterResource, filterSeverity, dateFrom, dateTo, search, currentPage]);
 
   useEffect(() => {
     fetchLogs();
@@ -228,48 +238,16 @@ const AuditLog = () => {
 
   useSocket("audit:new", useCallback((newLog) => {
     if (!liveMode) return;
-    setLogs((prev) => [newLog, ...prev]);
-  }, [liveMode]));
+    if (newLog) fetchLogs();
+  }, [liveMode, fetchLogs]));
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return logs.filter((log) => {
-      if (!q) return true;
-      return (
-        log.user?.name?.toLowerCase().includes(q) ||
-        log.user?.email?.toLowerCase().includes(q) ||
-        log.action?.toLowerCase().includes(q) ||
-        log.resource?.toLowerCase().includes(q) ||
-        log.description?.toLowerCase().includes(q) ||
-        log.ipAddress?.includes(q) ||
-        log.resourceId?.toLowerCase().includes(q)
-      );
-    });
-  }, [logs, search]);
-
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-  const paginated = useMemo(
-    () => filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE),
-    [filtered, currentPage]
-  );
+  const filtered = logs;
+  const totalPages = Math.max(1, paginationMeta.pages || 1);
+  const paginated = logs;
 
   useEffect(() => {
     setCurrentPage(1);
   }, [search, filterAction, filterResource, filterSeverity, dateFrom, dateTo]);
-
-  const stats = useMemo(() => {
-    const now = Date.now();
-    const day = 86400000;
-    const todayLogs = logs.filter(
-      (l) => now - new Date(l.timestamp || l.createdAt).getTime() < day
-    );
-    return {
-      total: logs.length,
-      today: todayLogs.length,
-      failedLogins: logs.filter((l) => l.action === "login_failed").length,
-      critical: logs.filter((l) => l.severity === "critical" || l.severity === "high").length,
-    };
-  }, [logs]);
 
   const handleExport = () => {
     const csv = [
@@ -630,10 +608,10 @@ const AuditLog = () => {
               <p className="text-xs text-slate-400">
                 Showing{" "}
                 <span className="font-semibold text-slate-600">
-                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}–
-                  {Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)}
+                  {filtered.length ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0}–
+                  {Math.min(currentPage * ITEMS_PER_PAGE, paginationMeta.total)}
                 </span>{" "}
-                of <span className="font-semibold text-slate-600">{filtered.length}</span> events
+                of <span className="font-semibold text-slate-600">{paginationMeta.total}</span> events
               </p>
               <Pagination
                 currentPage={currentPage}

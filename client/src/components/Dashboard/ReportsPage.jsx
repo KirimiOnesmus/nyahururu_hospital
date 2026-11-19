@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { useSocket } from "../../api/socket";
 import {
   FaPlus,
   FaSearch,
@@ -108,6 +107,8 @@ const ReportsPage = () => {
   const [filterPeriod, setFilterPeriod] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
 
   const [expandedCats, setExpandedCats] = useState(() =>
     Object.fromEntries(CATEGORIES.map((c) => [c.id, true])),
@@ -126,10 +127,13 @@ const ReportsPage = () => {
         category: filterCategory !== "all" ? filterCategory : undefined,
         status: filterStatus !== "all" ? filterStatus : undefined,
         period: filterPeriod !== "all" ? filterPeriod : undefined,
+        page,
+        limit: 20,
       };
       const res = await api.get("/reports", { params });
       if (res.data.success) {
         setReports(res.data.data || []);
+        setPagination(res.data.pagination || { page: 1, pages: 1, total: res.data.data?.length || 0 });
         setStats(
           res.data.stats || { total: 0, published: 0, draft: 0, thisMonth: 0 },
         );
@@ -142,31 +146,24 @@ const ReportsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, filterCategory, filterStatus, filterPeriod]);
+  }, [searchTerm, filterCategory, filterStatus, filterPeriod, page]);
 
   useEffect(() => {
     fetchReports();
   }, [fetchReports]);
 
+  useEffect(() => { setPage(1); }, [searchTerm, filterCategory, filterStatus, filterPeriod]);
+
   const categoryMap = useMemo(() => {
-    const q = searchTerm.toLowerCase();
-    const filtered = reports.filter((r) => {
-      const matchSearch =
-        r.title?.toLowerCase().includes(q) ||
-        r.description?.toLowerCase().includes(q);
-      const matchPeriod = filterPeriod === "all" || r.period === filterPeriod;
-      const matchStatus = filterStatus === "all" || r.status === filterStatus;
-      return matchSearch && matchPeriod && matchStatus;
-    });
     const map = {};
     CATEGORIES.forEach((c) => {
       map[c.id] = [];
     });
-    filtered.forEach((r) => {
+    reports.forEach((r) => {
       if (map[r.category]) map[r.category].push(r);
     });
     return map;
-  }, [reports, searchTerm, filterPeriod, filterStatus]);
+  }, [reports]);
 
   const setField = (key, val) => setFormData((p) => ({ ...p, [key]: val }));
 
@@ -451,7 +448,7 @@ const ReportsPage = () => {
                 <span className="font-semibold text-gray-700">
                   {totalFiltered}
                 </span>{" "}
-                of {reports.length} reports
+                of {pagination.total} reports
               </span>
               <button
                 onClick={() => {
@@ -563,6 +560,15 @@ const ReportsPage = () => {
                 </div>
               );
             })}
+            {pagination.pages > 1 && (
+              <div className="flex items-center justify-between rounded-xl bg-white px-4 py-3 text-sm">
+                <span>Page {page} of {pagination.pages}</span>
+                <div className="flex gap-2">
+                  <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Previous</button>
+                  <button disabled={page >= pagination.pages} onClick={() => setPage((p) => p + 1)} className="px-3 py-1.5 rounded border disabled:opacity-40">Next</button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

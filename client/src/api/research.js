@@ -258,10 +258,11 @@ export const pollPaymentStatus = (checkoutRequestId, maxAttempts = 12) =>
 
 export const getPendingReviews = async () => unwrapList(await api.get("/research/reviewer/assigned"));
 export const getAssignedResearch = async (filters = {}) => {
-  const { submissionType, includeCompleted, page = 1, limit = 20 } = filters;
+  const { submissionType, includeCompleted, search, page = 1, limit = 20 } = filters;
   const p = new URLSearchParams({ page, limit });
   if (submissionType) p.append("submissionType", submissionType);
   if (includeCompleted) p.append("includeCompleted", includeCompleted);
+  if (search) p.append("search", search);
   return unwrapList(await api.get(`/research/reviewer/assigned?${p}`));
 };
 export const submitReview = async (researchId, { decision, comment, criteria, attachments = [] }) => {
