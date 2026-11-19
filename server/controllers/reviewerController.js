@@ -98,8 +98,10 @@ exports.revokeCommitteeAccess = asyncHandler(async (req, res) => {
 });
 
 exports.listReviewers = asyncHandler(async (req, res) => {
-  const result = await reviewerService.listReviewers();
-  sendSuccess(res, 200, "Reviewers fetched successfully.", result);
+  const result = await reviewerService.listReviewers(req.query);
+  sendSuccess(res, 200, "Reviewers fetched successfully.", result, {
+    page: result.page, limit: result.limit, total: result.total, totalPages: result.totalPages,
+  });
 });
 
 exports.listAllResearchers = asyncHandler(async (req, res) => {

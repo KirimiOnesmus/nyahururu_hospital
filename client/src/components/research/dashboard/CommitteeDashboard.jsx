@@ -110,29 +110,42 @@ const CommitteeDashboard = ({ user }) => {
   const [typeFilter, setTypeFilter] = useState("all");
   const [loadingPending, setLoadingPending] = useState(true);
   const [loadingAll, setLoadingAll] = useState(true);
+  const [pendingPage, setPendingPage] = useState(1);
+  const [pendingTotal, setPendingTotal] = useState(0);
+  const [pendingTotalPages, setPendingTotalPages] = useState(1);
+  const [allPage, setAllPage] = useState(1);
+  const [allTotal, setAllTotal] = useState(0);
+  const [allTotalPages, setAllTotalPages] = useState(1);
+  const [allStats, setAllStats] = useState({ total: 0, approved: 0 });
 
   const loadPending = useCallback(async () => {
     setLoadingPending(true);
     try {
-      const res = await research.getCommitteeQueue();
+      const res = await research.getCommitteeQueue({ page: pendingPage, limit: 10 });
       setPending(Array.isArray(res.papers) ? res.papers : []);
+      setPendingTotal(Number(res.total || 0));
+      setPendingTotalPages(Math.max(1, Number(res.totalPages || 1)));
     } catch (err) { notify.error(err.message || "Failed to load pending"); }
     finally { setLoadingPending(false); }
-  }, []);
+  }, [pendingPage]);
 
   const loadAll = useCallback(async () => {
     setLoadingAll(true);
     try {
       const res = await research.getAllResearchCommittee({
         submissionType: typeFilter === "all" ? undefined : typeFilter,
-        search: search || undefined, page: 1, limit: 50,
+        search: search || undefined, page: allPage, limit: 10,
       });
       setAll(Array.isArray(res.papers) ? res.papers : []);
+      setAllTotal(Number(res.total || 0));
+      setAllTotalPages(Math.max(1, Number(res.totalPages || 1)));
+      setAllStats(res.stats || { total: 0, approved: 0 });
     } catch (err) { notify.error(err.message || "Failed to load research"); }
     finally { setLoadingAll(false); }
-  }, [typeFilter, search]);
+  }, [typeFilter, search, allPage]);
 
   useEffect(() => { loadPending(); }, [loadPending]);
+  useEffect(() => { setAllPage(1); }, [typeFilter, search]);
   useEffect(() => {
     if (tab !== "all") return;
     const t = setTimeout(loadAll, 300);
@@ -162,10 +175,10 @@ const CommitteeDashboard = ({ user }) => {
             <h2 className="text-2xl font-bold tracking-tight">{user?.firstName} {user?.lastName}</h2>
             <p className="text-purple-200 text-sm mt-1">{user?.institution}</p>
           </div>
-          {pending.length > 0 && (
+          {pendingTotal > 0 && (
             <div className="flex items-center gap-2 bg-red-500/30 border border-red-400/40 rounded-xl px-4 py-2 self-start sm:self-auto">
               <FaBell className="text-red-300 animate-pulse" />
-              <span className="text-white text-sm font-bold">{pending.length} awaiting sign-off</span>
+              <span className="text-white text-sm font-bold">{pendingTotal} awaiting sign-off</span>
             </div>
           )}
         </div>
@@ -173,10 +186,10 @@ const CommitteeDashboard = ({ user }) => {
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         {[
-          { icon: FaInbox, label: "Awaiting sign-off", value: pending.length, color: "bg-purple-500" },
-          { icon: FaBookOpen, label: "Total in system", value: allResearch.length, color: "bg-indigo-500" },
+          { icon: FaInbox, label: "Awaiting sign-off", value: pendingTotal, color: "bg-purple-500" },
+          { icon: FaBookOpen, label: "Total in system", value: allStats.total, color: "bg-indigo-500" },
           { icon: FaCheckCircle, label: "Approved",
-            value: allResearch.filter((r) => r.status === "approved").length, color: "bg-green-600" },
+            value: allStats.approved, color: "bg-green-600" },
         ].map(({ icon: Icon, label, value, color }) => (
           <div key={label} className="bg-white rounded-2xl border border-slate-200 p-5 flex items-start gap-4">
             <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
@@ -220,6 +233,15 @@ const CommitteeDashboard = ({ user }) => {
             : <div className="divide-y divide-slate-50">
                 {pending.map((item) => <ResearchRow key={item.id} item={item} onOpen={handleOpen} variant="pending" />)}
               </div>}
+          {!loadingPending && pendingTotalPages > 1 && (
+            <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-sm text-slate-500">
+              <span>Showing {(pendingPage - 1) * 10 + 1}–{Math.min(pendingPage * 10, pendingTotal)} of {pendingTotal}</span>
+              <div className="flex gap-2">
+                <button type="button" disabled={pendingPage <= 1} onClick={() => setPendingPage((p) => Math.max(1, p - 1))} className="rounded border px-3 py-1 disabled:opacity-40">Previous</button>
+                <button type="button" disabled={pendingPage >= pendingTotalPages} onClick={() => setPendingPage((p) => p + 1)} className="rounded border px-3 py-1 disabled:opacity-40">Next</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -250,6 +272,15 @@ const CommitteeDashboard = ({ user }) => {
             : <div className="divide-y divide-slate-50">
                 {allResearch.map((item) => <ResearchRow key={item.id} item={item} onOpen={handleOpen} variant="all" />)}
               </div>}
+          {!loadingAll && allTotalPages > 1 && (
+            <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-sm text-slate-500">
+              <span>Showing {(allPage - 1) * 10 + 1}–{Math.min(allPage * 10, allTotal)} of {allTotal}</span>
+              <div className="flex gap-2">
+                <button type="button" disabled={allPage <= 1} onClick={() => setAllPage((p) => Math.max(1, p - 1))} className="rounded border px-3 py-1 disabled:opacity-40">Previous</button>
+                <button type="button" disabled={allPage >= allTotalPages} onClick={() => setAllPage((p) => p + 1)} className="rounded border px-3 py-1 disabled:opacity-40">Next</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

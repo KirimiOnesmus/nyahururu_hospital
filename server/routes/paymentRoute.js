@@ -5,7 +5,7 @@ const { createRateLimitHandler, isSuperadminRequest } = require("../middleware/r
 const { validate, initiatePaymentSchema, refundPaymentSchema } = require("../utils/validators");
 
 
-const { protectEither,optionalResearcher, isResearchAdmin }= require("../middleware/auth");
+const { protectEither, optionalResearcher, protectResearcher, isResearchAdmin }= require("../middleware/auth");
 
 const { AppError } = require("../utils/appError");
 
@@ -68,6 +68,7 @@ const paymentStatusLimiter = rateLimit({
 });
 router.get("/verify/:checkoutRequestId", paymentStatusLimiter, ctrl.verifyPayment);
 router.get("/status/:checkoutRequestId", paymentStatusLimiter, ctrl.verifyPayment);
+router.get("/mine", protectResearcher, ctrl.getMyPayments);
 
 
 router.get(

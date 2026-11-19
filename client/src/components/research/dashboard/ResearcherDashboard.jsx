@@ -547,27 +547,34 @@ const ResearcherDashboard = ({ user }) => {
   const [papers, setPapers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+  const [statusCounts, setStatusCounts] = useState({});
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      // BUGFIX: same issue as MySubmission.jsx — getMyResearch() only
-      // returns studies this researcher owns, so an invited co-investigator
-      // saw an empty dashboard with no indication anything was missing.
-      const [ownedRes, coInvStudies] = await Promise.all([
-        research.getMyResearch(),
-        research.getCoInvestigatorStudies().catch(() => []),
-      ]);
-      const owned = (Array.isArray(ownedRes.papers) ? ownedRes.papers : [])
-        .map((p) => ({ ...p, myRole: "principal_investigator" }));
-      const coInv = coInvStudies.map((p) => ({ ...p, myRole: "co_investigator" }));
-      setPapers([...owned, ...coInv]);
+      const statusMap = {
+        approved: "approved",
+        pending: "under_review",
+        committee_review: "pending_committee_review",
+        rejected: "rejected,revision_requested",
+      };
+      const response = await research.getMyResearch({
+        includeCoInvestigators: true,
+        status: statusMap[filter],
+        page,
+        limit: 10,
+      });
+      setPapers(response.papers || []);
+      setStatusCounts(response.statusCounts || {});
+      setTotalPages(Math.max(1, Number(response.totalPages || 1)));
     } catch {
       notify.error("Failed to load your research submissions");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filter, page]);
 
   useEffect(() => {
     load();
@@ -581,10 +588,7 @@ const ResearcherDashboard = ({ user }) => {
     { id: "rejected", label: "Needs revision" },
   ];
 
-  const filtered =
-    filter === "all"
-      ? papers
-      : papers.filter((p) => resolveStatus(p.status) === filter);
+  const filtered = papers;
 
   const handleNewProposal = () =>
     navigate("/research/dashboard/submit-proposal");
@@ -625,7 +629,7 @@ const ResearcherDashboard = ({ user }) => {
         </div>
       </div>
 
-      <ResearcherStats myResearch={papers} isLoading={loading} />
+      <ResearcherStats myResearch={papers} statusCounts={statusCounts} isLoading={loading} />
 
       <div>
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -634,16 +638,17 @@ const ResearcherDashboard = ({ user }) => {
           </h3>
           <div className="flex gap-2 flex-wrap">
             {FILTERS.map((f) => {
-              const count =
-                f.id !== "all"
-                  ? papers.filter((p) => resolveStatus(p.status) === f.id)
-                      .length
-                  : 0;
+              const count = ({
+                approved: Number(statusCounts.approved || 0),
+                pending: Number(statusCounts.under_review || 0),
+                committee_review: Number(statusCounts.pending_committee_review || 0),
+                rejected: Number(statusCounts.rejected || 0) + Number(statusCounts.revision_requested || 0),
+              })[f.id] || 0;
               return (
                 <button
                   key={f.id}
                   type="button"
-                  onClick={() => setFilter(f.id)}
+                  onClick={() => { setFilter(f.id); setPage(1); }}
                   className={filterBtnCls(filter === f.id)}
                 >
                   {f.label}
@@ -703,6 +708,16 @@ const ResearcherDashboard = ({ user }) => {
                 onResubmit={handleResubmit}
               />
             ))}
+          </div>
+        )}
+
+        {!loading && totalPages > 1 && (
+          <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
+            <span>Page {page} of {totalPages}</span>
+            <div className="flex gap-2">
+              <button type="button" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="rounded border px-3 py-1 disabled:opacity-40">Previous</button>
+              <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="rounded border px-3 py-1 disabled:opacity-40">Next</button>
+            </div>
           </div>
         )}
       </div>

@@ -329,18 +329,32 @@ const REVIEWER_LIST_ATTRIBUTES = [
   "promotedFromReviewer", "createdAt", "invitedAt",
 ];
 
-const listReviewers = async () => {
-  const reviewers = await Researcher.findAll({
-    where: {
-      role: {
-        [Op.in]: [RESEARCHER_ROLES.REVIEWER, RESEARCHER_ROLES.RESEARCH_COMMITTEE],
-      },
-    },
+const listReviewers = async ({ role, search, page = 1, limit = PAGINATION.DEFAULT_LIMIT } = {}) => {
+  const safePage = Math.max(1, Number(page) || 1);
+  const safeLimit = Math.min(Math.max(1, Number(limit) || PAGINATION.DEFAULT_LIMIT), PAGINATION.MAX_LIMIT);
+  const where = { role: { [Op.in]: [RESEARCHER_ROLES.REVIEWER, RESEARCHER_ROLES.RESEARCH_COMMITTEE] } };
+  if (role === "committee") {
+    where[Op.or] = [{ role: RESEARCHER_ROLES.RESEARCH_COMMITTEE }, { isCommittee: true }];
+  } else if (role === "reviewer") {
+    where.role = RESEARCHER_ROLES.REVIEWER;
+    where[Op.or] = [{ isCommittee: false }, { isCommittee: null }];
+  }
+  if (search) {
+    const like = `%${String(search).trim().slice(0, 100)}%`;
+    where[Op.and] = [{ [Op.or]: [
+      { name: { [Op.like]: like } }, { email: { [Op.like]: like } },
+      { institution: { [Op.like]: like } }, { discipline: { [Op.like]: like } },
+    ] }];
+  }
+  const { rows: reviewers, count: total } = await Researcher.findAndCountAll({
+    where,
     attributes: REVIEWER_LIST_ATTRIBUTES,
     order: [["createdAt", "DESC"]],
+    offset: (safePage - 1) * safeLimit,
+    limit: safeLimit,
   });
-
-  return { count: reviewers.length, reviewers };
+  const summary = await getDirectorySummary();
+  return { count: total, total, page: safePage, limit: safeLimit, totalPages: Math.ceil(total / safeLimit), reviewers, summary };
 };
 
 const RESEARCHER_LIST_ATTRIBUTES = [
@@ -348,7 +362,17 @@ const RESEARCHER_LIST_ATTRIBUTES = [
   "emailVerified", "status", "isCommittee", "createdAt", "invitedAt",
 ];
 
-const listAllResearchers = async ({ role, page, limit }) => {
+const getDirectorySummary = async () => {
+  const [reviewerCount, committeeCount, researcherCount, pendingSetupCount] = await Promise.all([
+    Researcher.count({ where: { role: RESEARCHER_ROLES.REVIEWER, [Op.or]: [{ isCommittee: false }, { isCommittee: null }] } }),
+    Researcher.count({ where: { [Op.or]: [{ role: RESEARCHER_ROLES.RESEARCH_COMMITTEE }, { isCommittee: true }] } }),
+    Researcher.count({ where: { role: RESEARCHER_ROLES.RESEARCHER } }),
+    Researcher.count({ where: { role: { [Op.in]: [RESEARCHER_ROLES.REVIEWER, RESEARCHER_ROLES.RESEARCH_COMMITTEE] }, emailVerified: false } }),
+  ]);
+  return { reviewerCount, committeeCount, researcherCount, pendingSetupCount };
+};
+
+const listAllResearchers = async ({ role, search, page, limit }) => {
   const safePage = Math.max(1, page || PAGINATION.DEFAULT_PAGE);
   const safeLimit = Math.min(
     Math.max(1, limit || PAGINATION.DEFAULT_LIMIT),
@@ -357,6 +381,13 @@ const listAllResearchers = async ({ role, page, limit }) => {
 
   const where = {};
   if (role) where.role = role;
+  if (search) {
+    const like = `%${String(search).trim().slice(0, 100)}%`;
+    where[Op.or] = [
+      { name: { [Op.like]: like } }, { email: { [Op.like]: like } },
+      { institution: { [Op.like]: like } }, { discipline: { [Op.like]: like } },
+    ];
+  }
 
   const { rows: researchers, count: total } = await Researcher.findAndCountAll({
     where,
@@ -365,6 +396,7 @@ const listAllResearchers = async ({ role, page, limit }) => {
     offset: (safePage - 1) * safeLimit,
     limit: safeLimit,
   });
+  const summary = await getDirectorySummary();
 
   return {
     total,
@@ -372,6 +404,7 @@ const listAllResearchers = async ({ role, page, limit }) => {
     limit: safeLimit,
     totalPages: Math.ceil(total / safeLimit),
     researchers,
+    summary,
   };
 };
 

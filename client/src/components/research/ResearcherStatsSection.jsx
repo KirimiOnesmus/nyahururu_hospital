@@ -220,12 +220,13 @@ const Bar = ({ label, value, max, color }) => {
   );
 };
 
-const ResearcherStatsSection = ({ myResearch = [], isLoading = false }) => {
+const ResearcherStatsSection = ({ myResearch = [], statusCounts, isLoading = false }) => {
+  const counts = statusCounts || {};
   const stats = {
-    total: myResearch.length,
-    approved: myResearch.filter((r) => r.status === "approved").length,
-    pending: myResearch.filter((r) => r.status === "pending").length,
-    rejected: myResearch.filter((r) => r.status === "rejected").length,
+    total: statusCounts ? Object.values(counts).reduce((sum, count) => sum + Number(count || 0), 0) : myResearch.length,
+    approved: statusCounts ? Number(counts.approved || 0) : myResearch.filter((r) => r.status === "approved").length,
+    pending: statusCounts ? Number(counts.under_review || 0) + Number(counts.submitted || 0) : myResearch.filter((r) => ["pending", "under_review", "submitted"].includes(r.status)).length,
+    rejected: statusCounts ? Number(counts.rejected || 0) + Number(counts.revision_requested || 0) : myResearch.filter((r) => ["rejected", "revision_requested"].includes(r.status)).length,
     downloads: myResearch.reduce((s, r) => s + (r.downloads || 0), 0),
     views: myResearch.reduce((s, r) => s + (r.views || 0), 0),
     published: myResearch.filter(

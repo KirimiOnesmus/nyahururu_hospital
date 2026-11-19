@@ -327,6 +327,9 @@ const PapersPanel = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStage, setFilterStage] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [researchPage, setResearchPage] = useState(1);
+  const [researchTotal, setResearchTotal] = useState(0);
+  const [serverStageCounts, setServerStageCounts] = useState({ proposal: 0, continuing_review: 0, closed: 0 });
   const [categoryColorMap, setCategoryColorMap] = useState({});
   const [revenue, setRevenue] = useState({
     totalIncome: 0,
@@ -343,6 +346,9 @@ const PapersPanel = () => {
   const [assignTarget, setAssignTarget] = useState(null);
   const [availableReviewers, setAvailableReviewers] = useState([]);
   const [selectedReviewerIds, setSelectedReviewerIds] = useState([]);
+  const [selectedReviewerDetails, setSelectedReviewerDetails] = useState({});
+  const [reviewerPage, setReviewerPage] = useState(1);
+  const [reviewerTotalPages, setReviewerTotalPages] = useState(1);
   const [existingReviewers, setExistingReviewers] = useState([]);
   const [reviewerSearch, setReviewerSearch] = useState("");
   const [assignLoading, setAssignLoading] = useState(false);
@@ -466,18 +472,26 @@ const PapersPanel = () => {
   const fetchResearch = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/research/admin/all", { params: { limit: 50 } });
+      const res = await api.get("/research/admin/all", { params: {
+        limit: 10, page: researchPage, search: searchTerm || undefined,
+        status: filterStatus === "all" ? undefined : filterStatus,
+        stage: filterStage === "all" ? undefined : filterStage,
+      } });
       const papers = Array.isArray(res.data?.data)
         ? res.data.data
         : Array.isArray(res.data)
           ? res.data
           : [];
       setResearchList(papers);
+      setResearchTotal(Number(res.data?.meta?.total || 0));
+      setServerStageCounts(res.data?.meta?.stageCounts || { proposal: 0, continuing_review: 0, closed: 0 });
       setCategoryColorMap(buildCategoryColorMap(papers));
     } catch (err) {
       console.error("Research Fetch error:", err);
       notify.error(err.response?.data?.message || "Error fetching research papers");
       setResearchList([]);
+      setResearchTotal(0);
+      setServerStageCounts({ proposal: 0, continuing_review: 0, closed: 0 });
     } finally {
       setLoading(false);
     }
@@ -501,14 +515,39 @@ const PapersPanel = () => {
   };
 
   useEffect(() => {
-    fetchResearch();
-    fetchRevenue();
-  }, []);
+    const timer = setTimeout(fetchResearch, 250);
+    return () => clearTimeout(timer);
+  }, [searchTerm, filterStage, filterStatus, researchPage]);
+
+  useEffect(() => { setResearchPage(1); }, [searchTerm, filterStage, filterStatus]);
+
+  useEffect(() => { fetchRevenue(); }, []);
+
+  useEffect(() => {
+    if (!assignReviewerOpen) return undefined;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setReviewersLoading(true);
+      try {
+        const data = await research.listReviewers({ search: reviewerSearch || undefined, page: reviewerPage, limit: 50, role: "reviewer" });
+        if (cancelled) return;
+        const pageReviewers = data.reviewers || [];
+        setAvailableReviewers(pageReviewers);
+        setReviewerTotalPages(Math.max(1, Number(data.totalPages || 1)));
+        setSelectedReviewerDetails((previous) => ({ ...previous, ...Object.fromEntries(pageReviewers.map((reviewer) => [reviewer.id, reviewer])) }));
+      } catch {
+        if (!cancelled) setAvailableReviewers([]);
+      } finally {
+        if (!cancelled) setReviewersLoading(false);
+      }
+    }, 200);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [assignReviewerOpen, reviewerSearch, reviewerPage]);
 
 
   const nested = React.useMemo(() => {
     const byId = new Map();
-    researchList.forEach((r) => byId.set(r.id, { ...r, childSubmissions: [] }));
+    researchList.forEach((r) => byId.set(r.id, { ...r, childSubmissions: Array.isArray(r.childSubmissions) ? r.childSubmissions : [] }));
     const top = [];
     researchList.forEach((r) => {
       const node = byId.get(r.id);
@@ -521,22 +560,7 @@ const PapersPanel = () => {
     return top;
   }, [researchList]);
 
-  const filtered = nested.filter((item) => {
-    const q = searchTerm.toLowerCase();
-    const matchIn = (p) =>
-      p.title?.toLowerCase().includes(q) ||
-      p.researcher?.name?.toLowerCase().includes(q) ||
-      p.author?.toLowerCase().includes(q) ||
-      p.abstract?.toLowerCase().includes(q);
-    const kids = item.childSubmissions || [];
-    const matchSearch = !q || matchIn(item) || kids.some(matchIn);
-    const matchStage = filterStage === "all" || studyCategory(item) === filterStage;
-    const matchStatus =
-      filterStatus === "all" ||
-      item.status === filterStatus ||
-      kids.some((c) => c.status === filterStatus);
-    return matchSearch && matchStage && matchStatus;
-  });
+  const filtered = nested;
 
   const revenueByResearch = revenue.byResearch.reduce((acc, r) => {
     acc[r.researchId] = r;
@@ -544,11 +568,7 @@ const PapersPanel = () => {
   }, {});
 
 
-  const stageCounts = {
-    proposal: nested.filter((s) => studyCategory(s) === "proposal").length,
-    continuing_review: nested.filter((s) => studyCategory(s) === "continuing_review").length,
-    closed: nested.filter((s) => studyCategory(s) === "closed").length,
-  };
+  const stageCounts = serverStageCounts;
 
   const closeAddResearcher = () => {
     setAddResearcherOpen(false);
@@ -574,9 +594,9 @@ const PapersPanel = () => {
 
   const handleAssignReviewers = async (e) => {
     e.preventDefault();
-    const selectedEmails = availableReviewers
-      .filter((r) => selectedReviewerIds.includes(r.id))
-      .map((r) => r.email);
+    const selectedEmails = selectedReviewerIds
+      .map((id) => selectedReviewerDetails[id]?.email)
+      .filter(Boolean);
     if (selectedEmails.length < MIN_REVIEWERS) {
       notify.error(`At least ${MIN_REVIEWERS} reviewers are required.`);
       return;
@@ -602,23 +622,20 @@ const PapersPanel = () => {
     setAssignTarget(item);
     setAssignReviewerOpen(true);
     setReviewerSearch("");
-    setReviewersLoading(true);
+    setReviewerPage(1);
+    setSelectedReviewerDetails({});
     try {
-      const [reviewerData, existing] = await Promise.all([
-        research.listReviewers(),
-        research.getResearchReviewers(item.id).catch(() => []),
-      ]);
-      const allReviewers = reviewerData.reviewers ?? [];
-      setAvailableReviewers(allReviewers);
+      const existing = await research.getResearchReviewers(item.id).catch(() => []);
       setExistingReviewers(existing);
       const existingIds = existing.map((r) => r.reviewer?.id || r.reviewerId).filter(Boolean);
       setSelectedReviewerIds(existingIds);
+      setSelectedReviewerDetails(Object.fromEntries(existing.map((entry) => {
+        const reviewer = entry.reviewer || entry;
+        return [reviewer.id || reviewer.reviewerId, reviewer];
+      })));
     } catch {
-      setAvailableReviewers([]);
       setExistingReviewers([]);
       setSelectedReviewerIds([]);
-    } finally {
-      setReviewersLoading(false);
     }
   };
 
@@ -772,7 +789,7 @@ const PapersPanel = () => {
               <option value="all">All Statuses</option>
               <option value="submitted">Submitted</option>
               <option value="returned_for_correction">Returned for Correction</option>
-              <option value="pending">Under Review</option>
+              <option value="under_review">Under Review</option>
               <option value="pending_committee_review">Awaiting Committee</option>
               <option value="pending_officer_review">Awaiting Officer Release</option>
               <option value="revision_requested">Revision Requested</option>
@@ -786,7 +803,7 @@ const PapersPanel = () => {
         {(filterStage !== "all" || filterStatus !== "all" || searchTerm) && (
           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100 flex-wrap">
             <span className="text-xs text-gray-400">
-              Showing {filtered.length} of {nested.length} papers
+              Showing {filtered.length} of {researchTotal} papers
             </span>
             {[
               filterStage !== "all" && {
@@ -1065,6 +1082,15 @@ const PapersPanel = () => {
             }}
           />
         )}
+        {!loading && researchTotal > 10 && (
+          <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 text-sm">
+            <span className="text-gray-500">Page {researchPage} of {Math.ceil(researchTotal / 10)}</span>
+            <div className="flex gap-2">
+              <button type="button" disabled={researchPage <= 1} onClick={() => setResearchPage((p) => Math.max(1, p - 1))} className="rounded border px-3 py-1 disabled:opacity-40">Previous</button>
+              <button type="button" disabled={researchPage >= Math.ceil(researchTotal / 10)} onClick={() => setResearchPage((p) => p + 1)} className="rounded border px-3 py-1 disabled:opacity-40">Next</button>
+            </div>
+          </div>
+        )}
       </div>
 
 
@@ -1233,17 +1259,11 @@ const PapersPanel = () => {
           setSelectedReviewerIds([]);
           setExistingReviewers([]);
           setReviewerSearch("");
+          setReviewerPage(1);
+          setSelectedReviewerDetails({});
         };
 
-        const q = reviewerSearch.trim().toLowerCase();
-        const visibleReviewers = availableReviewers.filter((r) => {
-          if (!q) return true;
-          return (
-            r.name?.toLowerCase().includes(q) ||
-            r.email?.toLowerCase().includes(q) ||
-            r.institution?.toLowerCase().includes(q)
-          );
-        });
+        const visibleReviewers = availableReviewers;
         const selectedCount = selectedReviewerIds.length;
         const canSubmit = selectedCount >= MIN_REVIEWERS;
 
@@ -1320,6 +1340,13 @@ const PapersPanel = () => {
 
                 {/* Select dropdown to add reviewers */}
                 <div className="relative">
+                  <input
+                    type="search"
+                    value={reviewerSearch}
+                    onChange={(e) => { setReviewerSearch(e.target.value); setReviewerPage(1); }}
+                    placeholder="Search reviewers by name, email or institution"
+                    className="mb-2 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500"
+                  />
                   {reviewersLoading ? (
                     <div className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-400">
                       <div className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
@@ -1330,15 +1357,17 @@ const PapersPanel = () => {
                       value=""
                       onChange={(e) => {
                         const id = Number(e.target.value) || e.target.value;
-                        if (id && !selectedReviewerIds.includes(id)) {
+                        const reviewer = availableReviewers.find((candidate) => String(candidate.id) === String(id));
+                        if (reviewer) setSelectedReviewerDetails((previous) => ({ ...previous, [reviewer.id]: reviewer }));
+                        if (id && !selectedReviewerIds.some((selectedId) => String(selectedId) === String(id))) {
                           setSelectedReviewerIds((prev) => [...prev, id]);
                         }
                       }}
                       className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent cursor-pointer appearance-none bg-white"
                     >
                       <option value="">— Select a reviewer to add —</option>
-                      {availableReviewers
-                        .filter((r) => !selectedReviewerIds.includes(r.id))
+                      {visibleReviewers
+                        .filter((r) => !selectedReviewerIds.some((id) => String(id) === String(r.id)))
                         .map((r) => (
                           <option key={r.id} value={r.id}>
                             {r.name} — {r.email}{r.institution ? ` (${r.institution})` : ""}
@@ -1349,11 +1378,21 @@ const PapersPanel = () => {
                   <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none" />
                 </div>
 
+                {reviewerTotalPages > 1 && (
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span>Reviewer page {reviewerPage} of {reviewerTotalPages}</span>
+                    <div className="flex gap-2">
+                      <button type="button" disabled={reviewerPage <= 1} onClick={() => setReviewerPage((p) => Math.max(1, p - 1))} className="rounded border px-2 py-1 disabled:opacity-40">Previous</button>
+                      <button type="button" disabled={reviewerPage >= reviewerTotalPages} onClick={() => setReviewerPage((p) => Math.min(reviewerTotalPages, p + 1))} className="rounded border px-2 py-1 disabled:opacity-40">Next</button>
+                    </div>
+                  </div>
+                )}
+
    
                 {selectedCount > 0 && (
                   <div className="flex flex-wrap gap-2 pt-1">
                     {selectedReviewerIds.map((id) => {
-                      const r = availableReviewers.find((rev) => rev.id === id);
+                      const r = selectedReviewerDetails[id];
                       if (!r) return null;
                       return (
                         <span key={id} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 border border-purple-200 rounded-full text-xs font-semibold text-purple-700">
@@ -1675,6 +1714,10 @@ const ReviewersPanel = () => {
   const [memberTab, setMemberTab] = useState("reviewers");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("all");
+  const [directoryPage, setDirectoryPage] = useState(1);
+  const [directoryTotal, setDirectoryTotal] = useState(0);
+  const [directorySummary, setDirectorySummary] = useState({ reviewerCount: 0, committeeCount: 0, researcherCount: 0, pendingSetupCount: 0 });
+  const DIRECTORY_PAGE_SIZE = 10;
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteForm, setInviteForm] = useState(EMPTY_INVITE);
@@ -1693,45 +1736,36 @@ const ReviewersPanel = () => {
 
   const [drawer, setDrawer] = useState(null);
 
-  const loadReviewers = async () => {
-    try {
-      const data = await research.listReviewers();
-      setReviewers(data.reviewers ?? []);
-    } catch {
-      notify.error("Failed to load reviewers");
-    }
-  };
-
-  const loadResearchers = async () => {
-    try {
-      const data = await research.listAllResearchers({
-        role: "researcher",
-        limit: 200,
-      });
-      setResearchers(data.researchers ?? []);
-    } catch {
-      notify.error("Failed to load researchers");
-    }
-  };
-
-  const loadAll = async () => {
-    try {
-      const data = await research.listAllResearchers({ limit: 200 });
-      setAllMembers(data.researchers ?? []);
-    } catch {
-      notify.error("Failed to load all members");
-    }
-  };
-
   const refreshAll = async () => {
     setLoading(true);
-    await Promise.all([loadReviewers(), loadResearchers(), loadAll()]);
-    setLoading(false);
+    try {
+      const params = { page: directoryPage, limit: DIRECTORY_PAGE_SIZE, search: searchTerm || undefined };
+      if (memberTab === "reviewers" || memberTab === "committee") {
+        const data = await research.listReviewers({ ...params, role: memberTab === "committee" ? "committee" : "reviewer" });
+        setReviewers(data.reviewers ?? []);
+        setDirectoryTotal(Number(data.total || 0));
+        setDirectorySummary(data.summary || {});
+      } else {
+        const role = memberTab === "researchers" ? "researcher" : filterRole === "all" ? undefined : filterRole;
+        const data = await research.listAllResearchers({ ...params, role });
+        if (memberTab === "researchers") setResearchers(data.researchers ?? []);
+        else setAllMembers(data.researchers ?? []);
+        setDirectoryTotal(Number(data.total || 0));
+        setDirectorySummary(data.summary || {});
+      }
+    } catch {
+      notify.error(`Failed to load ${memberTab === "all" ? "members" : memberTab}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    refreshAll();
-  }, []);
+    const timer = setTimeout(refreshAll, 250);
+    return () => clearTimeout(timer);
+  }, [memberTab, searchTerm, filterRole, directoryPage]);
+
+  useEffect(() => { setDirectoryPage(1); }, [memberTab, searchTerm, filterRole]);
 
   const committeeMembers = reviewers.filter(
     (r) => r.role === "research_committee" || r.isCommittee === true
@@ -1745,21 +1779,11 @@ const ReviewersPanel = () => {
     all: allMembers,
   };
   const source = SOURCE_MAP[memberTab] ?? [];
+  const filtered = source;
 
-  const filtered = source.filter((m) => {
-    const q = searchTerm.toLowerCase();
-    const matchSearch =
-      m.name?.toLowerCase().includes(q) ||
-      m.email?.toLowerCase().includes(q) ||
-      m.institution?.toLowerCase().includes(q) ||
-      m.discipline?.toLowerCase().includes(q);
-    const matchRole = filterRole === "all" || m.role === filterRole;
-    return matchSearch && matchRole;
-  });
-
-  const totalReviewers = activeReviewers.length;
-  const pendingSetup = reviewers.filter((r) => !r.emailVerified).length;
-  const totalResearchers = researchers.length;
+  const totalReviewers = Number(directorySummary.reviewerCount || 0);
+  const pendingSetup = Number(directorySummary.pendingSetupCount || 0);
+  const totalResearchers = Number(directorySummary.researcherCount || 0);
 
   const roleFilterOptions = {
     reviewers: [
@@ -2026,7 +2050,7 @@ const ReviewersPanel = () => {
         {(searchTerm || filterRole !== "all") && (
           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100 flex-wrap">
             <span className="text-xs text-gray-400">
-              Showing {filtered.length} of {source.length}
+              Showing {filtered.length} of {directoryTotal}
             </span>
             {[
               searchTerm && {
@@ -2187,6 +2211,16 @@ const ReviewersPanel = () => {
           </div>
         )}
       </div>
+
+      {!loading && directoryTotal > DIRECTORY_PAGE_SIZE && (
+        <div className="flex items-center justify-between px-4 py-3 text-sm text-gray-500">
+          <span>Page {directoryPage} of {Math.ceil(directoryTotal / DIRECTORY_PAGE_SIZE)}</span>
+          <div className="flex gap-2">
+            <button type="button" disabled={directoryPage <= 1} onClick={() => setDirectoryPage((p) => Math.max(1, p - 1))} className="rounded border px-3 py-1 disabled:opacity-40">Previous</button>
+            <button type="button" disabled={directoryPage >= Math.ceil(directoryTotal / DIRECTORY_PAGE_SIZE)} onClick={() => setDirectoryPage((p) => p + 1)} className="rounded border px-3 py-1 disabled:opacity-40">Next</button>
+          </div>
+        </div>
+      )}
 
       {inviteOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
