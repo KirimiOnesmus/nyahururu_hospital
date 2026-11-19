@@ -174,31 +174,9 @@ const Doctors = () => {
         </div>
 
         {!loading && doctors.length > 0 && (
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-8">
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div className="flex flex-col gap-1 min-w-[200px]">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                  Department
-                </label>
-                <select
-                  value={selectedDepartment || ""}
-                  onChange={(e) =>
-                    handleDepartmentChange(e.target.value || null)
-                  }
-                  className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700
-                             text-sm font-medium outline-none focus:border-blue-400 focus:ring-2
-                             focus:ring-blue-100 transition-all"
-                >
-                  <option value="">All Departments</option>
-                  {allDepartments.map((dept) => (
-                    <option key={dept} value={dept}>
-                      {dept}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-4 shrink-0">
+          <div className="py-2 mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+              <div className="flex items-center gap-4 sm:mr-auto">
                 <p className="text-sm text-slate-500">
                   Showing{" "}
                   <span className="font-bold text-slate-800">
@@ -214,31 +192,35 @@ const Doctors = () => {
                   <button
                     onClick={handleClearFilters}
                     className="flex items-center gap-1.5 text-xs font-semibold text-red-500
-                               hover:text-red-700 border border-red-200 hover:border-red-400
-                               px-3 py-1.5 rounded-lg transition-colors duration-150"
+                               hover:text-red-700 px-2 py-1.5 transition-colors duration-150"
                   >
                     <FaTimes className="text-[10px]" /> Clear filter
                   </button>
                 )}
               </div>
-            </div>
 
-            {selectedDepartment && (
-              <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-100">
-                <span
-                  className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50
-                                 border border-blue-200 text-blue-700 text-xs font-semibold"
+              <div className="flex flex-col gap-1 w-full sm:w-64 sm:ml-auto">
+                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                  Department
+                </label>
+                <select
+                  value={selectedDepartment || ""}
+                  onChange={(e) =>
+                    handleDepartmentChange(e.target.value || null)
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700
+                             text-sm font-medium outline-none focus:border-blue-400 focus:ring-2
+                             focus:ring-blue-100 transition-all"
                 >
-                  Speciality: {selectedDepartment}
-                  <button
-                    onClick={handleClearFilters}
-                    className="hover:text-blue-900"
-                  >
-                    <FaTimes className="text-[9px]" />
-                  </button>
-                </span>
+                  <option value="">All Departments</option>
+                  {allDepartments.map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+                </select>
               </div>
-            )}
+            </div>
           </div>
         )}
 
