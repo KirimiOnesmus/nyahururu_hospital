@@ -44,6 +44,7 @@ const ambulanceRoutes        = require("./routes/ambulanceBookingRoutes");
 const anonymousAppointmentRoutes = require("./routes/anonymousRoute");
 const doctorRoutes           = require("./routes/doctorsRoutes");
 const serviceRoutes          = require("./routes/servicesRoutes");
+const importRoutes           = require("./controllers/importController");
 const bloodDonorRoutes       = require("./routes/bloodDonorRoutes");
 
 // Operations & Admin
@@ -137,7 +138,7 @@ app.use(
     },
     credentials: true,                     
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Client-Session-Id"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Client-Session-Id", "X-Import-Request"],
     exposedHeaders: ["X-Session-Logged-Out", "X-Client-Session-Id"],
   })
 );
@@ -234,7 +235,8 @@ app.use("/api", async (req, res, next) => {
     const role = await getCurrentRole(req);
     if (role !== "superadmin") return next();
     const route = req.originalUrl.split("?", 1)[0].replace(/\/+$/, "");
-    const allowed =
+    const isImportMutation = route.startsWith("/api/admin/imports/") && ["POST", "DELETE"].includes(req.method);
+    const allowed = isImportMutation ||
       (req.method === "POST" && ["/api/users", "/api/auth/login", "/api/auth/logout", "/api/profile/change-password", "/api/sessions/activity", "/api/researchers/login"].includes(route)) ||
       (req.method === "PUT" && route === "/api/system/settings/maintenance") ||
       (req.method === "POST" && route === "/api/auth/refresh");
@@ -275,6 +277,7 @@ app.use("/api/ambulance-bookings", ambulanceRoutes);
 app.use("/api/anonymous",     anonymousAppointmentRoutes);
 app.use("/api/doctors",       doctorRoutes);
 app.use("/api/services",      serviceRoutes);
+app.use("/api/admin/imports", importRoutes);
 app.use("/api/blood-donation", bloodDonorRoutes);
 
 // Operations & Admin 

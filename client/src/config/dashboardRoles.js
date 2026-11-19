@@ -16,6 +16,7 @@ import {
   FaBullhorn,
   FaGavel,
   FaClipboardCheck,
+  FaFileUpload,
 } from "react-icons/fa";
 import { BiSolidDonateHeart } from "react-icons/bi";
 
@@ -147,6 +148,7 @@ export const DASHBOARD_NAV = [
     category: "System",
     items: [
       { title: "System Controls", path: "/dashboard/system", roles: ["superadmin"], icon: FaHospital },
+      { title: "Bulk Imports", path: "/dashboard/imports", roles: ["superadmin"], icon: FaFileUpload },
       {
         title: "Audit Logs",
         path: "/dashboard/audit-logs",

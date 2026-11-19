@@ -1,0 +1,41 @@
+"use strict";
+
+module.exports = (sequelize, DataTypes) => sequelize.define("ImportBatch", {
+  id: { type: DataTypes.BIGINT.UNSIGNED, autoIncrement: true, primaryKey: true },
+  entity: { type: DataTypes.STRING(60), allowNull: false },
+  tier: { type: DataTypes.TINYINT.UNSIGNED, allowNull: false },
+  mode: { type: DataTypes.STRING(20), allowNull: false },
+  status: {
+    type: DataTypes.ENUM("failed", "validated", "awaiting_approval", "committed", "discarded", "rolled_back", "expired"),
+    allowNull: false,
+  },
+  originalFilename: { type: DataTypes.STRING(255), allowNull: false },
+  fileSha256: { type: DataTypes.CHAR(64), allowNull: false },
+  fileSize: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
+  rowCount: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
+  createdCount: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
+  updatedCount: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
+  unchangedCount: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
+  errorCount: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
+  warningCount: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
+  errors: DataTypes.JSON,
+  warnings: DataTypes.JSON,
+  preview: DataTypes.JSON,
+  payload: DataTypes.JSON,
+  beforeSnapshot: DataTypes.JSON,
+  uploadedBy: DataTypes.BIGINT.UNSIGNED,
+  approvedBy: DataTypes.BIGINT.UNSIGNED,
+  committedBy: DataTypes.BIGINT.UNSIGNED,
+  rolledBackBy: DataTypes.BIGINT.UNSIGNED,
+  committedAt: DataTypes.DATE,
+  rolledBackAt: DataTypes.DATE,
+  expiresAt: { type: DataTypes.DATE, allowNull: false },
+}, {
+  tableName: "import_batches",
+  indexes: [
+    { fields: ["entity", "status"] },
+    { fields: ["file_sha256", "entity"] },
+    { fields: ["uploaded_by"] },
+    { fields: ["expires_at"] },
+  ],
+});

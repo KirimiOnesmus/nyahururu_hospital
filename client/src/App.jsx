@@ -100,6 +100,7 @@ const ReportsPage = lazy(() => import("./components/Dashboard/ReportsPage"));
 const Donations = lazy(() => import("./components/Dashboard/Donations"));
 const AuditLogPage = lazy(() => import("./components/Dashboard/AuditLog"));
 const SuperAdminSystem = lazy(() => import("./components/Dashboard/SuperAdmin"));
+const ImportPage = lazy(() => import("./components/Dashboard/ImportPage"));
 
 
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
@@ -205,6 +206,7 @@ function App() {
             <Route path="/dashboard/donations" element={<Guarded path="/dashboard/donations"><Donations /></Guarded>} />
             <Route path="/dashboard/audit-logs" element={<Guarded path="/dashboard/audit-logs"><AuditLogPage /></Guarded>} />
             <Route path="/dashboard/system" element={<Guarded path="/dashboard/system"><SuperAdminSystem /></Guarded>} />
+            <Route path="/dashboard/imports" element={<Guarded path="/dashboard/imports"><ImportPage /></Guarded>} />
           </Route>
         </Routes>
       </Suspense>

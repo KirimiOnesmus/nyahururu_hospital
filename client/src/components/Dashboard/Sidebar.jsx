@@ -181,6 +181,12 @@ const Sidebar = () => {
           icon: IconHospital,
         },
         {
+          title: "Bulk Imports",
+          path: "/dashboard/imports",
+          roles: ["superadmin"],
+          icon: IconDocument,
+        },
+        {
           title: "Audit Logs",
           path: "/dashboard/audit-logs",
           roles: ["superadmin", "it"],

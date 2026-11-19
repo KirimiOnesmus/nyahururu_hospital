@@ -215,7 +215,7 @@ const ServicesPage = () => {
   const fetchServices = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.get("/services", { params: {
+      const res = await api.get("/services/manage", { params: {
         search: searchTerm || undefined,
         division: filterDivision,
         category: filterCategory,
