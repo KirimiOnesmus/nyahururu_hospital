@@ -204,7 +204,7 @@ const ServicesPage = () => {
         search: searchTerm || undefined,
         division: filterDivision,
         category: filterCategory,
-        page, limit: 20,
+        page, limit: 10,
       } });
       const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
       setServices(data);

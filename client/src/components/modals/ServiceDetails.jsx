@@ -7,6 +7,18 @@ import { FaStethoscope, FaCheckCircle, FaHospital, FaTags, FaArrowLeft } from "r
 
 const formatKes = (value) => value == null ? "Price to be confirmed" : `KES ${Number(value).toLocaleString()}`;
 const divisionLabel = (division) => division === "Specialist Clinics" ? "Clinics (Specialized Clinics)" : division;
+const ITEMS_PER_PAGE = 5;
+
+function ItemPagination({ page, pages, onChange, label }) {
+  if (pages <= 1) return null;
+  return <nav className="mt-4 flex items-center justify-between gap-3" aria-label={`${label} pagination`}>
+    <span className="text-xs text-slate-500">Page {page} of {pages}</span>
+    <div className="flex gap-2">
+      <button type="button" disabled={page <= 1} onClick={() => onChange(page - 1)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40">Previous</button>
+      <button type="button" disabled={page >= pages} onClick={() => onChange(page + 1)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40">Next</button>
+    </div>
+  </nav>;
+}
 
 const ServiceDetails = () => {
   const { id: slug } = useParams();
@@ -14,6 +26,9 @@ const ServiceDetails = () => {
   const [service, setService] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [groupPages, setGroupPages] = useState([1, 1]);
+
+  useEffect(() => setGroupPages([1, 1]), [slug]);
 
   useEffect(() => {
     let active = true;
@@ -35,6 +50,11 @@ const ServiceDetails = () => {
   const covered = (service.items || []).filter((item) => item.shaCovered);
   const uncovered = (service.items || []).filter((item) => !item.shaCovered);
   const priceLists = [["Services covered by SHA", covered], ["Services not covered by SHA", uncovered]];
+  const pageItems = (items, groupIndex) => {
+    const pageCount = Math.max(1, Math.ceil(items.length / ITEMS_PER_PAGE));
+    const currentPage = Math.min(groupPages[groupIndex], pageCount);
+    return { pageCount, currentPage, items: items.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE) };
+  };
 
   return <Shell>
     {backButton}
@@ -48,15 +68,19 @@ const ServiceDetails = () => {
       <p className="mt-4 max-w-4xl text-slate-600 leading-relaxed whitespace-pre-line">{service.description}</p>
 
       <div className="mt-10 grid gap-10 md:grid-cols-2">
-        {priceLists.map(([heading, items]) => <section key={heading}>
+        {priceLists.map(([heading, items], groupIndex) => {
+          const page = pageItems(items, groupIndex);
+          return <section key={heading}>
           <div className="flex items-center gap-2 mb-4"><FaCheckCircle className={heading.includes("not") ? "text-slate-400" : "text-emerald-600"} /><h2 className="text-lg font-bold text-slate-800">{heading}</h2><span className="text-sm text-slate-400">{items.length}</span></div>
           {items.length ? <ul className="divide-y divide-slate-200">
-            {items.map((item) => <li key={item.id} className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 py-3">
+            {page.items.map((item) => <li key={item.id} className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 py-3">
               <span className="text-sm text-slate-700">{item.name}</span>
               <span className="sm:text-right text-xs text-slate-500">Cash/mobile: {formatKes(item.cashPrice)}{item.shaCovered ? <><br />SHA: {formatKes(item.shaPrice)}</> : null}</span>
             </li>)}
           </ul> : <p className="text-sm text-slate-500">No services listed in this group.</p>}
-        </section>)}
+          <ItemPagination page={page.currentPage} pages={page.pageCount} label={heading} onChange={(nextPage) => setGroupPages((current) => current.map((value, index) => index === groupIndex ? nextPage : value))} />
+        </section>;
+        })}
       </div>
       <div className="mt-12 py-8 text-center border-t border-slate-200">
         <h2 className="text-xl font-bold text-slate-800">Ready to get started?</h2>
