@@ -32,7 +32,7 @@ const Contact = () => {
             {CONTACT_INFO.map(({ icon: Icon, label, value }) => (
               <div
                 key={label}
-                className="bg-surface border border-line rounded-2xl p-5 flex items-start gap-4 shadow-sm"
+                className="bg-surface rounded-2xl p-5 flex items-start gap-4"
               >
                 <div className="w-11 h-11 rounded-lg bg-primary-soft flex items-center justify-center shrink-0">
                   <Icon className="w-4 h-4 text-primary" aria-hidden="true" />
@@ -47,7 +47,7 @@ const Contact = () => {
             ))}
           </aside>
 
-          <div className="md:col-span-2 bg-surface border border-line rounded-2xl overflow-hidden flex flex-col shadow-sm">
+          <div className="md:col-span-2 bg-surface rounded-2xl overflow-hidden flex flex-col">
             {mapsAllowed ? (
               <iframe
                 title="Nyahururu County Referral Hospital location"
@@ -76,7 +76,7 @@ const Contact = () => {
               </div>
             )}
 
-            <div className="flex items-center justify-between gap-3 p-4 border-t border-line bg-canvas">
+            <div className="flex items-center justify-between gap-3 p-4 bg-canvas">
               <div className="flex items-center gap-2 text-ink-muted min-w-0">
                 <IconMapPin className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
                 <span className="text-sm font-medium truncate">

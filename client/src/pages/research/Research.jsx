@@ -219,7 +219,7 @@ const Research = () => {
           <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-500" />
 
           <div className="relative max-w-5xl mx-auto px-6 py-20 md:py-28 text-center">
-            <div className="inline-flex items-center gap-2 bg-white/10 border border-white/25 rounded-full px-4 py-1.5 text-sm font-semibold mb-6 backdrop-blur-sm">
+            <div className="inline-flex items-center gap-2 bg-white/10 rounded-full px-4 py-1.5 text-sm font-semibold mb-6 backdrop-blur-sm">
               <FaFlask className="text-green-400" />
               NCRH Research Ethics Portal
             </div>
@@ -262,7 +262,7 @@ const Research = () => {
           </div>
         </section>
 
-        <section className="bg-white border-b border-gray-100">
+        <section className="bg-white">
           <div className="max-w-5xl mx-auto px-6 py-10 grid grid-cols-2 md:grid-cols-4 gap-6">
             {STATS.map(({ icon: Icon, key, value, label }) => {
               const display = key
@@ -317,7 +317,7 @@ const Research = () => {
 
             <div className="grid grid-cols-2 gap-4">
               {FEATURES.slice(0, 4).map(({ icon: Icon, title, desc, color, bg }) => (
-                <div key={title} className="bg-white rounded-xl border border-gray-100 p-5 transition-shadow hover:shadow-sm">
+                <div key={title} className="bg-white rounded-xl p-5">
                   <div className={`w-10 h-10 ${bg} rounded-lg flex items-center justify-center mb-3`}>
                     <Icon className={`text-lg ${color}`} />
                   </div>
@@ -346,7 +346,7 @@ const Research = () => {
 
             <div className="grid md:grid-cols-3 gap-6">
               {LIFECYCLE.map(({ icon: Icon, title, type, desc, badge, badgeColor, bg, iconColor }) => (
-                <div key={title} className="bg-surface border border-line rounded-xl p-6 shadow-sm">
+                <div key={title} className="bg-surface rounded-xl p-6">
                   <Icon className={`text-2xl mb-3 ${iconColor}`} />
                   <h3 className="font-bold text-gray-900 text-lg mb-1">{title}</h3>
                   <p className="text-xs text-gray-500 font-semibold mb-3">{type}</p>
@@ -381,7 +381,7 @@ const Research = () => {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {SUBMISSION_TYPES.map(({ icon: Icon, title, desc, color, bg }) => (
-              <div key={title} className="bg-white rounded-xl border border-gray-100 p-6 hover:shadow-sm transition-shadow">
+              <div key={title} className="bg-white rounded-xl p-6">
                 <div className={`w-12 h-12 ${bg} rounded-xl flex items-center justify-center mb-4`}>
                   <Icon className={`text-xl ${color}`} />
                 </div>
@@ -412,7 +412,7 @@ const Research = () => {
               {HOW_IT_WORKS.map(({ step, icon: Icon, title, desc, color }) => {
                 const c = colorMap[color];
                 return (
-                  <div key={step} className="bg-white rounded-xl border border-gray-100 p-6 hover:shadow-sm transition-shadow relative">
+                  <div key={step} className="bg-white rounded-xl p-6 relative">
                     <span className={`absolute top-4 right-4 text-2xl font-extrabold ${c.text} opacity-20`}>
                       {step}
                     </span>
@@ -441,7 +441,7 @@ const Research = () => {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {FEATURES.map(({ icon: Icon, title, desc, color, bg }) => (
-              <div key={title} className="bg-white rounded-xl border border-gray-100 p-6 hover:shadow-sm transition-shadow">
+              <div key={title} className="bg-white rounded-xl p-6">
                 <div className={`w-10 h-10 ${bg} rounded-lg flex items-center justify-center mb-3`}>
                   <Icon className={`text-lg ${color}`} />
                 </div>

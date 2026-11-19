@@ -63,9 +63,9 @@ const ReportFraud = () => {
           </h2>
         </div>
 
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex gap-4 mb-8">
+        <div className="bg-amber-50 rounded-2xl p-5 flex gap-4 mb-8">
           <div
-            className="shrink-0 w-9 h-9 rounded-lg bg-amber-100 border border-amber-200
+            className="shrink-0 w-9 h-9 rounded-lg bg-amber-100
                           flex items-center justify-center"
           >
             <FaExclamationTriangle className="text-amber-600 text-sm" />
@@ -94,10 +94,10 @@ const ReportFraud = () => {
           ].map(({ icon: Icon, title, body }) => (
             <div
               key={title}
-              className="bg-white border border-slate-200 rounded-2xl p-5 flex items-start gap-4"
+              className="bg-white rounded-2xl p-5 flex items-start gap-4"
             >
               <div
-                className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-100
+                className="w-9 h-9 rounded-lg bg-blue-50
                               flex items-center justify-center shrink-0"
               >
                 <Icon className="text-blue-600 text-sm" />
@@ -112,8 +112,8 @@ const ReportFraud = () => {
           ))}
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-8">
-          <div className="mb-6 pb-5 border-b border-slate-100">
+        <div className="bg-white rounded-2xl p-8">
+          <div className="mb-6 pb-5">
             <h3 className="text-base font-bold text-slate-800">
               Describe Your Concern
             </h3>

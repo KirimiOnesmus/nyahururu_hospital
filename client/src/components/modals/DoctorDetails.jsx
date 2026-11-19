@@ -61,7 +61,7 @@ const DoctorDetails = () => {
     return (
       <Shell>
         <div className="flex flex-col items-center justify-center py-32 gap-4 text-center">
-          <div className="w-14 h-14 rounded-full bg-red-50 border border-red-200 flex items-center justify-center">
+          <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center">
             <FaUserMd className="text-2xl text-red-400" />
           </div>
           <p className="font-semibold text-slate-700">{error || "Doctor not found."}</p>
@@ -101,14 +101,14 @@ const DoctorDetails = () => {
         <FaArrowLeft className="text-xs" /> Back to Specialists
       </button>
 
-      <div className="bg-blue-50 border border-slate-200 rounded-2xl overflow-hidden mb-6">
+      <div className="bg-blue-50 rounded-2xl overflow-hidden mb-6">
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 p-8">
           <div className="shrink-0">
             {avatarSrc ? (
               <img
                 src={avatarSrc}
                 alt={fullName}
-                className="w-32 h-32 object-cover rounded-xl border border-slate-200"
+                className="w-32 h-32 object-cover rounded-xl"
               />
             ) : (
               <div className="w-32 h-32 rounded-xl bg-blue-600 flex items-center justify-center">
@@ -128,7 +128,7 @@ const DoctorDetails = () => {
             </p>
             {doctor.department && (
               <span
-                className="inline-block px-3 py-1 rounded-full bg-slate-100 border border-slate-200
+                className="inline-block px-3 py-1 rounded-full bg-slate-100
                                text-slate-600 text-xs font-semibold"
               >
                 {doctor.department}
@@ -140,8 +140,8 @@ const DoctorDetails = () => {
 
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2 flex flex-col gap-6">
-          <div className="bg-white border border-slate-200 rounded-2xl p-6">
-            <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-100">
+          <div className="bg-white rounded-2xl p-6">
+            <div className="flex items-center gap-2 mb-4 pb-4">
               <FaUserMd className="text-blue-500 text-sm" />
               <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">
                 Professional Bio
@@ -156,8 +156,8 @@ const DoctorDetails = () => {
             </p>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-6">
-            <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-100">
+          <div className="bg-white rounded-2xl p-6">
+            <div className="flex items-center gap-2 mb-4 pb-4">
               <FaGraduationCap className="text-blue-500 text-sm" />
               <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">
                 Educational Qualifications
@@ -172,8 +172,8 @@ const DoctorDetails = () => {
         </div>
 
         <div className="md:col-span-1">
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 sticky top-24">
-            <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-100">
+          <div className="bg-white rounded-2xl p-6 sticky top-24">
+            <div className="flex items-center gap-2 mb-4 pb-4">
               <FaCalendarAlt className="text-blue-500 text-sm" />
               <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">
                 Availability

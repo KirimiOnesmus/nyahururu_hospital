@@ -13,7 +13,6 @@ import {
   FaSearch,
   FaFolder,
   FaSpinner,
-  FaExclamationTriangle,
 } from "react-icons/fa";
 import notify from "../common/utils/notify";
 
@@ -30,8 +29,7 @@ const EXT_ICONS = {
 };
 
 const BASE_CARD = `
-  bg-white rounded-2xl border border-slate-200 p-6 flex flex-col gap-4
-  transition-colors hover:border-blue-300
+  p-4 sm:p-6 flex flex-col gap-4
 `.trim();
 
 const PRIMARY_BTN = `
@@ -148,18 +146,18 @@ const EmptyState = ({ hasFilters }) => (
 );
 
 const ErrorBanner = ({ onRetry }) => (
-  <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 flex items-start gap-3 text-sm text-red-700">
-    <FaExclamationTriangle className="shrink-0 mt-0.5" />
-    <div className="flex-1">
-      <p className="font-semibold">Failed to load reports.</p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="text-red-600 font-semibold hover:underline mt-1"
-      >
-        Try again
-      </button>
+  <div className="flex flex-col items-center justify-center py-28 gap-4 text-center">
+    <div className="w-20 h-20 bg-red-50 rounded-2xl flex items-center justify-center">
+      <FaFileAlt aria-hidden="true" className="text-3xl text-red-300" />
     </div>
+    <p className="text-slate-500 font-semibold">Couldn’t load downloads right now</p>
+    <button
+      type="button"
+      onClick={onRetry}
+      className="text-sm text-blue-600 hover:underline cursor-pointer"
+    >
+      Try again
+    </button>
   </div>
 );
 
@@ -244,7 +242,7 @@ const Downloads = () => {
           </p>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-8 flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <div className="py-2 mb-8 flex flex-col sm:flex-row gap-3 items-start sm:items-center">
           <div className="relative flex-1 w-full">
             <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none" />
             <input

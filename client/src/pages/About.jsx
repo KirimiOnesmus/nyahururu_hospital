@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from "react";
 import{ Header, Footer} from "../common/layouts"
 import { Slider, Management } from "../components/layouts";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import historyImage from "../assets/history-hospital.webp";
+import missionVisionImage from "../assets/mission-vision-background.webp";
+import strategicPlanImage from "../assets/strategic-plan.webp";
+import managementTeamImage from "../assets/management-team.webp";
+import boardImage from "../assets/board-of-management.webp";
 import {
-  FaHistory,
   FaBullseye,
   FaEye,
   FaChartLine,
-  FaSitemap,
-  FaUsers,
+  FaUser,
 } from "react-icons/fa";
 
 const menuItems = [
@@ -22,44 +25,30 @@ const menuItems = [
 const strategyPillars = [
   {
     title: "Service Delivery",
-    color: "border-blue-600",
-    bg: "bg-blue-50",
     body: "Improving how patients receive care by enhancing quality, reducing waiting times, and expanding the range of services offered to ensure consistent, patient-centered healthcare.",
   },
   {
     title: "Health Workforce",
-    color: "border-emerald-600",
-    bg: "bg-emerald-50",
     body: "Recruiting, training, and retaining skilled staff while prioritising welfare, motivation, and continuous professional development to enhance performance.",
   },
   {
     title: "Health Information Systems",
-    color: "border-violet-600",
-    bg: "bg-violet-50",
     body: "Modernising hospital operations by digitising records, improving data accuracy, and strengthening reporting systems to support evidence-based decision-making.",
   },
   {
     title: "Access to Medicines & Technology",
-    color: "border-orange-500",
-    bg: "bg-orange-50",
     body: "Ensuring continuous availability of essential medicines, medical supplies, and functional equipment, including modern diagnostic and treatment technologies.",
   },
   {
     title: "Health Financing",
-    color: "border-teal-600",
-    bg: "bg-teal-50",
     body: "Strengthening financial sustainability through diversified revenue, improved insurance uptake, and efficient budgeting to reduce out-of-pocket patient payments.",
   },
   {
     title: "Leadership & Governance",
-    color: "border-slate-600",
-    bg: "bg-slate-50",
     body: "Strengthening accountability, transparent decision-making, inclusive management practices, and stakeholder engagement across the hospital.",
   },
   {
     title: "Infrastructure Development",
-    color: "border-rose-600",
-    bg: "bg-rose-50",
     body: "Construction, renovation, and expansion of hospital facilities — including the outpatient block and perimeter wall — to support increased patient volumes and specialist services.",
   },
 ];
@@ -97,87 +86,146 @@ const boardMembers = [
   },
 ];
 
-const SectionCard = ({
-  icon: Icon,
-  iconColor = "text-blue-600",
-  title,
-  children,
-}) => (
-  <div className="bg-white border border-slate-200 rounded-2xl p-8">
-    <div className="flex items-center gap-3 mb-6 pb-5 border-b border-slate-100">
-      <Icon className={`text-2xl ${iconColor}`} />
-      <h2 className="text-2xl font-bold text-slate-800">{title}</h2>
+const AboutHero = ({ title, image, alt }) => (
+  <section className="relative isolate h-[220px] sm:h-[260px] lg:h-[300px] overflow-hidden bg-slate-900">
+    <img
+      src={image}
+      alt={alt}
+      className="absolute inset-0 -z-10 h-full w-full object-cover object-center"
+    />
+    <div className="absolute inset-0 -z-10 bg-gradient-to-r from-slate-950/75 via-slate-950/40 to-slate-950/10" />
+    <div className="max-w-7xl mx-auto h-full px-5 sm:px-8 flex flex-col justify-center text-white">
+      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-white/85 mb-3">
+        <Link to="/about#about" className="hover:text-white hover:underline">About</Link>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">{title}</span>
+      </nav>
+      <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif font-semibold tracking-wide">{title}</h1>
     </div>
-    {children}
-  </div>
+  </section>
 );
 
-//  About 
+const HistoryHero = () => (
+  <AboutHero
+    title="History"
+    image={historyImage}
+    alt="Historic Nyahururu County Referral Hospital grounds"
+  />
+);
+
+const MissionVisionHero = () => (
+  <AboutHero
+    title="Mission & Vision"
+    image={missionVisionImage}
+    alt="Nyahururu County Referral Hospital grounds"
+  />
+);
+
+const StrategicPlanHero = () => (
+  <AboutHero
+    title="Strategic Plan"
+    image={strategicPlanImage}
+    alt="Medical care symbols representing the hospital strategic plan"
+  />
+);
+
+const ManagementTeamHero = () => (
+  <AboutHero
+    title="Management Team"
+    image={managementTeamImage}
+    alt="Nyahururu County Referral Hospital clinical team"
+  />
+);
+
+const BoardHero = () => (
+  <AboutHero
+    title="Board of Management"
+    image={boardImage}
+    alt="Board members meeting around a conference table"
+  />
+);
+
+// History copy preserved; this page only changes the presentation.
 const AboutSection = () => (
-  <SectionCard icon={FaHistory} title="About Us — History">
-    <div className="space-y-4 text-slate-700 leading-relaxed text-[0.97rem]">
-      <p>
-        Nyahururu County Referral Hospital (NCRH) is located in Laikipia County,
-        Kenya, and serves not only Laikipia but also parts of Nyandarua, Nakuru,
-        Baringo, Samburu, and to a lesser extent, Nyeri County. Prior to Kenya's
-        devolution of governance, the hospital was designated to serve the
-        Nyandarua North District. The hospital was established in 1928 as a
-        dispensary by the British government, consisting of five buildings,
-        including the current administrative block, female surgical ward, female
-        medical unit, Voluntary Counselling and Testing (VCT) room, and
-        mortuary.
-      </p>
-      <p>
-        In 1968, the Kenyan government upgraded it to a District Hospital.
-        Geographically, the hospital is situated at an elevation of
-        approximately 399 metres above sea level, providing a cool climate due
-        to its proximity to the equator. Notable physical features in the
-        vicinity include the Aberdare Ranges to the southeast, the Rift Valley
-        to the west, and Lake Ol Bolossat — the only lake in Kenya's central
-        region — to the southeast. Thomson Falls, a renowned tourist attraction,
-        is also nearby.
-      </p>
-      <p>
-        The hospital is a Level 4 facility offering promotive, preventive,
-        curative, and rehabilitative services, and serves as the primary
-        referral hospital for Level 2 and Level 3 facilities in the region.
-      </p>
+  <section className="max-w-5xl mx-auto px-5 sm:px-8 py-12 sm:py-16 dark:bg-slate-900/40">
+    <header className="text-center mb-8 sm:mb-10">
+      <p className="text-xs font-bold uppercase tracking-[0.22em] text-red-600 mb-2">Snapshot of</p>
+      <h2 className="text-3xl sm:text-4xl font-serif font-semibold text-blue-800 dark:text-blue-200">History</h2>
+    </header>
+    <div>
+      <figure className="mb-7 overflow-hidden">
+        <img
+          src={historyImage}
+          alt="Nyahururu County Referral Hospital grounds"
+          className="w-full aspect-[16/8] object-cover object-center"
+          loading="lazy"
+        />
+      </figure>
+      <div className="space-y-5 text-slate-700 leading-8 text-[0.98rem] sm:text-base">
+        <p>
+          Nyahururu County Referral Hospital (NCRH) is located in Laikipia County,
+          Kenya, and serves not only Laikipia but also parts of Nyandarua, Nakuru,
+          Baringo, Samburu, and to a lesser extent, Nyeri County. Prior to Kenya's
+          devolution of governance, the hospital was designated to serve the
+          Nyandarua North District. The hospital was established in 1928 as a
+          dispensary by the British government, consisting of five buildings,
+          including the current administrative block, female surgical ward, female
+          medical unit, Voluntary Counselling and Testing (VCT) room, and
+          mortuary.
+        </p>
+        <p>
+          In 1968, the Kenyan government upgraded it to a District Hospital.
+          Geographically, the hospital is situated at an elevation of
+          approximately 399 metres above sea level, providing a cool climate due
+          to its proximity to the equator. Notable physical features in the
+          vicinity include the Aberdare Ranges to the southeast, the Rift Valley
+          to the west, and Lake Ol Bolossat — the only lake in Kenya's central
+          region — to the southeast. Thomson Falls, a renowned tourist attraction,
+          is also nearby.
+        </p>
+        <p>
+          The hospital is a Level 4 facility offering promotive, preventive,
+          curative, and rehabilitative services, and serves as the primary
+          referral hospital for Level 2 and Level 3 facilities in the region.
+        </p>
+      </div>
     </div>
-  </SectionCard>
+  </section>
 );
 
 //  Mission 
 const MissionSection = () => (
-  <SectionCard icon={FaBullseye} title="Our Mission">
-    <div className="border-l-4 border-blue-600 pl-6 py-2">
-      <p className="text-slate-700 leading-relaxed text-[0.97rem]">
+  <section className="text-center px-5 py-8 sm:py-10 dark:bg-slate-900/40">
+    <FaBullseye aria-hidden="true" className="text-4xl text-blue-700 mx-auto mb-4" />
+    <h2 className="text-3xl sm:text-4xl font-serif font-semibold text-blue-800 dark:text-blue-200 mb-4">Our Mission</h2>
+    <p className="max-w-3xl mx-auto text-slate-700 leading-relaxed text-base sm:text-lg">
         To provide high-quality, accessible, and equitable healthcare services,
         meeting regional health needs and supporting public health initiatives.
-      </p>
-    </div>
-  </SectionCard>
+    </p>
+  </section>
 );
 
 //  Vision 
 const VisionSection = () => (
-  <SectionCard icon={FaEye} iconColor="text-violet-600" title="Our Vision">
-    <div className="border-l-4 border-violet-600 pl-6 py-2">
-      <p className="text-slate-700 leading-relaxed text-[0.97rem]">
+  <section className="text-center px-5 py-8 sm:py-10 dark:bg-slate-900/40">
+    <FaEye aria-hidden="true" className="text-4xl text-violet-700 mx-auto mb-4" />
+    <h2 className="text-3xl sm:text-4xl font-serif font-semibold text-blue-800 dark:text-blue-200 mb-4">Our Vision</h2>
+    <p className="max-w-3xl mx-auto text-slate-700 leading-relaxed text-base sm:text-lg">
         To provide efficient and effective quality health services to all
         Kenyans.
-      </p>
-    </div>
-  </SectionCard>
+    </p>
+  </section>
 );
 
 //  Strategy 
 const StrategySection = () => (
-  <SectionCard
-    icon={FaChartLine}
-    iconColor="text-emerald-600"
-    title="Strategic Plan"
-  >
-    <p className="text-slate-700 leading-relaxed text-[0.97rem] mb-8">
+  <section className="max-w-5xl mx-auto px-5 sm:px-8 py-12 sm:py-16 dark:bg-slate-900/40">
+    <header className="text-center mb-8 sm:mb-10">
+      <FaChartLine aria-hidden="true" className="text-4xl text-emerald-700 dark:text-emerald-300 mx-auto mb-4" />
+      <p className="text-xs font-bold uppercase tracking-[0.22em] text-red-600 dark:text-red-300 mb-2">Planning for the future</p>
+      <h2 className="text-3xl sm:text-4xl font-serif font-semibold text-blue-800 dark:text-blue-200">Strategic Plan</h2>
+    </header>
+    <p className="text-slate-700 leading-relaxed text-base sm:text-lg mb-10">
       The NCRH Strategic Plan 2025–2029 outlines a roadmap to transform the
       hospital into a Level 5 regional referral facility through improved
       systems, infrastructure, and service capacity. Guided by Kenya's
@@ -185,94 +233,61 @@ const StrategySection = () => (
       emphasises modernising operations, expanding facilities, and ensuring
       long-term financial sustainability and governance.
     </p>
-    <div className="grid md:grid-cols-2 gap-4">
+    <div className="grid md:grid-cols-2 gap-x-12 gap-y-8">
       {strategyPillars.map((p) => (
-        <div
-          key={p.title}
-          className={`${p.bg} border-l-4 ${p.color} rounded-xl p-5`}
-        >
-          <h4 className="font-bold text-slate-800 mb-1.5 text-sm">{p.title}</h4>
-          <p className="text-slate-600 text-sm leading-relaxed">{p.body}</p>
-        </div>
+        <article key={p.title} className="py-3">
+          <h3 className="font-bold text-slate-800 dark:text-slate-100 mb-2">{p.title}</h3>
+          <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base leading-relaxed">{p.body}</p>
+        </article>
       ))}
     </div>
-  </SectionCard>
+  </section>
 );
 
 //  Org Structure 
 const OrgStructureSection = () => (
-  <SectionCard
-    icon={FaSitemap}
-    iconColor="text-indigo-600"
-    title="Management Team"
-  >
-    <p className="text-slate-600 text-[0.97rem] leading-relaxed mb-8">
+  <section className="max-w-6xl mx-auto px-5 sm:px-8 py-12 sm:py-16 dark:bg-slate-900/40">
+    <header className="text-center mb-8 sm:mb-10">
+      <p className="text-xs font-bold uppercase tracking-[0.22em] text-red-600 dark:text-red-300 mb-2">Meet our</p>
+      <h2 className="text-3xl sm:text-4xl font-serif font-semibold text-blue-800 dark:text-blue-200">Management Team</h2>
+    </header>
+    <p className="text-slate-600 dark:text-slate-300 text-base sm:text-lg leading-relaxed text-center max-w-3xl mx-auto mb-10">
       Meet the leaders driving our mission and vision forward with dedication
       and expertise.
     </p>
 
-    <div className="mb-8">
-      <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-5 text-center">
-        Organisational Structure
-      </h3>
-      <div className="flex flex-col items-center gap-4">
-        <div className="border-2 border-blue-600 rounded-xl px-8 py-3 text-center bg-white">
-          <p className="font-bold text-slate-800 text-sm">
-            Chief Executive Officer
-          </p>
-          <p className="text-xs text-slate-500">Hospital Director</p>
-        </div>
-
-        <div className="w-px h-5 bg-slate-300" />
-        <div className="flex flex-wrap justify-center gap-3">
-          {[
-            "Medical Director",
-            "Nursing Director",
-            "Finance Director",
-            "Operations Director",
-          ].map((pos) => (
-            <div
-              key={pos}
-              className="border border-slate-300 rounded-xl px-5 py-2.5 text-center bg-white"
-            >
-              <p className="font-semibold text-slate-700 text-xs">{pos}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-
-    <div className="border-t border-slate-100 pt-6">
-      <Management />
-    </div>
-  </SectionCard>
+    <Management />
+  </section>
 );
 
 const BoardSection = () => (
-  <SectionCard icon={FaUsers} title="Board of Management">
-    <p className="text-slate-600 text-[0.97rem] leading-relaxed mb-8">
+  <section className="max-w-6xl mx-auto px-5 sm:px-8 py-12 sm:py-16 dark:bg-slate-900/40">
+    <header className="text-center mb-8 sm:mb-10">
+      <p className="text-xs font-bold uppercase tracking-[0.22em] text-red-600 dark:text-red-300 mb-2">Meet our</p>
+      <h2 className="text-3xl sm:text-4xl font-serif font-semibold text-blue-800 dark:text-blue-200">Board of Management</h2>
+    </header>
+    <p className="text-slate-600 dark:text-slate-300 text-base sm:text-lg leading-relaxed max-w-3xl mx-auto text-center mb-10">
       Our Board of Management provides strategic oversight and governance,
       ensuring the hospital maintains the highest standards of care and
       operational excellence.
     </p>
-    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-10">
       {boardMembers.map((m) => (
-        <div
-          key={m.name}
-          className="border border-slate-200 rounded-xl p-5 flex flex-col items-center text-center bg-white hover:border-blue-300 transition-colors duration-200"
-        >
-          <div className="w-14 h-14 rounded-full bg-blue-600 flex items-center justify-center mb-4">
-            <FaUsers className="text-xl text-white" />
+        <article key={m.name} className="text-center">
+          <div role="img" aria-label="Neutral profile placeholder" className="h-48 bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
+            <div className="w-28 h-28 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+              <FaUser aria-hidden="true" className="text-5xl text-slate-400 dark:text-slate-500" />
+            </div>
           </div>
-          <p className="font-bold text-slate-800 text-sm">{m.name}</p>
-          <p className="text-xs font-semibold text-blue-600 mt-0.5">
+          <p className="font-bold text-slate-800 dark:text-slate-100">{m.name}</p>
+          <p className="text-sm font-semibold text-blue-700 dark:text-blue-300 mt-1">
             {m.position}
           </p>
-          <p className="text-xs text-slate-500 mt-1">{m.specialty}</p>
-        </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{m.specialty}</p>
+        </article>
       ))}
     </div>
-  </SectionCard>
+  </section>
 );
 
 const sectionMap = {
@@ -303,7 +318,7 @@ const About = () => {
         <Header />
       </div>
 
-      <Slider />
+      {activeSection === "about" ? <HistoryHero /> : activeSection === "mission-vision" ? <MissionVisionHero /> : activeSection === "strategy" ? <StrategicPlanHero /> : activeSection === "org-structure" ? <ManagementTeamHero /> : activeSection === "board" ? <BoardHero /> : <Slider />}
 
       <div className="flex-1 max-w-7xl mx-auto w-full px-4 md:px-6 py-8">
         <main className="min-w-0" aria-live="polite">

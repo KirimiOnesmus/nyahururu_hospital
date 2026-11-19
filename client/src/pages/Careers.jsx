@@ -105,7 +105,7 @@ const JobModal = ({ career, onClose }) => {
   ${career.requirements ? `<div class="mb-6"><h3 class="text-lg font-bold mb-2">Requirements</h3><p class="text-gray-700 leading-relaxed whitespace-pre-line">${career.requirements}</p></div>` : ""}
   ${career.responsibilities ? `<div class="mb-6"><h3 class="text-lg font-bold mb-2">Responsibilities</h3><p class="text-gray-700 leading-relaxed whitespace-pre-line">${career.responsibilities}</p></div>` : ""}
 
-  ${career.urls?.apply ? `<div class="mt-8 pt-6 border-t no-print"><a href="${career.urls.apply}" target="_blank" class="inline-block px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg">Apply for this Position</a></div>` : ""}
+  ${career.urls?.apply ? `<div class="mt-8 pt-6 no-print"><a href="${career.urls.apply}" target="_blank" class="inline-block px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg">Apply for this Position</a></div>` : ""}
 
   <p class="text-center text-gray-400 text-xs mt-10">Generated on ${new Date().toLocaleDateString()}</p>
 </body>
@@ -123,7 +123,7 @@ const JobModal = ({ career, onClose }) => {
       <div className="bg-white w-full max-w-2xl rounded-2xl max-h-[90vh] overflow-y-auto">
 
   
-        <div className="sticky top-0 bg-white border-b border-slate-100 px-8 py-6 rounded-t-2xl">
+        <div className="sticky top-0 bg-white px-8 py-6">
           <button
             onClick={onClose}
             aria-label="Close"
@@ -190,7 +190,7 @@ const JobModal = ({ career, onClose }) => {
             </div>
           )}
 
-          <div className="flex flex-wrap gap-3 pt-2 border-t border-slate-100">
+          <div className="flex flex-wrap gap-3 pt-2">
             <button
               onClick={handlePrint}
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200
@@ -217,7 +217,7 @@ const JobModal = ({ career, onClose }) => {
         </div>
 
    
-        <div className="px-8 py-4 border-t border-slate-100 flex justify-end rounded-b-2xl">
+        <div className="px-8 py-4 flex justify-end">
           <button
             onClick={onClose}
             className="px-5 py-2 text-sm font-semibold text-slate-600 bg-slate-100
@@ -276,7 +276,7 @@ const Careers = () => {
 
         
         <div className="bg-amber-50  rounded-2xl p-5 flex gap-4 mb-10">
-          <div className="shrink-0 w-9 h-9 rounded-lg bg-amber-100 border border-amber-200 flex items-center justify-center">
+          <div className="shrink-0 w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center">
             <FaExclamationTriangle className="text-amber-600 text-sm" />
           </div>
           <p className="text-slate-700 text-sm leading-relaxed">
@@ -287,7 +287,7 @@ const Careers = () => {
         </div>
 
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-8 mb-10">
+        <div className="bg-white rounded-2xl p-8 mb-10">
           <h3 className="text-base font-bold text-slate-800 mb-1">
             Application Process
           </h3>
@@ -299,10 +299,10 @@ const Careers = () => {
             {STEPS.map(({ icon: Icon, step, title, body }) => (
               <div
                 key={step}
-                className="bg-slate-50 border border-slate-100 rounded-2xl p-5 flex flex-col gap-3"
+                className="bg-slate-50 rounded-2xl p-5 flex flex-col gap-3"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                  <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
                     <Icon className="text-blue-600 text-sm" />
                   </div>
                   <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
@@ -319,8 +319,8 @@ const Careers = () => {
         </div>
 
 
-        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-          <div className="px-8 py-6 border-b border-slate-100">
+        <div className="bg-white rounded-2xl overflow-hidden">
+          <div className="px-8 py-6">
             <h3 className="text-base font-bold text-slate-800">
               Available Vacancies
             </h3>
@@ -345,7 +345,7 @@ const Careers = () => {
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-100">
+            <div>
               {careers.map((career) => {
                 const expired = isExpired(career.deadline);
                 return (

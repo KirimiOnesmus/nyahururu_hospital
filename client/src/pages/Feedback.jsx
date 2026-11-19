@@ -65,9 +65,9 @@ const Feedback = () => {
             {CONTACT_INFO.map(({ icon: Icon, label, value }) => (
               <div
                 key={label}
-                className="bg-white border border-slate-200 rounded-2xl p-5 flex items-start gap-4"
+                className="bg-white rounded-2xl p-5 flex items-start gap-4"
               >
-                <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
                   <Icon className="text-blue-600 text-sm" />
                 </div>
                 <div>
@@ -81,8 +81,8 @@ const Feedback = () => {
           </aside>
 
        
-          <div className="md:col-span-2 bg-white border border-slate-200 rounded-2xl p-8">
-            <div className="mb-6 pb-5 border-b border-slate-100">
+          <div className="md:col-span-2 bg-white rounded-2xl p-8">
+            <div className="mb-6 pb-5">
               <h3 className="text-base font-bold text-slate-800">Send Us a Message</h3>
               <p className="text-slate-500 text-sm mt-0.5">We'll get back to you as soon as possible.</p>
             </div>

@@ -1,54 +1,35 @@
 import React from "react";
-import CEO from "../../assets/Management/CEO.jpg";
-import Clinical_Service from "../../assets/Management/HOD Clinal Services.jpg";
-import Nursing from "../../assets/Management/HOD Nursing.jpg";
-import HR from "../../assets/Management/Human Resource.jpg";
+import { FaUser } from "react-icons/fa";
 
 const Management = () => {
   const team = [
     {
       name: "Dr Lawrence Kamande",
       role: "Chief Executive Officer",
-      image: CEO,
-      bio: "Leading NCRH with a vision for patient-centered healthcare and innovation.",
     },
-    // {
-    //   name: "Dr. Jane Mwangi ",
-    //   role: "Chief Medical Officer",
-    //   image: Clinical_Service,
-    //   bio: "Dedicated to advancing clinical care, research, and medical excellence.",
-    // },
-    // {
-    //   name: "Ms. Grace Wanjiru",
-    //   role: "Human Resource/ Director of Operations",
-    //   image: HR,
-    //   bio: "Oversees hospital operations, ensuring smooth service delivery and efficiency.",
-    // },
     {
       name: "Mr. Ireri",
       role: "Hospital Administrator",
-      image: Nursing,
-      bio: "Provides leadership in nursing practice, patient care, and professional development of the nursing team.",
     },
   ];
   return (
-    <div className="grid gap-8 sm:grid-cols-1 md:grid-cols-4">
-      {team.map((member, index) => (
-        <div
-          key={index}
-          className="bg-white rounded-xl shadow-md hover:shadow-lg transition overflow-hidden"
-        >
-          <img
-            src={member.image}
-            alt={member.name}
-            className="w-full h-64 object-fit md:object-cover"
-          />
-          <div className="p-4 space-y-2">
-            <h4 className="text-xl font-bold text-blue-600">{member.name}</h4>
-            <p className="text-sm font-semibold text-gray-600">{member.role}</p>
-          
+    <div className="grid gap-x-8 gap-y-10 sm:grid-cols-2 xl:grid-cols-3">
+      {team.map((member) => (
+        <article key={member.name} className="text-center">
+          <div
+            role="img"
+            aria-label="Neutral profile placeholder"
+            className="w-full h-64 sm:h-72 bg-slate-100 dark:bg-slate-800 flex items-center justify-center"
+          >
+            <div className="w-36 h-36 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+              <FaUser aria-hidden="true" className="text-6xl text-slate-400 dark:text-slate-500" />
+            </div>
           </div>
-        </div>
+          <div className="pt-4 space-y-2">
+            <h4 className="text-lg font-bold text-blue-700 dark:text-blue-300">{member.name}</h4>
+            <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">{member.role}</p>
+          </div>
+        </article>
       ))}
     </div>
   );
