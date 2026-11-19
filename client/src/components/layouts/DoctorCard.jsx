@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ASSET_BASE_URL } from "../../config/env";
 
 const BACKEND_URL = ASSET_BASE_URL;
+const slugify = (value) => String(value || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 const DoctorCard = ({ doctor }) => {
   const fullName =
@@ -14,9 +15,10 @@ const DoctorCard = ({ doctor }) => {
         doctor.user?.lastName ||
         doctor.userId?.lastName ||
         "Unnamed Doctor";
+  const publicSlug = doctor.publicSlug || slugify(`${fullName}-${doctor.speciality || "specialist"}`);
 
   return (
-    <Link to={`/doctors/${doctor.id}`} className="block h-full">
+    <Link to={`/doctors/${publicSlug}`} className="block h-full">
       <div className="bg-surface border border-line rounded-2xl overflow-hidden h-full flex flex-col hover:border-primary shadow-sm transition-colors">
         <div className="relative w-full h-52 bg-canvas overflow-hidden">
           {doctor.user?.profile?.imageUrl || doctor.profile?.imageUrl ? (

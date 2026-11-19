@@ -115,7 +115,7 @@ export default function ImportPage() {
       <header>
         <p className="text-xs font-bold uppercase tracking-[.18em] text-primary">Superadmin tools</p>
         <h1 className="mt-1 text-3xl font-bold">Bulk data import</h1>
-        <p className="mt-2 max-w-3xl text-sm text-ink-muted">Validate a CSV preview before changing published service and department information. Imports are audited and can be rolled back if the data has not changed since commit.</p>
+        <p className="mt-2 max-w-3xl text-sm text-ink-muted">Import departments first, then upload their individual services with cash prices and SHA coverage in the service CSV. SHA coverage is recorded per service row; it is not a separate upload. Imports are audited and can be rolled back if the data has not changed since commit.</p>
       </header>
 
       {error && <div role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}

@@ -81,7 +81,6 @@ const Home = () => {
               {serviceLimit.map((service) => (
                 <Card
                   key={service.id}
-                  id={service.id}
                   image={`${BACKEND_URL}${service.imageUrl}`}
                   title={service.name}
                   description={service.description}
