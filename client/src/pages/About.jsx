@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import{ Header, Footer} from "../common/layouts"
 import { Slider, Management } from "../components/layouts";
+import { useLocation } from "react-router-dom";
 import {
   FaHistory,
   FaBullseye,
@@ -8,17 +9,14 @@ import {
   FaChartLine,
   FaSitemap,
   FaUsers,
-  FaBars,
-  FaTimes,
 } from "react-icons/fa";
 
 const menuItems = [
-  { id: "about", label: "About Us — History", icon: FaHistory },
-  { id: "mission", label: "Our Mission", icon: FaBullseye },
-  { id: "vision", label: "Our Vision", icon: FaEye },
-  { id: "strategy", label: "Strategic Plan", icon: FaChartLine },
-  { id: "org-structure", label: "Management Team", icon: FaSitemap },
-  { id: "board", label: "Board of Management", icon: FaUsers },
+  { id: "about", label: "History" },
+  { id: "mission-vision", label: "Mission & Vision" },
+  { id: "strategy", label: "Strategic Plan" },
+  { id: "org-structure", label: "Management Team" },
+  { id: "board", label: "Board of Management" },
 ];
 
 const strategyPillars = [
@@ -279,21 +277,25 @@ const BoardSection = () => (
 
 const sectionMap = {
   about: <AboutSection />,
-  mission: <MissionSection />,
-  vision: <VisionSection />,
+  "mission-vision": <><MissionSection /><VisionSection /></>,
   strategy: <StrategySection />,
   "org-structure": <OrgStructureSection />,
   board: <BoardSection />,
 };
 
 const About = () => {
-  const [activeSection, setActiveSection] = useState("about");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { hash } = useLocation();
+  const requestedSection = hash.slice(1);
+  const initialSection = menuItems.some((item) => item.id === requestedSection)
+    ? requestedSection
+    : "about";
+  const [activeSection, setActiveSection] = useState(initialSection);
 
-  const handleMenuClick = (id) => {
-    setActiveSection(id);
-    setMobileMenuOpen(false);
-  };
+  useEffect(() => {
+    setActiveSection(
+      menuItems.some((item) => item.id === requestedSection) ? requestedSection : "about",
+    );
+  }, [requestedSection]);
 
   return (
     <div className="flex flex-col min-h-screen bg-canvas">
@@ -303,56 +305,10 @@ const About = () => {
 
       <Slider />
 
-      <div className="flex flex-1 relative max-w-7xl mx-auto w-full px-4 md:px-6 py-8 gap-6 items-start">
-        {/* Mobile toggle */}
-        <button
-          onClick={() => setMobileMenuOpen((v) => !v)}
-          className="md:hidden fixed bottom-8 left-5 z-40 bg-blue-600 text-white p-3.5 rounded-full"
-          aria-label="Toggle menu"
-        >
-          {mobileMenuOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
-        </button>
-
-      
-        {mobileMenuOpen && (
-          <div
-            className="fixed inset-0 bg-black/40 z-30 md:hidden"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-        )}
-
-        <aside
-          className={`
-            fixed md:sticky top-[72px] left-0 h-[calc(100vh-72px)] md:h-auto
-            bg-white border-r border-slate-200 md:border md:border-slate-200
-            md:rounded-2xl z-40 md:z-auto
-            transition-transform duration-300 ease-in-out
-            ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-            w-64 md:w-60 overflow-y-auto shrink-0
-          `}
-        >
-          <nav className="p-4 space-y-0.5">
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 px-3 pb-3 pt-1">
-              Sections
-            </p>
-            {menuItems.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => handleMenuClick(id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors duration-150 text-left ${
-                  activeSection === id
-                    ? "bg-blue-600 text-white"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-blue-600"
-                }`}
-              >
-                <Icon className="text-base flex-shrink-0" />
-                {label}
-              </button>
-            ))}
-          </nav>
-        </aside>
-
-        <main className="flex-1 min-w-0">{sectionMap[activeSection]}</main>
+      <div className="flex-1 max-w-7xl mx-auto w-full px-4 md:px-6 py-8">
+        <main className="min-w-0" aria-live="polite">
+          {sectionMap[activeSection]}
+        </main>
       </div>
 
       <Footer />
