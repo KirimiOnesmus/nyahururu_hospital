@@ -6,7 +6,7 @@ const WelcomeIntro = () => {
   const navigate = useNavigate();
 
   return (
-    <section className="bg-primary-soft py-16 px-6">
+    <section className="bg-blue-100 dark:bg-blue-900 py-16 px-6 sm:-mt-7 sm:pt-[92px]">
       <div className="max-w-4xl mx-auto text-center">
         <p className="text-xs md:text-sm font-bold uppercase tracking-widest text-primary mb-3">
           Welcome to Nyahururu County Referral Hospital

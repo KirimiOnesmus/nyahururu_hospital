@@ -12,7 +12,7 @@ const QuickActions = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="relative z-10 mt-6 md:-mt-10 px-6 mb-8">
+    <div className="relative z-10 mt-0 sm:-mt-16 px-6 mb-0">
       <div className="max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-4">
         {actions.map(({ label, path, icon: Icon }) => (
           <button

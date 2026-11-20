@@ -87,7 +87,7 @@ const Slider = () => {
               }`}
               style={slide.image ? { backgroundImage: `url(${slide.image})` } : undefined}
             >
-              {slide.image && <div className="absolute inset-0 bg-ink/35" />}
+              {slide.image && <div className="absolute inset-0 bg-black/25" />}
 
               <div className="relative z-20 w-full max-w-6xl mx-auto px-6 md:px-10 lg:px-12">
                 {slide.eyebrow && (
