@@ -17,7 +17,6 @@ const EventOverlay = () => {
     const fetchEvents = async () => {
       try {
         const res = await api.get("/events");
-        console.log("Fetched events:", res.data);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const active = res.data.filter((e) => new Date(e.date) >= today);

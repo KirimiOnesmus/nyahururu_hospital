@@ -5,9 +5,10 @@ import "swiper/css";
 import "swiper/css/pagination";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/axios";
-import { ASSET_BASE_URL } from "../../config/env";
+import { resolveAssetUrl } from "../../config/env";
 
 const BANNER_CATEGORY = "Homepage Banner";
+const LEGACY_BANNER_CATEGORY = "Home Page Banner";
 
 const defaultSlides = [
   {
@@ -43,15 +44,13 @@ const Slider = () => {
 
   const fetchBanners = useCallback(async () => {
     try {
-      const res = await api.get("/gallery", {
-        params: {
-          category: BANNER_CATEGORY,
-          type: "image",
-          visible: "true",
-          sort: "uploadDate",
-        },
-      });
-      const items = Array.isArray(res.data) ? res.data : [];
+      const params = { type: "image", visible: "true", sort: "uploadDate" };
+      let res = await api.get("/gallery", { params: { ...params, category: BANNER_CATEGORY } });
+      let items = Array.isArray(res.data) ? res.data : [];
+      if (items.length === 0) {
+        res = await api.get("/gallery", { params: { ...params, category: LEGACY_BANNER_CATEGORY } });
+        items = Array.isArray(res.data) ? res.data : [];
+      }
 
       if (items.length === 0) {
         setSlides(defaultSlides);
@@ -61,11 +60,11 @@ const Slider = () => {
       const slideCount = Math.max(defaultSlides.length, items.length);
       const mapped = Array.from({ length: slideCount }, (_, index) => ({
         ...defaultSlides[index % defaultSlides.length],
-        image: `${ASSET_BASE_URL}${items[index % items.length].fileUrl}`,
+        image: resolveAssetUrl(items[index % items.length].fileUrl),
       }));
       setSlides(mapped);
-    } catch (error) {
-      console.error("Failed to fetch banner images:", error);
+    } catch {
+      // Banner images are optional; keep the built-in slides if the gallery is unavailable.
     }
   }, []);
 
