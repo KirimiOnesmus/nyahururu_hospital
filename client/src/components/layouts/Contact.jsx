@@ -5,7 +5,7 @@ import { useCookieConsent } from "../../common/cookies/CookieConsentContext";
 const CONTACT_INFO = [
   { icon: IconPhone, label: "Phone", value: "0721 721109" },
   { icon: IconMail, label: "Email", value: "info@ncrh.laikipia.go.ke" },
-  { icon: IconMapPin, label: "Location", value: "Nyeri-Nyahururu Road" },
+  { icon: IconMapPin, label: "Location", value: "Nyahururu-Nakuru Highway" },
 ];
 
 const LAT = 0.03783;
@@ -80,7 +80,7 @@ const Contact = () => {
               <div className="flex items-center gap-2 text-ink-muted min-w-0">
                 <IconMapPin className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
                 <span className="text-sm font-medium truncate">
-                  Nyeri-Nyahururu Road, Nyahururu
+                  Nyahururu-Nakuru Highway, Nyahururu
                 </span>
               </div>
 

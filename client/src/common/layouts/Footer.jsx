@@ -24,7 +24,7 @@ const Footer = () => {
   const contactInfo = [
     { Icon: IconPhone, label: "0721 721109" },
     { Icon: IconMail, label: "info@ncrh.laikipia.go.ke" },
-    { Icon: IconMapPin, label: "Nyeri-Nyahururu Road" },
+    { Icon: IconMapPin, label: "Nyahururu-Nakuru Highway" },
   ];
 
   const socialLinks = [

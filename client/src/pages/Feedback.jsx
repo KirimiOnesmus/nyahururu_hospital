@@ -7,7 +7,7 @@ import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaPaperPlane } from "react-icons/f
 const CONTACT_INFO = [
   { icon: FaPhone,        label: "Phone",    value: "0721 721109"                  },
   { icon: FaEnvelope,     label: "Email",    value: "info@ncrh.laikipia.go.ke"           },
-  { icon: FaMapMarkerAlt, label: "Location", value: "Nyeri-Nyahururu Road" },
+  { icon: FaMapMarkerAlt, label: "Location", value: "Nyahururu-Nakuru Highway" },
 ];
 
 const INIT = { name: "", email: "", subject: "", message: "", type: "general" };

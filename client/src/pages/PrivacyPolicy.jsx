@@ -60,7 +60,7 @@ const PrivacyPolicy = () => {
 
                 <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
                   <p><strong>Organisation:</strong> Nyahururu Hospital</p>
-                  <p><strong>Location:</strong> Nyeri-Nyahururu Road, Kenya</p>
+                  <p><strong>Location:</strong> Nyahururu-Nakuru Highway, Kenya</p>
                   <p>
                     <strong>Telephone:</strong> 0721 721109
                   </p>
@@ -401,7 +401,7 @@ const PrivacyPolicy = () => {
                   <p>
                     <strong>Nyahururu Hospital</strong>
                   </p>
-                  <p>Nyeri-Nyahururu Road, Kenya</p>
+                  <p>Nyahururu-Nakuru Highway, Kenya</p>
                   <p>Telephone: 0721 721109</p>
                   <p>Email: info@ncrh.laikipia.go.ke</p>
           
