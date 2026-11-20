@@ -180,14 +180,10 @@ const { LOCAL_ROOT } = require("./config/storage");
 const PUBLIC_UPLOAD_FOLDERS = ["public", "gallery", "news", "events", "services", "notices", "tenders"];
 
 PUBLIC_UPLOAD_FOLDERS.forEach((folder) => {
-  app.use(
-    `/uploads/${folder}`,
-    express.static(path.resolve(LOCAL_ROOT, folder), {
-      maxAge: "7d",
-      etag: true,
-      dotfiles: "deny",
-    })
-  );
+  const folderPath = path.resolve(LOCAL_ROOT, folder);
+  const staticOptions = { maxAge: "7d", etag: true, dotfiles: "deny" };
+  app.use(`/uploads/${folder}`, express.static(folderPath, staticOptions));
+  app.use(`/api/uploads/${folder}`, express.static(folderPath, staticOptions));
 });
 
 const { verifyToken: requireStaffToken, protectResearcher: requireResearcherToken } = require("./middleware/auth");
