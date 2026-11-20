@@ -22,8 +22,8 @@ const Footer = () => {
   ];
 
   const contactInfo = [
-    { Icon: IconPhone, label: "0758 722 031" },
-    { Icon: IconMail, label: "nyahururuhospital@gmail.com" },
+    { Icon: IconPhone, label: "0721 721109" },
+    { Icon: IconMail, label: "info@ncrh.laikipia.go.ke" },
     { Icon: IconMapPin, label: "Nyeri-Nyahururu Road" },
   ];
 
