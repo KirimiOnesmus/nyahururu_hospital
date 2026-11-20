@@ -37,9 +37,9 @@ exports.createAmbulanceBooking = async (req, res) => {
       emergencyLevel, medicalCondition, additionalNotes,
     } = req.body;
 
-    if (!patientName || !phone || !currentLocation || !medicalCondition || !emergencyLevel) {
+    if (!patientName || !phone || !currentLocation || !emergencyLevel) {
       return res.status(400).json({
-        message: "Missing required fields: patientName, phone, currentLocation, medicalCondition, emergencyLevel",
+        message: "Missing required fields: patientName, phone, currentLocation, emergencyLevel",
       });
     }
 
@@ -57,7 +57,7 @@ exports.createAmbulanceBooking = async (req, res) => {
           currentLocation,
           destinationHospital: destinationHospital || "Not specified",
           emergencyLevel,
-          medicalCondition,
+          medicalCondition: typeof medicalCondition === "string" && medicalCondition.trim() ? medicalCondition.trim() : "Not provided",
           additionalNotes: additionalNotes || null,
           status: "Pending",
           bookingDate: new Date(),

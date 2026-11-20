@@ -116,20 +116,18 @@ const Header = () => {
 
   const DropdownPanel = ({ children, align = "left", variant }) => (
     <div
-      className={`absolute top-full ${align === "right" ? "right-0" : "left-0"} ${variant === "about" ? "mt-0 w-64 bg-[#285398] border-0 rounded-none" : "mt-1 w-56 bg-surface border border-line rounded-xl"} shadow-md overflow-hidden z-50`}
+      className={`absolute top-full ${align === "right" ? "right-0" : "left-0"} ${variant === "about" ? "mt-0 w-64" : "mt-1 w-56"} bg-[#2f508e] border-0 rounded-none shadow-md overflow-hidden z-50`}
     >
       {children}
     </div>
   );
 
-  const DropdownItem = ({ label, onClick, active, variant }) => (
+  const DropdownItem = ({ label, onClick, active }) => (
     <button
       type="button"
       onClick={onClick}
-      className={`w-full text-left min-h-11 px-4 py-2.5 text-sm font-medium transition-colors
-                  ${variant === "about"
-                    ? `text-white border-b border-white/40 ${active ? "bg-[#1f477f] font-semibold" : "hover:bg-[#214982]"}`
-                    : active ? "bg-primary-soft text-primary font-semibold" : "text-ink hover:bg-canvas hover:text-primary"}`}
+      className={`w-full text-left min-h-11 px-4 py-2.5 text-sm font-medium text-white border-b border-white/30 transition-colors
+                  ${active ? "bg-[#1f477f] font-semibold" : "hover:bg-[#214982]"}`}
     >
       {label}
     </button>
@@ -218,9 +216,9 @@ const Header = () => {
                     <DropdownPanel variant={link.dropdown}>
                       {link.dropdown === "departments" ? (
                         loadingDivisions ? (
-                          <div className="px-4 py-3 text-sm text-ink-muted">Loading departments…</div>
+                          <div className="px-4 py-3 text-sm text-white/80">Loading departments…</div>
                         ) : divisions.length === 0 ? (
-                          <div className="px-4 py-3 text-sm text-ink-muted">No departments listed</div>
+                          <div className="px-4 py-3 text-sm text-white/80">No departments listed</div>
                         ) : (
                           divisions.map((d) => (
                             <DropdownItem
@@ -240,7 +238,6 @@ const Header = () => {
                             active={it.section
                               ? pathname === "/about" && (hash === `#${it.section}` || (!hash && it.section === "about"))
                               : pathname === it.path}
-                            variant={link.dropdown}
                           />
                         ))
                       )}
@@ -363,23 +360,19 @@ const Header = () => {
                       </button>
 
                       {activeDropdown === link.dropdown && (
-                        <div className={`${link.dropdown === "about" ? "ml-0 mt-1 bg-[#285398] space-y-0" : "ml-3 mt-1 border-l-2 border-primary-soft pl-3 space-y-0.5"}`}>
+                          <div className="ml-0 mt-1 bg-[#2f508e] space-y-0">
                           {link.dropdown === "departments" ? (
                             loadingDivisions ? (
-                              <p className="py-2 text-xs text-ink-muted">Loading departments…</p>
+                              <p className="py-2 text-xs text-white/80">Loading departments…</p>
                             ) : divisions.length === 0 ? (
-                              <p className="py-2 text-xs text-ink-muted">No departments listed</p>
+                              <p className="py-2 text-xs text-white/80">No departments listed</p>
                             ) : (
                               divisions.map((d) => (
                                 <button
                                   key={d}
                                   type="button"
                                   onClick={() => goTo(`/services?division=${encodeURIComponent(d)}`)}
-                                  className={`w-full text-left min-h-11 px-3 py-2 rounded-xl text-sm ${
-                                    search.includes(encodeURIComponent(d))
-                                      ? "bg-primary-soft text-primary font-semibold"
-                                      : "text-ink-muted hover:bg-canvas hover:text-primary"
-                                  }`}
+                                    className={`w-full text-left min-h-11 px-3 py-2 text-sm text-white border-b border-white/30 ${search.includes(encodeURIComponent(d)) ? "bg-[#1f477f] font-semibold" : "hover:bg-[#214982]"}`}
                                 >
                                   {d}
                                 </button>
@@ -394,7 +387,7 @@ const Header = () => {
                                   e.stopPropagation();
                                   goTo(it.path);
                                 }}
-                                className={`w-full text-left min-h-11 px-3 py-2 text-sm ${link.dropdown === "about" ? `text-white border-b border-white/40 ${it.section && pathname === "/about" && (hash === `#${it.section}` || (!hash && it.section === "about")) ? "bg-[#1f477f] font-semibold" : "hover:bg-[#214982]"}` : `rounded-xl ${pathname === it.path ? "bg-primary-soft text-primary font-semibold" : "text-ink-muted hover:bg-canvas hover:text-primary"}`}`}
+                                className={`w-full text-left min-h-11 px-3 py-2 text-sm text-white border-b border-white/30 ${it.section && pathname === "/about" && (hash === `#${it.section}` || (!hash && it.section === "about")) || !it.section && pathname === it.path ? "bg-[#1f477f] font-semibold" : "hover:bg-[#214982]"}`}
                               >
                                 {it.name}
                               </button>
