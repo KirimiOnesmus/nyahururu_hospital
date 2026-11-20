@@ -6,7 +6,6 @@ import "swiper/css/pagination";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 import { ASSET_BASE_URL } from "../../config/env";
-import { useResourceRefresh } from "../../api/socket";
 
 const BANNER_CATEGORY = "Homepage Banner";
 
@@ -71,7 +70,6 @@ const Slider = () => {
   }, []);
 
   useEffect(() => { fetchBanners(); }, [fetchBanners]);
-  useResourceRefresh("gallery", fetchBanners);
 
   return (
     <div className="w-full h-[380px] md:h-[440px] lg:h-[540px] relative z-0">
