@@ -47,7 +47,7 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: "standard",
       },
-      medicalCondition: { type: DataTypes.TEXT, allowNull: false },
+      medicalCondition: { type: DataTypes.TEXT, allowNull: false, defaultValue: "Not provided" },
       additionalNotes: { type: DataTypes.TEXT, allowNull: true },
       status: {
         type: DataTypes.ENUM(...BOOKING_STATUSES),
