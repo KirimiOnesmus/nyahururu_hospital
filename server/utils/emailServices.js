@@ -6,8 +6,16 @@ let transporterReady = false;
 
 const initializeTransporter = async () => {
   try {
+    const smtpHost = process.env.EMAIL_HOST;
+    const smtpPort = Number(process.env.EMAIL_PORT || (smtpHost ? 587 : 0));
+    const smtpSecure = process.env.EMAIL_SECURE === undefined
+      ? smtpPort === 465
+      : process.env.EMAIL_SECURE.toLowerCase() === "true";
+
     transporter = nodemailer.createTransport({
-      service: process.env.EMAIL_SERVICE || "gmail",
+      ...(smtpHost
+        ? { host: smtpHost, port: smtpPort, secure: smtpSecure }
+        : { service: process.env.EMAIL_SERVICE || "gmail" }),
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD,
@@ -37,9 +45,8 @@ const sendMail = async (to, subject, html, fromLabel = null) => {
   }
 
   try {
-    const from = fromLabel
-      ? `"${fromLabel}" <${process.env.EMAIL_USER}>`
-      : process.env.EMAIL_USER;
+    const senderAddress = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+    const from = fromLabel ? `"${fromLabel}" <${senderAddress}>` : senderAddress;
 
     const result = await transporter.sendMail({ from, to, subject, html });
     console.log(`[Email] Sent: "${subject}" → ${to} (${result.messageId})`);
@@ -55,7 +62,11 @@ const sendMail = async (to, subject, html, fromLabel = null) => {
 const HMIS_NAME    = "Nyahururu County Referral Hospital";
 const PORTAL_NAME  = "Nyahururu Hospital Research Portal";
 const PORTAL_YEAR  = new Date().getFullYear();
-const SUPPORT_EMAIL = "info@ncrh.laikipia.go.ke";
+const SUPPORT_EMAIL =
+  process.env.SUPPORT_EMAIL ||
+  process.env.EMAIL_FROM ||
+  process.env.EMAIL_USER ||
+  "info@ncrh.laikipia.go.ke";
 const FRONTEND_URL  = process.env.FRONTEND_URL || "";
 // const HOSPITAL_LOGO = `${process.env.BACKEND_URL}/public/logo.png`;
 // const COUNTY_LOGO   = `${process.env.BACKEND_URL}/public/county-government.png`;

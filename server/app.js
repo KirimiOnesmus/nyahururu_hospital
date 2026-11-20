@@ -333,3 +333,9 @@ app.all("*splat", (req, res, next) => {
 app.use(globalErrorHandler);
 
 module.exports = app;
+
+// cPanel can use app.js as its Node.js application startup file. Keep the
+// HTTP listener, database bootstrap, sockets, and scheduled jobs in server.js.
+if (require.main === module) {
+  require("./server");
+}

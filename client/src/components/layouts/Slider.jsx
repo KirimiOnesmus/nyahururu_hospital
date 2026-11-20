@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Pagination, Autoplay } from "swiper/modules";
 import "swiper/css";
@@ -6,6 +6,7 @@ import "swiper/css/pagination";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 import { ASSET_BASE_URL } from "../../config/env";
+import { useResourceRefresh } from "../../api/socket";
 
 const BANNER_CATEGORY = "Homepage Banner";
 
@@ -41,37 +42,36 @@ const Slider = () => {
   const navigate = useNavigate();
   const [slides, setSlides] = useState(defaultSlides);
 
-  useEffect(() => {
-    const fetchBanners = async () => {
-      try {
-        const res = await api.get("/gallery", {
-          params: {
-            category: BANNER_CATEGORY,
-            type: "image",
-            visible: "true",
-            sort: "uploadDate",
-          },
-        });
-        const items = Array.isArray(res.data) ? res.data : [];
+  const fetchBanners = useCallback(async () => {
+    try {
+      const res = await api.get("/gallery", {
+        params: {
+          category: BANNER_CATEGORY,
+          type: "image",
+          visible: "true",
+          sort: "uploadDate",
+        },
+      });
+      const items = Array.isArray(res.data) ? res.data : [];
 
-        if (items.length > 0) {
-          const mapped = items.map((item) => ({
-            eyebrow: "",
-            heading: item.title || "",
-            body: item.description || "",
-            ctaLabel: null,
-            ctaPath: null,
-            image: `${ASSET_BASE_URL}${item.fileUrl}`,
-            accent: "bg-slate-900",
-          }));
-          setSlides(mapped);
-        }
-      } catch (error) {
-        console.error("Failed to fetch banner images:", error);
+      if (items.length === 0) {
+        setSlides(defaultSlides);
+        return;
       }
-    };
-    fetchBanners();
+
+      const slideCount = Math.max(defaultSlides.length, items.length);
+      const mapped = Array.from({ length: slideCount }, (_, index) => ({
+        ...defaultSlides[index % defaultSlides.length],
+        image: `${ASSET_BASE_URL}${items[index % items.length].fileUrl}`,
+      }));
+      setSlides(mapped);
+    } catch (error) {
+      console.error("Failed to fetch banner images:", error);
+    }
   }, []);
+
+  useEffect(() => { fetchBanners(); }, [fetchBanners]);
+  useResourceRefresh("gallery", fetchBanners);
 
   return (
     <div className="w-full h-[380px] md:h-[440px] lg:h-[540px] relative z-0">
@@ -90,7 +90,7 @@ const Slider = () => {
               }`}
               style={slide.image ? { backgroundImage: `url(${slide.image})` } : undefined}
             >
-              {slide.image && <div className="absolute inset-0 bg-ink/55" />}
+              {slide.image && <div className="absolute inset-0 bg-ink/35" />}
 
               <div className="relative z-20 w-full max-w-6xl mx-auto px-6 md:px-10 lg:px-12">
                 {slide.eyebrow && (
