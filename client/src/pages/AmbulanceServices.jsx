@@ -97,7 +97,7 @@ const AmbulanceServices = () => {
         additionalNotes: formData.additionalNotes || null,
       });
 
-      setBookingId(res.data.booking.id);
+      setBookingId(res.data.booking.confirmationCode);
       setSubmitted(true);
       notify.success(res.data.message || "Ambulance booked successfully!");
       setFormData({ ...INIT });
@@ -128,7 +128,7 @@ const AmbulanceServices = () => {
           </p>
           {bookingId && (
             <div className="bg-slate-50 rounded-xl px-4 py-3 mb-6">
-              <p className="text-xs text-slate-500 mb-0.5">Booking ID</p>
+              <p className="text-xs text-slate-500 mb-0.5">Confirmation ID</p>
               <p className="font-mono font-bold text-slate-800 text-sm">{bookingId}</p>
             </div>
           )}

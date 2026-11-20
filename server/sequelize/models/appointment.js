@@ -11,6 +11,12 @@ module.exports = (sequelize, DataTypes) => {
         autoIncrement: true,
         primaryKey: true,
       },
+      confirmationCode: {
+        type: DataTypes.STRING(13),
+        allowNull: false,
+        unique: true,
+        field: "confirmation_code",
+      },
       patientName: {
         type: DataTypes.STRING(150),
         allowNull: false,

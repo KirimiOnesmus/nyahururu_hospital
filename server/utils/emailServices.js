@@ -8,6 +8,9 @@ const initializeTransporter = async () => {
   try {
     const smtpHost = process.env.EMAIL_HOST;
     const smtpPort = Number(process.env.EMAIL_PORT || (smtpHost ? 587 : 0));
+    if (process.env.NODE_ENV === "production" && !smtpHost) {
+      throw new Error("EMAIL_HOST must be configured for the official cPanel mail account in production.");
+    }
     const smtpSecure = process.env.EMAIL_SECURE === undefined
       ? smtpPort === 465
       : process.env.EMAIL_SECURE.toLowerCase() === "true";
@@ -45,7 +48,7 @@ const sendMail = async (to, subject, html, fromLabel = null) => {
   }
 
   try {
-    const senderAddress = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+    const senderAddress = process.env.EMAIL_FROM || "info@ncrh.laikipia.go.ke";
     const from = fromLabel ? `"${fromLabel}" <${senderAddress}>` : senderAddress;
 
     const result = await transporter.sendMail({ from, to, subject, html });
@@ -65,7 +68,6 @@ const PORTAL_YEAR  = new Date().getFullYear();
 const SUPPORT_EMAIL =
   process.env.SUPPORT_EMAIL ||
   process.env.EMAIL_FROM ||
-  process.env.EMAIL_USER ||
   "info@ncrh.laikipia.go.ke";
 const FRONTEND_URL  = process.env.FRONTEND_URL || "";
 // const HOSPITAL_LOGO = `${process.env.BACKEND_URL}/public/logo.png`;
@@ -303,7 +305,7 @@ exports.sendAccountNotificationEmail = async (email, subject, message) =>
   );
 
 exports.sendAppointmentConfirmationEmail = async (appointmentData) => {
-  const { patientName, patientEmail, service, appointmentDate, time, phone } =
+  const { patientName, patientEmail, service, appointmentDate, time, phone, confirmationCode } =
     appointmentData;
   const formattedDate = new Date(appointmentDate).toLocaleDateString("en-US", {
     weekday: "long",
@@ -322,6 +324,7 @@ exports.sendAppointmentConfirmationEmail = async (appointmentData) => {
       </p>
       ${detailTable([
         ["Service", service],
+        ["Confirmation ID", confirmationCode],
         ["Date", formattedDate],
         ["Time", time],
         ["Contact", phone || "N/A"],
@@ -339,7 +342,7 @@ exports.sendAppointmentStatusUpdateEmail = async (
   appointmentData,
   status,
 ) => {
-  const { patientName, service, appointmentDate, time } = appointmentData;
+  const { patientName, service, appointmentDate, time, confirmationCode } = appointmentData;
   const formattedDate = new Date(appointmentDate).toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
@@ -379,10 +382,34 @@ exports.sendAppointmentStatusUpdateEmail = async (
       <p style="color:#374151;line-height:1.7;">${msg}</p>
       ${detailTable([
         ["Service", service],
+        ["Confirmation ID", confirmationCode],
         ["Date", formattedDate],
         ["Time", time],
         ["Status", `<span style="color:${color};font-weight:bold;">${text}</span>`],
       ])}
+    `),
+    HMIS_NAME,
+  );
+};
+
+exports.sendAmbulanceBookingConfirmationEmail = async (booking) => {
+  const bookingData = booking.get ? booking.get({ plain: true }) : booking;
+  return sendMail(
+    bookingData.email,
+    "Ambulance Request Confirmation",
+    hmisShell(`
+      <h2 style="color:#1A3C6E;margin-top:0;">Ambulance Request Received</h2>
+      <p style="color:#374151;line-height:1.7;">Dear ${bookingData.patientName},</p>
+      <p style="color:#374151;line-height:1.7;">We have received your ambulance request. Our dispatch team will contact you with further details.</p>
+      ${detailTable([
+        ["Confirmation ID", bookingData.confirmationCode],
+        ["Current location", bookingData.currentLocation],
+        ["Destination", bookingData.destinationHospital || "Not specified"],
+        ["Emergency level", bookingData.emergencyLevel],
+        ["Request status", bookingData.status],
+        ["Contact", bookingData.phone],
+      ])}
+      <p style="color:#9ca3af;font-size:11px;margin-top:20px;padding-top:20px;border-top:1px solid #e5e7eb;">Keep this confirmation ID for follow-up. If this is an immediate emergency, call the hospital directly.</p>
     `),
     HMIS_NAME,
   );

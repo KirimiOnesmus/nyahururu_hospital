@@ -6,6 +6,7 @@ const { Appointment, Doctor } = require("../sequelize/models");
 const { getPagination, buildMeta } = require("../utils/pagination");
 const logger = require("../utils/logger");
 const emailService = require("../utils/emailServices");
+const generateConfirmationCode = require("../utils/confirmationCode");
 
 const smsServices = null; // Africa's Talking SMS integration removed.
                           
@@ -20,6 +21,7 @@ exports.bookAppointment = async (req, res) => {
 
     const appointment = await Appointment.create({
       patientName: name,
+      confirmationCode: generateConfirmationCode(),
       patientEmail: email,
       service,
       department,
@@ -30,6 +32,7 @@ exports.bookAppointment = async (req, res) => {
 
     const appointmentData = {
       patientName: name,
+      confirmationCode: appointment.confirmationCode,
       patientEmail: email,
       department,
       service,
@@ -180,6 +183,7 @@ exports.updateAppointmentStatus = async (req, res) => {
 
     const appointmentData = {
       patientName: appointment.patientName,
+      confirmationCode: appointment.confirmationCode,
       service: appointment.service,
       appointmentDate: appointment.appointmentDate,
       time: appointment.time,

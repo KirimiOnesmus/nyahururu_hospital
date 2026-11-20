@@ -6,6 +6,8 @@ const {
   AmbulanceBooking, Vehicle, User, sequelize,
 } = require("../sequelize/models");
 const { getPagination, buildMeta } = require("../utils/pagination");
+const emailService = require("../utils/emailServices");
+const generateConfirmationCode = require("../utils/confirmationCode");
 
 
 const VALID_STATUSES = [
@@ -52,6 +54,7 @@ exports.createAmbulanceBooking = async (req, res) => {
       const b = await AmbulanceBooking.create(
         {
           patientName,
+          confirmationCode: generateConfirmationCode(),
           phone,
           email: email || null,
           currentLocation,
@@ -92,6 +95,12 @@ exports.createAmbulanceBooking = async (req, res) => {
 
       return { booking: b, ambulance: availableAmbulance || null };
     });
+
+    if (booking.email) {
+      emailService.sendAmbulanceBookingConfirmationEmail(booking).catch((err) =>
+        logger.error({ err }, "Failed to send ambulance booking confirmation email"),
+      );
+    }
 
     res.status(201).json({
       message: ambulance

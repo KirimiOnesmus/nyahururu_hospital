@@ -61,6 +61,7 @@ const Appointment = () => {
   const [step, setStep] = useState(1);
   const [anonymousForm, setAnonymousForm] = useState(INIT_ANON);
   const [loading, setLoading] = useState(false);
+  const [appointmentConfirmationCode, setAppointmentConfirmationCode] = useState("");
   const [services, setServices] = useState([]);
   const [categories, setCategories] = useState([]);
   const [filteredServices, setFilteredServices] = useState([]);
@@ -208,7 +209,7 @@ const Appointment = () => {
     if (!validateNormalForm()) return;
     setLoading(true);
     try {
-      await api.post("/appointments", {
+      const response = await api.post("/appointments", {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
@@ -218,9 +219,9 @@ const Appointment = () => {
         time: formData.time,
       });
 
+      setAppointmentConfirmationCode(response.data?.appointment?.confirmationCode || "");
       setFormData(INIT_NORMAL);
-      notify.success("Appointment booked successfully!");
-      setTimeout(() => navigate("/"), 3000);
+      notify.success("Appointment booked successfully. Your confirmation ID is displayed below.");
     } catch (error) {
 
       notify.error(error?.response?.data?.message || "Failed to book appointment");
@@ -308,6 +309,15 @@ const Appointment = () => {
             Book an Appointment
           </h2>
         </div>
+
+        {appointmentConfirmationCode && (
+          <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4" role="status">
+            <p className="text-sm font-semibold text-emerald-900">Appointment request received</p>
+            <p className="mt-1 text-sm text-emerald-800">
+              Keep this confirmation ID for your records: <strong className="font-mono">{appointmentConfirmationCode}</strong>
+            </p>
+          </div>
+        )}
 
         <div className="grid sm:grid-cols-2 gap-4 mb-8">
           {[
