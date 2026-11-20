@@ -140,11 +140,11 @@ const Header = () => {
           <div className="flex items-center justify-between gap-4 py-1.5">
             <div className="flex items-center justify-center gap-6 flex-1">
               <a
-                href="tel:+254758722031"
+                href="tel:+254721721109"
                 className="inline-flex items-center gap-1.5 min-h-11 text-sm font-semibold text-primary hover:text-primary-hover"
               >
                 <IconPhone className="w-4 h-4" aria-hidden="true" />
-                +254 758 722 031
+                0721 721109
               </a>
               <button
                 type="button"

@@ -5,8 +5,8 @@ import notify from "../common/utils/notify";
 import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaPaperPlane } from "react-icons/fa";
 
 const CONTACT_INFO = [
-  { icon: FaPhone,        label: "Phone",    value: "0758 722 031"                  },
-  { icon: FaEnvelope,     label: "Email",    value: "info@ncrhospital.com"           },
+  { icon: FaPhone,        label: "Phone",    value: "0721 721109"                  },
+  { icon: FaEnvelope,     label: "Email",    value: "info@ncrh.laikipia.go.ke"           },
   { icon: FaMapMarkerAlt, label: "Location", value: "Nyeri-Nyahururu Road" },
 ];
 

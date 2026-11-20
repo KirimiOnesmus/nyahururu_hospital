@@ -62,11 +62,11 @@ const PrivacyPolicy = () => {
                   <p><strong>Organisation:</strong> Nyahururu Hospital</p>
                   <p><strong>Location:</strong> Nyeri-Nyahururu Road, Kenya</p>
                   <p>
-                    <strong>Telephone:</strong> 0758 722 031
+                    <strong>Telephone:</strong> 0721 721109
                   </p>
                   <p>
                     <strong>Email:</strong>{" "}
-                    nyahururuhospital@gmail.com
+                    info@ncrh.laikipia.go.ke
                   </p>
                 </div>
 
@@ -402,8 +402,8 @@ const PrivacyPolicy = () => {
                     <strong>Nyahururu Hospital</strong>
                   </p>
                   <p>Nyeri-Nyahururu Road, Kenya</p>
-                  <p>Telephone: 0758 722 031</p>
-                  <p>Email: nyahururuhospital@gmail.com</p>
+                  <p>Telephone: 0721 721109</p>
+                  <p>Email: info@ncrh.laikipia.go.ke</p>
           
                 </div>
 

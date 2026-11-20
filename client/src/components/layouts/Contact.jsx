@@ -3,8 +3,8 @@ import { IconPhone, IconMail, IconMapPin, IconArrowRight } from "../../common/ic
 import { useCookieConsent } from "../../common/cookies/CookieConsentContext";
 
 const CONTACT_INFO = [
-  { icon: IconPhone, label: "Phone", value: "0758 722 031" },
-  { icon: IconMail, label: "Email", value: "info@ncrhospital.com" },
+  { icon: IconPhone, label: "Phone", value: "0721 721109" },
+  { icon: IconMail, label: "Email", value: "info@ncrh.laikipia.go.ke" },
   { icon: IconMapPin, label: "Location", value: "Nyeri-Nyahururu Road" },
 ];
 

@@ -55,7 +55,7 @@ const sendMail = async (to, subject, html, fromLabel = null) => {
 const HMIS_NAME    = "Nyahururu County Referral Hospital";
 const PORTAL_NAME  = "Nyahururu Hospital Research Portal";
 const PORTAL_YEAR  = new Date().getFullYear();
-const SUPPORT_EMAIL = process.env.EMAIL_USER || "support@ncrh.ac.ke";
+const SUPPORT_EMAIL = "info@ncrh.laikipia.go.ke";
 const FRONTEND_URL  = process.env.FRONTEND_URL || "";
 // const HOSPITAL_LOGO = `${process.env.BACKEND_URL}/public/logo.png`;
 // const COUNTY_LOGO   = `${process.env.BACKEND_URL}/public/county-government.png`;
@@ -70,12 +70,11 @@ const makeShell = (portalName, subTitle, content) => `
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${portalName}</title>
 </head>
-<body style="margin:0;padding:0;background:#f4f6f9;font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:30px 0;">
+<body style="margin:0;padding:0;background:#ffffff;font-family:Arial,sans-serif;color:#374151;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;padding:24px 0;">
   <tr><td align="center">
     <table width="600" cellpadding="0" cellspacing="0"
-      style="background:#ffffff;border-radius:8px;overflow:hidden;
-             box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+      style="background:#ffffff;border:1px solid #d1d5db;overflow:hidden;">
 
       <!-- HEADER -->
       <tr>
@@ -100,11 +99,12 @@ const makeShell = (portalName, subTitle, content) => `
 
       <!-- FOOTER -->
       <tr>
-        <td style="background:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb;">
+        <td style="background:#ffffff;padding:20px 32px;border-top:1px solid #e5e7eb;">
           <p style="margin:0;color:#9ca3af;font-size:11px;line-height:1.6;text-align:center;">
             This is an automated message from ${portalName}.<br/>
             © ${PORTAL_YEAR} N.C.R.H — Healthcare Management System. All rights reserved.<br/>
-            <a href="mailto:${SUPPORT_EMAIL}" style="color:#6b7280;">${SUPPORT_EMAIL}</a>
+            <a href="mailto:${SUPPORT_EMAIL}" style="color:#6b7280;">${SUPPORT_EMAIL}</a> ·
+            <a href="tel:+254721721109" style="color:#6b7280;">0721 721109</a>
           </p>
         </td>
       </tr>
@@ -124,10 +124,10 @@ const hmisShell = (content) =>
 
 
 
-const btn = (url, label, color = "#3B82F6") => `
+const btn = (url, label) => `
 <div style="margin:28px 0;text-align:center;">
   <a href="${url}"
-     style="display:inline-block;padding:13px 32px;background:${color};
+     style="display:inline-block;padding:13px 32px;background:#1A3C6E;
             color:#ffffff;text-decoration:none;border-radius:6px;
             font-weight:bold;font-size:15px;">
     ${label}
@@ -174,18 +174,18 @@ exports.sendVerificationEmail = async (email, token, userId) => {
         An account has been created for you on the Nyahururu Healthcare Management System.
         Please verify your email address by clicking the button below.
       </p>
-      <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;
+      <div style="background:#f3f4f6;border:1px solid #9ca3af;border-radius:6px;
                   padding:14px 18px;margin:20px 0;">
-        <p style="margin:0;color:#856404;font-size:13px;line-height:1.6;">
+        <p style="margin:0;color:#374151;font-size:13px;line-height:1.6;">
           <strong>What happens next:</strong><br/>
           Once you verify your email, your temporary login password will be sent to this address.
           You will be required to change it immediately after your first login.
         </p>
       </div>
-      ${btn(verificationUrl, "Verify My Email", "#4CAF50")}
+      ${btn(verificationUrl, "Verify My Email", "#1A3C6E")}
       <p style="color:#6b7280;font-size:12px;margin-top:20px;padding-top:16px;border-top:1px solid #f3f4f6;">
         <strong>Or copy this link:</strong><br/>
-        <a href="${verificationUrl}" style="color:#3B82F6;word-break:break-all;">${verificationUrl}</a>
+        <a href="${verificationUrl}" style="color:#1A3C6E;word-break:break-all;">${verificationUrl}</a>
       </p>
       <p style="color:#9ca3af;font-size:11px;margin-top:12px;">
         This link will expire in 24 hours. If you did not expect this email, please ignore it.
@@ -201,30 +201,30 @@ exports.sendNewPasswordEmail = async (email, password) => {
     email,
     "Your Temporary Password - Nyahururu Healthcare Management System",
     hmisShell(`
-      <h2 style="color:#4CAF50;margin-top:0;">Email Verified Successfully!</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">Email Verified Successfully!</h2>
       <p style="color:#374151;line-height:1.7;">
         Your email has been verified. Use the temporary password below to log in.
       </p>
       <div style="margin:24px 0;padding:20px;background:#ffffff;
-                  border:2px solid #4CAF50;border-radius:8px;text-align:center;">
+                  border:2px solid #1A3C6E;border-radius:8px;text-align:center;">
         <p style="margin:0 0 8px;color:#6b7280;font-size:13px;font-weight:bold;
                   text-transform:uppercase;letter-spacing:1px;">Your Temporary Password</p>
-        <p style="font-size:26px;font-weight:bold;color:#4CAF50;letter-spacing:4px;
+        <p style="font-size:26px;font-weight:bold;color:#1A3C6E;letter-spacing:4px;
                   margin:0;font-family:monospace;">${password}</p>
       </div>
-      <div style="background:#fff3cd;border-left:4px solid #ffc107;
+      <div style="background:#f3f4f6;border-left:4px solid #9ca3af;
                   border-radius:0 6px 6px 0;padding:14px 18px;margin:20px 0;">
-        <p style="margin:0;color:#856404;font-size:13px;line-height:1.7;">
+        <p style="margin:0;color:#374151;font-size:13px;line-height:1.7;">
           <strong>Important — action required after login:</strong><br/>
           This is a temporary password. Once you log in, go to
           <strong>My Profile → Change Password</strong> and set a strong personal password.
           This protects your account and patient data.
         </p>
       </div>
-      ${btn(loginUrl, "Log In Now", "#4CAF50")}
+      ${btn(loginUrl, "Log In Now", "#1A3C6E")}
       <p style="color:#9ca3af;font-size:11px;margin-top:20px;padding-top:20px;border-top:1px solid #e5e7eb;">
         If you did not verify this email, please contact support immediately at
-        <a href="mailto:${SUPPORT_EMAIL}" style="color:#3B82F6;">${SUPPORT_EMAIL}</a>
+        <a href="mailto:${SUPPORT_EMAIL}" style="color:#1A3C6E;">${SUPPORT_EMAIL}</a>
       </p>
     `),
     HMIS_NAME,
@@ -247,7 +247,7 @@ exports.sendPasswordChangedEmail = async (email, name) => {
     email,
     "Password Changed Successfully - Nyahururu Healthcare Management System",
     hmisShell(`
-      <h2 style="color:#4CAF50;margin-top:0;">Password Updated Successfully</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">Password Updated Successfully</h2>
       <p style="color:#374151;line-height:1.7;">Dear ${name || "User"},</p>
       <p style="color:#374151;line-height:1.7;">
         Your account password was changed successfully. Here are the details of this change:
@@ -255,19 +255,19 @@ exports.sendPasswordChangedEmail = async (email, name) => {
       ${detailTable([
         ["Account", email],
         ["Changed at", timestamp],
-        ["Status", '<span style="color:#4CAF50;font-weight:bold;">Successful</span>'],
+        ["Status", '<span style="color:#1A3C6E;font-weight:bold;">Successful</span>'],
       ])}
-      <div style="background:#ffebee;border-left:4px solid #f44336;
+      <div style="background:#f3f4f6;border-left:4px solid #9ca3af;
                   border-radius:0 6px 6px 0;padding:14px 18px;margin:20px 0;">
-        <p style="margin:0;color:#c62828;font-size:13px;line-height:1.7;">
+        <p style="margin:0;color:#374151;font-size:13px;line-height:1.7;">
           <strong>Did not make this change?</strong><br/>
           If you did not change your password, your account may be compromised.
           Please contact support immediately at
-          <a href="mailto:${SUPPORT_EMAIL}" style="color:#c62828;font-weight:bold;">${SUPPORT_EMAIL}</a>
+          <a href="mailto:${SUPPORT_EMAIL}" style="color:#374151;font-weight:bold;">${SUPPORT_EMAIL}</a>
           or reset your password right away.
         </p>
       </div>
-      ${btn(loginUrl, "Go to Login", "#3B82F6")}
+      ${btn(loginUrl, "Go to Login", "#1A3C6E")}
       <p style="color:#9ca3af;font-size:11px;margin-top:20px;padding-top:20px;border-top:1px solid #e5e7eb;">
         This is an automated security notification from the Nyahururu Healthcare Management System.
         Please do not reply to this email.
@@ -304,7 +304,7 @@ exports.sendAppointmentConfirmationEmail = async (appointmentData) => {
     patientEmail,
     "Appointment Booking Confirmation",
     hmisShell(`
-      <h2 style="color:#4CAF50;margin-top:0;">Appointment Booked Successfully!</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">Appointment Booked Successfully!</h2>
       <p style="color:#374151;line-height:1.7;">Dear ${patientName},</p>
       <p style="color:#374151;line-height:1.7;">
         Your appointment has been received and is pending confirmation from our medical team.
@@ -338,23 +338,23 @@ exports.sendAppointmentStatusUpdateEmail = async (
 
   const statusMap = {
     confirmed: {
-      color: "#4CAF50",
+      color: "#1A3C6E",
       text: "Confirmed",
       msg: "Your appointment has been confirmed by our medical team.",
     },
     cancelled: {
-      color: "#f44336",
+      color: "#9ca3af",
       text: "Cancelled",
       msg: "Your appointment has been cancelled. Please contact us if you need to reschedule.",
     },
     rescheduled: {
-      color: "#ff9800",
+      color: "#1A3C6E",
       text: "Rescheduled",
       msg: "Your appointment has been rescheduled. Please check the new details below.",
     },
   };
   const { color, text, msg } = statusMap[status] || {
-    color: "#3B82F6",
+    color: "#1A3C6E",
     text: status,
     msg: `Your appointment status has been updated to: ${status}`,
   };
@@ -389,14 +389,14 @@ exports.sendFeedbackReplyEmail = async (
     hmisShell(`
       <h2 style="color:#1A3C6E;margin-top:0;">Thank You for Your Feedback!</h2>
       <p style="color:#374151;line-height:1.7;">Dear ${userName || "User"},</p>
-      <div style="background:#f9fafb;padding:15px;border-radius:0 6px 6px 0;
-                  margin:20px 0;border-left:4px solid #e5e7eb;">
+      <div style="background:#f3f4f6;padding:15px;border-left:3px solid #9ca3af;
+                  margin:20px 0;">
         <p style="color:#6b7280;font-size:13px;margin:0 0 6px;font-weight:bold;">Your Message:</p>
         <p style="color:#374151;margin:0;line-height:1.7;">${originalMessage}</p>
       </div>
-      <div style="background:#EFF6FF;padding:15px;border-radius:0 6px 6px 0;
-                  margin:20px 0;border-left:4px solid #3B82F6;">
-        <p style="color:#1e40af;font-size:13px;margin:0 0 6px;font-weight:bold;">Our Response:</p>
+      <div style="background:#f3f4f6;padding:15px;border-left:3px solid #9ca3af;
+                  margin:20px 0;border-left:4px solid #1A3C6E;">
+        <p style="color:#374151;font-size:13px;margin:0 0 6px;font-weight:bold;">Our Response:</p>
         <p style="color:#374151;margin:0;line-height:1.7;">${replyMessage}</p>
       </div>
     `),
@@ -416,9 +416,9 @@ exports.sendDonorRegistrationEmail = async (donorData) => {
     email,
     `Blood Donation Registration Received - ${donorId}`,
     hmisShell(`
-      <h2 style="color:#B91C1C;margin-top:0;">Blood Donation Registration Received</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">Blood Donation Registration Received</h2>
       <p style="color:#374151;line-height:1.7;">
-        Dear <strong style="color:#e53935;">${fullName}</strong>,
+        Dear <strong style="color:#1A3C6E;">${fullName}</strong>,
       </p>
       <p style="color:#374151;line-height:1.7;">
         We have received your preferred blood donation visit. The blood donation office will contact you to confirm the appointment. This message does not confirm donation eligibility, which is assessed by staff during screening.
@@ -446,10 +446,10 @@ exports.sendResearcherVerificationEmail = ({ email, name, verifyLink }) =>
       <p style="color:#374151;line-height:1.7;">
         Thank you for registering with ${PORTAL_NAME}. Please verify your email address to activate your account.
       </p>
-      ${btn(verifyLink, "Verify Email Address", "#3B82F6")}
+      ${btn(verifyLink, "Verify Email Address", "#1A3C6E")}
       <p style="color:#6b7280;font-size:12px;margin-top:20px;padding-top:16px;border-top:1px solid #f3f4f6;">
         <strong>Or copy this link:</strong><br/>
-        <a href="${verifyLink}" style="color:#3B82F6;word-break:break-all;font-size:11px;">${verifyLink}</a>
+        <a href="${verifyLink}" style="color:#1A3C6E;word-break:break-all;font-size:11px;">${verifyLink}</a>
       </p>
       <p style="color:#9ca3af;font-size:12px;margin-top:12px;">
         This link expires in 24 hours. If you did not create this account, you can safely ignore this email.
@@ -463,15 +463,15 @@ exports.sendPasswordResetEmail = ({ email, name, resetLink }) =>
     email,
     `Password Reset Request — ${PORTAL_NAME}`,
     shell(`
-      <h2 style="color:#B91C1C;margin-top:0;">Password Reset Request</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">Password Reset Request</h2>
       <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
       <p style="color:#374151;line-height:1.7;">
         You requested a password reset. Click the button below to set a new password.
       </p>
-      ${btn(resetLink, "Reset My Password", "#B91C1C")}
+      ${btn(resetLink, "Reset My Password", "#1A3C6E")}
       <p style="color:#6b7280;font-size:12px;margin-top:20px;padding-top:16px;border-top:1px solid #f3f4f6;">
         <strong>Or copy this link:</strong><br/>
-        <a href="${resetLink}" style="color:#3B82F6;word-break:break-all;font-size:11px;">${resetLink}</a>
+        <a href="${resetLink}" style="color:#1A3C6E;word-break:break-all;font-size:11px;">${resetLink}</a>
       </p>
       <p style="color:#9ca3af;font-size:12px;margin-top:12px;">
         This link expires in 24 hours. If you did not request a reset, please ignore this email.
@@ -503,10 +503,10 @@ exports.sendAdminAddedResearcher = ({ email, name, password }) => {
                         font-size:14px;letter-spacing:2px;">${password}</code>`,
         ],
       ])}
-      <p style="color:#B91C1C;font-weight:bold;background:#FEF2F2;padding:12px 16px;border-radius:6px;">
+      <p style="color:#1A3C6E;font-weight:bold;background:#f3f4f6;padding:12px 16px;border-radius:6px;">
         Please change your password immediately after your first login.
       </p>
-      ${btn(loginUrl, "Log In Now", "#1E7B45")}
+      ${btn(loginUrl, "Log In Now", "#1A3C6E")}
     `),
     PORTAL_NAME,
   );
@@ -517,7 +517,7 @@ exports.sendProposalSubmitted = ({ email, name, proposalTitle, mpesaReceipt, amo
     email,
     `Proposal Submitted — ${PORTAL_NAME}`,
     shell(`
-      <h2 style="color:#1E7B45;margin-top:0;">Proposal Submitted Successfully</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">Proposal Submitted Successfully</h2>
       <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
       <p style="color:#374151;line-height:1.7;">
         Your research proposal has been submitted and is awaiting reviewer assignment.
@@ -538,7 +538,7 @@ exports.sendFinalPaperSubmitted = ({ email, name, proposalTitle }) =>
     email,
     `Final Paper Submitted — ${PORTAL_NAME}`,
     shell(`
-      <h2 style="color:#1E7B45;margin-top:0;">Final Paper Submitted</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">Final Paper Submitted</h2>
       <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
       ${detailTable([
         ["Paper Title", proposalTitle],
@@ -565,7 +565,7 @@ exports.sendProposalApproved = ({ email, name, proposalTitle, stage, reviewerCom
     email,
     `${stageLabel} Approved — ${PORTAL_NAME}`,
     shell(`
-      <h2 style="color:#1E7B45;margin-top:0;">${stageLabel} Approved</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">${stageLabel} Approved</h2>
       <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
       <p style="color:#374151;line-height:1.7;">Congratulations! Your submission has been approved.</p>
       ${detailTable([
@@ -594,17 +594,17 @@ exports.sendRevisionRequested = ({ email, name, proposalTitle, stage, reviewerCo
     email,
     `Revision Requested — ${PORTAL_NAME}`,
     shell(`
-      <h2 style="color:#C75B00;margin-top:0;">Revision Requested</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">Revision Requested</h2>
       <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
       ${detailTable([
         ["Title", proposalTitle],
         ["Stage", stageLabels[stage] || stage],
         ["Status", "Needs Revision"],
       ])}
-      <div style="background:#FFF7ED;padding:16px;border-left:4px solid #C75B00;
+      <div style="background:#f3f4f6;padding:16px;border-left:4px solid #9ca3af;
                   border-radius:0 6px 6px 0;margin:16px 0;">
-        <p style="color:#92400e;font-weight:bold;margin:0 0 6px;">Reviewer Feedback:</p>
-        <p style="color:#78350f;margin:0;line-height:1.7;">${reviewerComment}</p>
+        <p style="color:#374151;font-weight:bold;margin:0 0 6px;">Reviewer Feedback:</p>
+        <p style="color:#374151;margin:0;line-height:1.7;">${reviewerComment}</p>
       </div>
       <p style="color:#374151;line-height:1.7;">
         Please address the feedback and resubmit. Resubmissions are <strong>free of charge</strong>.
@@ -619,7 +619,7 @@ exports.sendProposalRejected = ({ email, name, proposalTitle, stage, reviewerCom
     email,
     `Submission Not Accepted — ${PORTAL_NAME}`,
     shell(`
-      <h2 style="color:#B91C1C;margin-top:0;">Submission Not Accepted</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">Submission Not Accepted</h2>
       <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
       ${detailTable([
         ["Title", proposalTitle],
@@ -627,10 +627,10 @@ exports.sendProposalRejected = ({ email, name, proposalTitle, stage, reviewerCom
         ["Status", "Not Accepted"],
       ])}
       ${reviewerComment ? `
-      <div style="background:#FEF2F2;padding:16px;border-left:4px solid #B91C1C;
+      <div style="background:#f3f4f6;padding:16px;border-left:4px solid #1A3C6E;
                   border-radius:0 6px 6px 0;margin:16px 0;">
-        <p style="color:#991b1b;font-weight:bold;margin:0 0 6px;">Reviewer Feedback:</p>
-        <p style="color:#7f1d1d;margin:0;line-height:1.7;">${reviewerComment}</p>
+        <p style="color:#374151;font-weight:bold;margin:0 0 6px;">Reviewer Feedback:</p>
+        <p style="color:#374151;margin:0;line-height:1.7;">${reviewerComment}</p>
       </div>` : ""}
     `),
     PORTAL_NAME,
@@ -669,7 +669,7 @@ exports.sendResubmissionConfirmation = ({ email, name, proposalTitle }) =>
     email,
     `Revision Received — ${PORTAL_NAME}`,
     shell(`
-      <h2 style="color:#C75B00;margin-top:0;">Revision Received</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">Revision Received</h2>
       <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
       <p style="color:#374151;line-height:1.7;">
         Your revised submission has been received and is now back in the review queue.
@@ -691,7 +691,7 @@ exports.sendResubmissionNotice = ({
     email,
     `Resubmission Received — ${PORTAL_NAME}`,
     shell(`
-      <h2 style="color:#C75B00;margin-top:0;">Resubmission Received</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">Resubmission Received</h2>
       <p style="color:#374151;line-height:1.7;">Dear <strong>${reviewerName}</strong>,</p>
       <p style="color:#374151;line-height:1.7;">
         <strong>${researcherName}</strong> has resubmitted after addressing your feedback.
@@ -700,7 +700,7 @@ exports.sendResubmissionNotice = ({
         ["Title", proposalTitle],
         ["Researcher", researcherName],
       ])}
-      ${btn(reviewLink, "Review Resubmission", "#C75B00")}
+      ${btn(reviewLink, "Review Resubmission", "#1A3C6E")}
     `),
     PORTAL_NAME,
   );
@@ -710,7 +710,7 @@ exports.sendProgressSubmitted = ({ email, name, proposalTitle }) =>
     email,
     `Progress Report Submitted — ${PORTAL_NAME}`,
     shell(`
-      <h2 style="color:#1E7B45;margin-top:0;">Progress Report Submitted</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">Progress Report Submitted</h2>
       <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
       <p style="color:#374151;line-height:1.7;">
         Your progress report has been received and is now awaiting reviewer evaluation.
@@ -729,7 +729,7 @@ exports.sendStudyReactivated = ({ email, name, proposalTitle, reason }) =>
     email,
     `Study Reactivated — ${PORTAL_NAME}`,
     shell(`
-      <h2 style="color:#1E7B45;margin-top:0;">Your Study Has Been Reactivated</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">Your Study Has Been Reactivated</h2>
       <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
       <p style="color:#374151;line-height:1.7;">
         Your study, previously suspended, has been reactivated by the Research Committee.
@@ -753,7 +753,7 @@ exports.sendPaymentConfirmation = ({ email, name, mpesaReceipt, amount, purpose 
     email,
     `Payment Confirmed — ${PORTAL_NAME}`,
     shell(`
-      <h2 style="color:#1E7B45;margin-top:0;">Payment Confirmed </h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">Payment Confirmed </h2>
       <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
       ${detailTable([
         ["M-Pesa Receipt", mpesaReceipt],
@@ -772,7 +772,7 @@ exports.sendDownloadReceipt = ({
     email,
     `Download Receipt — ${proposalTitle}`,
     shell(`
-      <h2 style="color:#1E7B45;margin-top:0;">Your Download Receipt</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">Your Download Receipt</h2>
       <p style="color:#374151;line-height:1.7;">Dear <strong>${name || "Valued Customer"}</strong>,</p>
       ${detailTable([
         ["Paper Title", proposalTitle],
@@ -780,7 +780,7 @@ exports.sendDownloadReceipt = ({
         ["Amount Paid", `KES ${amount}`],
         ["Date", new Date().toLocaleDateString("en-KE")],
       ])}
-      ${btn(downloadLink, "Download Paper Now", "#1E7B45")}
+      ${btn(downloadLink, "Download Paper Now", "#1A3C6E")}
       <p style="color:#9ca3af;font-size:12px;margin-top:16px;">
         This download link is valid for 15 minutes.
       </p>
@@ -800,17 +800,17 @@ exports.sendReviewerInvite = ({ email, name, inviteLink, invitedBy }) =>
       <p style="color:#374151;line-height:1.7;">
         <strong>${invitedBy}</strong> has invited you to join ${PORTAL_NAME} as a <strong>Reviewer</strong>.
       </p>
-      <div style="background:#EFF6FF;padding:16px 20px;border-left:4px solid #3B82F6;
+      <div style="background:#f3f4f6;padding:16px 20px;border-left:4px solid #1A3C6E;
                   border-radius:0 6px 6px 0;margin:20px 0;">
-        <p style="color:#1e40af;font-weight:bold;margin:0 0 6px;">Important</p>
-        <p style="color:#1e40af;margin:0;">
+        <p style="color:#374151;font-weight:bold;margin:0 0 6px;">Important</p>
+        <p style="color:#374151;margin:0;">
           This invitation expires in <strong>72 hours</strong>. Please set your password promptly.
         </p>
       </div>
-      ${btn(inviteLink, "Set Password & Activate Account", "#3B82F6")}
+      ${btn(inviteLink, "Set Password & Activate Account", "#1A3C6E")}
       <p style="color:#6b7280;font-size:12px;margin-top:20px;padding-top:16px;border-top:1px solid #f3f4f6;">
         <strong>Or copy this link:</strong><br/>
-        <a href="${inviteLink}" style="color:#3B82F6;word-break:break-all;font-size:11px;">${inviteLink}</a>
+        <a href="${inviteLink}" style="color:#1A3C6E;word-break:break-all;font-size:11px;">${inviteLink}</a>
       </p>
     `),
     PORTAL_NAME,
@@ -821,13 +821,13 @@ exports.sendReviewerPromoted = ({ email, name, promotedBy }) =>
     email,
     `You're Now a Reviewer — ${PORTAL_NAME}`,
     shell(`
-      <h2 style="color:#1E7B45;margin-top:0;">You've Been Promoted to Reviewer</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">You've Been Promoted to Reviewer</h2>
       <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
       <p style="color:#374151;line-height:1.7;">
         Congratulations! Your account has been upgraded to <strong>Reviewer</strong> status
         by <strong>${promotedBy}</strong>.
       </p>
-      ${btn(`${FRONTEND_URL}/hmis`, "Go to Reviewer Dashboard", "#1E7B45")}
+      ${btn(`${FRONTEND_URL}/hmis`, "Go to Reviewer Dashboard", "#1A3C6E")}
     `),
     PORTAL_NAME,
   );
@@ -837,7 +837,7 @@ exports.sendReviewerRevoked = ({ email, name, revokedBy }) =>
     email,
     `Reviewer Access Revoked — ${PORTAL_NAME}`,
     shell(`
-      <h2 style="color:#B91C1C;margin-top:0;">Reviewer Access Revoked</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">Reviewer Access Revoked</h2>
       <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
       <p style="color:#374151;line-height:1.7;">
         Your reviewer access on ${PORTAL_NAME} has been revoked by <strong>${revokedBy}</strong>.
@@ -862,17 +862,17 @@ exports.sendCommitteeInvite = ({ email, name, inviteLink, invitedBy }) =>
       <p style="color:#374151;line-height:1.7;">
         <strong>${invitedBy}</strong> has invited you to join ${PORTAL_NAME} as a <strong>Committee Member</strong>.
       </p>
-      <div style="background:#EFF6FF;padding:16px 20px;border-left:4px solid #3B82F6;
+      <div style="background:#f3f4f6;padding:16px 20px;border-left:4px solid #1A3C6E;
                   border-radius:0 6px 6px 0;margin:20px 0;">
-        <p style="color:#1e40af;font-weight:bold;margin:0 0 6px;">Important</p>
-        <p style="color:#1e40af;margin:0;">
+        <p style="color:#374151;font-weight:bold;margin:0 0 6px;">Important</p>
+        <p style="color:#374151;margin:0;">
           This invitation expires in <strong>72 hours</strong>. Please set your password promptly.
         </p>
       </div>
-      ${btn(inviteLink, "Set Password & Activate Account", "#3B82F6")}
+      ${btn(inviteLink, "Set Password & Activate Account", "#1A3C6E")}
       <p style="color:#6b7280;font-size:12px;margin-top:20px;padding-top:16px;border-top:1px solid #f3f4f6;">
         <strong>Or copy this link:</strong><br/>
-        <a href="${inviteLink}" style="color:#3B82F6;word-break:break-all;font-size:11px;">${inviteLink}</a>
+        <a href="${inviteLink}" style="color:#1A3C6E;word-break:break-all;font-size:11px;">${inviteLink}</a>
       </p>
     `),
     PORTAL_NAME,
@@ -883,13 +883,13 @@ exports.sendCommitteePromoted = ({ email, name, promotedBy }) =>
     email,
     `You're Now a Research Committee Member — ${PORTAL_NAME}`,
     shell(`
-      <h2 style="color:#1E7B45;margin-top:0;">You've Been Promoted to the Research Committee</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">You've Been Promoted to the Research Committee</h2>
       <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
       <p style="color:#374151;line-height:1.7;">
         Congratulations! Your account has been upgraded to <strong>Research Committee</strong> status
         by <strong>${promotedBy}</strong>.
       </p>
-      ${btn(`${FRONTEND_URL}/hmis`, "Go to Committee Dashboard", "#1E7B45")}
+      ${btn(`${FRONTEND_URL}/hmis`, "Go to Committee Dashboard", "#1A3C6E")}
     `),
     PORTAL_NAME,
   );
@@ -899,7 +899,7 @@ exports.sendCommitteeRevoked = ({ email, name, revokedBy }) =>
     email,
     `Research Committee Access Revoked — ${PORTAL_NAME}`,
     shell(`
-      <h2 style="color:#B91C1C;margin-top:0;">Research Committee Access Revoked</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">Research Committee Access Revoked</h2>
       <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
       <p style="color:#374151;line-height:1.7;">
         Your research committee access on ${PORTAL_NAME} has been revoked by <strong>${revokedBy}</strong>.
@@ -917,7 +917,7 @@ exports.sendFinalPaperForwardedToCommittee = ({ email, name, proposalTitle }) =>
     email,
     `Final Paper Forwarded to the Research Committee — ${PORTAL_NAME}`,
     shell(`
-      <h2 style="color:#1E7B45;margin-top:0;">Final Paper Forwarded to Committee</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">Final Paper Forwarded to Committee</h2>
       <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
       ${detailTable([
         ["Paper Title", proposalTitle],
@@ -946,17 +946,17 @@ exports.sendCoInvestigatorInvite = ({ email, name, inviteLink, invitedBy, propos
         As a Co-Investigator you can view the study, its review comments, and documents.
         Please set your password to activate your account.
       </p>
-      <div style="background:#EFF6FF;padding:16px 20px;border-left:4px solid #3B82F6;
+      <div style="background:#f3f4f6;padding:16px 20px;border-left:4px solid #1A3C6E;
                   border-radius:0 6px 6px 0;margin:20px 0;">
-        <p style="color:#1e40af;font-weight:bold;margin:0 0 6px;">Important</p>
-        <p style="color:#1e40af;margin:0;">
+        <p style="color:#374151;font-weight:bold;margin:0 0 6px;">Important</p>
+        <p style="color:#374151;margin:0;">
           This invitation expires in <strong>72 hours</strong>. Please set your password promptly.
         </p>
       </div>
-      ${btn(inviteLink, "Set Password & Activate Account", "#3B82F6")}
+      ${btn(inviteLink, "Set Password & Activate Account", "#1A3C6E")}
       <p style="color:#6b7280;font-size:12px;margin-top:20px;padding-top:16px;border-top:1px solid #f3f4f6;">
         <strong>Or copy this link:</strong><br/>
-        <a href="${inviteLink}" style="color:#3B82F6;word-break:break-all;font-size:11px;">${inviteLink}</a>
+        <a href="${inviteLink}" style="color:#1A3C6E;word-break:break-all;font-size:11px;">${inviteLink}</a>
       </p>
     `),
     PORTAL_NAME,
@@ -977,7 +977,7 @@ exports.sendCoInvestigatorAdded = ({ email, name, proposalTitle, piName }) =>
       <p style="color:#374151;line-height:1.7;">
         You can view this study and its documents by logging in to the Research Portal.
       </p>
-      ${btn(FRONTEND_URL + "/research", "View Study", "#3B82F6")}
+      ${btn(FRONTEND_URL + "/research", "View Study", "#1A3C6E")}
     `),
     PORTAL_NAME,
   );
@@ -1023,10 +1023,10 @@ exports.sendOfficialVerdict = ({
   email, name, proposalTitle, decision, committeeComment, decisionLetterUrl, certificateUrl,
 }) => {
   const DECISION_META = {
-    approved:  { label: "Approved", color: "#1E7B45", bg: "#F0FDF4" },
-    revision:  { label: "Revision Requested", color: "#C75B00", bg: "#FFF7ED" },
-    rejected:  { label: "Not Accepted", color: "#B91C1C", bg: "#FEF2F2" },
-    suspended: { label: "Suspended", color: "#B91C1C", bg: "#FEF2F2" },
+    approved:  { label: "Approved", color: "#1A3C6E", bg: "#f3f4f6" },
+    revision:  { label: "Revision Requested", color: "#1A3C6E", bg: "#f3f4f6" },
+    rejected:  { label: "Not Accepted", color: "#1A3C6E", bg: "#f3f4f6" },
+    suspended: { label: "Suspended", color: "#1A3C6E", bg: "#f3f4f6" },
   };
   const meta = DECISION_META[decision] || DECISION_META.revision;
   const truncatedComment = truncateForEmail(committeeComment);
@@ -1054,7 +1054,7 @@ exports.sendOfficialVerdict = ({
         The full compiled report and your official decision letter are available on your dashboard.
       </p>
       ${decisionLetterUrl ? btn(decisionLetterUrl, "View Decision Letter", meta.color) : ""}
-      ${certificateUrl ? btn(certificateUrl, "Download Approval Certificate", "#1E7B45") : ""}
+      ${certificateUrl ? btn(certificateUrl, "Download Approval Certificate", "#1A3C6E") : ""}
     `),
     PORTAL_NAME,
   );
@@ -1066,7 +1066,7 @@ exports.sendReviewerReminder = ({ email, name, proposalTitle, deadline }) =>
     email,
     `Reminder: Review Pending — ${PORTAL_NAME}`,
     shell(`
-      <h2 style="color:#C75B00;margin-top:0;">Review Still Pending</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">Review Still Pending</h2>
       <p style="color:#374151;line-height:1.7;">Dear <strong>${name}</strong>,</p>
       <p style="color:#374151;line-height:1.7;">
         This is a reminder that you have a review assignment awaiting your verdict.
@@ -1075,7 +1075,7 @@ exports.sendReviewerReminder = ({ email, name, proposalTitle, deadline }) =>
         ["Title", proposalTitle],
         ["Review Deadline", deadline ? new Date(deadline).toDateString() : "Not set"],
       ])}
-      ${btn(FRONTEND_URL + "/hmis", "Submit Your Review", "#C75B00")}
+      ${btn(FRONTEND_URL + "/hmis", "Submit Your Review", "#1A3C6E")}
     `),
     PORTAL_NAME,
   );
@@ -1110,7 +1110,7 @@ exports.sendResubmissionToOfficer = ({ email, name, proposalTitle, researcherNam
     email,
     `Resubmission Received (Round ${round || 2}) — ${PORTAL_NAME}`,
     shell(`
-      <h2 style="color:#C75B00;margin-top:0;">Resubmission Received</h2>
+      <h2 style="color:#1A3C6E;margin-top:0;">Resubmission Received</h2>
       <p style="color:#374151;line-height:1.7;">Dear <strong>${name || "Research Officer"}</strong>,</p>
       <p style="color:#374151;line-height:1.7;">
         A researcher has resubmitted their revised documents. The assigned reviewers will be notified automatically.
@@ -1120,7 +1120,7 @@ exports.sendResubmissionToOfficer = ({ email, name, proposalTitle, researcherNam
         ["Researcher", researcherName],
         ["Round", `${round || 2}`],
       ])}
-      ${btn(FRONTEND_URL + "/dashboard/research", "View in Dashboard", "#C75B00")}
+      ${btn(FRONTEND_URL + "/dashboard/research", "View in Dashboard", "#1A3C6E")}
     `),
     PORTAL_NAME,
   );

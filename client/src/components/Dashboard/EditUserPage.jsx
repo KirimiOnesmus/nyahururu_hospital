@@ -750,25 +750,25 @@ const EditUserPage = () => {
                   </div>
                   <div
                     ref={frontRef}
-                    className="w-[340px] h-[520px] bg-white rounded-xl overflow-hidden relative border border-gray-200"
+                    className="w-[340px] h-[520px] bg-white overflow-hidden relative border border-gray-300"
                   >
-         
-                    <div className="relative h-40 bg-primary p-5 text-white">
-                      <h2 className="text-lg font-bold">N.C.R.H</h2>
-                      <p className="text-xs mt-1 opacity-90">Nyahururu County Referral Hospital</p>
-                      <div className="absolute bottom-0 left-0 w-full h-2 bg-blue-900 opacity-50"></div>
+                    <div className="relative h-[104px] bg-[#1A3C6E] px-5 pt-5 text-white">
+                      <p className="text-[10px] font-semibold tracking-[0.18em]">NYAHURURU</p>
+                      <h2 className="mt-1 text-[17px] font-bold leading-tight">COUNTY REFERRAL HOSPITAL</h2>
+                      <p className="mt-1 text-[9px] tracking-wide text-blue-100">STAFF IDENTIFICATION</p>
+                      <div className="absolute -bottom-3 left-0 h-5 w-full rounded-[50%] bg-white" />
                     </div>
 
-                    <div className="relative -mt-16 flex justify-center">
-                      <div className="w-32 h-32 bg-white p-1 rounded-full border-4 border-white">
+                    <div className="relative -mt-1 flex justify-center">
+                      <div className="h-[150px] w-[126px] overflow-hidden border border-gray-200 bg-gray-100">
                         {user.photo ? (
                           <img
                             src={user.photo}
-                            className="w-full h-full object-fit rounded-full"
+                            className="h-full w-full object-cover"
                             alt="user"
                           />
                         ) : (
-                          <div className="w-full h-full rounded-full bg-gray-100 flex items-center justify-center">
+                          <div className="flex h-full w-full items-center justify-center">
                             <FaUser className="text-4xl text-gray-400" />
                           </div>
                         )}
@@ -776,44 +776,30 @@ const EditUserPage = () => {
                     </div>
 
 
-                    <div className="text-center mt-4 px-4">
-                      <h3 className="text-xl font-bold text-gray-800">
+                    <div className="mt-4 px-4 text-center">
+                      <h3 className="text-lg font-bold uppercase tracking-wide text-[#1A3C6E]">
                         {user.firstName || "First"} {user.lastName || "Last"}
                       </h3>
-                      <p className="text-blue-600 text-sm font-medium mt-1 capitalize">
-                        {user.role || "Role"}
+                      <p className="mt-1 text-sm font-semibold uppercase tracking-wide text-gray-700">
+                        {user.position || user.role || "STAFF"}
                       </p>
                     </div>
 
-                    <div className="mt-6 px-6">
-                      <div className="bg-gray-50 p-4 rounded-lg text-sm">
-                        <div className="grid grid-cols-2 gap-3">
-             
-                          <div>
-                            <p className="text-gray-500 text-xs">Emp No</p>
-                            <p className="font-bold text-gray-900">
-                              {user.employeeId || "Pending"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-gray-500 text-xs">Blood</p>
-                            <p className="font-semibold text-gray-800">{user.bloodGroup || "-"}</p>
-                          </div>
-
-                          {isDoctor && user.department && (
-                            <div className="col-span-2">
-                              <p className="text-gray-500 text-xs">Department</p>
-                              <p className="font-medium text-gray-800 truncate">
-                                {user.department}
-                              </p>
-                            </div>
-                          )}
-                        </div>
+                    <div className="mt-5 px-7 text-center">
+                      {isDoctor && user.department && (
+                        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                          {user.department}
+                        </p>
+                      )}
+                      <div className="border-y border-gray-200 py-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-500">Employee ID</p>
+                        <p className="mt-1 text-base font-bold tracking-wider text-[#1A3C6E]">
+                          {user.employeeId || "PENDING"}
+                        </p>
                       </div>
                     </div>
 
-
-                    <div className="absolute bottom-0 left-0 right-0 bg-blue-600 h-6"></div>
+                    <div className="absolute bottom-0 left-0 right-0 h-3 bg-[#1A3C6E]" />
                   </div>
                 </div>
 

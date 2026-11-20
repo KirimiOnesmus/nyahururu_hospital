@@ -292,8 +292,8 @@ const ServiceTerms = () => {
                     <strong>Nyahururu Hospital</strong>
                   </p>
                   <p>Nyeri-Nyahururu Road, Kenya</p>
-                  <p>Telephone: 0758 722 031</p>
-                  <p>Email: nyahururuhospital@gmail.com</p>
+                  <p>Telephone: 0721 721109</p>
+                  <p>Email: info@ncrh.laikipia.go.ke</p>
                 </div>
               </section>
 
